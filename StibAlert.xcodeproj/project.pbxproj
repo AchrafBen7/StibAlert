@@ -30,11 +30,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		3831C0832D79C1D100452AA0 /* StibAlert */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = StibAlert;
-			sourceTree = "<group>";
-		};
 		3831C0942D79C1D400452AA0 /* StibAlertTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = StibAlertTests;
@@ -43,6 +38,11 @@
 		3831C09E2D79C1D400452AA0 /* StibAlertUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = StibAlertUITests;
+			sourceTree = "<group>";
+		};
+		3831C0CE2D79D7B700452AA0 /* StibAlert */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StibAlert;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,7 +75,7 @@
 		3831C0782D79C1D100452AA0 = {
 			isa = PBXGroup;
 			children = (
-				3831C0832D79C1D100452AA0 /* StibAlert */,
+				3831C0CE2D79D7B700452AA0 /* StibAlert */,
 				3831C0942D79C1D400452AA0 /* StibAlertTests */,
 				3831C09E2D79C1D400452AA0 /* StibAlertUITests */,
 				3831C0822D79C1D100452AA0 /* Products */,
@@ -108,7 +108,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				3831C0832D79C1D100452AA0 /* StibAlert */,
+				3831C0CE2D79D7B700452AA0 /* StibAlert */,
 			);
 			name = StibAlert;
 			packageProductDependencies = (
