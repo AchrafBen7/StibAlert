@@ -9,12 +9,24 @@ struct ContentView: View {
                     .scaledToFit()
                     .frame(width: 100, height: 100)
                     .foregroundStyle(.tint)
+                
                 Text("STIB Alert")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                
                 Text("Modellen worden momenteel ontwikkeld...")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                
+                // --- Bouton pour accéder à MeldingenView ---
+                NavigationLink(destination: MeldingenView()) {
+                    Text("Voir les signalements")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                }
+                // ------------------------------------------
             }
             .padding()
             .navigationTitle("Startpagina")
@@ -27,4 +39,3 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
     }
 }
-

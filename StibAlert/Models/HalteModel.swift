@@ -7,7 +7,7 @@
 
 import Foundation
 // Identifiable protocol : elke object moet een unieke id hebben hier is het stop_id
-struct halteModel: Identifiable, Codable{// codable voor een eenvouding convertie tot json
+struct HalteModel: Identifiable, Codable {// codable voor een eenvouding convertie tot json[
     
     let stopId: String // unieke identifier voor een halte
     let nom: String // (naam) naam van het halte
@@ -16,14 +16,16 @@ struct halteModel: Identifiable, Codable{// codable voor een eenvouding converti
     let typeTransport: String // het typeTransport "tram", "Bus" of "metro"
     let lignesDesservies: [String] // bediende lijnen
     let etat: String // "groen" "oranje" of "rood"
-    let signalementRecents: [String]? // lijst van id's van recente meldingen
+    let signalementsRecents: [String]? // lijst van id's van recente meldingen
     
     var id: String {stopId} // de id wordt opgenomen in mijn stop_id
     
     // CodingKeys zal ervoor zorgen dat mijn propertynaam met de sleutel in mijn json
       enum CodingKeys: String, CodingKey {
           case stopId = "stop_id" // stop_id kom vanuit mijn backend
-          case nom, latitude, longitude, typeTransport, lignesDesservies, etat, signalementRecents
+          case nom, latitude, longitude, typeTransport, lignesDesservies, etat, signalementsRecents
+         
+         
       }
     
 }
