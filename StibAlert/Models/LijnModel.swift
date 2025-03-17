@@ -5,19 +5,21 @@
 //  Created by studentehb on 07/03/2025.
 //
 
-import Foundation
-
 struct LijnModel: Identifiable, Codable {
+    let _id: String
     let lineid: String
     let nomComplet: String
+    let nomCompletRetour: String? 
     let typeTransport: String
     let couleur: String
-    let destinationFR: String
-    let destinationNL: String
     let direction: String
     
-    
-    var id: String {lineid}
-    
    
+
+    var id: String { _id }
 }
+
+
+
+
+

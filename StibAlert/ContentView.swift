@@ -37,6 +37,15 @@ struct ContentView: View {
                         .background(Color.green)
                         .cornerRadius(8)
                 }
+                // Navigatielink naar de lijst met lijnen
+                                NavigationLink(destination: LijnenLijstView()) {
+                                    Text("Bekijk alle lijnen")
+                                        .foregroundColor(.white)
+                                        .padding()
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color.orange)
+                                        .cornerRadius(8)
+                                }
             }
             .padding()
             .navigationTitle("Startpagina")
