@@ -18,15 +18,25 @@ struct ContentView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
-                // --- Bouton pour accéder à MeldingenView ---
+                // Navigatielink naar de lijst met meldingen
                 NavigationLink(destination: MeldingenView()) {
-                    Text("Voir les signalements")
+                    Text("Bekijk alle meldingen")
                         .foregroundColor(.white)
                         .padding()
+                        .frame(maxWidth: .infinity)
                         .background(Color.blue)
                         .cornerRadius(8)
                 }
-                // ------------------------------------------
+                
+                // Navigatielink naar de nieuwe melding creatie
+                NavigationLink(destination: NewMeldingView()) {
+                    Text("Nieuwe melding aanmaken")
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.green)
+                        .cornerRadius(8)
+                }
             }
             .padding()
             .navigationTitle("Startpagina")
