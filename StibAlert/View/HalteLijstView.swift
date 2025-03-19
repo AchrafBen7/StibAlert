@@ -9,19 +9,29 @@ import SwiftUI
 
 struct HalteLijstView: View {
     let lijn: LijnModel
-    
+    @StateObject private var viewModel = AlleHaltesViewModel()
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Vous avez sélectionné la ligne")
-                .font(.headline)
-            Text(lijn.nomComplet)
-                .font(.title)
-                .foregroundColor(.blue)
-            Text("Ici, vous afficherez la liste des arrêts de cette ligne.")
-                .font(.subheadline)
-                .multilineTextAlignment(.center)
+        List {
+            if let error = viewModel.errorMessage {
+                Text("Erreur : \(error)")
+                    .foregroundColor(.red)
+            }
+            ForEach(viewModel.arrets) { halte in
+                VStack(alignment: .leading) {
+                    Text(halte.nom)
+                        .font(.headline)
+                    Text(halte.stopId)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
-        .padding()
-        .navigationTitle("Arrêts de \(lijn.lineid)")
+        .navigationTitle("Arrêts Ligne \(lijn.lineid)")
+        .onAppear {
+            viewModel.fetchArrets(lineId: lijn.lineid)
+        }
     }
 }
+
+

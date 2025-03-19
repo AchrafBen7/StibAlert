@@ -6,34 +6,23 @@ struct LijnenLijstView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 16) {
-                    if let error = viewModel.errorMessage {
-                        Text("Erreur : \(error)")
-                            .foregroundColor(.red)
-                            .padding()
-                    }
-                    
-                    ForEach(viewModel.lijnen) { ligne in
-                        VStack(alignment: .leading, spacing: 8) {
-                            // Bouton pour le sens normal (nomComplet)
-                            Button(action: {
-                                print("Ligne \(ligne.lineid) normale sélectionnée")
-                            }) {
-                                Text("Ligne \(ligne.lineid) : \(ligne.nomComplet)")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .padding()
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.blue)
-                                    .cornerRadius(8)
-                            }
-                            
-                            // Bouton pour le sens retour (nomCompletRetour)
-                            Button(action: {
-                                print("Ligne \(ligne.lineid) retour sélectionnée")
-                            }) {
-                                // Si nomCompletRetour est défini, on l'affiche, sinon on indique "Non défini"
-                                Text("Ligne \(ligne.lineid)<<<<<<<:\(ligne.nomCompletRetour ?? "Non défini")")
+                ForEach(viewModel.lijnen) { ligne in
+                    VStack(spacing: 8) {
+                        // Sens Aller
+                        NavigationLink(destination: HalteLijstView(lijn: ligne)) {
+                            Text("Ligne \(ligne.lineid) : \(ligne.nomComplet)")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.blue)
+                                .cornerRadius(8)
+                        }
+
+                        // Sens Retour (si défini)
+                        if let retour = ligne.nomCompletRetour {
+                            NavigationLink(destination: HalteLijstView(lijn: ligne)) {
+                                Text("Ligne \(ligne.lineid) : \(retour)")
                                     .font(.subheadline)
                                     .foregroundColor(.white)
                                     .padding()
