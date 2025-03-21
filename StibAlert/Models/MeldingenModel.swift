@@ -10,7 +10,7 @@ import Foundation
 struct MeldingenModel: Identifiable, Codable {
     let _id: String             // Unieke identifier, gegenereerd door de database
     let utilisateurId: String?  // Identifier van de gekoppelde gebruiker (optioneel als deze niet wordt meegeleverd)
-    let arretId: HalteModel         // Identifier van de gekoppelde halte
+    let arretId: String         // Identifier van de gekoppelde halte
     let ligne: String           // De lijn waarop de melding betrekking heeft
     let typeProbleme: String    // Het type probleem (bijv. Vertraging, Ongeluk, Panne, etc.)
     let description: String     // Gedetailleerde beschrijving van het probleem
@@ -29,6 +29,8 @@ struct MeldingenModel: Identifiable, Codable {
     let longitude: Double?
     
     let confiance: String       // Vertrouwensniveau (bijv. hoog, gemiddeld, laag)
+    
+    let arret: String?
     
     // Conform Identifiable: We gebruiken _id als de unieke identifier
     var id: String { _id }

@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 class MeldingenViewModel: ObservableObject {
-    @Published var meldingen: [MeldingenModel] = []
+    @Published var meldingen: [MeldingenReadModel] = []
     @Published var errorMessage: String?
     
     // Formatter ISO8601 pour les dates avec fraction de secondes
@@ -71,7 +71,7 @@ class MeldingenViewModel: ObservableObject {
             }
             
             do {
-                let decodedMeldingen = try MeldingenViewModel.customDecoder.decode([MeldingenModel].self, from: data)
+                let decodedMeldingen = try MeldingenViewModel.customDecoder.decode([MeldingenReadModel].self, from: data)
                 print("Décodage réussi : \(decodedMeldingen.count) éléments reçus")
                 DispatchQueue.main.async {
                     self.meldingen = decodedMeldingen

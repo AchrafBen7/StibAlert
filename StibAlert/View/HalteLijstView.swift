@@ -4,7 +4,6 @@
 //
 //  Created by studentehb on 17/03/2025.
 //
-
 import SwiftUI
 
 struct HalteLijstView: View {
@@ -12,12 +11,8 @@ struct HalteLijstView: View {
     @StateObject private var viewModel = AlleHaltesViewModel()
 
     var body: some View {
-        List {
-            if let error = viewModel.errorMessage {
-                Text("Erreur : \(error)")
-                    .foregroundColor(.red)
-            }
-            ForEach(viewModel.arrets) { halte in
+        List(viewModel.arrets, id: \.id) { halte in
+            NavigationLink(destination: HalteDetailView(halte: halte)) {
                 VStack(alignment: .leading) {
                     Text(halte.nom)
                         .font(.headline)
@@ -33,5 +28,4 @@ struct HalteLijstView: View {
         }
     }
 }
-
 
