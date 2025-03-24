@@ -29,18 +29,21 @@ struct HalteDetailView: View {
             }
 
             // Liste des signalements
-            List(viewModel.signalements) { signalement in
-                VStack(alignment: .leading) {
-                    Text("Ligne: \(signalement.ligne)")
-                    Text("Type: \(signalement.typeProbleme)")
-                    Text("Description: \(signalement.description)")
-                    if let photo = signalement.photo {
-                        Text("Photo: \(photo)")
+            List(viewModel.signalements, id: \.id) { signalement in
+                NavigationLink(destination: MeldingDetailView(arretId: halte._id, signalementId: signalement.id)) {
+                    VStack(alignment: .leading) {
+                        Text("Ligne: \(signalement.ligne)")
+                        Text("Type: \(signalement.typeProbleme)")
+                        Text("Description: \(signalement.description)")
+                        if let photo = signalement.photo {
+                            Text("Photo: \(photo)")
+                        }
+                        Text("Date: \(signalement.date)")
                     }
-                    Text("Date: \(signalement.date)")
-                    Text("Arrêt: \(signalement.arret)")
                 }
             }
+
+
         }
         .navigationTitle(halte.nom)
         .onAppear {
