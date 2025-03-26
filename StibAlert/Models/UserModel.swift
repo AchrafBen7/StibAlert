@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct UtilisateurModel: Identifiable, Codable {
+struct UserModel: Identifiable, Codable {
     let _id: String
     let nom: String             // Volledige naam van de gebruiker
     let email: String           // E-mailadres van de gebruiker
@@ -23,4 +23,6 @@ struct UtilisateurModel: Identifiable, Codable {
     // Om te voldoen aan het Identifiable-protocol gebruiken we _id als de unieke identifier.
     var id: String { _id }
 }
+
+
 

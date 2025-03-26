@@ -66,14 +66,14 @@ struct NewMeldingView: View {
             
             // Détecter quand `MeldingCreated` change
             .onChange(of: viewModel.MeldingCreated) { oldValue, newValue in
-               
-
+                
+                
                 if oldValue == nil && newValue != nil {
                     // Affichez votre alerte de succès, par exemple :
                     showSuccessAlert = true
                 }
             }
-
+            
         }
     }
     

@@ -11,13 +11,13 @@ import Combine
 class AlleHaltesViewModel: ObservableObject {
     @Published var arrets: [HalteModel] = []
     @Published var errorMessage: String?
-
+    
     func fetchArrets(lineId: String) {
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=asc") else {
             errorMessage = "URL invalide"
             return
         }
-
+        
         URLSession.shared.dataTask(with: url) { data, _, error in
             DispatchQueue.main.async {
                 if let error = error {
@@ -36,6 +36,6 @@ class AlleHaltesViewModel: ObservableObject {
                 }
             }
         }.resume()
-
+        
     }
 }

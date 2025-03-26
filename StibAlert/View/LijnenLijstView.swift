@@ -18,7 +18,7 @@ struct LijnenLijstView: View {
                                 .background(Color.blue)
                                 .cornerRadius(8)
                         }
-
+                        
                         // Sens Retour (si défini)
                         if let retour = ligne.nomCompletRetour {
                             NavigationLink(destination: HalteLijstView(lijn: ligne)) {
@@ -42,4 +42,4 @@ struct LijnenLijstView: View {
         }
     }
 }
- 
+

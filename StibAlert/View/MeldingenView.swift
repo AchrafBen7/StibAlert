@@ -5,10 +5,10 @@ struct MeldingenView: View {
     
     // Formatter om de datum leesbaar te maken
     private static let dateFormatter: DateFormatter = {
-       let formatter = DateFormatter()
-       formatter.dateStyle = .short
-       formatter.timeStyle = .short
-       return formatter
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
     }()
     
     var body: some View {

@@ -9,7 +9,7 @@ import SwiftUI
 struct HalteLijstView: View {
     let lijn: LijnModel
     @StateObject private var viewModel = AlleHaltesViewModel()
-
+    
     var body: some View {
         List(viewModel.arrets, id: \.id) { halte in
             NavigationLink(destination: HalteDetailView(halte: halte)) {

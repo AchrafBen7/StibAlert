@@ -40,16 +40,16 @@ class MeldingDetailViewModel: ObservableObject {
                     formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
                     formatter.locale = Locale(identifier: "en_US_POSIX")
                     decoder.dateDecodingStrategy = .formatted(formatter)
-
+                    
                     let decoded = try decoder.decode(MeldingenModel.self, from: data)
                     print("[DEBUG] Décodage signalement réussi: \(decoded)")
-
+                    
                     self.signalement = decoded
                     if let raw = String(data: data, encoding: .utf8) {
                         print("[DEBUG] Réponse JSON brute :\n\(raw)")
                     }
-
-
+                    
+                    
                 } catch {
                     self.errorMessage = "Decodering mislukt: \(error.localizedDescription)"
                 }
@@ -66,13 +66,13 @@ class MeldingDetailViewModel: ObservableObject {
             }
             return
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
+        
         let body: [String: String] = ["vote": isUp ? "up" : "down"]
-
+        
         do {
             request.httpBody = try JSONEncoder().encode(body)
         } catch {
@@ -81,7 +81,7 @@ class MeldingDetailViewModel: ObservableObject {
             }
             return
         }
-
+        
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
@@ -93,5 +93,5 @@ class MeldingDetailViewModel: ObservableObject {
             }
         }.resume()
     }
-
+    
 }

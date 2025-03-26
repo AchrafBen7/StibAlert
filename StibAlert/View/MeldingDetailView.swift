@@ -11,7 +11,7 @@ struct MeldingDetailView: View {
     let arretId: String
     let signalementId: String
     @StateObject private var viewModel = MeldingDetailViewModel()
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let signalement = viewModel.signalement {
@@ -25,13 +25,13 @@ struct MeldingDetailView: View {
                 Text("Confiance: \(signalement.confiance)")
                 Text("Votes + : \(signalement.votesPositifs)")
                 Text("Votes - : \(signalement.votesNegatifs)")
-
+                
                 HStack {
                     Button("👍 Vote positif") {
                         viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: true)
                     }
                     .buttonStyle(.borderedProminent)
-
+                    
                     Button("👎 Vote négatif") {
                         viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: false)
                     }

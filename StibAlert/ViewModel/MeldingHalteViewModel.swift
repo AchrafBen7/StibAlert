@@ -12,7 +12,7 @@ class MeldingHalteViewModel: ObservableObject {
     @Published var resume: String = ""
     @Published var signalements: [ArretSignalementItem] = []
     @Published var errorMessage: String?
-
+    
     // Fonction pour récupérer les signalements (et le résumé) d’un arrêt
     func fetchMeldingen(voor arretId: String) {
         // Construire l'URL à partir de l'ID d'arrêt
@@ -21,9 +21,9 @@ class MeldingHalteViewModel: ObservableObject {
             print("[DEBUG] URL invalide pour arretId \(arretId)")
             return
         }
-
+        
         print("[DEBUG] Requête GET à l'URL : \(url.absoluteString)")
-
+        
         // Lancer la requête
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
@@ -33,24 +33,24 @@ class MeldingHalteViewModel: ObservableObject {
                     print("[DEBUG] Erreur réseau : \(error.localizedDescription)")
                     return
                 }
-
+                
                 // Vérifier la réponse
                 if let httpResponse = response as? HTTPURLResponse {
                     print("[DEBUG] Status code: \(httpResponse.statusCode)")
                 }
-
+                
                 // Vérifier la data
                 guard let data = data else {
                     self.errorMessage = "Aucune donnée reçue"
                     print("[DEBUG] Aucune donnée reçue")
                     return
                 }
-
+                
                 // Log du JSON brut
                 if let rawString = String(data: data, encoding: .utf8) {
                     print("[DEBUG] Réponse brute:\n\(rawString)")
                 }
-
+                
                 // Tenter de décoder
                 do {
                     let decoded = try JSONDecoder().decode(ArretSignalementsResponse.self, from: data)
