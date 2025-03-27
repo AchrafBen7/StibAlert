@@ -47,6 +47,15 @@ struct ContentView: View {
                             .background(Color.orange)
                             .cornerRadius(8)
                     }
+                    NavigationLink(destination: EtatLignesView()) {
+                        Text("🚦 État des lignes")
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.indigo)
+                            .cornerRadius(8)
+                    }
+
                     
                     Spacer()
                     Group {
