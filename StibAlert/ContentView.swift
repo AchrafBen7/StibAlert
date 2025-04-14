@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ContentView: View {
+struct HomeView: View {
     @StateObject private var authVM = AuthViewModel()
     
     var body: some View {
@@ -55,7 +55,7 @@ struct ContentView: View {
                             .background(Color.indigo)
                             .cornerRadius(8)
                     }
-
+                    
                     
                     Spacer()
                     Group {
@@ -77,7 +77,7 @@ struct ContentView: View {
                         Text("🔓 Connecté en tant que \(utilisateur.email)")
                             .foregroundColor(.green)
                         
-                        NavigationLink(destination: ProfilView(utilisateur: utilisateur)) {
+                        NavigationLink(destination: ProfilView(authViewModel: authVM)) {
                             Text("👤 Voir mon profil")
                                 .foregroundColor(.white)
                                 .padding()
@@ -100,7 +100,7 @@ struct ContentView: View {
                 .onAppear {
                     authVM.verifierConnexion()
                 }
-
+                
             }
         }
         
@@ -109,6 +109,6 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        HomeView()
     }
 }

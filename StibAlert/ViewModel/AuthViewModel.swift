@@ -14,8 +14,9 @@ class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isLoading = false
     @Published var activationToken: String?
+    @Published var votes: [String] = []
     private var aDejaVerifieConnexion = false
-
+    
     
     private let baseURL = "https://stib-alert-backend.onrender.com/api/utilisateurs"
     
@@ -23,12 +24,12 @@ class AuthViewModel: ObservableObject {
         print("[DEBUG] 🔄 Début inscription avec: \(email)")
         
         guard let url = URL(string: "\(baseURL)/inscription") else { return }
-
+        
         let body = ["nom": nom, "email": email, "motDePasse": motDePasse]
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
+        
         do {
             request.httpBody = try JSONEncoder().encode(body)
         } catch {
@@ -36,7 +37,7 @@ class AuthViewModel: ObservableObject {
             print("[DEBUG] ❌ Erreur d'encodage")
             return
         }
-
+        
         isLoading = true
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
@@ -46,7 +47,7 @@ class AuthViewModel: ObservableObject {
                     print("[DEBUG] ❌ Erreur réseau : \(error.localizedDescription)")
                     return
                 }
-
+                
                 if let data = data,
                    let json = try? JSONDecoder().decode([String: String].self, from: data),
                    let token = json["activationToken"] {
@@ -67,13 +68,13 @@ class AuthViewModel: ObservableObject {
             print("[DEBUG] ❌ Pas de token d'activation disponible")
             return
         }
-
+        
         let body = ["activationToken": token, "activationCode": code]
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
-
+        
         isLoading = true
         URLSession.shared.dataTask(with: request) { data, _, _ in
             DispatchQueue.main.async {
@@ -88,13 +89,13 @@ class AuthViewModel: ObservableObject {
         print("[DEBUG] 🔄 Connexion en cours pour: \(email)")
         
         guard let url = URL(string: "\(baseURL)/connexion") else { return }
-
+        
         let body = ["email": email, "motDePasse": motDePasse]
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
-
+        
         isLoading = true
         URLSession.shared.dataTask(with: request) { data, _, error in
             DispatchQueue.main.async {
@@ -133,20 +134,20 @@ class AuthViewModel: ObservableObject {
             print("[DEBUG] ❌ Pas de token trouvé pour la déconnexion.")
             return
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
+        
         print("[DEBUG] 🔄 Tentative de déconnexion...")
-
+        
         URLSession.shared.dataTask(with: request) { _, response, error in
             DispatchQueue.main.async {
                 self.user = nil
                 self.isAuthenticated = false
                 KeychainManager.delete(key: "jwt")
                 KeychainManager.delete(key: "userId")
-
+                
                 if let error = error {
                     print("[DEBUG] ❌ Erreur de déconnexion : \(error.localizedDescription)")
                 } else if let httpResponse = response as? HTTPURLResponse {
@@ -161,12 +162,12 @@ class AuthViewModel: ObservableObject {
     func verifierConnexion() {
         guard !aDejaVerifieConnexion else { return }
         aDejaVerifieConnexion = true
-
+        
         if let token = KeychainManager.get(key: "jwt"),
            let userId = KeychainManager.get(key: "userId") {
             print("[DEBUG] ✅ Token et ID détectés, tentative de récupération du profil...")
             self.isAuthenticated = true
-
+            
             if self.user == nil {
                 self.fetchProfilUtilisateurDepuisStock(id: userId, token: token)
             }
@@ -176,29 +177,29 @@ class AuthViewModel: ObservableObject {
             self.user = nil
         }
     }
-
-
-
+    
+    
+    
     
     func fetchProfilUtilisateurDepuisStock(id: String, token: String) {
         guard let url = URL(string: "\(baseURL)/\(id)") else { return }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
+        
         URLSession.shared.dataTask(with: request) { data, _, error in
             DispatchQueue.main.async {
                 if let error = error {
                     print("[❌] Erreur de requête : \(error.localizedDescription)")
                     return
                 }
-
+                
                 guard let data = data else {
                     print("[❌] Aucune donnée reçue")
                     return
                 }
-
+                
                 do {
                     let utilisateur = try JSONDecoder().decode(UserModel.self, from: data)
                     self.user = utilisateur
@@ -209,8 +210,8 @@ class AuthViewModel: ObservableObject {
             }
         }.resume()
     }
-
-
+    
+    
     
     func fetchProfilUtilisateur() {
         guard let userId = user?.id,
@@ -219,11 +220,11 @@ class AuthViewModel: ObservableObject {
             print("[❌] Erreur : pas d'ID utilisateur ou de token")
             return
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
+        
         URLSession.shared.dataTask(with: request) { data, _, error in
             DispatchQueue.main.async {
                 if let error = error {
@@ -231,13 +232,13 @@ class AuthViewModel: ObservableObject {
                     self.errorMessage = "Impossible de charger le profil"
                     return
                 }
-
+                
                 guard let data = data else {
                     print("[❌] Données non reçues")
                     self.errorMessage = "Pas de réponse"
                     return
                 }
-
+                
                 do {
                     let utilisateur = try JSONDecoder().decode(UserModel.self, from: data)
                     self.user = utilisateur
@@ -249,8 +250,30 @@ class AuthViewModel: ObservableObject {
             }
         }.resume()
     }
-
-
+    
+    func fetchVotesUtilisateur() {
+        guard let userId = user?.id,
+              let token = KeychainManager.get(key: "jwt"),
+              let url = URL(string: "\(baseURL)/\(userId)/votes") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            DispatchQueue.main.async {
+                if let data = data,
+                   let json = try? JSONDecoder().decode([String].self, from: data) {
+                    self.votes = json
+                    print("[✅] Votes récupérés : \(json.count)")
+                } else {
+                    print("[❌] Erreur lors du fetch des votes.")
+                }
+            }
+        }.resume()
+    }
+    
+    
 }
 
 struct ConnexionResponse: Codable {
