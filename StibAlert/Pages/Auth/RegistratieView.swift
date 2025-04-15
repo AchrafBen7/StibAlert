@@ -4,7 +4,12 @@
 //
 //  Created by studentehb on 26/03/2025.
 //
-
+//
+//  RegistatieView.swift
+//  StibAlert
+//
+//  Created by studentehb on 26/03/2025.
+//
 import SwiftUI
 
 struct RegistatieView: View {
@@ -13,6 +18,7 @@ struct RegistatieView: View {
     @State private var email = ""
     @State private var motDePasse = ""
     @State private var showAlert = false
+    @State private var navigateToActivation = false  // Variable d'état pour la navigation
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -40,13 +46,36 @@ struct RegistatieView: View {
                 }
             }
             .foregroundColor(.blue)
+            
+            // Bouton pour les utilisateurs déjà inscrits
+            HStack {
+                Spacer()
+                NavigationLink("Déjà un compte ? Se connecter", destination: ConnexionView(authVM: authVM))
+                Spacer()
+            }
+            .padding(.top, 20)
+            
+            // NavigationLink caché qui déclenche la navigation vers ActivationView
+            NavigationLink(
+                destination: ActivationView(authVM: authVM),
+                isActive: $navigateToActivation,
+                label: { EmptyView() }
+            )
         }
         .padding()
+        // Affichage de l'alerte qui, lorsqu'on appuie sur OK, déclenche la navigation.
         .alert("✅ Code envoyé", isPresented: $showAlert) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) {
+                navigateToActivation = true
+            }
         } message: {
             Text("Un code a été envoyé à \(email).")
         }
     }
 }
 
+struct RegistatieView_Previews: PreviewProvider {
+    static var previews: some View {
+        RegistatieView(authVM: AuthViewModel())
+    }
+}

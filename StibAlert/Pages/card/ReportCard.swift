@@ -8,45 +8,100 @@ import SwiftUI
 
 struct MeldingenCardView: View {
     let signalement: MeldingenReadModel
-
-    // Calcul de l'opacité : si plus de 24h se sont écoulées depuis la date du signalement,
-    // on applique une opacité plus faible.
-    var cardOpacity: Double {
-        let twentyFourHours: TimeInterval = 24 * 60 * 60
-        return Date().timeIntervalSince(signalement.dateSignalement) > twentyFourHours ? 0.4 : 1.0
+    
+    // Temps écoulé depuis le signalement
+    private var timeElapsed: TimeInterval {
+        Date().timeIntervalSince(signalement.dateSignalement)
     }
-
+    
+    // Si le signalement date de moins de 6h, opacité = 1.0,
+    // sinon (entre 6h et 24h) opacité = 0.4.
+    var cardOpacity: Double {
+        if timeElapsed < (6 * 60 * 60) {
+            return 1.0
+        } else {
+            return 0.4
+        }
+    }
+    
+    // Formatage de la date (ex: "14/04/2025")
+    private var formattedDate: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd/MM/yyyy"
+        return dateFormatter.string(from: signalement.dateSignalement)
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             
-            // -------------------------
-            // Carré arrondi « style STIB »
-            // -------------------------
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(LineColors.color(for: signalement.ligne))
+            // ---------
+            // Ligne + nom de l'arrêt sur une même ligne
+            // ---------
+            HStack(alignment: .center, spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(LineColors.color(for: signalement.ligne))
+                    
+                    Text(signalement.ligne)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .frame(width: 36, height: 36)
                 
-                Text(signalement.ligne)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                Text(signalement.arretId.nom)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.black)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                
+                Spacer()
             }
-            // Dimensions pour un rendu carré : ajustez selon vos préférences
-            .frame(width: 36, height: 36)
             
-            // Nom de l'arrêt
-            Text(signalement.arretId.nom)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(.black)
-                .lineLimit(1)
-
-            // Type de problème signalé
-            Text(signalement.typeProbleme)
-                .font(.caption2)
-                .foregroundColor(.gray)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
+            // Badge pour le type de problème et la date
+            HStack {
+                Text(signalement.typeProbleme)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .background(ProblemColors.color(for: signalement.typeProbleme))
+                    .cornerRadius(14)
+                
+                Spacer()
+                
+                Text(formattedDate)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            
+            // Votes (flèches haut/bas) ou autre contenu
+            HStack(spacing: 8) {
+                HStack(spacing: 2) {
+                    Image(systemName: "chevron.up")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                    Text("\(signalement.votesPositifs)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .padding(4)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(4)
+                
+                HStack(spacing: 2) {
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                    Text("\(signalement.votesNegatifs)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .padding(4)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(4)
+            }
+            
             Spacer() // Pousse le contenu vers le haut
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -48,6 +48,11 @@ class AuthViewModel: ObservableObject {
                     return
                 }
                 
+                // Debug: Print raw response if available
+                if let data = data, let rawResponse = String(data: data, encoding: .utf8) {
+                    print("[DEBUG] Raw response: \(rawResponse)")
+                }
+                
                 if let data = data,
                    let json = try? JSONDecoder().decode([String: String].self, from: data),
                    let token = json["activationToken"] {
@@ -97,8 +102,18 @@ class AuthViewModel: ObservableObject {
         request.httpBody = try? JSONEncoder().encode(body)
         
         isLoading = true
-        URLSession.shared.dataTask(with: request) { data, _, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
+                // Affichez le code de statut HTTP
+                if let httpResponse = response as? HTTPURLResponse {
+                    print("[DEBUG] HTTP Status Code: \(httpResponse.statusCode)")
+                }
+                // Affichez la réponse brute si disponible
+                if let data = data, let rawResponse = String(data: data, encoding: .utf8) {
+                    print("[DEBUG] Raw response: \(rawResponse)")
+                }
+                
+                // Votre logique existante de gestion d'erreur et décodage
                 self.isLoading = false
                 
                 if let error = error {
@@ -118,14 +133,16 @@ class AuthViewModel: ObservableObject {
                     self.user = response.utilisateur
                     KeychainManager.save(key: "jwt", value: response.token)
                     KeychainManager.save(key: "userId", value: response.utilisateur.id)
-                    self.isAuthenticated = true
+                    self.isAuthenticated = true  // Considérez que la connexion est réussie
                     print("[DEBUG] ✅ Connexion réussie pour \(response.utilisateur.email)")
                 } catch {
                     self.errorMessage = "Identifiants incorrects"
                     print("[DEBUG] ❌ Erreur de décodage : \(error.localizedDescription)")
                 }
+                
             }
         }.resume()
+        
     }
     
     func deconnexion() {

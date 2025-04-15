@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+
 struct ConnexionView: View {
     @ObservedObject var authVM: AuthViewModel
     @State private var email = ""
     @State private var motDePasse = ""
     @State private var showAlert = false
+    @Environment(\.dismiss) var dismiss   // Add dismiss environment value
 
     var body: some View {
         Form {
@@ -33,7 +35,10 @@ struct ConnexionView: View {
         }
         .navigationTitle("Connexion")
         .alert("✅ Connexion réussie !", isPresented: $showAlert) {
-            Button("OK", role: .cancel) {}
+            Button("OK", role: .cancel) {
+                dismiss()  // This dismisses the modal and returns to Home
+            }
         }
     }
 }
+
