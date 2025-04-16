@@ -78,15 +78,12 @@ struct DraggableBottomSheet: View {
                         ForEach(filteredLijnen) { line in
                             HStack(spacing: 12) {
                                 Text(line.lineid)
-                                    .font(.caption)
-                                    .bold()
+                                    .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(.white)
-                                    .padding(8)
-                                    .background(LineColors.color(for: line.lineid))
-                                    .cornerRadius(6)
                                     .frame(width: 44, height: 44)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .cornerRadius(8)
+                                    .background(LineColors.color(for: line.lineid))
+                                    .cornerRadius(10)
+
 
                                 
                                 VStack(alignment: .leading, spacing: 2) {

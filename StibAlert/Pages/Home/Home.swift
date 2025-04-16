@@ -28,9 +28,10 @@ struct Home: View {
                 
                 VStack(spacing: 0) {
                     // ----- TOP BAR -----
-                    if selectedTab != 1 {
+                    if selectedTab != 1 && selectedTab != 2 {
                         topBar
                     }
+                    
                     
                     // ----- CONTENU DYNAMIQUE -----
                     Group {
@@ -41,10 +42,7 @@ struct Home: View {
                             // Ici, on affiche la vue de transit/carte.
                             TransitMapView()  // Remplacez ou adaptez cette vue selon vos besoins.
                         case 2:
-                            // Placeholder pour un troisième onglet (par exemple "Plus")
-                            Text("Plus")
-                                .font(.title)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            NewMeldingView()
                         case 3:
                             // Placeholder pour le quatrième onglet (par exemple "Favoris")
                             Text("Favoris")
@@ -137,7 +135,7 @@ struct Home: View {
             TransitBannerView()
                 .frame(height: 200)
                 .padding(.horizontal, 24)
-                .padding(.top, 8)
+                .padding(.top, 40) 
             
             Spacer(minLength: 20)
             
