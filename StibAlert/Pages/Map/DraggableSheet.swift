@@ -9,12 +9,28 @@ import SwiftUI
 struct DraggableBottomSheet: View {
     @Binding var selectedTransit: TransitMapView.TransitMode
     @Binding var isExpanded: Bool
+    @ObservedObject var lijnenVM: LijnenViewModel
     
-    let dummyLines: [String] = ["Ligne 1", "Ligne 2", "Ligne 3", "Ligne 4"]
+    private var filteredLijnen: [LijnModel] {
+        lijnenVM.lijnen.filter { line in
+            let transportType = line.typeTransport.lowercased()
+            switch selectedTransit {
+            case .bus:
+                return transportType.contains("bus")
+            case .metro:
+                return transportType.contains("metro") || ["1", "2", "5", "6"].contains(line.lineid)
+            case .tram:
+                return transportType.contains("tram")
+            }
+        }
+    }
+
+
+
     
     // Hauteur fermée fixée exactement à 60 pt (pour être identique au tab bar)
     private let collapsedHeight: CGFloat = 75
-
+    
     
     var body: some View {
         VStack(spacing: 0) {
@@ -59,18 +75,56 @@ struct DraggableBottomSheet: View {
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
-                        ForEach(dummyLines, id: \.self) { line in
-                            Text("\(selectedTransit.rawValue.capitalized) \(line)")
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(8)
+                        ForEach(filteredLijnen) { line in
+                            HStack(spacing: 12) {
+                                Text(line.lineid)
+                                    .font(.caption)
+                                    .bold()
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(LineColors.color(for: line.lineid))
+                                    .cornerRadius(6)
+                                    .frame(width: 44, height: 44)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .cornerRadius(8)
+
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(line.nomComplet)
+                                        .font(.subheadline)
+                                    if let retour = line.nomCompletRetour {
+                                        Text(retour)
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.orange)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
                         }
                     }
-                    .padding()
+                    .padding(.bottom, 16)
                 }
                 .frame(maxHeight: 300)
-            }else {
+                
+                if lijnenVM.lijnen.isEmpty {
+                    Text("Aucune ligne disponible.")
+                        .foregroundColor(.gray)
+                        .padding()
+                }
+                if let error = lijnenVM.errorMessage {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .padding()
+                }
+
+
+            }
+            else {
                 Spacer().frame(height: 16) // ⬅️ Ajout ici
             }
         }

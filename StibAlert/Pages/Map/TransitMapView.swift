@@ -16,6 +16,7 @@ struct TransitMapView: View {
     )
     @State private var selectedTransit: TransitMode = .bus
     @State private var bottomSheetExpanded: Bool = false
+    @StateObject private var lijnenVM = LijnenViewModel()
     
     enum TransitMode: String, CaseIterable, Identifiable {
         case bus, metro, tram
@@ -81,7 +82,15 @@ struct TransitMapView: View {
             .frame(maxWidth: .infinity, alignment: .top)
             .zIndex(1)
             
-            DraggableBottomSheet(selectedTransit: $selectedTransit, isExpanded: $bottomSheetExpanded)
+            DraggableBottomSheet(
+                selectedTransit: $selectedTransit,
+                isExpanded: $bottomSheetExpanded,
+                lijnenVM: lijnenVM
+            )
+            .onAppear {
+                lijnenVM.fetchLijnen()
+            }
+            
             
             FloatingLocationButton(region: $region, bottomSheetExpanded: bottomSheetExpanded)
         }
@@ -92,7 +101,7 @@ struct TransitMapView: View {
 fileprivate struct FloatingLocationButton: View {
     @Binding var region: MKCoordinateRegion
     let bottomSheetExpanded: Bool
-
+    
     var body: some View {
         VStack {
             Spacer()
