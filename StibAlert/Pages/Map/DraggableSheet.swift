@@ -13,7 +13,8 @@ struct DraggableBottomSheet: View {
     let dummyLines: [String] = ["Ligne 1", "Ligne 2", "Ligne 3", "Ligne 4"]
     
     // Hauteur fermée fixée exactement à 60 pt (pour être identique au tab bar)
-    private let collapsedHeight: CGFloat = 60
+    private let collapsedHeight: CGFloat = 75
+
     
     var body: some View {
         VStack(spacing: 0) {
@@ -69,6 +70,8 @@ struct DraggableBottomSheet: View {
                     .padding()
                 }
                 .frame(maxHeight: 300)
+            }else {
+                Spacer().frame(height: 16) // ⬅️ Ajout ici
             }
         }
         .frame(maxWidth: .infinity)

@@ -30,14 +30,7 @@ struct HomeView: View {
                             .cornerRadius(8)
                     }
                     
-                    NavigationLink(destination: NewMeldingView()) {
-                        Text("Nieuwe melding aanmaken")
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.green)
-                            .cornerRadius(8)
-                    }
+                    
                     
                     NavigationLink(destination: LijnenLijstView()) {
                         Text("Bekijk alle lijnen")

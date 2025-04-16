@@ -24,76 +24,101 @@ struct TransitMapView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 1) Carte en arrière-plan
             Map(coordinateRegion: $region)
                 .edgesIgnoringSafeArea(.all)
             
-            // 2) Champs d'adresses en haut
-            VStack {
-                HStack(spacing: 12) {
-                    TextField("Adresse de départ", text: $startingAddress)
-                        .padding(10)
-                        .background(Color.white)
-                        .cornerRadius(8)
+            VStack(spacing: 0) {
+                ZStack(alignment: .top) {
+                    Color.white
+                        .edgesIgnoringSafeArea(.top)
+                        .frame(height: 170) // ✅ Réduit pour moins d'espace blanc
                     
-                    Button {
-                        swap(&startingAddress, &destinationAddress)
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color("DarkBlue", bundle: nil))
-                            .cornerRadius(8)
+                    VStack(spacing: 12) {
+                        TextField("Adresse de départ", text: $startingAddress)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 24)
+                        
+                        TextField("Destination", text: $destinationAddress)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 24)
                     }
+                    .padding(.top, 15) // ✅ moins d’espace sous la notch
                     
-                    TextField("Destination", text: $destinationAddress)
-                        .padding(10)
-                        .background(Color.white)
-                        .cornerRadius(8)
+                    // Bouton entre les champs MAIS aligné à droite
+                    VStack {
+                        Spacer().frame(height: 55) // Ajuste pour qu’il tombe bien entre les champs
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                swap(&startingAddress, &destinationAddress)
+                            }) {
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .rotationEffect(.degrees(180))
+                                    .foregroundColor(.white)
+                                    .padding(10)
+                                    .background(Color(hex: "#4557A1"))
+                                    .cornerRadius(12)
+                            }
+                            .padding(.trailing, 45) // ✅ Aligne à droite
+                        }
+                    }
                 }
-                .padding()
                 
                 Spacer()
             }
-            .edgesIgnoringSafeArea(.top)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .zIndex(1)
             
-            // 3) Bottom sheet positionnée en bas sans padding additionnel (pour qu’elle soit collée au tab bar)
             DraggableBottomSheet(selectedTransit: $selectedTransit, isExpanded: $bottomSheetExpanded)
             
-            // 4) Bouton flottant pour recentrer la carte
             FloatingLocationButton(region: $region, bottomSheetExpanded: bottomSheetExpanded)
         }
+        
     }
 }
 
 fileprivate struct FloatingLocationButton: View {
     @Binding var region: MKCoordinateRegion
     let bottomSheetExpanded: Bool
-    
+
     var body: some View {
         VStack {
             Spacer()
             HStack {
                 Spacer()
-                // Le bouton ne s’affiche que si la bottom sheet N’EST PAS étendue
                 if !bottomSheetExpanded {
                     Button(action: {
                         region.center = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
                     }) {
-                        Image(systemName: "location.fill")
+                        Image(systemName: "dot.circle") // icône de localisation
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
                             .foregroundColor(.white)
-                            .padding()
-                            .background(Color.blue)
-                            .clipShape(Circle())
+                            .padding(14)
+                            .background(Color(hex: "#4557A1")) // couleur bleue STIB
+                            .cornerRadius(12) // pour avoir un rectangle arrondi
                     }
                     .padding(.trailing, 20)
-                    .padding(.bottom, 80)
-                    // Optional: vous pouvez ajouter une animation sur le if pour un effet de fade.
+                    .padding(.bottom, 90)
                 }
             }
         }
     }
 }
+
 
 
 

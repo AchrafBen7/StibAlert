@@ -28,7 +28,9 @@ struct Home: View {
                 
                 VStack(spacing: 0) {
                     // ----- TOP BAR -----
-                    topBar
+                    if selectedTab != 1 {
+                        topBar
+                    }
                     
                     // ----- CONTENU DYNAMIQUE -----
                     Group {
