@@ -13,7 +13,7 @@
 import SwiftUI
 
 struct Home: View {
-    // Suppression de l'état local "isLoggedIn" car nous nous reposons sur AuthViewModel
+    // On se base sur le AuthViewModel pour l’état de connexion
     @StateObject var authViewModel = AuthViewModel()
     @State var selectedTab = 0
     @State private var showAuthSheet = false  // Pour présenter le flux d'authentification
@@ -24,118 +24,37 @@ struct Home: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Fond
                 Color(hex: "#FAFAFD").ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // ----- TOP BAR -----
-                    HStack {
-                        // Bouton profil dynamique
-                        if authViewModel.isAuthenticated, authViewModel.user != nil {
-                            // Si connecté, NavigationLink vers ProfilView
-                            NavigationLink {
-                                ProfilView(authViewModel: authViewModel)
-                            } label: {
-                                // Exemple avec une image système, vous pouvez personnaliser en utilisant authViewModel.user si vous avez une image
-                                Image(systemName: "person.fill")
-                                    .resizable()
-                                    .frame(width: 24, height: 24)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                            .stroke(Color(hex: "#ECECEC"), lineWidth: 1)
-                                    )
-                            }
-                        } else {
-                            // Si non connecté, affiche un bouton qui ouvre la feuille d'authentification
-                            Button {
-                                showAuthSheet = true
-                            } label: {
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Text("Hey, \(authViewModel.user?.nom ?? "Invité")")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        
-                        Spacer()
-                        
-                        Button {
-                            // Action de notification
-                        } label: {
-                            Image(systemName: "bell")
-                                .font(.title3)
-                                .foregroundColor(.orange)
+                    topBar
+                    
+                    // ----- CONTENU DYNAMIQUE -----
+                    Group {
+                        switch selectedTab {
+                        case 0:
+                            normalHomeContent
+                        case 1:
+                            // Ici, on affiche la vue de transit/carte.
+                            TransitMapView()  // Remplacez ou adaptez cette vue selon vos besoins.
+                        case 2:
+                            // Placeholder pour un troisième onglet (par exemple "Plus")
+                            Text("Plus")
+                                .font(.title)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        case 3:
+                            // Placeholder pour le quatrième onglet (par exemple "Favoris")
+                            Text("Favoris")
+                                .font(.title)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        default:
+                            normalHomeContent
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
+                    .animation(.easeInOut, value: selectedTab)
                     
-                    // ----- BANNIÈRE DYNAMIQUE -----
-                    TransitBannerView()
-                        .frame(height: 200)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 8)
-                    
-                    Spacer(minLength: 20)
-                    
-                    // ----- LATEST REPORTS + FILTRE -----
-                    HStack {
-                        Text("Latest reports")
-                            .font(.headline)
-                        Spacer()
-                        Button {
-                            // Action de filtre
-                        } label: {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.title3)
-                                .foregroundColor(.orange)
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                    
-                    // Calcul des signalements valides (moins de 24 heures) triés par date décroissante
-                    let validMeldingen = meldingenVM.meldingen
-                        .filter { Date().timeIntervalSince($0.dateSignalement) <= (24 * 60 * 60) }
-                        .sorted { $0.dateSignalement > $1.dateSignalement }
-                    
-                    // ----- GRILLE DYNAMIQUE -----
-                    if validMeldingen.isEmpty {
-                        if let error = meldingenVM.errorMessage {
-                            Text("Error: \(error)")
-                                .foregroundColor(.red)
-                                .padding(.top, 40)
-                        } else {
-                            Text("Pas de signalement aujourd'hui.")
-                                .foregroundColor(.gray)
-                                .padding(.top, 40)
-                        }
-                        Spacer()
-                    } else {
-                        ScrollView {
-                            LazyVGrid(
-                                columns: [
-                                    GridItem(.flexible(minimum: 180), spacing: 20),
-                                    GridItem(.flexible(minimum: 180), spacing: 20)
-                                ],
-                                spacing: 20
-                            ) {
-                                ForEach(validMeldingen) { signalement in
-                                    MeldingenCardView(signalement: signalement)
-                                        .frame(height: 150)
-                                }
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.top, 16)
-                        }
-                    }
-                    
-                    Spacer()
+                    Spacer(minLength: 0)
                     
                     // ----- TAB BAR -----
                     CustomTabBar(selectedTab: $selectedTab)
@@ -147,14 +66,133 @@ struct Home: View {
             }
             .navigationBarHidden(true)
         }
-        // Présentation modale pour l'authentification (connexion/inscription)
         .sheet(isPresented: $showAuthSheet) {
             AuthOptionsView(authVM: authViewModel)
         }
     }
+    
+    // MARK: - Sous-vues
+    
+    private var topBar: some View {
+        HStack {
+            // Bouton profil dynamique
+            if authViewModel.isAuthenticated, let user = authViewModel.user {
+                NavigationLink {
+                    ProfilView(authViewModel: authViewModel)
+                } label: {
+                    // Affiche la première lettre du nom de l'utilisateur en rond
+                    if let firstChar = user.nom.first {
+                        Text(String(firstChar))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle().stroke(Color(hex: "#ECECEC"), lineWidth: 1)
+                            )
+                    } else {
+                        Image(systemName: "person.fill")
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                            .foregroundColor(.blue)
+                    }
+                }
+            } else {
+                // Bouton qui ouvre la feuille d'authentification
+                Button {
+                    showAuthSheet = true
+                } label: {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.gray)
+                }
+            }
+            
+            Spacer()
+            
+            Text("Hey, \(authViewModel.user?.nom ?? "Invité")")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            
+            Spacer()
+            
+            Button {
+                // Action de notification
+            } label: {
+                Image(systemName: "bell")
+                    .font(.title3)
+                    .foregroundColor(.orange)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+    }
+    
+    private var normalHomeContent: some View {
+        VStack {
+            // Banniere dynamique
+            TransitBannerView()
+                .frame(height: 200)
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+            
+            Spacer(minLength: 20)
+            
+            // Section "Latest reports" avec filtre
+            HStack {
+                Text("Latest reports")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    // Action de filtre
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.title3)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(.horizontal, 24)
+            
+            // Grille des signalements
+            let validMeldingen = meldingenVM.meldingen
+                .filter { Date().timeIntervalSince($0.dateSignalement) <= (24 * 60 * 60) }
+                .sorted { $0.dateSignalement > $1.dateSignalement }
+            
+            if validMeldingen.isEmpty {
+                if let error = meldingenVM.errorMessage {
+                    Text("Error: \(error)")
+                        .foregroundColor(.red)
+                        .padding(.top, 40)
+                } else {
+                    Text("Pas de signalement aujourd'hui.")
+                        .foregroundColor(.gray)
+                        .padding(.top, 40)
+                }
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(minimum: 180), spacing: 20),
+                            GridItem(.flexible(minimum: 180), spacing: 20)
+                        ],
+                        spacing: 20
+                    ) {
+                        ForEach(validMeldingen) { signalement in
+                            MeldingenCardView(signalement: signalement)
+                                .frame(height: 150)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                }
+            }
+            Spacer()
+        }
+    }
 }
 
-// MARK: - PREVIEW
 struct HomeView_Previews: PreviewProvider {
     static var previews: some View {
         Home()
