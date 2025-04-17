@@ -289,7 +289,9 @@ class AuthViewModel: ObservableObject {
             }
         }.resume()
     }
-    
+    var token: String? {
+        return KeychainManager.get(key: "jwt")
+    }
     
 }
 
@@ -298,3 +300,5 @@ struct ConnexionResponse: Codable {
     let utilisateur: UserModel
     let token: String
 }
+
+

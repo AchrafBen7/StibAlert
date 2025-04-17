@@ -15,6 +15,8 @@ struct NewMeldingView: View {
     @ObservedObject var lijnenVM = LijnenViewModel() // si ce n'est pas déjà présent
     @State private var showArretPicker = false
     @StateObject private var arretsVM = AlleHaltesViewModel()
+    @State private var showErrorPopup = false
+    
     
     
     
@@ -156,7 +158,9 @@ struct NewMeldingView: View {
                                     }
                                     .padding(.bottom)
                                 }
+                                
                             }
+                            
                             
                         }
                         
@@ -265,6 +269,54 @@ struct NewMeldingView: View {
                 }
             }
         }
+        .overlay( // ✅ Le pop-up erreur dans un overlay du ZStack principal
+            Group {
+                if showErrorPopup, let error = viewModel.errorMessage {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .resizable()
+                            .frame(width: 40, height: 40)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.red)
+                            .clipShape(Circle())
+                        
+                        Text("Oups !")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.black)
+                        
+                        Text(error)
+                            .multilineTextAlignment(.center)
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal, 16)
+                        
+                        Button(action: {
+                            withAnimation {
+                                showErrorPopup = false
+                                viewModel.errorMessage = nil
+                            }
+                        }) {
+                            Text("Fermer")
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(Color.red.opacity(0.1))
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                    .background(Color.white)
+                    .cornerRadius(20)
+                    .shadow(radius: 20)
+                    .padding(.horizontal, 40)
+                    .transition(.scale)
+                    .zIndex(2)
+                }
+            }
+        )
+        
         .alert(isPresented: $showSuccessAlert) {
             Alert(
                 title: Text("Succès"),
@@ -286,6 +338,14 @@ struct NewMeldingView: View {
         }.onAppear {
             lijnenVM.fetchLijnen()
         }
+        .onChange(of: viewModel.errorMessage) { newValue in
+            if newValue != nil {
+                withAnimation {
+                    showErrorPopup = true
+                }
+            }
+        }
+        
     }
     
 }

@@ -28,7 +28,7 @@ struct Home: View {
                 
                 VStack(spacing: 0) {
                     // ----- TOP BAR -----
-                    if selectedTab != 1 && selectedTab != 2 {
+                    if selectedTab != 1 && selectedTab != 2 && selectedTab != 3 {
                         topBar
                     }
                     
@@ -45,9 +45,8 @@ struct Home: View {
                             NewMeldingView()
                         case 3:
                             // Placeholder pour le quatrième onglet (par exemple "Favoris")
-                            Text("Favoris")
-                                .font(.title)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            FavorisView(authViewModel: authViewModel)
+                            
                         default:
                             normalHomeContent
                         }
@@ -135,7 +134,7 @@ struct Home: View {
             TransitBannerView()
                 .frame(height: 200)
                 .padding(.horizontal, 24)
-                .padding(.top, 40) 
+                .padding(.top, 40)
             
             Spacer(minLength: 20)
             

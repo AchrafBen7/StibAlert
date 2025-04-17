@@ -87,10 +87,21 @@ class NewMeldingViewModel: ObservableObject {
                     self.errorMessage = nil  // ou message de succès si souhaité
                 }
             } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Decodering mislukt: \(error.localizedDescription)"
+                // 👉 Tenter de décoder un message d'erreur retourné par l'API
+                if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                    DispatchQueue.main.async {
+                        self.errorMessage = apiError.message
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Decodering mislukt: \(error.localizedDescription)"
+                    }
                 }
             }
         }.resume()
     }
 }
+struct APIError: Decodable {
+    let message: String
+}
+
