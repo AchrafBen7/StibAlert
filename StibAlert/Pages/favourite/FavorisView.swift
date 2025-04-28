@@ -3,14 +3,15 @@
 //  StibAlert
 //
 //  Created by studentehb on 17/04/2025.
-//
 import SwiftUI
-
+ 
 struct FavorisView: View {
     @ObservedObject var viewModel = FavorisViewModel()
     @ObservedObject var authViewModel: AuthViewModel
     @State private var selectedFilter: TransitFilter = .all
     @State private var showAuthSheet = false
+    @State private var showAddStopSheet = false
+    
     
     enum TransitFilter: String, CaseIterable {
         case all = "All", bus = "Bus", metro = "Metro", tram = "Tram"
@@ -94,14 +95,39 @@ struct FavorisView: View {
                         Button(action: {
                             // 👉 Action à définir (ex: rediriger vers la carte)
                         }) {
-                            HStack(spacing: 8) {
-                                Text("Add new stop")
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.black)
-                                Image(systemName: "plus.square")
-                                    .font(.title3)
-                                    .foregroundColor(Color(hex: "#4557A1"))
+                            Button(action: {
+                                showAddStopSheet = true
+                            }) {
+                                HStack(spacing: 8) {
+                                    Text("Add new stop")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.black)
+                                    Image(systemName: "plus.square")
+                                        .font(.title3)
+                                        .foregroundColor(Color(hex: "#4557A1"))
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 20)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                             }
+                            .sheet(isPresented: $showAddStopSheet) {
+                                AjouterFavoriSheet(
+                                    showSheet: $showAddStopSheet,
+                                    authViewModel: authViewModel,
+                                    onUpdateFavoris: {
+                                        if let userId = authViewModel.user?._id,
+                                           let token = authViewModel.token {
+                                            viewModel.fetchFavoris(for: userId, token: token)
+                                        }
+                                    }
+                                )
+                                
+                            }
+                            
+                            
+                            
                             .padding(.vertical, 12)
                             .padding(.horizontal, 20)
                             .background(Color.white)
@@ -121,14 +147,40 @@ struct FavorisView: View {
                             Button(action: {
                                 // 👉 Action à définir (ex: rediriger vers la carte)
                             }) {
-                                HStack(spacing: 8) {
-                                    Text("Add new stop")
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.black)
-                                    Image(systemName: "plus.square")
-                                        .font(.title3)
-                                        .foregroundColor(Color(hex: "#4557A1"))
+                                Button(action: {
+                                    showAddStopSheet = true
+                                }) {
+                                    HStack(spacing: 8) {
+                                        Text("Add new stop")
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.black)
+                                        Image(systemName: "plus.square")
+                                            .font(.title3)
+                                            .foregroundColor(Color(hex: "#4557A1"))
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 20)
+                                    .background(Color.white)
+                                    .cornerRadius(12)
+                                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                                 }
+                                .sheet(isPresented: $showAddStopSheet) {
+                                    AjouterFavoriSheet(
+                                        showSheet: $showAddStopSheet,
+                                        authViewModel: authViewModel,
+                                        onUpdateFavoris: {
+                                            if let userId = authViewModel.user?._id,
+                                               let token = authViewModel.token {
+                                                viewModel.fetchFavoris(for: userId, token: token)
+                                            }
+                                        }
+                                    )
+                                }
+                                
+                                
+                                
+                                
+                                
                                 .padding(.vertical, 12)
                                 .padding(.horizontal, 20)
                                 .background(Color.white)
@@ -164,7 +216,7 @@ struct FavorisView: View {
                 viewModel.fetchFavoris(for: userId, token: token)
             }
         }
-
+        
         .sheet(isPresented: $showAuthSheet) {
             AuthOptionsView(authVM: authViewModel)
         }

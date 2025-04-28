@@ -4,9 +4,15 @@
 //
 //  Created by studentehb on 17/04/2025.
 //
-
+//
+//  FavorisHalteRow.swift
+//  StibAlert
+//
+//  Created by studentehb on 17/04/2025.
+//
+ 
 import SwiftUI
-
+ 
 struct FavorisHalteRow: View {
     let halte: HalteModel
     

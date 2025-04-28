@@ -4,10 +4,22 @@
 //
 //  Created by studentehb on 17/04/2025.
 //
-
+//
+//  FavorisViewModel.swift
+//  StibAlert
+//
+//  Created by studentehb on 17/04/2025.
+//
+ 
 import Foundation
 import Combine
-
+ 
+ 
+private struct UserWithFavorisObjects: Codable {
+    let favoris: [HalteModel]
+}
+ 
+ 
 class FavorisViewModel: ObservableObject {
     @Published var favoris: [HalteModel] = []
     @Published var isLoading: Bool = false
@@ -35,40 +47,17 @@ class FavorisViewModel: ObservableObject {
                 }
             })
             .map(\.data)
-            .decode(type: UserModel.self, decoder: JSONDecoder())
-            .flatMap { user in
-                let ids = user.favoris ?? []
-                let requests = ids.map { id -> AnyPublisher<HalteModel?, Never> in
-                    guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/\(id)") else {
-                        return Just(nil).eraseToAnyPublisher()
-                    }
-                    
-                    return URLSession.shared.dataTaskPublisher(for: url)
-                        .handleEvents(receiveOutput: { output in
-                            if let raw = String(data: output.data, encoding: .utf8) {
-                                print("✅ Réponse brute arrêt \(id):\n\(raw)")
-                            }
-                        })
-                        .map(\.data)
-                        .decode(type: HalteModel.self, decoder: JSONDecoder())
-                        .map { Optional($0) }
-                        .catch { _ in Just(nil) }
-                        .eraseToAnyPublisher()
-                }
-                
-                return Publishers.MergeMany(requests)
-                    .compactMap { $0 }
-                    .collect()
-                    .mapError { $0 as Error }
-                    .eraseToAnyPublisher()
-            }
+            .decode(type: UserWithFavorisObjects.self, decoder: JSONDecoder())
+            .map { $0.favoris } // 👉 pas besoin de refaire des requêtes ici !
             .receive(on: DispatchQueue.main)
             .sink { completion in
                 self.isLoading = false
                 if case .failure(let error) = completion {
                     self.errorMessage = error.localizedDescription
+                    print("❌ Erreur de décodage : \(error)")
                 }
             } receiveValue: { haltes in
+                print("✅ Haltes reçues : \(haltes.count)")
                 self.favoris = haltes
             }
             .store(in: &cancellables)

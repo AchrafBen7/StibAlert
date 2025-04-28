@@ -3,15 +3,9 @@
 //  StibAlert
 //
 //  Created by studentehb on 14/04/2025.
-//
-//
-//  Home.swift
-//  StibAlert
-//
-//  Created by studentehb on 14/04/2025.
-//
-import SwiftUI
 
+import SwiftUI
+ 
 struct Home: View {
     // On se base sur le AuthViewModel pour l’état de connexion
     @StateObject var authViewModel = AuthViewModel()
@@ -131,7 +125,8 @@ struct Home: View {
     private var normalHomeContent: some View {
         VStack {
             // Banniere dynamique
-            TransitBannerView()
+            MobibCardView(authViewModel: authViewModel)
+            
                 .frame(height: 200)
                 .padding(.horizontal, 24)
                 .padding(.top, 40)
@@ -191,7 +186,7 @@ struct Home: View {
         }
     }
 }
-
+ 
 struct HomeView_Previews: PreviewProvider {
     static var previews: some View {
         Home()

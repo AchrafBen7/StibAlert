@@ -4,9 +4,15 @@
 //
 //  Created by studentehb on 15/04/2025.
 //
-
+//
+//  TransitAnimationView.swift
+//  StibAlert
+//
+//  Created by studentehb on 15/04/2025.
+//
+ 
 import SwiftUI
-
+ 
 struct TransitBannerView: View {
     @State private var animateGradient = false
     
@@ -50,10 +56,11 @@ struct TransitBannerView: View {
         .frame(height: 200)
     }
 }
-
+ 
 struct TransitBannerView_Previews: PreviewProvider {
     static var previews: some View {
         TransitBannerView()
             .previewLayout(.sizeThatFits)
     }
 }
+ 

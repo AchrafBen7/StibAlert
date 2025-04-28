@@ -4,8 +4,9 @@
 //
 //  Created by studentehb on 16/04/2025.
 //
-import SwiftUI
 
+import SwiftUI
+ 
 struct DraggableBottomSheet: View {
     @Binding var selectedTransit: TransitMapView.TransitMode
     @Binding var isExpanded: Bool
@@ -24,9 +25,9 @@ struct DraggableBottomSheet: View {
             }
         }
     }
-
-
-
+    
+    
+    
     
     // Hauteur fermée fixée exactement à 60 pt (pour être identique au tab bar)
     private let collapsedHeight: CGFloat = 75
@@ -83,8 +84,8 @@ struct DraggableBottomSheet: View {
                                     .frame(width: 44, height: 44)
                                     .background(LineColors.color(for: line.lineid))
                                     .cornerRadius(10)
-
-
+                                
+                                
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(line.nomComplet)
@@ -118,8 +119,8 @@ struct DraggableBottomSheet: View {
                         .foregroundColor(.red)
                         .padding()
                 }
-
-
+                
+                
             }
             else {
                 Spacer().frame(height: 16) // ⬅️ Ajout ici
@@ -155,7 +156,7 @@ struct DraggableBottomSheet: View {
         }
     }
 }
-
+ 
 /// Shape qui arrondit seulement les coins supérieurs et laisse le bas rectiligne.
 struct TopCornersRoundedShape: Shape {
     var radius: CGFloat

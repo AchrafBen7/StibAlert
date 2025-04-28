@@ -11,7 +11,7 @@ import SwiftUI
 struct StibAlertApp: App {
     var body: some Scene {
         WindowGroup {
-            Home()
+            HomeView()
         }
     }
 }
