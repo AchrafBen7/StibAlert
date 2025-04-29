@@ -5,7 +5,7 @@
 //  Created by studentehb on 14/04/2025.
 
 import SwiftUI
- 
+
 struct Home: View {
     // On se base sur le AuthViewModel pour l’état de connexion
     @StateObject var authViewModel = AuthViewModel()
@@ -14,13 +14,17 @@ struct Home: View {
     
     // ViewModel pour récupérer les signalements dynamiques
     @StateObject private var meldingenVM = MeldingenViewModel()
-    
+    @StateObject private var networkMonitor = NetworkMonitor.shared
     var body: some View {
         NavigationView {
             ZStack {
                 Color(hex: "#FAFAFD").ignoresSafeArea()
                 
                 VStack(spacing: 0) {
+                    // ----- OFFLINE BANNER -----
+                    if !networkMonitor.isConnected {
+                        OfflineBanner()
+                    }
                     // ----- TOP BAR -----
                     if selectedTab != 1 && selectedTab != 2 && selectedTab != 3 {
                         topBar
@@ -57,6 +61,13 @@ struct Home: View {
             .onAppear {
                 meldingenVM.fetchMeldingen()
             }
+            .onChange(of: networkMonitor.isConnected) { connected in
+                if connected {
+                    print("[DEBUG] ✅ Connexion rétablie : rechargement automatique des données")
+                    meldingenVM.fetchMeldingen()
+                }
+            }
+
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showAuthSheet) {
@@ -183,18 +194,21 @@ struct Home: View {
                                 MeldingenCardView(signalement: signalement)
                                     .frame(height: 150)
                             }
-                            .buttonStyle(PlainButtonStyle()) 
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                }
+                .refreshable {
+                    meldingenVM.fetchMeldingen()
                 }
             }
             Spacer()
         }
     }
 }
- 
+
 struct HomeView_Previews: PreviewProvider {
     static var previews: some View {
         Home()

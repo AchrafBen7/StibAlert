@@ -29,15 +29,31 @@ class MeldingenViewModel: ObservableObject {
         return decoder
     }()
     
-    // Récupération des meldingen depuis l'endpoint
     func fetchMeldingen() {
-        guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/signalements") else {
+        let urlString = "https://stib-alert-backend.onrender.com/api/signalements"
+        let cacheFile = "meldingen_cache.json"
+        
+        guard let url = URL(string: urlString) else {
             DispatchQueue.main.async {
                 self.errorMessage = "Ongeldige URL"
             }
             return
         }
         
+        // 🔥 1. CHECK si offline
+        if !NetworkMonitor.shared.isConnected {
+            print("[DEBUG] ❗ Offline détecté : chargement depuis le cache...")
+            if let cachedData = loadFromCache(filename: cacheFile) {
+                self.decodeMeldingen(from: cachedData)  // <--- ici ajouter self
+            } else {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Pas de connexion et aucun cache trouvé."
+                }
+            }
+            return
+        }
+        
+        // 🔥 2. Si online => normale requête API
         print("Envoi de la requête à l'URL : \(url)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
@@ -49,12 +65,6 @@ class MeldingenViewModel: ObservableObject {
                 return
             }
             
-            if let httpResponse = response as? HTTPURLResponse {
-                print("Réponse HTTP reçue avec le status code : \(httpResponse.statusCode)")
-            } else {
-                print("Réponse non HTTP reçue.")
-            }
-            
             guard let data = data else {
                 print("Aucune donnée reçue depuis l'API.")
                 DispatchQueue.main.async {
@@ -63,25 +73,30 @@ class MeldingenViewModel: ObservableObject {
                 return
             }
             
-            // Affichage du JSON brut reçu (pour diagnostic)
-            if let jsonStr = String(data: data, encoding: .utf8) {
-                print("Données reçues (JSON brut) : \(jsonStr)")
-            } else {
-                print("Impossible de convertir les données en String.")
-            }
+            // 🔵 Sauvegarde dans le cache
+            saveToCache(data: data, filename: cacheFile)
             
-            do {
-                let decodedMeldingen = try MeldingenViewModel.customDecoder.decode([MeldingenReadModel].self, from: data)
-                print("Décodage réussi : \(decodedMeldingen.count) éléments reçus")
-                DispatchQueue.main.async {
-                    self.meldingen = decodedMeldingen
-                }
-            } catch {
-                print("Erreur lors du décodage : \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    self.errorMessage = error.localizedDescription
-                }
-            }
+            self.decodeMeldingen(from: data) 
         }.resume()
     }
+    
+    private func decodeMeldingen(from data: Data) {
+        do {
+            let decodedMeldingen = try MeldingenViewModel.customDecoder.decode([MeldingenReadModel].self, from: data)
+            print("[DEBUG] ✅ Décodage réussi : \(decodedMeldingen.count) éléments")
+            DispatchQueue.main.async {
+                self.meldingen = decodedMeldingen
+                // 🕒 Sauvegarde la date de mise à jour
+                UserDefaults.standard.set(Date(), forKey: "LastUpdate")
+            }
+        } catch {
+            print("[DEBUG] ❌ Erreur décodage cache/réseau : \(error.localizedDescription)")
+            DispatchQueue.main.async {
+                self.errorMessage = "Erreur décodage : \(error.localizedDescription)"
+            }
+        }
+    }
+    
 }
+
+

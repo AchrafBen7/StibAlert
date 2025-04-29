@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
- 
+
 struct DraggableBottomSheet: View {
     @Binding var selectedTransit: TransitMapView.TransitMode
     @Binding var isExpanded: Bool
@@ -145,6 +145,12 @@ struct DraggableBottomSheet: View {
                     }
                 }
         )
+        .onChange(of: NetworkMonitor.shared.isConnected) { connected in
+            if connected {
+                lijnenVM.fetchLijnen()
+            }
+        }
+        
     }
     
     private func iconName(for mode: TransitMapView.TransitMode) -> String {
@@ -156,7 +162,7 @@ struct DraggableBottomSheet: View {
         }
     }
 }
- 
+
 /// Shape qui arrondit seulement les coins supérieurs et laisse le bas rectiligne.
 struct TopCornersRoundedShape: Shape {
     var radius: CGFloat
