@@ -16,10 +16,26 @@ class MeldingDetailViewModel: ObservableObject {
     @Published var halteNom: String? // ✅ Changer ici : halte devient juste un "nom" simple
     
     func fetchSignalement(arretId: String, signalementId: String) {
+        let cacheFile = "signalement_\(signalementId).json"
+        
+        // 1. Vérifie la connexion
+        if !NetworkMonitor.shared.isConnected {
+            print("[DEBUG] 🔌 Hors-ligne - lecture du cache pour signalement \(signalementId)")
+            if let cachedData = loadFromCache(filename: cacheFile) {
+                self.decodeSignalement(from: cachedData)
+            } else {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Pas de connexion et pas de cache disponible."
+                }
+            }
+            return
+        }
+        
+        // 2. En ligne, fetch normal
         let urlString = "https://stib-alert-backend.onrender.com/api/signalements/arret/\(arretId)/signalement/\(signalementId)"
         guard let url = URL(string: urlString) else {
             DispatchQueue.main.async {
-                self.errorMessage = "Ongeldige URL: \(urlString)"
+                self.errorMessage = "URL invalide: \(urlString)"
             }
             return
         }
@@ -35,39 +51,43 @@ class MeldingDetailViewModel: ObservableObject {
                     self.errorMessage = "Geen data ontvangen"
                     return
                 }
-
-                do {
-                    let decoder = JSONDecoder()
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-                    formatter.locale = Locale(identifier: "en_US_POSIX")
-                    decoder.dateDecodingStrategy = .formatted(formatter)
-
-                    let decoded = try decoder.decode(MeldingenModel.self, from: data)
-                    self.signalement = decoded
-                    
-                    if let raw = String(data: data, encoding: .utf8) {
-                        print("[DEBUG] ✅ Signalement brut:\n\(raw)")
-                    }
-
-                    print("[DEBUG] ✅ Signalement décodé:")
-                    print("- arretId reçu :", decoded.arretId)
-                    print("- ligne :", decoded.ligne)
-                    print("- arret (nom texte) :", decoded.arret ?? "n/a")
-
-                    // 🌟 Nouvelle logique 🌟
-                    if let nomDirect = decoded.arret, !nomDirect.isEmpty {
-                        self.halteNom = nomDirect
-                        print("[DEBUG] ✅ Utilisation du nom de l'arrêt fourni : \(nomDirect)")
-                    } else {
-                        self.fetchHalte(arretId: decoded.arretId)
-                    }
-                } catch {
-                    self.errorMessage = "Decodering mislukt: \(error.localizedDescription)"
-                }
+                
+                // 3. Sauvegarde le signalement dans cache
+                saveToCache(data: data, filename: cacheFile)
+                
+                self.decodeSignalement(from: data)
             }
         }.resume()
     }
+    
+    private func decodeSignalement(from data: Data) {
+        do {
+            let decoder = JSONDecoder()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            decoder.dateDecodingStrategy = .formatted(formatter)
+
+            let decoded = try decoder.decode(MeldingenModel.self, from: data)
+            self.signalement = decoded
+            
+            if let raw = String(data: data, encoding: .utf8) {
+                print("[DEBUG] ✅ Signalement brut (offline/online):\n\(raw)")
+            }
+
+            if let nomDirect = decoded.arret, !nomDirect.isEmpty {
+                self.halteNom = nomDirect
+                print("[DEBUG] ✅ Nom d'arrêt récupéré : \(nomDirect)")
+            } else {
+                self.fetchHalte(arretId: decoded.arretId)
+            }
+        } catch {
+            self.errorMessage = "Erreur de décodage: \(error.localizedDescription)"
+            print("[DEBUG] ❌ Erreur de décodage signalement: \(error.localizedDescription)")
+        }
+    }
+
+
 
     func fetchHalte(arretId: String) {
         guard !arretId.isEmpty else {
