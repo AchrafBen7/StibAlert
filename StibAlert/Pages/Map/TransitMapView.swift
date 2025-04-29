@@ -1,9 +1,9 @@
-    //
-    //  TransitMapView.swift
-    //  StibAlert
-    //
-    //  Created by studentehb on 16/04/2025.
-    //
+//
+//  TransitMapView.swift
+//  StibAlert
+//
+//  Created by studentehb on 16/04/2025.
+//
 //
 //  TransitMapView.swift
 //  StibAlert
@@ -12,8 +12,8 @@
 //
 import SwiftUI
 import MapKit
- 
- 
+
+
 struct TransitMapView: View {
     @State private var startingAddress: String = ""
     @State private var destinationAddress: String = ""
@@ -23,6 +23,7 @@ struct TransitMapView: View {
         center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
     )
+    @StateObject private var locationManager = LocationManager()
     @State private var selectedTransit: TransitMode = .bus
     @State private var bottomSheetExpanded: Bool = false
     @StateObject private var lijnenVM = LijnenViewModel()
@@ -47,6 +48,7 @@ struct TransitMapView: View {
                 MapMarker(coordinate: item.coordinate, tint: item.isStart ? .green : .red)
             }
             .overlay(routeOverlay, alignment: .center)
+            
             
             VStack(spacing: 0) {
                 ZStack(alignment: .top) {
@@ -159,8 +161,27 @@ struct TransitMapView: View {
                 lijnenVM.fetchLijnen()
             }
             
-            FloatingLocationButton(region: $region, bottomSheetExpanded: bottomSheetExpanded)
+            FloatingLocationButton(region: $region, bottomSheetExpanded: bottomSheetExpanded, locationManager: locationManager)
+            if locationManager.showLocationError {
+                VStack {
+                    Text("Erreur de localisation. Activez la position.")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.red)
+                        .cornerRadius(12)
+                        .padding(.top, 60)
+                    Spacer()
+                }
+                .transition(.move(edge: .top))
+                .animation(.easeInOut(duration: 0.3), value: locationManager.showLocationError)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        locationManager.showLocationError = false
+                    }
+                }
+            }
         }
+        
     }
     
     private var annotations: [AnnotationItem] {
@@ -246,17 +267,17 @@ struct TransitMapView: View {
         }
     }
 }
- 
+
 struct AnnotationItem: Identifiable {
     let id = UUID()
     var coordinate: CLLocationCoordinate2D
     var isStart: Bool
 }
- 
- 
+
 fileprivate struct FloatingLocationButton: View {
     @Binding var region: MKCoordinateRegion
     let bottomSheetExpanded: Bool
+    @ObservedObject var locationManager: LocationManager // <-- AJOUTÉ
     
     var body: some View {
         VStack {
@@ -265,16 +286,26 @@ fileprivate struct FloatingLocationButton: View {
                 Spacer()
                 if !bottomSheetExpanded {
                     Button(action: {
-                        region.center = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
-                    }) {
-                        Image(systemName: "dot.circle") // icône de localisation
+                        if let userLocation = locationManager.userLocation {
+                            withAnimation {
+                                region = MKCoordinateRegion(
+                                    center: userLocation,
+                                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01) // Plus petit delta = Zoom
+                                )
+                            }
+                        } else {
+                            print("[FloatingLocationButton] Localisation utilisateur non disponible.")
+                        }
+                    })
+                    {
+                        Image(systemName: "dot.circle")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 20, height: 20)
                             .foregroundColor(.white)
                             .padding(14)
-                            .background(Color(hex: "#4557A1")) // couleur bleue STIB
-                            .cornerRadius(12) // pour avoir un rectangle arrondi
+                            .background(Color(hex: "#4557A1"))
+                            .cornerRadius(12)
                     }
                     .padding(.trailing, 20)
                     .padding(.bottom, 90)

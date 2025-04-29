@@ -174,8 +174,16 @@ struct Home: View {
                         spacing: 20
                     ) {
                         ForEach(validMeldingen) { signalement in
-                            MeldingenCardView(signalement: signalement)
-                                .frame(height: 150)
+                            NavigationLink(
+                                destination: MeldingDetailView(
+                                    arretId: signalement.arretId._id,
+                                    signalementId: signalement._id
+                                )
+                            ) {
+                                MeldingenCardView(signalement: signalement)
+                                    .frame(height: 150)
+                            }
+                            .buttonStyle(PlainButtonStyle()) 
                         }
                     }
                     .padding(.horizontal, 24)
