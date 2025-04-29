@@ -25,21 +25,3 @@ class NetworkMonitor: ObservableObject {
         monitor.start(queue: queue)
     }
 }
-func saveToCache(data: Data, filename: String) {
-    let url = getDocumentsDirectory().appendingPathComponent(filename)
-    do {
-        try data.write(to: url)
-        print("[DEBUG] ✅ Données sauvegardées dans : \(url)")
-    } catch {
-        print("[DEBUG] ❌ Erreur de sauvegarde du cache : \(error)")
-    }
-}
-
-func loadFromCache(filename: String) -> Data? {
-    let url = getDocumentsDirectory().appendingPathComponent(filename)
-    return try? Data(contentsOf: url)
-}
-
-private func getDocumentsDirectory() -> URL {
-    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-}

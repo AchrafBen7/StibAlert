@@ -18,7 +18,7 @@ class LijnenViewModel: ObservableObject {
         
         if !NetworkMonitor.shared.isConnected {
             print("[LOG] 🔌 Mode hors-ligne – lecture du cache")
-            if let cached = loadFromCache(filename: cacheFile) {
+            if let cached = CacheManager.shared.load(filename: cacheFile) {
                 self.decodeLijnen(from: cached)
             } else {
                 DispatchQueue.main.async {
@@ -43,7 +43,7 @@ class LijnenViewModel: ObservableObject {
                 return
             }
 
-            saveToCache(data: data, filename: cacheFile)
+            CacheManager.shared.save(data: data, filename: cacheFile)
             UserDefaults.standard.set(Date(), forKey: "LastUpdateLijnen") // ⬅️ ici
             self.decodeLijnen(from: data)
         }.resume()

@@ -11,7 +11,8 @@ import SwiftUI
 struct StibAlertApp: App {
     var body: some Scene {
         WindowGroup {
-            Home()
+            SplashView() // ✅ on démarre ici
         }
     }
 }
+

@@ -43,7 +43,7 @@ class MeldingenViewModel: ObservableObject {
         // 🔥 1. CHECK si offline
         if !NetworkMonitor.shared.isConnected {
             print("[DEBUG] ❗ Offline détecté : chargement depuis le cache...")
-            if let cachedData = loadFromCache(filename: cacheFile) {
+            if let cachedData = CacheManager.shared.load(filename: cacheFile) {
                 self.decodeMeldingen(from: cachedData)  // <--- ici ajouter self
             } else {
                 DispatchQueue.main.async {
@@ -74,7 +74,7 @@ class MeldingenViewModel: ObservableObject {
             }
             
             // 🔵 Sauvegarde dans le cache
-            saveToCache(data: data, filename: cacheFile)
+            CacheManager.shared.save(data: data, filename: cacheFile)
             
             self.decodeMeldingen(from: data) 
         }.resume()

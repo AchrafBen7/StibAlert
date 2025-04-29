@@ -21,7 +21,7 @@ class MeldingDetailViewModel: ObservableObject {
         // 1. Vérifie la connexion
         if !NetworkMonitor.shared.isConnected {
             print("[DEBUG] 🔌 Hors-ligne - lecture du cache pour signalement \(signalementId)")
-            if let cachedData = loadFromCache(filename: cacheFile) {
+            if let cachedData = CacheManager.shared.load(filename: cacheFile) {
                 self.decodeSignalement(from: cachedData)
             } else {
                 DispatchQueue.main.async {
@@ -53,7 +53,7 @@ class MeldingDetailViewModel: ObservableObject {
                 }
                 
                 // 3. Sauvegarde le signalement dans cache
-                saveToCache(data: data, filename: cacheFile)
+                CacheManager.shared.save(data: data, filename: cacheFile)
                 
                 self.decodeSignalement(from: data)
             }
