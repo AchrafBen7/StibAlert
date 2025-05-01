@@ -13,6 +13,5 @@ struct NewMeldingRequest: Codable {
     let ligne: String
     let typeProbleme: String
     let description: String
-    let photo: String?
-    
 }
+

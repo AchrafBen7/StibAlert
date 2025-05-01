@@ -3,10 +3,6 @@
 //  StibAlert
 //
 //  Created by studentehb on 24/03/2025.
-
-import SwiftUI
-
-
 import SwiftUI
 
 struct MeldingDetailView: View {
@@ -17,22 +13,49 @@ struct MeldingDetailView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                if let signalement = viewModel.signalement {
-                    
-                    // --- Bloc principal arrondi gris ---
-                    VStack(alignment: .leading, spacing: 16) {
+            VStack(spacing: 24) {
+                if viewModel.isLoading {
+                    Spacer()
+                    ProgressView("Chargement...")
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "#4557A1")))
+                        .scaleEffect(1.5)
+                    Spacer()
+                } else if let errorMessage = viewModel.errorMessage {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .resizable()
+                            .frame(width: 40, height: 40)
+                            .foregroundColor(.red)
                         
-                        // Ligne + Arrêt + Type problème
+                        Text("Erreur")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        
+                        Text(errorMessage)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.gray)
+                        
+                        Button("Réessayer") {
+                            viewModel.fetchSignalement(arretId: arretId, signalementId: signalementId)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .padding()
+                } else if let signalement = viewModel.signalement {
+                    VStack(spacing: 20) {
+                        // 🔷 Ligne + Arrêt + Type
                         HStack {
                             HStack(spacing: 8) {
                                 Text(signalement.ligne)
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
+                                    .padding(.vertical, 6)
                                     .background(LineColors.color(for: signalement.ligne))
-                                    .cornerRadius(8)
+                                    .cornerRadius(10)
                                 
                                 Text(viewModel.halteNom ?? "Arrêt inconnu")
                                     .font(.system(size: 16, weight: .semibold))
@@ -43,95 +66,84 @@ struct MeldingDetailView: View {
                             
                             HStack(spacing: 6) {
                                 Image(systemName: ProbleemType(rawValue: signalement.typeProbleme)?.icon ?? "exclamationmark.triangle.fill")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
+                                
                                 Text(signalement.typeProbleme.capitalized)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 15, weight: .semibold))
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
                             .background(ProblemColors.color(for: signalement.typeProbleme))
                             .foregroundColor(.white)
-                            .cornerRadius(12)
+                            .cornerRadius(18)
                         }
                         
-                        // Description (dans petit rectangle blanc)
+                        // 📝 Description
                         VStack(spacing: 8) {
                             Text("Description")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.black)
                             
                             Text(signalement.description)
-                                .font(.system(size: 14))
+                                .font(.system(size: 15))
                                 .foregroundColor(.black)
                                 .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 70)
+                                .contentShape(Rectangle())
                         }
                         .padding()
+                        .frame(minHeight: 90)
                         .background(Color.white)
-                        .cornerRadius(16)
+                        .cornerRadius(18)
                         
-                        // 2 Frames d’images
-                        HStack(spacing: 12) {
-                            if let photo = signalement.photo, let url = URL(string: photo) {
+                        // 🖼️ Image
+                        if let photo = signalement.photo, let url = URL(string: photo) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Photo du signalement")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                
                                 AsyncImage(url: url) { image in
                                     image
                                         .resizable()
-                                        .scaledToFill()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 220)
+                                        .clipped()
+                                        .cornerRadius(12)
+                                        .shadow(radius: 5)
                                 } placeholder: {
-                                    Color.gray.opacity(0.3)
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(height: 220)
+                                        .cornerRadius(12)
                                 }
-                                .frame(height: 110)
-                                .frame(maxWidth: .infinity)
-                                .cornerRadius(12)
+                                
+                                Text("Do you like or not?")
+                                    .font(.footnote)
+                                    .foregroundColor(.black)
+                                
+                                HStack(spacing: 16) {
+                                    voteSquareButton(icon: "heart") {
+                                        viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: true)
+                                    }
+                                    
+                                    voteSquareButton(icon: "eye.slash") {
+                                        viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: false)
+                                    }
+                                }
                             }
-                            
-                            // Placeholder si pas de 2e image
-                            Color.gray.opacity(0.15)
-                                .frame(height: 110)
-                                .frame(maxWidth: .infinity)
-                                .cornerRadius(12)
+                            .padding()
+                            .background(Color(hex: "#F2F2F2"))
+                            .cornerRadius(24)
+                            .padding(.horizontal)
                         }
-                        
                     }
-                    .padding()
-                    .background(Color(hex: "#F2F2F2"))
-                    .cornerRadius(20)
                     .padding(.horizontal)
-                    
-                    // --- Like / Dislike ---
-                    Text("Do you like or not?")
-                        .font(.footnote)
-                        .padding(.top, 4)
-                    
-                    HStack(spacing: 24) {
-                        Button {
-                            viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: true)
-                        } label: {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color.orange)
-                                .clipShape(Circle())
-                        }
-                        
-                        Button {
-                            viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: false)
-                        } label: {
-                            Image(systemName: "eye.slash.fill")
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color.orange)
-                                .clipShape(Circle())
-                        }
-                    }
-                    .padding(.vertical, 24)
-                    
-                } else if let errorMessage = viewModel.errorMessage {
-                    Text("Erreur : \(errorMessage)")
-                        .foregroundColor(.red)
-                        .padding()
                 } else {
-                    ProgressView("Chargement du signalement…")
-                        .padding()
+                    Text("Aucun contenu à afficher.")
+                        .foregroundColor(.gray)
                 }
             }
             .padding(.vertical)
@@ -145,10 +157,11 @@ struct MeldingDetailView: View {
                     dismiss()
                 }) {
                     Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.system(size: 18))
                         .foregroundColor(Color(hex: "#4557A1"))
                 }
             }
+            
             ToolbarItem(placement: .principal) {
                 Text("Informations")
                     .font(.subheadline)
@@ -156,26 +169,23 @@ struct MeldingDetailView: View {
             }
         }
         .onAppear {
+            print("👀 [DEBUG] Vue MeldingDetailView apparaît")
             viewModel.fetchSignalement(arretId: arretId, signalementId: signalementId)
         }
     }
-}
-
-
-// ✅ Fonction bien placée ici, en-dehors du body
-private func voteButton(icon: String, count: Int, color: Color, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-        HStack(spacing: 6) {
+    
+    
+    // 🧩 Cette fonction est maintenant bien en dehors du body
+    private func voteSquareButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Image(systemName: icon)
-            Text("\(count)")
-                .fontWeight(.semibold)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .padding(16)
+                .background(Color(hex: "#F18F5D"))
+                .foregroundColor(.white)
+                .cornerRadius(10)
         }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(color.opacity(0.9))
-        .foregroundColor(.white)
-        .cornerRadius(14)
     }
 }
-
-
