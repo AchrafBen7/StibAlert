@@ -3,6 +3,7 @@
 //  StibAlert
 //
 //  Created by studentehb on 24/03/2025.
+
 import SwiftUI
 
 struct MeldingDetailView: View {
@@ -16,7 +17,7 @@ struct MeldingDetailView: View {
             VStack(spacing: 24) {
                 if viewModel.isLoading {
                     Spacer()
-                    ProgressView("Chargement...")
+                    ProgressView("")
                         .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "#4557A1")))
                         .scaleEffect(1.5)
                     Spacer()
@@ -45,9 +46,10 @@ struct MeldingDetailView: View {
                     }
                     .padding()
                 } else if let signalement = viewModel.signalement {
+                    
                     VStack(spacing: 20) {
-                        // 🔷 Ligne + Arrêt + Type
-                        HStack {
+                        // 🔹 Ligne + arrêt + type
+                        HStack(alignment: .center) {
                             HStack(spacing: 8) {
                                 Text(signalement.ligne)
                                     .font(.system(size: 14, weight: .bold))
@@ -72,13 +74,14 @@ struct MeldingDetailView: View {
                                     .font(.system(size: 15, weight: .semibold))
                             }
                             .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 10)
                             .background(ProblemColors.color(for: signalement.typeProbleme))
                             .foregroundColor(.white)
                             .cornerRadius(18)
                         }
+                        .padding(.horizontal)
                         
-                        // 📝 Description
+                        // 📝 Description (dans rectangle blanc dans le bloc gris)
                         VStack(spacing: 8) {
                             Text("Description")
                                 .font(.system(size: 14, weight: .semibold))
@@ -93,11 +96,11 @@ struct MeldingDetailView: View {
                                 .contentShape(Rectangle())
                         }
                         .padding()
-                        .frame(minHeight: 90)
                         .background(Color.white)
                         .cornerRadius(18)
-                        
-                        // 🖼️ Image
+                        .padding(.horizontal)
+
+                        // 📷 Photo
                         if let photo = signalement.photo, let url = URL(string: photo) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Photo du signalement")
@@ -134,12 +137,13 @@ struct MeldingDetailView: View {
                                     }
                                 }
                             }
-                            .padding()
-                            .background(Color(hex: "#F2F2F2"))
-                            .cornerRadius(24)
                             .padding(.horizontal)
                         }
                     }
+                    .padding(.vertical)
+                    .padding(.top)
+                    .background(Color(hex: "#F2F2F2"))
+                    .cornerRadius(24)
                     .padding(.horizontal)
                 } else {
                     Text("Aucun contenu à afficher.")
@@ -161,7 +165,6 @@ struct MeldingDetailView: View {
                         .foregroundColor(Color(hex: "#4557A1"))
                 }
             }
-            
             ToolbarItem(placement: .principal) {
                 Text("Informations")
                     .font(.subheadline)
@@ -174,8 +177,7 @@ struct MeldingDetailView: View {
         }
     }
     
-    
-    // 🧩 Cette fonction est maintenant bien en dehors du body
+    // Bouton vote
     private func voteSquareButton(icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
