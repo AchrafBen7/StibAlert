@@ -3,12 +3,12 @@
 //  StibAlert
 //
 //  Created by studentehb on 29/04/2025.
-
 import SwiftUI
 
 struct SplashView: View {
     @State private var isActive = false
     @State private var showLogo = false
+    @StateObject private var meldingenVM = MeldingenViewModel() // ✅ Besoin d’un ViewModel ici
 
     var body: some View {
         NavigationView {
@@ -23,7 +23,7 @@ struct SplashView: View {
                     VStack {
                         Spacer()
 
-                        Image("logo")
+                        Image("logo") // Assure-toi que "logo" correspond exactement au nom dans Assets
                             .resizable()
                             .scaledToFit()
                             .frame(width: 180, height: 180)
@@ -38,16 +38,25 @@ struct SplashView: View {
                 startupTasks()
             }
         }
+        .navigationViewStyle(StackNavigationViewStyle()) // ✅ Pour iOS < 16
     }
 
     private func startupTasks() {
-        let _ = FirstLaunchManager.checkFirstLaunch() // Tu peux utiliser cette ligne si tu veux faire un fetch ici.
+        showLogo = true // ✅ Déclenche l’animation du logo
 
-        showLogo = true
+        let isFirstLaunch = FirstLaunchManager.checkFirstLaunch()
 
+        if isFirstLaunch {
+            print("[SplashView] 🎉 Premier lancement détecté.")
+
+            meldingenVM.fetchMeldingen() // ✅ Sans closure
+            UserDefaults.standard.set(Date(), forKey: "lastUpdateDate")
+        }
+
+        // Délai visuel
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             withAnimation {
-                isActive = true
+                self.isActive = true
             }
         }
     }

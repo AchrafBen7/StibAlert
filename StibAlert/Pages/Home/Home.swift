@@ -67,7 +67,7 @@ struct Home: View {
                     meldingenVM.fetchMeldingen()
                 }
             }
-
+            
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showAuthSheet) {
@@ -79,45 +79,31 @@ struct Home: View {
     
     private var topBar: some View {
         HStack {
-            // Bouton profil dynamique
+            // Icône profil ou bouton d'authentification
             if authViewModel.isAuthenticated, let user = authViewModel.user {
                 NavigationLink {
                     ProfilView(authViewModel: authViewModel)
                 } label: {
-                    // Affiche la première lettre du nom de l'utilisateur en rond
-                    if let firstChar = user.nom.first {
-                        Text(String(firstChar))
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 36, height: 36)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle().stroke(Color(hex: "#ECECEC"), lineWidth: 1)
-                            )
-                    } else {
-                        Image(systemName: "person.fill")
-                            .resizable()
-                            .frame(width: 24, height: 24)
-                            .foregroundColor(.blue)
-                    }
+                    Image(systemName: "person")
+                        .font(.system(size: 24, weight: .regular))
+                        .foregroundColor(.white)
                 }
             } else {
-                // Bouton qui ouvre la feuille d'authentification
                 Button {
                     showAuthSheet = true
                 } label: {
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.gray)
+                    Image(systemName: "person")
+                        .font(.system(size: 24, weight: .regular))
+                        .foregroundColor(.white)
                 }
             }
             
             Spacer()
             
             Text("Hey, \(authViewModel.user?.nom ?? "Invité")")
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(1)
             
             Spacer()
             
@@ -125,19 +111,23 @@ struct Home: View {
                 // Action de notification
             } label: {
                 Image(systemName: "bell")
-                    .font(.title3)
-                    .foregroundColor(.orange)
+                    .font(.system(size: 24))
+                    .foregroundColor(.white)
             }
         }
+        .frame(height: 60) // ✅ Plus haut
         .padding(.horizontal, 24)
-        .padding(.top, 8)
+        .background(Color(hex: "#3E3C7D"))
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
     }
+    
     
     private var normalHomeContent: some View {
         VStack {
             // Banniere dynamique
             MobibCardView(authViewModel: authViewModel)
-            
                 .frame(height: 200)
                 .padding(.horizontal, 24)
                 .padding(.top, 40)
@@ -147,17 +137,21 @@ struct Home: View {
             // Section "Latest reports" avec filtre
             HStack {
                 Text("Latest reports")
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                
                 Spacer()
+                
                 Button {
-                    // Action de filtre
+                    // action filtre
                 } label: {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
+                    Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                        .foregroundColor(.black.opacity(0.5))
                         .font(.title3)
-                        .foregroundColor(.orange)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
             
             // Grille des signalements
             let validMeldingen = meldingenVM.meldingen
@@ -179,10 +173,10 @@ struct Home: View {
                 ScrollView {
                     LazyVGrid(
                         columns: [
-                            GridItem(.flexible(minimum: 180), spacing: 20),
-                            GridItem(.flexible(minimum: 180), spacing: 20)
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16)
                         ],
-                        spacing: 20
+                        spacing: 16
                     ) {
                         ForEach(validMeldingen) { signalement in
                             NavigationLink(
@@ -199,18 +193,30 @@ struct Home: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
+                    
+                    // 🔗 BOUTON "Other reports"
+                    NavigationLink(destination: AllReportsView()) {
+                        Text("Other reports")
+                            .font(.system(size: 14, weight: .semibold))
+                            .underline()
+                            .foregroundColor(.black)
+                    }
+                    .padding(.top, 10)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .refreshable {
                     meldingenVM.fetchMeldingen()
                 }
             }
+            
             Spacer()
         }
     }
-}
-
-struct HomeView_Previews: PreviewProvider {
-    static var previews: some View {
-        Home()
+    
+    
+    struct HomeView_Previews: PreviewProvider {
+        static var previews: some View {
+            Home()
+        }
     }
 }

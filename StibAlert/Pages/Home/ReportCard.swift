@@ -32,88 +32,66 @@ struct MeldingenCardView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            
-            // ---------
-            // Ligne + nom de l'arrêt sur une même ligne
-            // ---------
-            HStack(alignment: .center, spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(LineColors.color(for: signalement.ligne))
-                    
+            VStack(alignment: .leading, spacing: 12) {
+
+                // Ligne + nom arrêt
+                HStack(spacing: 12) {
                     Text(signalement.ligne)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(LineColors.color(for: signalement.ligne))
+                        .cornerRadius(8)
+
+                    Text(signalement.arretId.nom)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+
+                    Spacer()
                 }
-                .frame(width: 36, height: 36)
-                
-                Text(signalement.arretId.nom)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                
-                Spacer()
-            }
-            
-            // Badge pour le type de problème et la date
-            HStack {
-                Text(signalement.typeProbleme)
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 10)
-                    .background(ProblemColors.color(for: signalement.typeProbleme))
-                    .cornerRadius(14)
-                
-                Spacer()
-                
-                Text(formattedDate)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-            
-            // Votes (flèches haut/bas) ou autre contenu
-            HStack(spacing: 8) {
-                HStack(spacing: 2) {
-                    Image(systemName: "chevron.up")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                    Text("\(signalement.votesPositifs)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+
+                // From / To
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.left")
+                            .font(.caption)
+                            .foregroundColor(.black)
+                        Text("From: Centraal Station")
+                            .font(.caption)
+                            .foregroundColor(.black)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundColor(.black)
+                        Text("To: Begrafenis evere")
+                            .font(.caption)
+                            .foregroundColor(.black)
+                    }
                 }
-                .padding(4)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(4)
-                
-                HStack(spacing: 2) {
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                    Text("\(signalement.votesNegatifs)")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+
+                // Type de problème
+                if !signalement.typeProbleme.isEmpty {
+                    Text(signalement.typeProbleme)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 14)
+                        .background(ProblemColors.color(for: signalement.typeProbleme))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
                 }
-                .padding(4)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(4)
             }
-            
-            Spacer() // Pousse le contenu vers le haut
+            .padding(16)
+            .background(ProblemColors.color(for: signalement.typeProbleme).opacity(0.07)) // ✅ fond léger en lien avec le type
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color(hex: "#ECECEC"), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.02), radius: 1, x: 0, y: 1)
+            .opacity(cardOpacity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 10)
-        .background(Color.white)
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(hex: "#ECECEC"), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.02), radius: 1, x: 0, y: 1)
-        .opacity(cardOpacity)
     }
-}
