@@ -1,10 +1,11 @@
 
 import SwiftUI
-import SwiftUI
+import CoreLocation
+
 
 struct NewMeldingView: View {
     @StateObject private var viewModel = NewMeldingViewModel()
-    
+    @StateObject private var locationManager = LocationManager()
     @State private var nomArret: String = ""
     @State private var ligne: String = ""
     @State private var selectedProbleem: ProbleemType? = nil
@@ -19,6 +20,37 @@ struct NewMeldingView: View {
     @State private var selectedUIImage: UIImage?
     @State private var showImagePicker = false
     @State private var useCamera = false
+    
+    
+    private func computeNearbyHaltes() -> [HalteModel] {
+        guard let userLocation = locationManager.userLocation else {
+            print("[DEBUG] ❌ Localisation utilisateur non dispo")
+            return []
+        }
+        
+        print("[DEBUG] 📍 Position utilisateur : \(userLocation.latitude), \(userLocation.longitude)")
+        print("[DEBUG] 🧮 Nombre total d'arrêts disponibles : \(arretsVM.arrets.count)")
+        
+        let result = arretsVM.arrets.compactMap { halte in
+            let halteCoord = CLLocation(latitude: halte.latitude, longitude: halte.longitude)
+            let distance = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+                .distance(from: halteCoord)
+            
+            if distance <= 1300 {
+                var updatedHalte = halte
+                updatedHalte.distanceToUser = distance
+                print("[DEBUG] ✅ Arrêt '\(halte.nom)' à \(Int(distance)) m")
+                return updatedHalte
+            }
+            return nil
+        }
+            .sorted { ($0.distanceToUser ?? 0) < ($1.distanceToUser ?? 0) }
+        
+        print("[DEBUG] 📌 Arrêts à proximité trouvés : \(result.count)")
+        return result
+    }
+    
+    
     
     var body: some View {
         ZStack {
@@ -144,66 +176,106 @@ struct NewMeldingView: View {
         }
         .onChange(of: viewModel.MeldingCreated) { if $0 != nil { showSuccessAlert = true } }
         .onChange(of: viewModel.errorMessage) { if $0 != nil { withAnimation { showErrorPopup = true } } }
-        .onAppear { lijnenVM.fetchLijnen() }
+        .onAppear {
+            lijnenVM.fetchLijnen()
+            locationManager.requestLocation()
+            arretsVM.fetchAllHaltes() // cette nouvelle fonction va charger TOUS les arrêts
+        }
+        
     }
     
     // MARK: - Sections
     private var formSection: some View {
-        VStack(spacing: 16) {
-            // 1. Sélection de la ligne
-            LijnSelectieButton(ligne: ligne, lignes: lijnenVM.lijnen) {
-                showLijnPicker = true
-            }
-            
-            // 2. Sélection de l'arrêt (uniquement si une ligne est choisie)
-            if !ligne.isEmpty {
-                Button {
-                    showArretPicker = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "mappin.and.ellipse")
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color(hex: "#4557A1"))
-                            .cornerRadius(8)
-                        
-                        Text(nomArret.isEmpty ? "Choisir un arrêt" : nomArret)
-                            .foregroundColor(nomArret.isEmpty ? .gray : .black)
-                            .font(.subheadline)
-                        
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .foregroundColor(.gray)
+        Group{
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Nearby stop")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                ForEach(computeNearbyHaltes().prefix(3)) { halte in
+                    
+                    Button {
+                        nomArret = halte.nom
+                        arretsVM.fetchLijnenPourArret(arretId: halte.id) // à créer
+                        showLijnPicker = true
                     }
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                    )
+                    label: {
+                        HStack {
+                            Text(halte.nom)
+                                .foregroundColor(.black)
+                            Spacer()
+                            if let distance = halte.distanceToUser {
+                                Text(String(format: "%.1f km", distance / 1000))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                    }
                 }
             }
             
-            // 3. Problème
-            probleemSection
-            
-            // 4. Description
-            VStack(alignment: .leading) {
-                Text("Explique plus en détail")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                CustomInputField(placeholder: "Décrivez ce qui s’est passé…", text: $description, isMultiline: true)
+            VStack(spacing: 16) {
+                // 1. Sélection de la ligne
+                LijnSelectieButton(ligne: ligne, lignes: lijnenVM.lijnen) {
+                    showLijnPicker = true
+                }
+                
+                // 2. Sélection de l'arrêt (uniquement si une ligne est choisie)
+                if !ligne.isEmpty {
+                    Button {
+                        showArretPicker = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(Color(hex: "#4557A1"))
+                                .cornerRadius(8)
+                            
+                            Text(nomArret.isEmpty ? "Choisir un arrêt" : nomArret)
+                                .foregroundColor(nomArret.isEmpty ? .gray : .black)
+                                .font(.subheadline)
+                            
+                            Spacer()
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                    }
+                }
+                
+                // 3. Problème
+                probleemSection
+                
+                // 4. Description
+                VStack(alignment: .leading) {
+                    Text("Explique plus en détail")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    CustomInputField(placeholder: "Décrivez ce qui s’est passé…", text: $description, isMultiline: true)
+                }
+                
+                // 5. Photo
+                PhotoPickerSection(
+                    selectedUIImage: $selectedUIImage,
+                    showImagePicker: $showImagePicker,
+                    useCamera: $useCamera
+                )
             }
-            
-            // 5. Photo
-            PhotoPickerSection(
-                selectedUIImage: $selectedUIImage,
-                showImagePicker: $showImagePicker,
-                useCamera: $useCamera
-            )
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 24)
     }
     
     private var probleemSection: some View {
@@ -268,4 +340,6 @@ struct NewMeldingView: View {
         }
         .padding(.horizontal, 24)
     }
+    
 }
+

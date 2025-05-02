@@ -99,7 +99,7 @@ struct MeldingDetailView: View {
                         .background(Color.white)
                         .cornerRadius(18)
                         .padding(.horizontal)
-
+                        
                         // 📷 Photo
                         if let photo = signalement.photo, let url = URL(string: photo) {
                             VStack(alignment: .leading, spacing: 8) {
@@ -127,15 +127,17 @@ struct MeldingDetailView: View {
                                     .font(.footnote)
                                     .foregroundColor(.black)
                                 
+                                
                                 HStack(spacing: 16) {
                                     voteSquareButton(icon: "heart") {
                                         viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: true)
                                     }
                                     
-                                    voteSquareButton(icon: "eye.slash") {
+                                    voteSquareButton(icon: "heart.slash") {
                                         viewModel.voteSignalement(arretId: arretId, signalementId: signalementId, isUp: false)
                                     }
                                 }
+                                
                             }
                             .padding(.horizontal)
                         }

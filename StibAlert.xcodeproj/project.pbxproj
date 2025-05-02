@@ -399,6 +399,8 @@
 				DEVELOPMENT_TEAM = M8S7S446XZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +430,8 @@
 				DEVELOPMENT_TEAM = M8S7S446XZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

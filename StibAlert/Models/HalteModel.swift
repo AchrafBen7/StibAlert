@@ -17,7 +17,7 @@ struct HalteModel: Identifiable, Codable {
     let lignesDesservies: [String]
     let etat: String
     let signalementsRecents: [String]?
-
+    var distanceToUser: Double?
     // SwiftUI utilisera _id comme identifiant unique
     var id: String { _id }
 
