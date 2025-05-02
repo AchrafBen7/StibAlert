@@ -24,27 +24,37 @@ struct NewMeldingView: View {
     
     private func computeNearbyHaltes() -> [HalteModel] {
         guard let userLocation = locationManager.userLocation else {
-            print("[DEBUG] ❌ Localisation utilisateur non dispo")
+            print("[DEBUG] ❌ Position utilisateur indisponible")
             return []
         }
         
         print("[DEBUG] 📍 Position utilisateur : \(userLocation.latitude), \(userLocation.longitude)")
         print("[DEBUG] 🧮 Nombre total d'arrêts disponibles : \(arretsVM.arrets.count)")
         
-        let result = arretsVM.arrets.compactMap { halte in
+        var seen = Set<String>()
+        
+        let result: [HalteModel] = arretsVM.arrets.compactMap { halte -> HalteModel? in
             let halteCoord = CLLocation(latitude: halte.latitude, longitude: halte.longitude)
-            let distance = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
-                .distance(from: halteCoord)
+            let distance = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude).distance(from: halteCoord)
             
             if distance <= 1300 {
+                if seen.contains(halte.nom) {
+                    print("[DEBUG] 🔁 Doublon ignoré : \(halte.nom)")
+                    return nil
+                }
+                
+                seen.insert(halte.nom)
                 var updatedHalte = halte
                 updatedHalte.distanceToUser = distance
                 print("[DEBUG] ✅ Arrêt '\(halte.nom)' à \(Int(distance)) m")
                 return updatedHalte
+            } else {
+                print("[DEBUG] 🚫 Trop loin : \(halte.nom) à \(Int(distance)) m")
+                return nil
             }
-            return nil
         }
-            .sorted { ($0.distanceToUser ?? 0) < ($1.distanceToUser ?? 0) }
+        .sorted { ($0.distanceToUser ?? 0) < ($1.distanceToUser ?? 0) }
+
         
         print("[DEBUG] 📌 Arrêts à proximité trouvés : \(result.count)")
         return result
@@ -88,7 +98,9 @@ struct NewMeldingView: View {
                         .font(.headline)
                         .padding(.top, 16)
                     
-                    let arretsUniques = Dictionary(grouping: arretsVM.arrets, by: { $0.nom }).compactMap { $0.value.first }
+                    let arretsUniques: [HalteModel] = Dictionary(grouping: arretsVM.arrets, by: { $0.nom }).compactMap { (_, value) in value.first }
+
+
                     
                     ForEach(arretsUniques) { halte in
                         Button(action: {
@@ -186,20 +198,18 @@ struct NewMeldingView: View {
     
     // MARK: - Sections
     private var formSection: some View {
-        Group{
+        Group {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Nearby stop")
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
                 ForEach(computeNearbyHaltes().prefix(3)) { halte in
-                    
                     Button {
                         nomArret = halte.nom
-                        arretsVM.fetchLijnenPourArret(arretId: halte.id) // à créer
+                        arretsVM.fetchLijnenPourArret(arretId: halte.id)
                         showLijnPicker = true
-                    }
-                    label: {
+                    } label: {
                         HStack {
                             Text(halte.nom)
                                 .foregroundColor(.black)
@@ -218,7 +228,15 @@ struct NewMeldingView: View {
                         )
                     }
                 }
+                
+                // 👉 Affiche le bouton de sélection de ligne uniquement si un arrêt a été choisi et les lignes sont disponibles
+                if !nomArret.isEmpty && !arretsVM.lignesPourArret.isEmpty {
+                    LijnSelectieButton(ligne: ligne, lignes: arretsVM.lignesPourArret) {
+                        showLijnPicker = true
+                    }
+                }
             }
+            
             
             VStack(spacing: 16) {
                 // 1. Sélection de la ligne
