@@ -20,6 +20,8 @@ struct NewMeldingView: View {
     @State private var selectedUIImage: UIImage?
     @State private var showImagePicker = false
     @State private var useCamera = false
+    @State private var selectedArretId: String = ""
+    
     
     
     private func computeNearbyHaltes() -> [HalteModel] {
@@ -49,12 +51,12 @@ struct NewMeldingView: View {
                 print("[DEBUG] ✅ Arrêt '\(halte.nom)' à \(Int(distance)) m")
                 return updatedHalte
             } else {
-                print("[DEBUG] 🚫 Trop loin : \(halte.nom) à \(Int(distance)) m")
+                
                 return nil
             }
         }
-        .sorted { ($0.distanceToUser ?? 0) < ($1.distanceToUser ?? 0) }
-
+            .sorted { ($0.distanceToUser ?? 0) < ($1.distanceToUser ?? 0) }
+        
         
         print("[DEBUG] 📌 Arrêts à proximité trouvés : \(result.count)")
         return result
@@ -84,12 +86,11 @@ struct NewMeldingView: View {
             ImagePicker(selectedImage: $selectedUIImage, sourceType: useCamera ? .camera : .photoLibrary)
         }
         .sheet(isPresented: $showLijnPicker) {
-            LijnPickerView(lignes: lijnenVM.lijnen) { selectedLine in
+            LijnPickerView(lignes: arretsVM.lignesPourArret) { selectedLine in
                 ligne = selectedLine.lineid
-                nomArret = ""
-                arretsVM.fetchArrets(lineId: selectedLine.lineid)
                 showLijnPicker = false
             }
+            
         }
         .sheet(isPresented: $showArretPicker) {
             ScrollView {
@@ -99,8 +100,8 @@ struct NewMeldingView: View {
                         .padding(.top, 16)
                     
                     let arretsUniques: [HalteModel] = Dictionary(grouping: arretsVM.arrets, by: { $0.nom }).compactMap { (_, value) in value.first }
-
-
+                    
+                    
                     
                     ForEach(arretsUniques) { halte in
                         Button(action: {
@@ -204,11 +205,16 @@ struct NewMeldingView: View {
                     .font(.subheadline)
                     .foregroundColor(.gray)
                 
-                ForEach(computeNearbyHaltes().prefix(3)) { halte in
+                ForEach(computeNearbyHaltes().prefix(5)) { halte in
                     Button {
                         nomArret = halte.nom
-                        arretsVM.fetchLijnenPourArret(arretId: halte.id)
-                        showLijnPicker = true
+                        selectedArretId = halte.id
+                        print("[DEBUG] 🟡 Halté sélectionné : nom = \(halte.nom), id = \(halte.id)")
+                        
+                        arretsVM.fetchLijnenPourArret(arretId: halte.id) {
+                            print("[DEBUG] 🟢 Callback exécuté : affichage de la sheet lignes")
+                            showLijnPicker = true
+                        }
                     } label: {
                         HStack {
                             Text(halte.nom)
@@ -229,6 +235,7 @@ struct NewMeldingView: View {
                     }
                 }
                 
+                
                 // 👉 Affiche le bouton de sélection de ligne uniquement si un arrêt a été choisi et les lignes sont disponibles
                 if !nomArret.isEmpty && !arretsVM.lignesPourArret.isEmpty {
                     LijnSelectieButton(ligne: ligne, lignes: arretsVM.lignesPourArret) {
@@ -239,40 +246,8 @@ struct NewMeldingView: View {
             
             
             VStack(spacing: 16) {
-                // 1. Sélection de la ligne
-                LijnSelectieButton(ligne: ligne, lignes: lijnenVM.lijnen) {
-                    showLijnPicker = true
-                }
                 
-                // 2. Sélection de l'arrêt (uniquement si une ligne est choisie)
-                if !ligne.isEmpty {
-                    Button {
-                        showArretPicker = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "mappin.and.ellipse")
-                                .foregroundColor(.white)
-                                .frame(width: 32, height: 32)
-                                .background(Color(hex: "#4557A1"))
-                                .cornerRadius(8)
-                            
-                            Text(nomArret.isEmpty ? "Choisir un arrêt" : nomArret)
-                                .foregroundColor(nomArret.isEmpty ? .gray : .black)
-                                .font(.subheadline)
-                            
-                            Spacer()
-                            Image(systemName: "chevron.down")
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
-                    }
-                }
+                
                 
                 // 3. Problème
                 probleemSection

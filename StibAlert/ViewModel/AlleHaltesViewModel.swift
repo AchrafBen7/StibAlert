@@ -12,6 +12,8 @@ class AlleHaltesViewModel: ObservableObject {
     @Published var lignesPourArret: [LijnModel] = []
     @Published var arrets: [HalteModel] = []
     @Published var errorMessage: String?
+    @Published var isFetchingLignes = false
+    
     
     func fetchArrets(lineId: String) {
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=asc") else {
@@ -55,22 +57,43 @@ class AlleHaltesViewModel: ObservableObject {
             }
         }.resume()
     }
-    func fetchLijnenPourArret(arretId: String) {
-        guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/\(arretId)/lignes") else { return }
+    func fetchLijnenPourArret(arretId: String, completion: @escaping () -> Void) {
+        print("[DEBUG] 📡 Envoi de requête pour les lignes de l'arrêt ID: \(arretId)")
+        
+        guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/\(arretId)/lignes") else {
+            print("[ERREUR] ❌ URL invalide")
+            return
+        }
         
         URLSession.shared.dataTask(with: url) { data, _, error in
-            if let data = data {
-                do {
-                    let lignes = try JSONDecoder().decode([LijnModel].self, from: data)
-                    DispatchQueue.main.async {
-                        self.lignesPourArret = lignes
-                    }
-                } catch {
-                    print("[ERREUR] lignes pour arrêt :", error.localizedDescription)
+            if let error = error {
+                print("[ERREUR] ❌ Requête échouée: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                print("[ERREUR] ❌ Pas de données")
+                return
+            }
+            
+            if let raw = String(data: data, encoding: .utf8) {
+                print("[DEBUG] 🔍 JSON brut:\n\(raw)")
+            }
+            
+            do {
+                let lignes = try JSONDecoder().decode([LijnModel].self, from: data)
+                DispatchQueue.main.async {
+                    self.lignesPourArret = lignes
+                    print("[DEBUG] ✅ Lignes chargées: \(lignes.map { $0.lineid })")
+                    completion()
                 }
+            } catch {
+                print("[ERREUR] ❌ Décodage JSON: \(error.localizedDescription)")
             }
         }.resume()
     }
+    
+    
 }
 
 
