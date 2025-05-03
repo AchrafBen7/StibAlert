@@ -70,18 +70,31 @@ struct NewMeldingView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Ajouter un signalement")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .padding(.top, 24)
-                        .padding(.horizontal, 24)
                     
+                    // 🔵 TON TITRE/HEADER (ex-HStack)
+                    HStack {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundColor(.blue)
+                        Text(nomArret.isEmpty
+                             ? "Choisis un arrêt"
+                             : "\(nomArret) – \(computeNearbyHaltes().first { $0.nom == nomArret }?.distanceToUser.map { Int($0) } ?? 0)m")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        Spacer()
+                    }
+                    .padding(.top, 12)
+                    .padding(.horizontal, 24)
+                    
+                    // 📝 LE FORMULAIRE
                     formSection
                     
+                    // 📤 BOUTON ENVOYER
                     envoyerButtonSection
                 }
+                .padding(.bottom, 20)
             }
         }
+        
         .sheet(isPresented: $showImagePicker) {
             ImagePicker(selectedImage: $selectedUIImage, sourceType: useCamera ? .camera : .photoLibrary)
         }
@@ -199,87 +212,114 @@ struct NewMeldingView: View {
     
     // MARK: - Sections
     private var formSection: some View {
-        Group {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Nearby stop")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                
-                ForEach(computeNearbyHaltes().prefix(5)) { halte in
-                    Button {
-                        nomArret = halte.nom
-                        selectedArretId = halte.id
-                        print("[DEBUG] 🟡 Halté sélectionné : nom = \(halte.nom), id = \(halte.id)")
-                        
-                        arretsVM.fetchLijnenPourArret(arretId: halte.id) {
-                            print("[DEBUG] 🟢 Callback exécuté : affichage de la sheet lignes")
-                            showLijnPicker = true
-                        }
-                    } label: {
-                        HStack {
-                            Text(halte.nom)
-                                .foregroundColor(.black)
-                            Spacer()
-                            if let distance = halte.distanceToUser {
-                                Text(String(format: "%.1f km", distance / 1000))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
-                    }
-                }
-                
-                
-                // 👉 Affiche le bouton de sélection de ligne uniquement si un arrêt a été choisi et les lignes sont disponibles
-                if !nomArret.isEmpty && !arretsVM.lignesPourArret.isEmpty {
-                    LijnSelectieButton(ligne: ligne, lignes: arretsVM.lignesPourArret) {
-                        showLijnPicker = true
-                    }
-                }
-            }
+        VStack(alignment: .leading, spacing: 20) {
             
+            // Nearby stop
+            Text("Nearby stop")
+                .font(.subheadline)
+                .foregroundColor(.gray)
             
-            VStack(spacing: 16) {
-                
-                
-                
-                // 3. Problème
-                probleemSection
-                
-                // 4. Description
-                VStack(alignment: .leading) {
-                    Text("Explique plus en détail")
-                        .font(.subheadline)
+            if arretsVM.arrets.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Recherche des arrêts à proximité...")
+                        .font(.footnote)
                         .foregroundColor(.gray)
-                    CustomInputField(placeholder: "Décrivez ce qui s’est passé…", text: $description, isMultiline: true)
                 }
-                
-                // 5. Photo
-                PhotoPickerSection(
-                    selectedUIImage: $selectedUIImage,
-                    showImagePicker: $showImagePicker,
-                    useCamera: $useCamera
-                )
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(computeNearbyHaltes().prefix(5)) { halte in
+                        Button {
+                            nomArret = halte.nom
+                            selectedArretId = halte.id
+                            arretsVM.fetchLijnenPourArret(arretId: halte.id) {
+                                showLijnPicker = true
+                            }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(halte.nom)
+                                        .font(.footnote)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.black)
+                                    if let distance = halte.distanceToUser {
+                                        Text(String(format: "%.0f m", distance))
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .frame(maxWidth: .infinity)
+                            .background(nomArret == halte.nom ? Color.orange.opacity(0.4) : Color(UIColor.systemGray6))
+                            .cornerRadius(10)
+                        }
+                    }
+                }
             }
-            .padding(.horizontal, 24)
+            
+            // Ligne si disponible
+            if !nomArret.isEmpty && !arretsVM.lignesPourArret.isEmpty {
+                LijnSelectieButton(ligne: ligne, lignes: arretsVM.lignesPourArret) {
+                    showLijnPicker = true
+                }
+            }
+            
+            // Problème
+            probleemSection
+            
+            // Description
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $description)
+                    .padding(12)
+                    .background(Color.white)
+                    .cornerRadius(16)
+                    .foregroundColor(.black)
+                    .frame(minHeight: 120)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+                
+                if description.isEmpty {
+                    Text("Décrivez ici...")
+                        .foregroundColor(.gray)
+                        .padding(.top, 20)
+                        .padding(.leading, 18)
+                }
+            }
+            
+            // Photo
+            PhotoPickerSection(
+                selectedUIImage: $selectedUIImage,
+                showImagePicker: $showImagePicker,
+                useCamera: $useCamera
+            )
+            
         }
+        .padding(.horizontal, 14) // ✅ Un seul padding ici
     }
+    
     
     private var probleemSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quel est le souci ?")
                 .font(.subheadline)
                 .foregroundColor(.gray)
-                .padding(.horizontal, 24)
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 16),
+                    GridItem(.flexible(), spacing: 16)
+                ],
+                spacing: 16
+            ) {
                 ForEach(ProbleemType.allCases.filter { $0 != .Autre }) { probleem in
+                    let isSelected = selectedProbleem == probleem
+                    
                     Button {
                         selectedProbleem = probleem
                     } label: {
@@ -287,22 +327,33 @@ struct NewMeldingView: View {
                             Image(systemName: probleem.icon)
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(.white)
+                            
                             Text(probleem.rawValue)
-                                .font(.caption)
+                                .font(.callout)
                                 .foregroundColor(.white)
                                 .multilineTextAlignment(.center)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
-                        .frame(width: 90, height: 90)
-                        .background(probleem.color.opacity(probleem == selectedProbleem ? 1 : 0.6))
-                        .cornerRadius(16)
+                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .background(probleem.color.opacity(isSelected ? 1 : 0.7))
+                        .cornerRadius(14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(probleem.color.darker(by: 20), lineWidth: isSelected ? 2 : 0)
+                        )
+                        .shadow(color: isSelected ? probleem.color.darker(by: 30).opacity(0.3) : .clear,
+                                radius: 4, x: 0, y: 2)
+                        .scaleEffect(isSelected ? 1.05 : 1.0)
+                        .animation(.easeInOut(duration: 0.15), value: selectedProbleem)
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            
-            
         }
+        .padding(.horizontal, 9)
     }
+    
+    
     
     private var envoyerButtonSection: some View {
         Button {
@@ -331,8 +382,9 @@ struct NewMeldingView: View {
                 .cornerRadius(12)
                 .font(.headline)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 9)
     }
     
 }
+
 

@@ -9,10 +9,16 @@ import SwiftUI
 
 @main
 struct StibAlertApp: App {
+    init() {
+        // ✅ Essentiel pour que le TextEditor ne masque pas le placeholder
+        UITextView.appearance().backgroundColor = .clear
+    }
+
     var body: some Scene {
         WindowGroup {
-            SplashView() // ✅ on démarre ici
+            SplashView()
         }
     }
 }
+
 
