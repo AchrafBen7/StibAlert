@@ -21,6 +21,7 @@ struct NewMeldingView: View {
     @State private var showImagePicker = false
     @State private var useCamera = false
     @State private var selectedArretId: String = ""
+    @State private var showAllNearbyStops = false
     
     
     
@@ -207,6 +208,30 @@ struct NewMeldingView: View {
             locationManager.requestLocation()
             arretsVM.fetchAllHaltes() // cette nouvelle fonction va charger TOUS les arrêts
         }
+        .sheet(isPresented: $showAllNearbyStops) {
+            NavigationView {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Tous les arrêts à proximité")
+                            .font(.headline)
+                            .padding()
+                        
+                        ForEach(computeNearbyHaltes()) { halte in
+                            halteButton(halte: halte)
+                                .padding(.horizontal)
+                        }
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fermer") {
+                            showAllNearbyStops = false
+                        }
+                    }
+                }
+            }
+        }
+        
         
     }
     
@@ -229,35 +254,21 @@ struct NewMeldingView: View {
             } else {
                 VStack(spacing: 6) {
                     ForEach(computeNearbyHaltes().prefix(5)) { halte in
-                        Button {
-                            nomArret = halte.nom
-                            selectedArretId = halte.id
-                            arretsVM.fetchLijnenPourArret(arretId: halte.id) {
-                                showLijnPicker = true
-                            }
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(halte.nom)
-                                        .font(.footnote)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.black)
-                                    if let distance = halte.distanceToUser {
-                                        Text(String(format: "%.0f m", distance))
-                                            .font(.caption2)
-                                            .foregroundColor(.gray)
-                                    }
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .frame(maxWidth: .infinity)
-                            .background(nomArret == halte.nom ? Color.orange.opacity(0.4) : Color(UIColor.systemGray6))
-                            .cornerRadius(10)
+                        halteButton(halte: halte)
+                    }
+                    
+                    if computeNearbyHaltes().count > 5 {
+                        Button(action: {
+                            showAllNearbyStops = true
+                        }) {
+                            Text("Voir tous les arrêts à proximité")
+                                .font(.footnote)
+                                .foregroundColor(.blue)
+                                .padding(.top, 4)
                         }
                     }
                 }
+                
             }
             
             // Ligne si disponible
@@ -351,6 +362,7 @@ struct NewMeldingView: View {
             }
         }
         .padding(.horizontal, 9)
+        
     }
     
     
@@ -384,7 +396,42 @@ struct NewMeldingView: View {
         }
         .padding(.horizontal, 9)
     }
+    @ViewBuilder
+    private func halteButton(halte: HalteModel) -> some View {
+        Button {
+            nomArret = halte.nom
+            ligne = "" // reset
+            selectedArretId = halte.id
+            showAllNearbyStops = false // ⬅️ ajoute cette ligne pour FERMER la sheet
+            arretsVM.fetchLijnenPourArret(arretId: halte.id) {
+                showLijnPicker = true
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(halte.nom)
+                        .font(.footnote)
+                        .fontWeight(.medium)
+                        .foregroundColor(.black)
+                    if let distance = halte.distanceToUser {
+                        Text(String(format: "%.0f m", distance))
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .background(nomArret == halte.nom ? Color.orange.opacity(0.4) : Color(UIColor.systemGray6))
+            .cornerRadius(10)
+        }
+    }
+    
+    
     
 }
+
 
 

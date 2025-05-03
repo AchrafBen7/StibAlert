@@ -11,6 +11,7 @@ struct Home: View {
     @StateObject var authViewModel = AuthViewModel()
     @State var selectedTab = 0
     @State private var showAuthSheet = false  // Pour présenter le flux d'authentification
+    @State private var navigateToConnexion = false
     
     // ViewModel pour récupérer les signalements dynamiques
     @StateObject private var meldingenVM = MeldingenViewModel()
@@ -70,27 +71,35 @@ struct Home: View {
             
             .navigationBarHidden(true)
         }
-        .sheet(isPresented: $showAuthSheet) {
-            AuthOptionsView(authVM: authViewModel)
+        NavigationLink(
+            destination: ConnexionView(authVM: authViewModel),
+            isActive: $navigateToConnexion
+        ) {
+            EmptyView()
         }
+        .hidden()
+        
+        
     }
     
     // MARK: - Sous-vues
     
     private var topBar: some View {
         HStack {
-            // Icône profil ou bouton d'authentification
             if authViewModel.isAuthenticated, let user = authViewModel.user {
-                NavigationLink {
-                    ProfilView(authViewModel: authViewModel)
-                } label: {
-                    Image(systemName: "person")
-                        .font(.system(size: 24, weight: .regular))
+                // ✅ Cercle avec initiale
+                NavigationLink(destination: ProfilView(authViewModel: authViewModel)) {
+                    Text(String(user.nom.prefix(1)).uppercased())
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color(hex: "#2D2C6F"))
+                        .clipShape(Circle())
                 }
             } else {
+                // 👤 Icône profil si pas connecté
                 Button {
-                    showAuthSheet = true
+                    navigateToConnexion = true
                 } label: {
                     Image(systemName: "person")
                         .font(.system(size: 24, weight: .regular))
@@ -115,6 +124,7 @@ struct Home: View {
                     .foregroundColor(.white)
             }
         }
+        
         .frame(height: 60) // ✅ Plus haut
         .padding(.horizontal, 24)
         .background(Color(hex: "#3E3C7D"))
