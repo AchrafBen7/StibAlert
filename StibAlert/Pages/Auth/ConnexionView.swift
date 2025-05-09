@@ -35,10 +35,11 @@ struct ConnexionView: View {
             
             VStack(spacing: 16) {
                 // Titre
-                Text("Login")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding(.bottom, 8)
+                Image("logo")
+                    .resizable()
+                        .scaledToFit()
+                        .frame(width: 160, height: 160) // 🔼 Augmente la taille ici
+                        .padding(.bottom, 4)
                 
                 // Email
                 TextField("Email", text: $email)

@@ -33,10 +33,12 @@ struct RegistatieView: View {
             Spacer()
 
             VStack(spacing: 16) {
-                Text("Sign Up")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding(.bottom, 8)
+                Image("logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 160, height: 160) // ajuste à ton besoin
+                    .padding(.bottom, 4)
+
 
                 TextField("Nom complet", text: $nom)
                     .padding()
