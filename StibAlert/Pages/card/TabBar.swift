@@ -12,7 +12,8 @@ struct CustomTabBar: View {
     // Couleur active selon la charte
     let activeColor = Color(hex: "#4557A1")
     // On garde 4 icônes : Maison, Carte, Plus et Coeur
-    let icons = ["house.fill", "location.fill", "plus", "heart"]
+    let icons = ["location.fill", "list.bullet.rectangle", "plus", "heart"]
+
     
     var body: some View {
         HStack {

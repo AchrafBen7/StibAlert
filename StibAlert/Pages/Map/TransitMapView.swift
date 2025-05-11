@@ -15,6 +15,8 @@ import MapKit
 
 
 struct TransitMapView: View {
+    @ObservedObject var authViewModel: AuthViewModel
+    @Binding var navigateToConnexion: Bool
     @State private var startingAddress: String = ""
     @State private var destinationAddress: String = ""
     @State private var selectedField: FieldType? = nil
@@ -44,115 +46,72 @@ struct TransitMapView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
-            Map(coordinateRegion: $region, annotationItems: annotations) { item in
-                MapMarker(coordinate: item.coordinate, tint: item.isStart ? .green : .red)
+            // Marqueurs classiques (départ/destination)
+            Map(coordinateRegion: $region, annotationItems: annotations + userAnnotation) { item in
+                MapAnnotation(coordinate: item.coordinate) {
+                    if item.isUser {
+                        PulsatingUserLocationView()
+                    } else {
+                        Circle()
+                            .fill(item.isStart ? Color.green : Color.red)
+                            .frame(width: 20, height: 20)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                    }
+                }
             }
             .overlay(routeOverlay, alignment: .center)
-            
-            
-            VStack(spacing: 0) {
-                ZStack(alignment: .top) {
-                    Color.white
-                        .edgesIgnoringSafeArea(.top)
-                        .frame(height: 170)
-                    
-                    VStack(spacing: 12) {
-                        TextField("Adresse de départ", text: $startingAddress, onEditingChanged: { editing in
-                            if editing {
-                                selectedField = .start
-                            }
-                        })
-                        .onChange(of: startingAddress) { newValue in
-                            mapViewModel.updateSearch(queryFragment: newValue)
+            VStack {
+                HStack {
+                    if authViewModel.isAuthenticated, let user = authViewModel.user {
+                        NavigationLink(destination: ProfilView(authViewModel: authViewModel)) {
+                            Text(String(user.nom.prefix(1)).uppercased())
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 36)
+                                .background(Color(hex: "#4557A1"))
+                                .clipShape(Circle())
                         }
-                        .onSubmit {
-                            selectedField = .start
-                            rechercherTrajet()
-                        }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                        .padding(.horizontal, 24)
-                        .onChange(of: startingAddress) { newValue in
-                            mapViewModel.updateSearch(queryFragment: newValue)
-                        }
-                        
-                        TextField("Destination", text: $destinationAddress, onEditingChanged: { editing in
-                            if editing {
-                                selectedField = .destination
-                            }
-                        })
-                        .onChange(of: destinationAddress) { newValue in
-                            mapViewModel.updateSearch(queryFragment: newValue)
-                        }
-                        .onSubmit {
-                            selectedField = .destination
-                            rechercherTrajet()
-                        }
-                        
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                        .padding(.horizontal, 24)
-                        .onChange(of: destinationAddress) { newValue in
-                            mapViewModel.updateSearch(queryFragment: newValue)
+                    } else {
+                        Button {
+                            navigateToConnexion = true
+                        } label: {
+                            Image(systemName: "person")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 36)
+                                .background(Color.black.opacity(0.6))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
-                    .padding(.top, 15)
-                    
-                    VStack {
-                        Spacer().frame(height: 55)
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                swap(&startingAddress, &destinationAddress)
-                            }) {
-                                Image(systemName: "arrow.up.arrow.down")
-                                    .rotationEffect(.degrees(180))
-                                    .foregroundColor(.white)
-                                    .padding(10)
-                                    .background(Color(hex: "#4557A1"))
-                                    .cornerRadius(12)
-                            }
-                            .padding(.trailing, 45)
-                        }
-                    }
+                    Spacer()
                 }
-                
-                if !mapViewModel.searchResults.isEmpty {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(mapViewModel.searchResults, id: \.self) { result in
-                                Button(action: {
-                                    selectSuggestion(result)
-                                }) {
-                                    Text(result.title)
-                                        .foregroundColor(.black)
-                                        .padding()
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.white)
-                                }
-                                .background(
-                                    Rectangle()
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
-                                )
-                            }
-                        }
-                    }
-                    .background(Color.white)
-                    .cornerRadius(8)
-                    .padding(.horizontal, 24)
-                    .frame(maxHeight: 200)
-                }
-                
+                .padding(.top, 60)
+                .padding(.leading, 16)
+
                 Spacer()
             }
-            .frame(maxWidth: .infinity, alignment: .top)
-            .zIndex(1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+           
+            
+            .onReceive(locationManager.$userLocation) { newLocation in
+                if let newLocation = newLocation {
+                    withAnimation {
+                        region = MKCoordinateRegion(
+                            center: newLocation,
+                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                        )
+                    }
+                }
+            }
+            
+            
+            
             
             DraggableBottomSheet(
+                onSubmitSearch: rechercherTrajet,
+                destinationAddress: $destinationAddress,
+                searchResults: mapViewModel.searchResults,
+                onSelectSuggestion: selectSuggestion,
                 selectedTransit: $selectedTransit,
                 isExpanded: $bottomSheetExpanded,
                 lijnenVM: lijnenVM
@@ -161,7 +120,7 @@ struct TransitMapView: View {
                 lijnenVM.fetchLijnen()
             }
             
-            FloatingLocationButton(region: $region, bottomSheetExpanded: bottomSheetExpanded, locationManager: locationManager)
+            
             if locationManager.showLocationError {
                 VStack {
                     Text("Erreur de localisation. Activez la position.")
@@ -181,6 +140,8 @@ struct TransitMapView: View {
                 }
             }
         }
+        .ignoresSafeArea(edges: .top)
+        .navigationBarHidden(true)
         
     }
     
@@ -193,6 +154,14 @@ struct TransitMapView: View {
             items.append(AnnotationItem(coordinate: dest, isStart: false))
         }
         return items
+    }
+    
+    private var userAnnotation: [AnnotationItem] {
+        if let userLoc = locationManager.userLocation {
+            return [AnnotationItem(coordinate: userLoc, isStart: false, isUser: true)]
+        } else {
+            return []
+        }
     }
     
     private func selectSuggestion(_ suggestion: MKLocalSearchCompletion) {
@@ -215,23 +184,19 @@ struct TransitMapView: View {
     }
     
     private func rechercherTrajet() {
-        guard !startingAddress.isEmpty, !destinationAddress.isEmpty else {
+        guard let userLoc = locationManager.userLocation, !destinationAddress.isEmpty else {
             return
         }
+        self.startCoordinate = userLoc
         
-        mapViewModel.searchLocation(address: startingAddress) { startCoord in
-            guard let startCoord = startCoord else { return }
-            self.startCoordinate = startCoord
+        mapViewModel.searchLocation(address: destinationAddress) { destCoord in
+            guard let destCoord = destCoord else { return }
+            self.destinationCoordinate = destCoord
             
-            mapViewModel.searchLocation(address: destinationAddress) { destCoord in
-                guard let destCoord = destCoord else { return }
-                self.destinationCoordinate = destCoord
-                
-                mapViewModel.getRoute(from: startCoord, to: destCoord) { foundRoute in
-                    if let foundRoute = foundRoute {
-                        self.route = foundRoute
-                        self.region.center = startCoord
-                    }
+            mapViewModel.getRoute(from: userLoc, to: destCoord) { foundRoute in
+                if let foundRoute = foundRoute {
+                    self.route = foundRoute
+                    self.region.center = userLoc
                 }
             }
         }
@@ -272,45 +237,37 @@ struct AnnotationItem: Identifiable {
     let id = UUID()
     var coordinate: CLLocationCoordinate2D
     var isStart: Bool
+    var isUser: Bool = false
 }
 
-fileprivate struct FloatingLocationButton: View {
-    @Binding var region: MKCoordinateRegion
-    let bottomSheetExpanded: Bool
-    @ObservedObject var locationManager: LocationManager // <-- AJOUTÉ
+
+struct PulsatingUserLocationView: View {
+    @State private var pulse = false
     
     var body: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                if !bottomSheetExpanded {
-                    Button(action: {
-                        if let userLocation = locationManager.userLocation {
-                            withAnimation {
-                                region = MKCoordinateRegion(
-                                    center: userLocation,
-                                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01) // Plus petit delta = Zoom
-                                )
-                            }
-                        } else {
-                            print("[FloatingLocationButton] Localisation utilisateur non disponible.")
-                        }
-                    })
-                    {
-                        Image(systemName: "dot.circle")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 20, height: 20)
-                            .foregroundColor(.white)
-                            .padding(14)
-                            .background(Color(hex: "#4557A1"))
-                            .cornerRadius(12)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 90)
-                }
-            }
+        ZStack {
+            // Cercle animé (effet pulse)
+            Circle()
+                .fill(Color.blue.opacity(0.2))
+                .frame(width: 40, height: 40)
+                .scaleEffect(pulse ? 1.4 : 1.0)
+                .animation(
+                    Animation.easeOut(duration: 1).repeatForever(autoreverses: true),
+                    value: pulse
+                )
+            
+            // Cercle central (position actuelle)
+            // Cercle central (position actuelle)
+            Circle()
+                .fill(Color(hex: "#4557A1"))
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 3)
+                )
+        }
+        .onAppear {
+            pulse = true
         }
     }
 }

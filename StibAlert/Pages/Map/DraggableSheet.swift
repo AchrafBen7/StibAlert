@@ -4,14 +4,22 @@
 //
 //  Created by studentehb on 16/04/2025.
 //
-
 import SwiftUI
+import MapKit
 
 struct DraggableBottomSheet: View {
+    var onSubmitSearch: () -> Void
+    @Binding var destinationAddress: String
+    var searchResults: [MKLocalSearchCompletion]
+    var onSelectSuggestion: (MKLocalSearchCompletion) -> Void
+    @State private var homeLocation: String? = nil
+    @State private var workLocation: String? = nil
     @Binding var selectedTransit: TransitMapView.TransitMode
     @Binding var isExpanded: Bool
     @ObservedObject var lijnenVM: LijnenViewModel
-    
+
+    private let collapsedHeight: CGFloat = 180
+
     private var filteredLijnen: [LijnModel] {
         lijnenVM.lijnen.filter { line in
             let transportType = line.typeTransport.lowercased()
@@ -25,24 +33,37 @@ struct DraggableBottomSheet: View {
             }
         }
     }
-    
-    
-    
-    
-    // Hauteur fermée fixée exactement à 60 pt (pour être identique au tab bar)
-    private let collapsedHeight: CGFloat = 75
-    
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            // Barre de drag en haut
+            // Barre de drag
             Capsule()
                 .fill(Color.gray.opacity(0.4))
                 .frame(width: 40, height: 6)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
-            
-            // Barre de transport (les 3 boutons)
+
+            // Barre de recherche
+            destinationSearchSection
+
+            // Boutons maison/travail
+            VStack(spacing: 10) {
+                shortcutButton(
+                    icon: "house.fill",
+                    label: "Maison",
+                    value: homeLocation,
+                    action: { homeLocation = "Rue de la Paix 10" }
+                )
+                shortcutButton(
+                    icon: "briefcase.fill",
+                    label: "Travail",
+                    value: workLocation,
+                    action: { workLocation = "Avenue Louise 234" }
+                )
+            }
+            .padding(.horizontal)
+
+            // Boutons de transport
             HStack(spacing: 16) {
                 ForEach(TransitMapView.TransitMode.allCases) { mode in
                     let isSelected = (mode == selectedTransit)
@@ -62,16 +83,13 @@ struct DraggableBottomSheet: View {
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(isSelected ? Color(hex: "#F18F5D").opacity(0.37) : Color(hex: "#FAFAFD"))
-                            
                         )
                     }
                 }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
-            
-            // Lorsque la feuille est réduite, nous ne voulons pas d'espace visible sous les boutons.
-            // On n'ajoute donc pas de Spacer dans la version fermée.
+
             if isExpanded {
                 Divider()
                 ScrollView {
@@ -84,9 +102,7 @@ struct DraggableBottomSheet: View {
                                     .frame(width: 44, height: 44)
                                     .background(LineColors.color(for: line.lineid))
                                     .cornerRadius(10)
-                                
-                                
-                                
+
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(line.nomComplet)
                                         .font(.subheadline)
@@ -97,7 +113,6 @@ struct DraggableBottomSheet: View {
                                     }
                                 }
                                 Spacer()
-                                
                                 Image(systemName: "chevron.right")
                                     .foregroundColor(.orange)
                             }
@@ -108,40 +123,33 @@ struct DraggableBottomSheet: View {
                     .padding(.bottom, 16)
                 }
                 .frame(maxHeight: 300)
-                
+
                 if lijnenVM.lijnen.isEmpty {
                     Text("Aucune ligne disponible.")
                         .foregroundColor(.gray)
                         .padding()
                 }
+
                 if let error = lijnenVM.errorMessage {
                     Text(error)
                         .foregroundColor(.red)
                         .padding()
                 }
-                
-                
-            }
-            else {
-                Spacer().frame(height: 16) // ⬅️ Ajout ici
+            } else {
+                Spacer().frame(height: 16)
             }
         }
         .frame(maxWidth: .infinity)
-        // La hauteur totale est exactement collapsedHeight (60) quand la sheet est fermée
-        .frame(height: isExpanded ? nil : collapsedHeight, alignment: .top)
+        .frame(height: isExpanded ? 320 : collapsedHeight, alignment: .top)
         .background(Color.white)
-        // Appliquer une forme qui arrondit UNIQUEMENT les coins supérieurs,
-        // laissant ainsi le bord inférieur parfaitement rectiligne pour qu'il "fusionne" avec le tab bar.
         .clipShape(TopCornersRoundedShape(radius: 16))
-        .shadow(radius: 1) // Réduisez ou supprimez l'ombre si nécessaire
+        .shadow(radius: 1)
         .animation(.easeInOut, value: isExpanded)
         .gesture(
             DragGesture()
                 .onEnded { value in
-                    if value.translation.height < -50 {
-                        withAnimation { isExpanded = true }
-                    } else if value.translation.height > 50 {
-                        withAnimation { isExpanded = false }
+                    withAnimation {
+                        isExpanded = value.translation.height < -40
                     }
                 }
         )
@@ -150,9 +158,48 @@ struct DraggableBottomSheet: View {
                 lijnenVM.fetchLijnen()
             }
         }
-        
     }
-    
+
+    private var destinationSearchSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Où allons-nous ?", text: $destinationAddress)
+                .padding()
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                .padding(.horizontal)
+                .onSubmit {
+                    onSubmitSearch()
+                }
+
+            if !searchResults.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(searchResults, id: \.self) { result in
+                            Button(action: {
+                                onSelectSuggestion(result)
+                            }) {
+                                Text(result.title)
+                                    .foregroundColor(.black)
+                                    .padding()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.white)
+                            }
+                            .background(
+                                Rectangle()
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
+                            )
+                        }
+                    }
+                }
+                .background(Color.white)
+                .cornerRadius(8)
+                .padding(.horizontal)
+                .frame(maxHeight: 200)
+            }
+        }
+    }
+
     private func iconName(for mode: TransitMapView.TransitMode) -> String {
         switch mode {
         case .bus:
@@ -161,32 +208,72 @@ struct DraggableBottomSheet: View {
             return "tram.fill"
         }
     }
-}
 
-/// Shape qui arrondit seulement les coins supérieurs et laisse le bas rectiligne.
+    private func shortcutButton(icon: String, label: String, value: String?, action: @escaping () -> Void) -> some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.white)
+                .frame(width: 24, height: 24)
+                .background(Color(hex: "#4557A1"))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.subheadline)
+                if let value = value {
+                    Text(value)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+
+            Spacer()
+
+            Button(action: action) {
+                Text(value == nil ? "Définir" : "Modifier")
+                    .font(.footnote)
+                    .foregroundColor(Color(hex: "#F18F5D"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(hex: "#F18F5D").opacity(0.5), lineWidth: 1)
+                    )
+                    .cornerRadius(8)
+            }
+        }
+        .padding()
+        .background(Color(hex: "#F2F6FB"))
+        .cornerRadius(12)
+    }
+}
 struct TopCornersRoundedShape: Shape {
     var radius: CGFloat
-    
+
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        
-        // Démarrer en bas à gauche (coin inférieur gauche reste rectiligne)
+
+        // Coin inférieur gauche
         path.move(to: CGPoint(x: 0, y: rect.height))
-        // Monter verticalement vers le coin supérieur gauche (arrondi)
         path.addLine(to: CGPoint(x: 0, y: radius))
-        // Arc pour le coin supérieur gauche
+
+        // Coin supérieur gauche arrondi
         path.addQuadCurve(to: CGPoint(x: radius, y: 0),
                           control: CGPoint(x: 0, y: 0))
-        // Ligne droite vers le coin supérieur droit
+
+        // Ligne droite vers coin supérieur droit
         path.addLine(to: CGPoint(x: rect.width - radius, y: 0))
-        // Arc pour le coin supérieur droit
+
+        // Coin supérieur droit arrondi
         path.addQuadCurve(to: CGPoint(x: rect.width, y: radius),
                           control: CGPoint(x: rect.width, y: 0))
-        // Descendre en ligne droite vers le coin inférieur droit (rectiligne)
+
+        // Ligne droite jusqu'en bas à droite
         path.addLine(to: CGPoint(x: rect.width, y: rect.height))
+
         // Fermer le chemin
         path.closeSubpath()
         return path
     }
 }
-

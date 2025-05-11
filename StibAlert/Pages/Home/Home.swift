@@ -26,25 +26,22 @@ struct Home: View {
                     if !networkMonitor.isConnected {
                         OfflineBanner()
                     }
-                    // ----- TOP BAR -----
-                    if selectedTab != 1 && selectedTab != 2 && selectedTab != 3 {
-                        topBar
-                    }
-                    
                     
                     // ----- CONTENU DYNAMIQUE -----
                     Group {
                         switch selectedTab {
                         case 0:
-                            normalHomeContent
+                            TransitMapView(
+                                authViewModel: authViewModel,
+                                navigateToConnexion: $navigateToConnexion
+                            )
                         case 1:
-                            // Ici, on affiche la vue de transit/carte.
-                            TransitMapView()  // Remplacez ou adaptez cette vue selon vos besoins.
+                            AllReportsView() // ici tu mets la vue de tous les signalements
                         case 2:
                             NewMeldingView()
                         case 3:
-                            // Placeholder pour le quatrième onglet (par exemple "Favoris")
                             FavorisView(authViewModel: authViewModel)
+
                             
                         default:
                             normalHomeContent
@@ -136,12 +133,7 @@ struct Home: View {
     
     private var normalHomeContent: some View {
         VStack {
-            // Banniere dynamique
-            MobibCardView(authViewModel: authViewModel)
-                .frame(height: 200)
-                .padding(.horizontal, 24)
-                .padding(.top, 40)
-            
+   
             Spacer(minLength: 20)
             
             // Section "Latest reports" avec filtre

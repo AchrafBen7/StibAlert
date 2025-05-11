@@ -79,6 +79,13 @@ struct ProfilView: View {
                 
                 // Détails utilisateur dans une carte
                 if let user = authViewModel.user {
+                    // Banniere dynamique
+                    MobibCardView(authViewModel: authViewModel)
+                        .frame(height: 200)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 40)
+                    
+                    Spacer(minLength: 20)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Langue:")
