@@ -12,7 +12,7 @@ class MeldingHalteViewModel: ObservableObject {
     @Published var resume: String = ""
     @Published var signalements: [ArretSignalementItem] = []
     @Published var errorMessage: String?
-    
+    @Published var convertedSignalements: [MeldingenReadModel] = []
     // Fonction pour récupérer les signalements (et le résumé) d’un arrêt
     func fetchMeldingen(voor arretId: String) {
         // Construire l'URL à partir de l'ID d'arrêt
@@ -56,8 +56,9 @@ class MeldingHalteViewModel: ObservableObject {
                     let decoded = try JSONDecoder().decode(ArretSignalementsResponse.self, from: data)
                     self.resume = decoded.resume
                     self.signalements = decoded.signalements
-                    print("[DEBUG] Décodage réussi : résumé = \(decoded.resume)")
-                    print("[DEBUG] Nombre de signalements = \(decoded.signalements.count)")
+                    
+                    print("[DEBUG] Décodage réussi : résumé = (decoded.resume)")
+                    print("[DEBUG] Nombre de signalements = (decoded.signalements.count)")
                 } catch {
                     self.errorMessage = "Décodage échoué: \(error.localizedDescription)"
                     print("[DEBUG] Erreur de décodage : \(error.localizedDescription)")

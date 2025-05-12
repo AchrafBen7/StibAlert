@@ -4,7 +4,7 @@
 //
 //  Created by studentehb on 07/03/2025.
 //
-
+import Foundation
 struct LijnModel: Identifiable, Codable {
     let _id: String
     let lineid: String

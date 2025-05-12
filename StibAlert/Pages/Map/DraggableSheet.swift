@@ -17,9 +17,10 @@ struct DraggableBottomSheet: View {
     @Binding var selectedTransit: TransitMapView.TransitMode
     @Binding var isExpanded: Bool
     @ObservedObject var lijnenVM: LijnenViewModel
-
+    @GestureState private var dragOffset: CGFloat = 0
+    
     private let collapsedHeight: CGFloat = 180
-
+    
     private var filteredLijnen: [LijnModel] {
         lijnenVM.lijnen.filter { line in
             let transportType = line.typeTransport.lowercased()
@@ -33,7 +34,7 @@ struct DraggableBottomSheet: View {
             }
         }
     }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             // Barre de drag
@@ -42,10 +43,10 @@ struct DraggableBottomSheet: View {
                 .frame(width: 40, height: 6)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
-
+            
             // Barre de recherche
             destinationSearchSection
-
+            
             // Boutons maison/travail
             VStack(spacing: 10) {
                 shortcutButton(
@@ -62,7 +63,7 @@ struct DraggableBottomSheet: View {
                 )
             }
             .padding(.horizontal)
-
+            
             // Boutons de transport
             HStack(spacing: 16) {
                 ForEach(TransitMapView.TransitMode.allCases) { mode in
@@ -89,47 +90,49 @@ struct DraggableBottomSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
-
+            
             if isExpanded {
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(filteredLijnen) { line in
-                            HStack(spacing: 12) {
-                                Text(line.lineid)
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 44, height: 44)
-                                    .background(LineColors.color(for: line.lineid))
-                                    .cornerRadius(10)
+                            NavigationLink(destination: LigneDetailHalteView(line: line)) {
+                                HStack(spacing: 12) {
+                                    Text(line.lineid)
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 44, height: 44)
+                                        .background(LineColors.color(for: line.lineid))
+                                        .cornerRadius(10)
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(line.nomComplet)
-                                        .font(.subheadline)
-                                    if let retour = line.nomCompletRetour {
-                                        Text(retour)
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(line.nomComplet)
+                                            .font(.subheadline)
+                                        if let retour = line.nomCompletRetour {
+                                            Text(retour)
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
                                     }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(.orange)
                                 }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundColor(.orange)
+                                .padding(.horizontal)
+                                .padding(.vertical, 6)
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 6)
                         }
                     }
                     .padding(.bottom, 16)
                 }
-                .frame(maxHeight: 300)
-
+                .frame(maxHeight: .infinity)
+                
                 if lijnenVM.lijnen.isEmpty {
                     Text("Aucune ligne disponible.")
                         .foregroundColor(.gray)
                         .padding()
                 }
-
+                
                 if let error = lijnenVM.errorMessage {
                     Text(error)
                         .foregroundColor(.red)
@@ -140,26 +143,34 @@ struct DraggableBottomSheet: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isExpanded ? 320 : collapsedHeight, alignment: .top)
+        .frame(height: isExpanded ? UIScreen.main.bounds.height * 0.75 : collapsedHeight, alignment: .top)
         .background(Color.white)
         .clipShape(TopCornersRoundedShape(radius: 16))
         .shadow(radius: 1)
         .animation(.easeInOut, value: isExpanded)
         .gesture(
             DragGesture()
+                .updating($dragOffset) { value, state, _ in
+                    state = value.translation.height
+                }
                 .onEnded { value in
                     withAnimation {
-                        isExpanded = value.translation.height < -40
+                        if value.translation.height < -50 {
+                            isExpanded = true
+                        } else if value.translation.height > 50 {
+                            isExpanded = false
+                        }
                     }
                 }
         )
+        .offset(y: dragOffset)
         .onChange(of: NetworkMonitor.shared.isConnected) { connected in
             if connected {
                 lijnenVM.fetchLijnen()
             }
         }
     }
-
+    
     private var destinationSearchSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Où allons-nous ?", text: $destinationAddress)
@@ -171,7 +182,7 @@ struct DraggableBottomSheet: View {
                 .onSubmit {
                     onSubmitSearch()
                 }
-
+            
             if !searchResults.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -199,7 +210,7 @@ struct DraggableBottomSheet: View {
             }
         }
     }
-
+    
     private func iconName(for mode: TransitMapView.TransitMode) -> String {
         switch mode {
         case .bus:
@@ -208,7 +219,7 @@ struct DraggableBottomSheet: View {
             return "tram.fill"
         }
     }
-
+    
     private func shortcutButton(icon: String, label: String, value: String?, action: @escaping () -> Void) -> some View {
         HStack {
             Image(systemName: icon)
@@ -216,7 +227,7 @@ struct DraggableBottomSheet: View {
                 .frame(width: 24, height: 24)
                 .background(Color(hex: "#4557A1"))
                 .clipShape(Circle())
-
+            
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.subheadline)
@@ -226,9 +237,9 @@ struct DraggableBottomSheet: View {
                         .foregroundColor(.gray)
                 }
             }
-
+            
             Spacer()
-
+            
             Button(action: action) {
                 Text(value == nil ? "Définir" : "Modifier")
                     .font(.footnote)
@@ -250,28 +261,28 @@ struct DraggableBottomSheet: View {
 }
 struct TopCornersRoundedShape: Shape {
     var radius: CGFloat
-
+    
     func path(in rect: CGRect) -> Path {
         var path = Path()
-
+        
         // Coin inférieur gauche
         path.move(to: CGPoint(x: 0, y: rect.height))
         path.addLine(to: CGPoint(x: 0, y: radius))
-
+        
         // Coin supérieur gauche arrondi
         path.addQuadCurve(to: CGPoint(x: radius, y: 0),
                           control: CGPoint(x: 0, y: 0))
-
+        
         // Ligne droite vers coin supérieur droit
         path.addLine(to: CGPoint(x: rect.width - radius, y: 0))
-
+        
         // Coin supérieur droit arrondi
         path.addQuadCurve(to: CGPoint(x: rect.width, y: radius),
                           control: CGPoint(x: rect.width, y: 0))
-
+        
         // Ligne droite jusqu'en bas à droite
         path.addLine(to: CGPoint(x: rect.width, y: rect.height))
-
+        
         // Fermer le chemin
         path.closeSubpath()
         return path

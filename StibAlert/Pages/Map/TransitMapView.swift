@@ -33,7 +33,8 @@ struct TransitMapView: View {
     @State private var route: MKRoute? = nil
     @State private var startCoordinate: CLLocationCoordinate2D? = nil
     @State private var destinationCoordinate: CLLocationCoordinate2D? = nil
-    
+    @State private var showAddSignalement = false
+    @State private var isHovering = false
     enum TransitMode: String, CaseIterable, Identifiable {
         case bus, metro, tram
         var id: String { self.rawValue }
@@ -87,11 +88,11 @@ struct TransitMapView: View {
                 }
                 .padding(.top, 60)
                 .padding(.leading, 16)
-
+                
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-           
+            
             
             .onReceive(locationManager.$userLocation) { newLocation in
                 if let newLocation = newLocation {
@@ -139,9 +140,33 @@ struct TransitMapView: View {
                     }
                 }
             }
+            if !bottomSheetExpanded {
+                HStack {
+                    Spacer()
+                    VStack {
+                        Spacer()
+                        Button(action: {
+                            showAddSignalement = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 52, height: 52)
+                                .background(Color(hex: "#4557A1"))
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 4)
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 200)
+                    }
+                }
+            }
         }
         .ignoresSafeArea(edges: .top)
         .navigationBarHidden(true)
+        .sheet(isPresented: $showAddSignalement) {
+            NewMeldingView()
+        }
         
     }
     
