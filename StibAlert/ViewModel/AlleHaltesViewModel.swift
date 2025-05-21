@@ -11,36 +11,44 @@ import Combine
 class AlleHaltesViewModel: ObservableObject {
     @Published var lignesPourArret: [LijnModel] = []
     @Published var arrets: [HalteModel] = []
+    @Published var arretsAller: [HalteModel] = []
+    @Published var arretsRetour: [HalteModel] = []
     @Published var errorMessage: String?
     @Published var isFetchingLignes = false
-    
-    
-    func fetchArrets(lineId: String) {
-        guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=asc") else {
+
+    func fetchArrets(lineId: String, sortAsc: Bool = true) {
+        let sort = sortAsc ? "asc" : "desc"
+        guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=\(sort)") else {
             errorMessage = "URL invalide"
             return
         }
-        
-        URLSession.shared.dataTask(with: url) { data, _, error in
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    self.errorMessage = error.localizedDescription
-                } else if let data = data {
-                    // Log du JSON brut
-                    if let raw = String(data: data, encoding: .utf8) {
-                        print("DEBUG JSON brut :", raw)
+                    self.errorMessage = "[(sort.uppercased())] Erreur : (error.localizedDescription)"
+                    return
+                }
+
+                guard let data = data else {
+                    self.errorMessage = "[(sort.uppercased())] Aucune donnée reçue"
+                    return
+                }
+
+                do {
+                    let decoded = try JSONDecoder().decode([HalteModel].self, from: data)
+                    if sortAsc {
+                        self.arretsAller = decoded
+                    } else {
+                        self.arretsRetour = decoded
                     }
-                    
-                    do {
-                        self.arrets = try JSONDecoder().decode([HalteModel].self, from: data)
-                    } catch {
-                        self.errorMessage = "Erreur de décodage : \(error.localizedDescription)"
-                    }
+                } catch {
+                    self.errorMessage = "[(sort.uppercased())] Erreur de décodage : (error.localizedDescription)"
                 }
             }
         }.resume()
-        
     }
+    
     func fetchAllHaltes() {
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets") else { return }
         

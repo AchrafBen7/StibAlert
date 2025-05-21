@@ -10,12 +10,14 @@ struct LigneDetailHalteView: View {
     let line: LijnModel
     @Environment(\.presentationMode) var presentationMode
     @StateObject private var halteVM = AlleHaltesViewModel()
+    @State private var isAscending = true
+    @State private var searchText = ""
+    @State private var directionTitle: String = ""
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            
-            // Header haut ligne STIB
-            HStack(alignment: .center, spacing: 12) {
+        VStack(spacing: 8) {
+            // --- HEADER ---
+            HStack(spacing: 12) {
                 Button(action: {
                     presentationMode.wrappedValue.dismiss()
                 }) {
@@ -27,31 +29,86 @@ struct LigneDetailHalteView: View {
                 Text(line.lineid)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 36)
                     .background(LineColors.color(for: line.lineid))
-                    .cornerRadius(10)
+                    .cornerRadius(8)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(line.nomComplet)
-                        .font(.headline)
-                        .foregroundColor(.black)
+                VStack(alignment: .leading) {
+                    Text(line.nomComplet.uppercased())
+                        .font(.system(size: 16, weight: .bold))
                     if let retour = line.nomCompletRetour {
-                        Text(retour)
+                        Text(retour.uppercased())
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
                 }
 
                 Spacer()
+
+                Button {
+                    print("Notification tapped")
+                } label: {
+                    Image(systemName: "bell.badge")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 18))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+
+            // --- BARRE DE DIRECTION ---
+            HStack {
+                Text("Vers \(directionTitle)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Button {
+                    isAscending.toggle()
+                    directionTitle = isAscending
+                        ? extractTerminus(from: line.nomCompletRetour ?? line.nomComplet, isReversed: false)
+                        : extractTerminus(from: line.nomComplet, isReversed: true)
+
+                    halteVM.fetchArrets(lineId: line.lineid, sortAsc: isAscending)
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .semibold))
+                }
+            }
+            .padding()
+            .background(Color(hex: "#4557A1"))
+            .cornerRadius(12)
+            .cornerRadius(12)
+            .padding(.horizontal)
+        }
+        .background(Color.white)
+        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+
+            // --- CHAMP DE RECHERCHE ---
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Rechercher un arrêt", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
             }
             .padding()
             .background(Color.white)
+            .cornerRadius(10)
+            .shadow(color: .black.opacity(0.05), radius: 2)
+            .padding(.horizontal)
+            .padding(.top, 6)
 
-            Divider()
-            
+            // --- LISTE DES ARRÊTS ---
             ScrollView {
-                VStack(spacing: 8) {
-                    let uniqueHaltes = Dictionary(grouping: halteVM.arrets, by: { $0._id }).compactMap { $0.value.first }
+                LazyVStack(spacing: 8) {
+                    let haltesSource = isAscending ? halteVM.arretsAller : halteVM.arretsRetour
+                    let filtered = haltesSource
+                        .filter { searchText.isEmpty || $0.nom.localizedCaseInsensitiveContains(searchText) }
+                        .sorted { isAscending ? $0.nom < $1.nom : $0.nom > $1.nom }
+
+                    let uniqueHaltes = Dictionary(grouping: filtered, by: { $0._id }).compactMap { $0.value.first }
 
                     ForEach(uniqueHaltes) { halte in
                         let count = halte.signalementsRecents?.count ?? 0
@@ -80,27 +137,40 @@ struct LigneDetailHalteView: View {
                                         .foregroundColor(.red)
                                 }
                             }
-                            .padding()
-                            .background(Color(hex: "#F2F6FB"))
-                            .cornerRadius(12)
+                            .padding(.vertical, 12)
                             .padding(.horizontal)
+                            .background(Color.white)
+                            
                         }
                         .buttonStyle(PlainButtonStyle())
+                        Divider()
+                            .padding(.leading, 24)
+
                     }
                 }
                 .padding(.top, 8)
             }
-        }
+        
+
         .navigationBarHidden(true)
         .onAppear {
-            halteVM.fetchArrets(lineId: line.lineid)
+            directionTitle = extractTerminus(from: line.nomCompletRetour ?? line.nomComplet, isReversed: false)
+            halteVM.fetchArrets(lineId: line.lineid, sortAsc: true)
         }
+       
     }
+
+    
 
     func statusColor(for halte: HalteModel) -> Color {
         let count = halte.signalementsRecents?.count ?? 0
         if count >= 4 { return .red }
         else if count >= 2 { return .yellow }
         else { return .green }
+    }
+    
+    func extractTerminus(from fullName: String, isReversed: Bool) -> String {
+        let parts = fullName.components(separatedBy: " - ")
+        return isReversed ? parts.first ?? fullName : parts.last ?? fullName
     }
 }

@@ -94,7 +94,7 @@ struct DraggableBottomSheet: View {
             if isExpanded {
                 Divider()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
+                    LazyVStack(spacing: 12) {
                         ForEach(filteredLijnen) { line in
                             NavigationLink(destination: LigneDetailHalteView(line: line)) {
                                 HStack(spacing: 12) {
@@ -104,26 +104,35 @@ struct DraggableBottomSheet: View {
                                         .frame(width: 44, height: 44)
                                         .background(LineColors.color(for: line.lineid))
                                         .cornerRadius(10)
+                                        .drawingGroup() // optimise le rendu vectoriel
 
-                                    VStack(alignment: .leading, spacing: 2) {
+                                    VStack(alignment: .leading, spacing: 4) {
                                         Text(line.nomComplet)
-                                            .font(.subheadline)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(.black)
                                         if let retour = line.nomCompletRetour {
                                             Text(retour)
-                                                .font(.caption)
+                                                .font(.system(size: 11))
                                                 .foregroundColor(.gray)
                                         }
                                     }
+
                                     Spacer()
+
                                     Image(systemName: "chevron.right")
-                                        .foregroundColor(.orange)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.gray)
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 6)
+                                .padding(12)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
+                                .padding(.horizontal, 8)
                             }
+                            .buttonStyle(.plain) // évite l’effet de rebond du lien
                         }
                     }
-                    .padding(.bottom, 16)
+                    .padding(.vertical, 8)
                 }
                 .frame(maxHeight: .infinity)
                 
