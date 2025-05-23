@@ -15,7 +15,8 @@ class AlleHaltesViewModel: ObservableObject {
     @Published var arretsRetour: [HalteModel] = []
     @Published var errorMessage: String?
     @Published var isFetchingLignes = false
-
+    @Published var isLoading = false
+    
     func fetchArrets(lineId: String, sortAsc: Bool = true) {
         let sort = sortAsc ? "asc" : "desc"
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=\(sort)") else {
@@ -23,28 +24,45 @@ class AlleHaltesViewModel: ObservableObject {
             return
         }
 
+        isLoading = true
+        print("[FETCH] Début du fetch: \(url)")
+
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
+                self.isLoading = false
+
                 if let error = error {
-                    self.errorMessage = "[(sort.uppercased())] Erreur : (error.localizedDescription)"
+                    self.errorMessage = "[\(sort.uppercased())] Erreur : \(error.localizedDescription)"
+                    print(self.errorMessage!)
                     return
                 }
 
                 guard let data = data else {
-                    self.errorMessage = "[(sort.uppercased())] Aucune donnée reçue"
+                    self.errorMessage = "[\(sort.uppercased())] Aucune donnée reçue"
+                    print(self.errorMessage!)
                     return
                 }
 
                 do {
-                    let decoded = try JSONDecoder().decode([HalteModel].self, from: data)
+                    if let raw = String(data: data, encoding: .utf8) {
+                        print("[DEBUG] 🔍 JSON brut reçu:\n\(raw)")
+                    }
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    let decoded = try decoder.decode([HalteModel].self, from: data)
+
+                    print("[FETCH] ✅ \(decoded.count) arrêts reçus pour ligne \(lineId)")
+
                     if sortAsc {
                         self.arretsAller = decoded
                     } else {
                         self.arretsRetour = decoded
                     }
                 } catch {
-                    self.errorMessage = "[(sort.uppercased())] Erreur de décodage : (error.localizedDescription)"
+                    print("[ERREUR DECODAGE] 🔴 Erreur complète : \(error)")
+                    self.errorMessage = "[\(sort.uppercased())] Erreur de décodage : \(error.localizedDescription)"
                 }
+
             }
         }.resume()
     }
