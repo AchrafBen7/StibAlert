@@ -12,7 +12,7 @@ class MeldingenViewModel: ObservableObject {
         return formatter
     }()
     
-    // JSONDecoder personnalisé pour décoder les dates en format ISO8601 avec fraction de secondes
+   
     private static var customDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -40,7 +40,7 @@ class MeldingenViewModel: ObservableObject {
             return
         }
         
-        // 🔥 1. CHECK si offline
+        
         if !NetworkMonitor.shared.isConnected {
             print("[DEBUG] ❗ Offline détecté : chargement depuis le cache...")
             if let cachedData = CacheManager.shared.load(filename: cacheFile) {
@@ -53,7 +53,7 @@ class MeldingenViewModel: ObservableObject {
             return
         }
         
-        // 🔥 2. Si online => normale requête API
+        
         print("Envoi de la requête à l'URL : \(url)")
         
         URLSession.shared.dataTask(with: url) { data, response, error in
@@ -73,7 +73,7 @@ class MeldingenViewModel: ObservableObject {
                 return
             }
             
-            // 🔵 Sauvegarde dans le cache
+            
             CacheManager.shared.save(data: data, filename: cacheFile)
             
             self.decodeMeldingen(from: data) 

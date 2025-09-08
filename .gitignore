@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.xcuserdatad/
+*.moved-aside
+*.hmap
+*.ipa
+**/xcuserdata/
+**/project.xcworkspace/xcuserdata/
+
+# SwiftPM
+.swiftpm/
+.build/
+
+# Logs
+*.log
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Others
+*.orig
+*.rej

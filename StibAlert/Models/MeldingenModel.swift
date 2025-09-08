@@ -19,7 +19,7 @@ struct MeldingenModel: Identifiable, Codable {
     let validationIA: Bool      // Geeft aan of de melding door de AI is gevalideerd
     let resumeIA: String?       // Samenvatting gegenereerd door de AI 
     
-    // Stemmen en meldingen voor het modereren van de geldigheid van de melding
+    
     let votesPositifs: Int      // Aantal positieve stemmen
     let votesNegatifs: Int      // Aantal negatieve stemmen
     let signalements: Int       // Aantal keren dat de melding betwist is

@@ -1,3 +1,4 @@
+      
 //
 //  StibAlertApp.swift
 //  StibAlert
@@ -20,5 +21,3 @@ struct StibAlertApp: App {
         }
     }
 }
-
-

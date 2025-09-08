@@ -9,7 +9,7 @@ import Security
 
 class KeychainManager {
     
-    // 🔐 Enregistrer une valeur (token, ID, etc.)
+    
     static func save(key: String, value: String) {
         let data = Data(value.utf8)
 
@@ -19,12 +19,12 @@ class KeychainManager {
             kSecValueData: data
         ]
 
-        // Supprime l'existant si besoin
+    
         SecItemDelete(query as CFDictionary)
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    // 🔐 Récupérer une valeur
+    
     static func get(key: String) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -48,7 +48,7 @@ class KeychainManager {
     }
 
 
-    // 🔐 Supprimer une valeur
+    
     static func delete(key: String) {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,

@@ -13,9 +13,9 @@ class MeldingHalteViewModel: ObservableObject {
     @Published var signalements: [ArretSignalementItem] = []
     @Published var errorMessage: String?
     @Published var convertedSignalements: [MeldingenReadModel] = []
-    // Fonction pour récupérer les signalements (et le résumé) d’un arrêt
+    
     func fetchMeldingen(voor arretId: String) {
-        // Construire l'URL à partir de l'ID d'arrêt
+       
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/signalements/arret/\(arretId)") else {
             self.errorMessage = "URL invalide pour arretId \(arretId)"
             print("[DEBUG] URL invalide pour arretId \(arretId)")
@@ -24,34 +24,34 @@ class MeldingHalteViewModel: ObservableObject {
         
         print("[DEBUG] Requête GET à l'URL : \(url.absoluteString)")
         
-        // Lancer la requête
+
         URLSession.shared.dataTask(with: url) { data, response, error in
             DispatchQueue.main.async {
-                // Vérifier les erreurs réseau
+                
                 if let error = error {
                     self.errorMessage = "Erreur réseau : \(error.localizedDescription)"
                     print("[DEBUG] Erreur réseau : \(error.localizedDescription)")
                     return
                 }
                 
-                // Vérifier la réponse
+              
                 if let httpResponse = response as? HTTPURLResponse {
                     print("[DEBUG] Status code: \(httpResponse.statusCode)")
                 }
                 
-                // Vérifier la data
+                
                 guard let data = data else {
                     self.errorMessage = "Aucune donnée reçue"
                     print("[DEBUG] Aucune donnée reçue")
                     return
                 }
                 
-                // Log du JSON brut
+              
                 if let rawString = String(data: data, encoding: .utf8) {
                     print("[DEBUG] Réponse brute:\n\(rawString)")
                 }
                 
-                // Tenter de décoder
+              
                 do {
                     let decoded = try JSONDecoder().decode(ArretSignalementsResponse.self, from: data)
                     self.resume = decoded.resume

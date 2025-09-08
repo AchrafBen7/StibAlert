@@ -12,7 +12,7 @@ struct CacheManager {
     static let shared = CacheManager()
     
     private let fileManager = FileManager.default
-    private let cacheLifetime: TimeInterval = 24 * 60 * 60 // 24 heures en secondes
+    private let cacheLifetime: TimeInterval = 24 * 60 * 60  
     
     private init() {}
     
@@ -28,7 +28,7 @@ struct CacheManager {
         }
     }
     
-    // Charger un fichier cache
+   
     func load(filename: String) -> Data? {
         let url = getDocumentsDirectory().appendingPathComponent(filename)
         
@@ -37,7 +37,7 @@ struct CacheManager {
             return nil
         }
         
-        // Vérifier si le cache est expiré
+   
         if let savedDate = UserDefaults.standard.object(forKey: "cache_\(filename)_date") as? Date {
             let age = Date().timeIntervalSince(savedDate)
             if age > cacheLifetime {
@@ -58,7 +58,7 @@ struct CacheManager {
         }
     }
     
-    // Fonction pour tout nettoyer si besoin (optionnel)
+  
     func clearAllCache() {
         let documentsURL = getDocumentsDirectory()
         do {

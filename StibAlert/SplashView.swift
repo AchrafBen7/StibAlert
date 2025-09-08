@@ -8,7 +8,7 @@ import SwiftUI
 struct SplashView: View {
     @State private var isActive = false
     @State private var showLogo = false
-    @StateObject private var meldingenVM = MeldingenViewModel() // ✅ Besoin d’un ViewModel ici
+    @StateObject private var meldingenVM = MeldingenViewModel()
 
     var body: some View {
         NavigationView {
@@ -23,7 +23,7 @@ struct SplashView: View {
                     VStack {
                         Spacer()
 
-                        Image("logo") // Assure-toi que "logo" correspond exactement au nom dans Assets
+                        Image("logo")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 180, height: 180)
@@ -38,7 +38,7 @@ struct SplashView: View {
                 startupTasks()
             }
         }
-        .navigationViewStyle(StackNavigationViewStyle()) // ✅ Pour iOS < 16
+        .navigationViewStyle(StackNavigationViewStyle())
     }
 
     private func startupTasks() {

@@ -14,7 +14,7 @@ class MeldingDetailViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var signalement: MeldingenModel?
     @Published var errorMessage: String?
-    @Published var halteNom: String? // ✅ Changer ici : halte devient juste un "nom" simple
+    @Published var halteNom: String? 
     
     func fetchSignalement(arretId: String, signalementId: String) {
         let cacheFile = "signalement_\(signalementId).json"

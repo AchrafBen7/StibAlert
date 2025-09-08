@@ -6,14 +6,13 @@
 //
 import Foundation
 
-/// Structure pour décoder la réponse brute du POST /api/signalements
+
 struct CreateMeldingResponse: Codable {
     let message: String
     let signalement: MeldingCreated
 }
 
-/// Le signalement créé tel que renvoyé par l'API après le POST
-/// Notez que `arretId` est ici un `String` et non un `HalteModel`.
+
 struct MeldingCreated: Identifiable, Codable,Equatable {
     let _id: String
     let arretId: String

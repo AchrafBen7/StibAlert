@@ -12,7 +12,7 @@ import Foundation
 struct MeldingenReadModel: Identifiable, Codable {
     let _id: String
     let utilisateurId: String?
-    let arretId: HalteModel       // <-- objet complet
+    let arretId: HalteModel       // <-- object compleet
     let ligne: String
     let typeProbleme: String
     let description: String

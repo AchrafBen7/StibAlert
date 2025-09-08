@@ -1,0 +1,54 @@
+//
+//  AuthOptionsView.swift
+//  StibAlert
+//
+//  Created by studentehb on 15/04/2025.
+//
+import SwiftUI
+
+struct AuthOptionsView: View {
+    @ObservedObject var authVM: AuthViewModel
+    @Environment(\.dismiss) var dismiss
+    @State private var selectedOption = 0
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                Picker("Optie", selection: $selectedOption) {
+                    Text("Connexie").tag(0)
+                    Text("Registratie").tag(1)
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding()
+
+                if selectedOption == 0 {
+                    ConnexionView(authVM: authVM)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Annuleren") {
+                                    dismiss()
+                                }
+                            }
+                        }
+                } else {
+                    RegistatieView(authVM: authVM)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Annuleren") {
+                                    dismiss()
+                                }
+                            }
+                        }
+                }
+                Spacer()
+            }
+            .navigationTitle("Authentificatie")
+            .onChange(of: authVM.isAuthenticated) { isAuth in
+                if isAuth {
+                    
+                    dismiss()
+                }
+            }
+        }
+    }
+}
