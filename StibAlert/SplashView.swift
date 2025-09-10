@@ -9,12 +9,14 @@ struct SplashView: View {
     @State private var isActive = false
     @State private var showLogo = false
     @StateObject private var meldingenVM = MeldingenViewModel()
+    
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false //
 
     var body: some View {
         NavigationView {
             ZStack {
                 if isActive {
-                    Home()
+                    AppRoot() // ✅ on passe par le gate onboarding
                         .transition(.opacity)
                         .navigationBarBackButtonHidden(true)
                 } else {
@@ -42,22 +44,22 @@ struct SplashView: View {
     }
 
     private func startupTasks() {
-        showLogo = true // ✅ Déclenche l’animation du logo
+            showLogo = true
 
-        let isFirstLaunch = FirstLaunchManager.checkFirstLaunch()
+            // 🔧 DEV: forcer l’onboarding à s’afficher à chaque lancement
+            hasSeenOnboarding = false    // ⬅️ enlève cette ligne quand c’est validé
 
-        if isFirstLaunch {
-            print("[SplashView] 🎉 Premier lancement détecté.")
+            let isFirstLaunch = FirstLaunchManager.checkFirstLaunch()
+            if isFirstLaunch {
+                print("[SplashView] 🎉 Premier lancement détecté.")
+                meldingenVM.fetchMeldingen()
+                UserDefaults.standard.set(Date(), forKey: "lastUpdateDate")
+            }
 
-            meldingenVM.fetchMeldingen() // ✅ Sans closure
-            UserDefaults.standard.set(Date(), forKey: "lastUpdateDate")
-        }
-
-        // Délai visuel
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                self.isActive = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation { self.isActive = true }
             }
         }
     }
-}
+
+

@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3885F9082E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */; };
+		3885F90A2E71FD09005F1CB1 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */; };
+		3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		3831C0922D79C1D400452AA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,7 +33,20 @@
 		3831C0812D79C1D100452AA0 /* StibAlert.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StibAlert.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3831C0912D79C1D400452AA0 /* StibAlertTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StibAlertTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3831C09B2D79C1D400452AA0 /* StibAlertUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StibAlertUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DelaGothicOne-Regular.ttf"; sourceTree = "<group>"; };
+		3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
+		3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3885F90E2E71FFDB005F1CB1 /* Exceptions for "StibAlert" folder in "StibAlert" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3831C0802D79C1D100452AA0 /* StibAlert */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3831C0942D79C1D400452AA0 /* StibAlertTests */ = {
@@ -42,6 +61,9 @@
 		};
 		3831C0CE2D79D7B700452AA0 /* StibAlert */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3885F90E2E71FFDB005F1CB1 /* Exceptions for "StibAlert" folder in "StibAlert" target */,
+			);
 			path = StibAlert;
 			sourceTree = "<group>";
 		};
@@ -75,10 +97,11 @@
 		3831C0782D79C1D100452AA0 = {
 			isa = PBXGroup;
 			children = (
-				3831C0CE2D79D7B700452AA0 /* StibAlert */,
+				3885F9062E71FC83005F1CB1 /* Fonts */,
 				3831C0942D79C1D400452AA0 /* StibAlertTests */,
 				3831C09E2D79C1D400452AA0 /* StibAlertUITests */,
 				3831C0822D79C1D100452AA0 /* Products */,
+				3831C0CE2D79D7B700452AA0 /* StibAlert */,
 			);
 			sourceTree = "<group>";
 		};
@@ -90,6 +113,16 @@
 				3831C09B2D79C1D400452AA0 /* StibAlertUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3885F9062E71FC83005F1CB1 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */,
+				3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */,
+				3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -212,6 +245,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3885F90A2E71FD09005F1CB1 /* Montserrat-SemiBold.ttf in Resources */,
+				3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */,
+				3885F9082E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,6 +435,7 @@
 				DEVELOPMENT_TEAM = M8S7S446XZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StibAlert/Info.plist;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -430,6 +467,7 @@
 				DEVELOPMENT_TEAM = M8S7S446XZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StibAlert/Info.plist;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
