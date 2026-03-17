@@ -1,0 +1,272 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "auth.activate_account" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Activate account" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Activer votre compte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Activeer je account" } }
+      }
+    },
+    "auth.activation_sent_message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A code has been sent to %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Un code a été envoyé à %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Er is een code verzonden naar %@" } }
+      }
+    },
+    "auth.activation_sent_title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Activation sent" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Activation envoyée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Activatie verzonden" } }
+      }
+    },
+    "auth.activation_title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Activation" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Activation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Activatie" } }
+      }
+    },
+    "auth.already_account" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Already have an account? Sign in" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vous avez déjà un compte ? Connectez-vous" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Heb je al een account? Aanmelden" } }
+      }
+    },
+    "auth.code_sent_title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Code sent" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Code envoyé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Code verzonden" } }
+      }
+    },
+    "auth.email_placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Email" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Email" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "E-mail" } }
+      }
+    },
+    "auth.forgot_password" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Forgot password?" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mot de passe oublié ?" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Wachtwoord vergeten?" } }
+      }
+    },
+    "auth.full_name_placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Full name" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nom complet" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Volledige naam" } }
+      }
+    },
+    "auth.login_success_title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Login successful" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connexion réussie" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Succesvolle verbinding" } }
+      }
+    },
+    "auth.no_account" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Don't have an account? Create one" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vous n'avez pas de compte ? Créez-en un" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Heb je nog geen account? Maak een account aan" } }
+      }
+    },
+    "auth.options_picker_label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Option" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Optie" } }
+      }
+    },
+    "auth.otp_placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OTP code" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Code OTP" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "OTP-code" } }
+      }
+    },
+    "auth.otp_prompt" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter your 4-digit code" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Entrez votre code à 4 chiffres" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Voer uw 4-cijferige code in" } }
+      }
+    },
+    "auth.password_placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mot de passe" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Wachtwoord" } }
+      }
+    },
+    "auth.segment_login" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Login" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connexion" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Aanmelden" } }
+      }
+    },
+    "auth.segment_register" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Register" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Inscription" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Registratie" } }
+      }
+    },
+    "common.app_name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "STIB Alert" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "STIB Alert" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "STIB Alert" } }
+      }
+    },
+    "common.authentication_title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Authentication" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Authentification" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Authentificatie" } }
+      }
+    },
+    "common.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Annuler" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Annuleren" } }
+      }
+    },
+    "common.continue" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Continuer" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Doorgaan" } }
+      }
+    },
+    "common.finish" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Terminer" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Afronden" } }
+      }
+    },
+    "common.guest_name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Guest" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Invité" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gast" } }
+      }
+    },
+    "common.login" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Login" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connexion" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Aanmelden" } }
+      }
+    },
+    "common.ok" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "OK" } }
+      }
+    },
+    "common.register" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Register" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Inscription" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Registratie" } }
+      }
+    },
+    "home.error_prefix" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Error: %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur : %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Fout: %@" } }
+      }
+    },
+    "home.greeting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hey, %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Salut, %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Hey, %@" } }
+      }
+    },
+    "home.latest_reports" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Latest reports" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Derniers signalements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Laatste meldingen" } }
+      }
+    },
+    "home.no_reports_today" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No reports today." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun signalement aujourd'hui." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vandaag geen meldingen." } }
+      }
+    },
+    "home.other_reports" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other reports" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Autres signalements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Andere meldingen" } }
+      }
+    },
+    "onboarding.page1.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get real-time alerts about problems on your favourite lines and stops." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Soyez alerté en temps réel des problèmes sur vos lignes ou arrêts préférés." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Krijg realtime waarschuwingen over problemen op je favoriete lijnen en haltes." } }
+      }
+    },
+    "onboarding.page1.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Issues on your route?" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Des soucis sur votre trajet ?" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Problemen op je traject?" } }
+      }
+    },
+    "onboarding.page2.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "See disruptions and alternatives at a glance." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Visualisez en un coup d’œil les perturbations et alternatives." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bekijk verstoringen en alternatieven in één oogopslag." } }
+      }
+    },
+    "onboarding.page2.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Clear map" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Cartographie claire" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Duidelijke kaart" } }
+      }
+    },
+    "onboarding.page3.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow your priority lines and stops without missing anything." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Suivez vos lignes et arrêts préférés sans rien rater." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Volg je favoriete lijnen en haltes zonder iets te missen." } }
+      }
+    },
+    "onboarding.page3.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Favorites first" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Vos favoris d’abord" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Je favorieten eerst" } }
+      }
+    },
+    "splash.logo_accessibility" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "STIB Alert logo" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Logo STIB Alert" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "STIB Alert-logo" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
