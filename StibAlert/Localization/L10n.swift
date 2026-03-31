@@ -58,5 +58,6 @@ enum L10n {
 
     enum Splash {
         static var accessibilityLogo: String { String(localized: "splash.logo_accessibility") }
+        static var subtitle: String { String(localized: "splash.subtitle") }
     }
 }

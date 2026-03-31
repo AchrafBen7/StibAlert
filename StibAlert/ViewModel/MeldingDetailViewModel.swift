@@ -17,6 +17,13 @@ class MeldingDetailViewModel: ObservableObject {
     @Published var halteNom: String? 
     
     func fetchSignalement(arretId: String, signalementId: String) {
+        guard AppConfig.isBackendEnabled else {
+            self.isLoading = false
+            self.signalement = nil
+            self.halteNom = nil
+            self.errorMessage = nil
+            return
+        }
         let cacheFile = "signalement_\(signalementId).json"
         self.isLoading = true
         self.errorMessage = nil
@@ -98,6 +105,10 @@ class MeldingDetailViewModel: ObservableObject {
     
     
     func fetchHalte(arretId: String) {
+        guard AppConfig.isBackendEnabled else {
+            self.halteNom = nil
+            return
+        }
         guard !arretId.isEmpty else {
             print("[DEBUG] ❌ arretId vide, pas de requête pour halte.")
             self.halteNom = nil
@@ -134,6 +145,10 @@ class MeldingDetailViewModel: ObservableObject {
     }
     
     func voteSignalement(arretId: String, signalementId: String, isUp: Bool) {
+        guard AppConfig.isBackendEnabled else {
+            self.errorMessage = nil
+            return
+        }
         let urlString = "https://stib-alert-backend.onrender.com/api/signalements/\(signalementId)/vote"
         guard let url = URL(string: urlString) else {
             DispatchQueue.main.async {

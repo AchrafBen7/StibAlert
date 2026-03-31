@@ -12,6 +12,12 @@ class LignesStatutViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
 
     func fetchEtatLignes() {
+        guard AppConfig.isBackendEnabled else {
+            statuts = []
+            isLoading = false
+            errorMessage = nil
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/lignes/etat-lignes") else { return }
 
         isLoading = true
@@ -40,4 +46,3 @@ class LignesStatutViewModel: ObservableObject {
         }.resume()
     }
 }
-

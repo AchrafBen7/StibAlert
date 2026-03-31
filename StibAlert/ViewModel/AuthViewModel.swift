@@ -21,6 +21,11 @@ class AuthViewModel: ObservableObject {
     private let baseURL = "https://stib-alert-backend.onrender.com/api/utilisateurs"
     
     func inscrire(nom: String, email: String, motDePasse: String) {
+        guard AppConfig.isBackendEnabled else {
+            errorMessage = AppConfig.backendDisabledMessage
+            isLoading = false
+            return
+        }
         print("[DEBUG] 🔄 Début inscription avec: \(email)")
         
         guard let url = URL(string: "\(baseURL)/inscription") else { return }
@@ -67,6 +72,11 @@ class AuthViewModel: ObservableObject {
     }
     
     func activer(code: String) {
+        guard AppConfig.isBackendEnabled else {
+            errorMessage = AppConfig.backendDisabledMessage
+            isLoading = false
+            return
+        }
         print("[DEBUG] 🔄 Activation avec le code : \(code)")
         guard let token = activationToken,
               let url = URL(string: "\(baseURL)/activation") else {
@@ -91,6 +101,15 @@ class AuthViewModel: ObservableObject {
     }
     
     func connexion(email: String, motDePasse: String) {
+        guard AppConfig.isBackendEnabled else {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.isAuthenticated = false
+                self.user = nil
+                self.errorMessage = nil
+            }
+            return
+        }
         print("[DEBUG] 🔄 Connexion en cours pour: \(email)")
         
         guard let url = URL(string: "\(baseURL)/connexion") else { return }
@@ -146,6 +165,14 @@ class AuthViewModel: ObservableObject {
     }
     
     func deconnexion() {
+        guard AppConfig.isBackendEnabled else {
+            self.user = nil
+            self.isAuthenticated = false
+            self.errorMessage = nil
+            KeychainManager.delete(key: "jwt")
+            KeychainManager.delete(key: "userId")
+            return
+        }
         guard let token = UserDefaults.standard.string(forKey: "jwt"),
               let url = URL(string: "\(baseURL)/deconnexion") else {
             print("[DEBUG] ❌ Pas de token trouvé pour la déconnexion.")
@@ -177,6 +204,12 @@ class AuthViewModel: ObservableObject {
     }
     
     func verifierConnexion() {
+        guard AppConfig.isBackendEnabled else {
+            isAuthenticated = false
+            user = nil
+            votes = []
+            return
+        }
         guard !aDejaVerifieConnexion else { return }
         aDejaVerifieConnexion = true
         
@@ -199,6 +232,10 @@ class AuthViewModel: ObservableObject {
     
     
     func fetchProfilUtilisateurDepuisStock(id: String, token: String) {
+        guard AppConfig.isBackendEnabled else {
+            self.user = nil
+            return
+        }
         guard let url = URL(string: "\(baseURL)/\(id)") else { return }
         
         var request = URLRequest(url: url)
@@ -231,6 +268,11 @@ class AuthViewModel: ObservableObject {
     
     
     func fetchProfilUtilisateur() {
+        guard AppConfig.isBackendEnabled else {
+            self.user = nil
+            self.errorMessage = nil
+            return
+        }
         guard let userId = user?.id,
               let token = UserDefaults.standard.string(forKey: "jwt"),
               let url = URL(string: "\(baseURL)/\(userId)") else {
@@ -269,6 +311,10 @@ class AuthViewModel: ObservableObject {
     }
     
     func fetchVotesUtilisateur() {
+        guard AppConfig.isBackendEnabled else {
+            self.votes = []
+            return
+        }
         guard let userId = user?.id,
               let token = KeychainManager.get(key: "jwt"),
               let url = URL(string: "\(baseURL)/\(userId)/votes") else { return }
@@ -300,5 +346,4 @@ struct ConnexionResponse: Codable {
     let utilisateur: UserModel
     let token: String
 }
-
 

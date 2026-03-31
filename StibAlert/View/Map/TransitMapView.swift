@@ -15,7 +15,11 @@ struct TransitMapView: View {
     @State private var startingAddress: String = ""
     @State private var destinationAddress: String = ""
     @State private var selectedField: FieldType? = nil
-    
+
+    @State private var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
+        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+    ))
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -25,39 +29,97 @@ struct TransitMapView: View {
     @State private var bottomSheetExpanded: Bool = false
     @StateObject private var lijnenVM = LijnenViewModel()
     @StateObject private var mapViewModel = MapViewModel()
+    @StateObject private var realtimeMapViewModel = TransitRealtimeMapViewModel()
     @State private var route: MKRoute? = nil
     @State private var startCoordinate: CLLocationCoordinate2D? = nil
     @State private var destinationCoordinate: CLLocationCoordinate2D? = nil
     @State private var showAddSignalement = false
     @State private var isHovering = false
+    @State private var showVehicles = true
+    @State private var selectedVehicle: VehiclePosition? = nil
+
     enum TransitMode: String, CaseIterable, Identifiable {
         case bus, metro, tram
         var id: String { self.rawValue }
     }
-    
+
     enum FieldType {
         case start
         case destination
     }
-    
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            
-            Map(coordinateRegion: $region, annotationItems: annotations + userAnnotation) { item in
-                MapAnnotation(coordinate: item.coordinate) {
-                    if item.isUser {
+
+            // Carte 3D avec MapKit iOS 17+
+            Map(position: $cameraPosition) {
+                // Position utilisateur
+                if let userLoc = locationManager.userLocation {
+                    Annotation("", coordinate: userLoc) {
                         PulsatingUserLocationView()
-                    } else {
+                    }
+                }
+
+                // Marqueur de départ
+                if let start = startCoordinate {
+                    Annotation("Départ", coordinate: start) {
                         Circle()
-                            .fill(item.isStart ? Color.green : Color.red)
+                            .fill(Color.green)
                             .frame(width: 20, height: 20)
                             .overlay(Circle().stroke(Color.white, lineWidth: 2))
                     }
                 }
+
+                // Marqueur de destination
+                if let dest = destinationCoordinate {
+                    Annotation("Destination", coordinate: dest) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 20, height: 20)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                    }
+                }
+
+                ForEach(shapeSegments) { shapeSegment in
+                    MapPolyline(shapeSegment.polyline)
+                        .stroke(shapeSegment.strokeColor, lineWidth: shapeSegment.lineWidth)
+                }
+
+                // Tracé de la route
+                if let route = route {
+                    MapPolyline(route.polyline)
+                        .stroke(Color(hex: "#F18F5D"), lineWidth: 5)
+                }
+
+                // Véhicules en temps réel
+                if showVehicles {
+                    ForEach(realtimeMapViewModel.vehicles) { vehicle in
+                        Annotation("", coordinate: vehicle.coordinate) {
+                            VehicleMarkerView(vehicle: vehicle)
+                                .onTapGesture {
+                                    selectedVehicle = vehicle
+                                }
+                        }
+                    }
+                }
+
+                ForEach(realtimeMapViewModel.waitingStops) { stop in
+                    Annotation(stop.stopName, coordinate: stop.coordinate) {
+                        WaitingTimeMarkerView(stop: stop)
+                    }
+                }
             }
-            .overlay(routeOverlay, alignment: .center)
+            .mapStyle(.standard(elevation: .realistic, emphasis: .automatic, pointsOfInterest: .including([.publicTransport]), showsTraffic: true))
+            .mapControls {
+                MapCompass()
+                MapPitchToggle()
+                MapScaleView()
+            }
+
+            // Overlay UI
             VStack {
                 HStack {
+                    // Bouton profil
                     if authViewModel.isAuthenticated, let user = authViewModel.user {
                         NavigationLink(destination: ProfilView(authViewModel: authViewModel)) {
                             Text(String(user.nom.prefix(1)).uppercased())
@@ -79,30 +141,81 @@ struct TransitMapView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
+
                     Spacer()
+
+                    // Toggle véhicules temps réel
+                    Button {
+                        showVehicles.toggle()
+                        if showVehicles {
+                            realtimeMapViewModel.start(mode: selectedTransit)
+                        } else {
+                            realtimeMapViewModel.stop()
+                        }
+                    } label: {
+                        Image(systemName: showVehicles ? "bus.fill" : "bus")
+                            .font(.system(size: 18))
+                            .foregroundColor(showVehicles ? .white : .gray)
+                            .frame(width: 36, height: 36)
+                            .background(showVehicles ? Color(hex: "#4557A1") : Color.black.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
                 }
                 .padding(.top, 60)
-                .padding(.leading, 16)
-                
+                .padding(.horizontal, 16)
+
+                // Compteur de véhicules
+                if showVehicles && !realtimeMapViewModel.vehicles.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("\(realtimeMapViewModel.vehicles.count) véhicules en direct")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(hex: "#4557A1").opacity(0.85))
+                            .clipShape(Capsule())
+                            .padding(.trailing, 16)
+                    }
+                }
+
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            
+
             .onReceive(locationManager.$userLocation) { newLocation in
                 if let newLocation = newLocation {
                     withAnimation {
-                        region = MKCoordinateRegion(
+                        cameraPosition = .region(MKCoordinateRegion(
                             center: newLocation,
                             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                        )
+                        ))
                     }
                 }
             }
-            
-            
-            
-            
+
+            // Info bulle du véhicule sélectionné
+            if let vehicle = selectedVehicle {
+                VehicleInfoBubble(vehicle: vehicle) {
+                    selectedVehicle = nil
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, 260)
+                .zIndex(1)
+            }
+
+            if let disruption = primaryDisruption {
+                VStack {
+                    Spacer()
+                    DisruptionBanner(disruption: disruption)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 360)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(1)
+            }
+
             DraggableBottomSheet(
                 onSubmitSearch: rechercherTrajet,
                 destinationAddress: $destinationAddress,
@@ -114,9 +227,12 @@ struct TransitMapView: View {
             )
             .onAppear {
                 lijnenVM.fetchLijnen()
+                realtimeMapViewModel.start(mode: selectedTransit)
             }
-            
-            
+            .onDisappear {
+                realtimeMapViewModel.stop()
+            }
+
             if locationManager.showLocationError {
                 VStack {
                     Text("Fout in locatie. Activeer de positie.")
@@ -162,28 +278,30 @@ struct TransitMapView: View {
         .sheet(isPresented: $showAddSignalement) {
             NewMeldingView()
         }
-        
-    }
-    
-    private var annotations: [AnnotationItem] {
-        var items: [AnnotationItem] = []
-        if let start = startCoordinate {
-            items.append(AnnotationItem(coordinate: start, isStart: true))
-        }
-        if let dest = destinationCoordinate {
-            items.append(AnnotationItem(coordinate: dest, isStart: false))
-        }
-        return items
-    }
-    
-    private var userAnnotation: [AnnotationItem] {
-        if let userLoc = locationManager.userLocation {
-            return [AnnotationItem(coordinate: userLoc, isStart: false, isUser: true)]
-        } else {
-            return []
+        .onChange(of: selectedTransit) { mode in
+            realtimeMapViewModel.updateMode(mode)
         }
     }
-    
+
+    private var shapeSegments: [TransitShapeSegment] {
+        realtimeMapViewModel.lineShapes.flatMap { shape in
+            shape.segments.enumerated().map { index, segment in
+                TransitShapeSegment(
+                    id: "\(shape.id)-\(index)",
+                    polyline: MKPolyline(coordinates: segment, count: segment.count),
+                    transportType: shape.inferredTransport,
+                    severity: shape.disruptionSeverity
+                )
+            }
+        }
+    }
+
+    private var primaryDisruption: LineDisruption? {
+        realtimeMapViewModel.disruptions
+            .sorted { $0.severity.rawValue > $1.severity.rawValue }
+            .first
+    }
+
     private func selectSuggestion(_ suggestion: MKLocalSearchCompletion) {
         let address = suggestion.title
         if selectedField == .start {
@@ -202,62 +320,234 @@ struct TransitMapView: View {
             }
         }
     }
-    
+
     private func rechercherTrajet() {
         guard let userLoc = locationManager.userLocation, !destinationAddress.isEmpty else {
             return
         }
         self.startCoordinate = userLoc
-        
+
         mapViewModel.searchLocation(address: destinationAddress) { destCoord in
             guard let destCoord = destCoord else { return }
             self.destinationCoordinate = destCoord
-            
+
             mapViewModel.getRoute(from: userLoc, to: destCoord) { foundRoute in
                 if let foundRoute = foundRoute {
                     self.route = foundRoute
-                    self.region.center = userLoc
-                }
-            }
-        }
-    }
-    
-    private var routeOverlay: some View {
-        GeometryReader { geo in
-            if let route = route {
-                Path { path in
-                    let points = route.polyline.points()
-                    let pointCount = route.polyline.pointCount
-                    
-                    if pointCount > 0 {
-                        let firstPoint = points[0]
-                        let start = CGPoint(
-                            x: geo.size.width * CGFloat((firstPoint.coordinate.longitude - region.center.longitude) / region.span.longitudeDelta + 0.5),
-                            y: geo.size.height * CGFloat((firstPoint.coordinate.latitude - region.center.latitude) / -region.span.latitudeDelta + 0.5)
-                        )
-                        path.move(to: start)
-                        
-                        for i in 1..<pointCount {
-                            let nextPoint = points[i]
-                            let next = CGPoint(
-                                x: geo.size.width * CGFloat((nextPoint.coordinate.longitude - region.center.longitude) / region.span.longitudeDelta + 0.5),
-                                y: geo.size.height * CGFloat((nextPoint.coordinate.latitude - region.center.latitude) / -region.span.latitudeDelta + 0.5)
-                            )
-                            path.addLine(to: next)
-                        }
+                    withAnimation {
+                        cameraPosition = .region(MKCoordinateRegion(
+                            center: userLoc,
+                            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                        ))
                     }
                 }
-                .stroke(Color(hex: "#F18F5D"), lineWidth: 4) // Orange STIB
             }
         }
     }
 }
 
-struct AnnotationItem: Identifiable {
-    let id = UUID()
-    var coordinate: CLLocationCoordinate2D
-    var isStart: Bool
-    var isUser: Bool = false
+// MARK: - Vehicle Marker View (point animé sur la carte)
+
+struct VehicleMarkerView: View {
+    let vehicle: VehiclePosition
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            // Halo animé
+            Circle()
+                .fill(Color(hex: vehicle.transportType.color).opacity(0.25))
+                .frame(width: 28, height: 28)
+                .scaleEffect(pulse ? 1.3 : 1.0)
+                .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: pulse)
+
+            // Icone du véhicule
+            ZStack {
+                Circle()
+                    .fill(Color(hex: vehicle.transportType.color))
+                    .frame(width: 22, height: 22)
+                    .shadow(color: Color(hex: vehicle.transportType.color).opacity(0.5), radius: 4, x: 0, y: 2)
+
+                Image(systemName: vehicle.transportType.iconName)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .rotationEffect(.degrees(vehicle.bearing))
+
+            // Numéro de ligne
+            Text(vehicle.line)
+                .font(.system(size: 7, weight: .heavy))
+                .foregroundColor(.white)
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
+                .background(Color.black.opacity(0.7))
+                .clipShape(Capsule())
+                .offset(y: -16)
+        }
+        .onAppear { pulse = true }
+    }
+}
+
+// MARK: - Vehicle Info Bubble (popup quand on tap un véhicule)
+
+struct VehicleInfoBubble: View {
+    let vehicle: VehiclePosition
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color(hex: vehicle.transportType.color))
+                    .frame(width: 40, height: 40)
+                Image(systemName: vehicle.transportType.iconName)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Ligne \(vehicle.line)")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.primary)
+                if !vehicle.direction.isEmpty {
+                    Text("→ \(vehicle.direction)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
+                Text("ID: \(vehicle.id)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+        .padding(.horizontal, 16)
+    }
+}
+
+private struct TransitShapeSegment: Identifiable {
+    let id: String
+    let polyline: MKPolyline
+    let transportType: VehiclePosition.TransportType
+    let severity: LineDisruption.Severity
+
+    var strokeColor: Color {
+        switch severity {
+        case .high:
+            return Color(hex: "#FF7B72").opacity(0.95)
+        case .medium:
+            return Color(hex: "#F4C97A").opacity(0.9)
+        case .low:
+            return Color(hex: transportType.color).opacity(0.72)
+        }
+    }
+
+    var lineWidth: CGFloat {
+        let baseWidth: CGFloat
+        switch transportType {
+        case .metro:
+            baseWidth = 4
+        case .tram:
+            baseWidth = 3.5
+        case .bus:
+            baseWidth = 3
+        }
+
+        switch severity {
+        case .high:
+            return baseWidth + 1.5
+        case .medium:
+            return baseWidth + 0.8
+        case .low:
+            return baseWidth
+        }
+    }
+}
+
+struct WaitingTimeMarkerView: View {
+    let stop: WaitingTimeStop
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                Text(stop.line)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                Text("\(stop.minutes) min")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.95))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.black.opacity(0.72))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Color(hex: "#B5CFF8").opacity(0.8), lineWidth: 1)
+                    )
+            )
+
+            Circle()
+                .fill(Color(hex: "#CADBFF"))
+                .frame(width: 8, height: 8)
+                .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+        }
+    }
+}
+
+struct DisruptionBanner: View {
+    let disruption: LineDisruption
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(severityColor)
+                .frame(width: 10, height: 10)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(disruption.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+
+                Text("Ligne \(disruption.line)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.74))
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial.opacity(0.95))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(severityColor.opacity(0.7), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var severityColor: Color {
+        switch disruption.severity {
+        case .high:
+            return Color(hex: "#FF7B72")
+        case .medium:
+            return Color(hex: "#F4C97A")
+        case .low:
+            return Color(hex: "#8CCF9B")
+        }
+    }
 }
 
 

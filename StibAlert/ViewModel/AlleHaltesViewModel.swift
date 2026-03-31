@@ -18,6 +18,17 @@ class AlleHaltesViewModel: ObservableObject {
     @Published var isLoading = false
     
     func fetchArrets(lineId: String, sortAsc: Bool = true) {
+        guard AppConfig.isBackendEnabled else {
+            errorMessage = nil
+            isLoading = false
+            if sortAsc {
+                arretsAller = []
+            } else {
+                arretsRetour = []
+            }
+            arrets = []
+            return
+        }
         let sort = sortAsc ? "asc" : "desc"
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/par-ligne-filtres?line=\(lineId)&sort=\(sort)") else {
             errorMessage = "URL invalide"
@@ -68,6 +79,10 @@ class AlleHaltesViewModel: ObservableObject {
     }
     
     func fetchAllHaltes() {
+        guard AppConfig.isBackendEnabled else {
+            arrets = []
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets") else { return }
         
         URLSession.shared.dataTask(with: url) { data, _, error in
@@ -84,6 +99,11 @@ class AlleHaltesViewModel: ObservableObject {
         }.resume()
     }
     func fetchLijnenPourArret(arretId: String, completion: @escaping () -> Void) {
+        guard AppConfig.isBackendEnabled else {
+            lignesPourArret = []
+            completion()
+            return
+        }
         print("[DEBUG] 📡 Envoi de requête pour les lignes de l'arrêt ID: \(arretId)")
         
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/arrets/\(arretId)/lignes") else {
@@ -121,5 +141,4 @@ class AlleHaltesViewModel: ObservableObject {
     
     
 }
-
 

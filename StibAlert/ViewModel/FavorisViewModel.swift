@@ -28,6 +28,12 @@ class FavorisViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     func fetchFavoris(for userId: String, token: String) {
+        guard AppConfig.isBackendEnabled else {
+            isLoading = false
+            errorMessage = nil
+            favoris = []
+            return
+        }
         isLoading = true
         errorMessage = nil
         
@@ -65,6 +71,10 @@ class FavorisViewModel: ObservableObject {
     
     
     func toggleFavori(userId: String, halteId: String, completion: @escaping () -> Void) {
+        guard AppConfig.isBackendEnabled else {
+            completion()
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/utilisateurs/\(userId)/favoris/\(halteId)") else {
             return
         }

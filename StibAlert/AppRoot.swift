@@ -8,18 +8,12 @@
 import SwiftUI
 
 struct AppRoot: View {
-    @AppStorage(AppStorageKeys.hasSeenOnboarding) private var hasSeenOnboarding = false
+    @StateObject private var tabBarVisibility = TabBarVisibility()
+    @StateObject private var mainTabSelection = MainTabSelection()
 
     var body: some View {
-        Group {
-            if !hasSeenOnboarding {
-                OnboardingView {
-                    hasSeenOnboarding = true
-                }
-            } else {
-                Home()
-            }
-        }
+        MainTabView()
+            .environmentObject(tabBarVisibility)
+            .environmentObject(mainTabSelection)
     }
 }
-

@@ -6,7 +6,15 @@ class LijnenViewModel: ObservableObject {
     @Published var errorMessage: String?
     
     func fetchLijnen() {
-        let urlString = "https://stib-alert-backend.onrender.com/api/lignes"
+        guard AppConfig.isBackendEnabled else {
+            DispatchQueue.main.async {
+                self.lijnen = []
+                self.errorMessage = nil
+            }
+            return
+        }
+
+        let urlString = "\(AppConfig.backendBaseURL)/api/lignes"
         let cacheFile = "lijnen_cache.json"
         
         guard let url = URL(string: urlString) else {

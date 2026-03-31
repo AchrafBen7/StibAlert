@@ -78,6 +78,16 @@ struct HaltesParLigneView: View {
     }
     
     func toggleFavori(arretId: String, userId: String, token: String) {
+        guard AppConfig.isBackendEnabled else {
+            if favorisLocaux.contains(arretId) {
+                favorisLocaux.remove(arretId)
+                showTemporaryToast(message: "Verwijderd uit favorieten ❌")
+            } else {
+                favorisLocaux.insert(arretId)
+                showTemporaryToast(message: "Toegevoegd aan favorieten ✅")
+            }
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/utilisateurs/\(userId)/favoris/\(arretId)") else { return }
         
         var request = URLRequest(url: url)

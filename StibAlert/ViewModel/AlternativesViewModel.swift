@@ -17,6 +17,15 @@ class AlternativesViewModel: ObservableObject {
     @Published var error: String?
 
     func fetchAlternatives(for ligneID: String, arretID: String) {
+        guard AppConfig.isBackendEnabled else {
+            isLoading = false
+            error = nil
+            suggestion = ""
+            alternatives = []
+            arret = ""
+            ligne = ""
+            return
+        }
         isLoading = true
         error = nil
 

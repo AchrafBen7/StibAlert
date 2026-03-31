@@ -15,6 +15,13 @@ class MeldingHalteViewModel: ObservableObject {
     @Published var convertedSignalements: [MeldingenReadModel] = []
     
     func fetchMeldingen(voor arretId: String) {
+        guard AppConfig.isBackendEnabled else {
+            resume = ""
+            signalements = []
+            convertedSignalements = []
+            errorMessage = nil
+            return
+        }
        
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/signalements/arret/\(arretId)") else {
             self.errorMessage = "URL invalide pour arretId \(arretId)"

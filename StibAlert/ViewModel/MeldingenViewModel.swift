@@ -30,6 +30,14 @@ class MeldingenViewModel: ObservableObject {
     }()
     
     func fetchMeldingen() {
+        guard AppConfig.isBackendEnabled else {
+            DispatchQueue.main.async {
+                self.meldingen = []
+                self.errorMessage = nil
+            }
+            return
+        }
+
         let urlString = "https://stib-alert-backend.onrender.com/api/signalements"
         let cacheFile = "meldingen_cache.json"
         
@@ -98,5 +106,4 @@ class MeldingenViewModel: ObservableObject {
     }
     
 }
-
 

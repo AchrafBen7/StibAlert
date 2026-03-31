@@ -15,6 +15,13 @@ class NewMeldingViewModel: ObservableObject {
     }()
     
     func postMelding(nieuweMelding: NewMeldingRequest) {
+        guard AppConfig.isBackendEnabled else {
+            DispatchQueue.main.async {
+                self.errorMessage = AppConfig.backendDisabledMessage
+                self.MeldingCreated = nil
+            }
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/signalements") else {
             DispatchQueue.main.async {
                 self.errorMessage = "Ongeldige URL"
@@ -42,6 +49,13 @@ class NewMeldingViewModel: ObservableObject {
     }
     
     func postMeldingWithImage(nieuweMelding: NewMeldingRequest, image: UIImage) {
+        guard AppConfig.isBackendEnabled else {
+            DispatchQueue.main.async {
+                self.errorMessage = AppConfig.backendDisabledMessage
+                self.MeldingCreated = nil
+            }
+            return
+        }
         guard let url = URL(string: "https://stib-alert-backend.onrender.com/api/signalements") else {
             DispatchQueue.main.async {
                 self.errorMessage = "Ongeldige URL"

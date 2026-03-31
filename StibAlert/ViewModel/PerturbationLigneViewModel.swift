@@ -13,6 +13,13 @@ class PerturbationLigneViewModel: ObservableObject {
     @Published var error: String?
 
     func fetchPerturbations(for lineID: String) {
+        guard AppConfig.isBackendEnabled else {
+            signalements = []
+            resume = ""
+            isLoading = false
+            error = nil
+            return
+        }
         print("📡 Début du fetch des perturbations pour la ligne \(lineID)")
         isLoading = true
         error = nil
