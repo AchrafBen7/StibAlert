@@ -9,7 +9,6 @@ import SwiftUI
 struct SplashView: View {
     @State private var isActive = false
     @State private var animateLights = false
-    @StateObject private var meldingenVM = MeldingenViewModel()
 
     var body: some View {
         NavigationStack {
@@ -89,7 +88,7 @@ struct SplashView: View {
                         Text("Alert")
                             .foregroundStyle(Color(hex: "#E1D4BC"))
                     }
-                    .font(AppTheme.Fonts.clash(64))
+                    .font(.custom("DelaGothicOne-Regular", size: 64))
                     .fontWeight(.medium)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -111,11 +110,6 @@ struct SplashView: View {
     private func startupTasks() {
         withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
             animateLights = true
-        }
-
-        if FirstLaunchManager.checkFirstLaunch() {
-            meldingenVM.fetchMeldingen()
-            UserDefaults.standard.set(Date(), forKey: AppStorageKeys.lastUpdateDate)
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

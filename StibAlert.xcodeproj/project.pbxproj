@@ -10,6 +10,7 @@
 		3885F9082E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */; };
 		3885F90A2E71FD09005F1CB1 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */; };
 		3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */; };
+		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -145,6 +147,7 @@
 			);
 			name = StibAlert;
 			packageProductDependencies = (
+				A14F33003B8D100100A1B2C3 /* GoogleMaps3D */,
 			);
 			productName = StibAlert;
 			productReference = 3831C0812D79C1D100452AA0 /* StibAlert.app */;
@@ -228,6 +231,9 @@
 			);
 			mainGroup = 3831C0782D79C1D100452AA0;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3831C0822D79C1D100452AA0 /* Products */;
 			projectDirPath = "";
@@ -606,6 +612,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-maps-3d-sdk";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A14F33003B8D100100A1B2C3 /* GoogleMaps3D */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */;
+			productName = GoogleMaps3D;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 3831C0792D79C1D100452AA0 /* Project object */;
 }
