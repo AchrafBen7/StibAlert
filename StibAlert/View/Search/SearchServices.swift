@@ -2,7 +2,15 @@ import Foundation
 import SwiftUI
 import CoreLocation
 import MapKit
-import GoogleMaps3D
+
+struct TransitCoordinate: Hashable, Equatable {
+    let latitude: Double
+    let longitude: Double
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
 
 @MainActor
 final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
@@ -24,8 +32,6 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
     }
 
     func requestLocationAccess() {
-        guard CLLocationManager.locationServicesEnabled() else { return }
-
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
@@ -39,7 +45,6 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
     }
 
     func requestCurrentLocation() {
-        guard CLLocationManager.locationServicesEnabled() else { return }
         isLocating = true
         manager.requestLocation()
     }
@@ -77,7 +82,7 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
     private func updateCurrentPlace(from location: CLLocation) async {
         defer { isLocating = false }
 
-        let coordinate = LatLngAltitude(
+        let coordinate = TransitCoordinate(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
         )
@@ -132,12 +137,12 @@ enum SearchRouteCalculator {
             )
         }
 
-        let nearbyVehicles = SearchTransitCorridorAnalyzer.nearbyVehicles(for: route.polyline.latLngAltitudes)
+        let nearbyVehicles = SearchTransitCorridorAnalyzer.nearbyVehicles(for: route.polyline.transitCoordinates)
 
         return SearchJourney(
             origin: origin,
             destination: destination,
-            path: route.polyline.latLngAltitudes,
+            path: route.polyline.transitCoordinates,
             eta: max(1, Int((route.expectedTravelTime / 60).rounded())),
             lineSummary: route.displaySummary,
             isReal: true,
@@ -193,7 +198,7 @@ final class SearchAutocompleteManager: NSObject, ObservableObject, @preconcurren
             id: "search-\(coordinate.latitude)-\(coordinate.longitude)-\(suggestion.title)",
             name: suggestion.title,
             subtitle: subtitle.isEmpty ? suggestion.subtitle : subtitle,
-            coordinate: LatLngAltitude(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            coordinate: TransitCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
         )
     }
 
@@ -213,7 +218,7 @@ final class SearchAutocompleteManager: NSObject, ObservableObject, @preconcurren
 }
 
 enum SearchTransitCorridorAnalyzer {
-    static func nearbyVehicles(for path: [LatLngAltitude]) -> [SearchNearbyTransit] {
+    static func nearbyVehicles(for path: [TransitCoordinate]) -> [SearchNearbyTransit] {
         guard !path.isEmpty else { return [] }
 
         return TransitMapMockData.routes.flatMap { route in
@@ -231,7 +236,7 @@ enum SearchTransitCorridorAnalyzer {
         }
     }
 
-    private static func minimumDistance(between lhs: [LatLngAltitude], and rhs: [LatLngAltitude]) -> Double {
+    private static func minimumDistance(between lhs: [TransitCoordinate], and rhs: [TransitCoordinate]) -> Double {
         lhs.flatMap { a in
             rhs.map { b in
                 distance(from: a, to: b)
@@ -240,7 +245,7 @@ enum SearchTransitCorridorAnalyzer {
         .min() ?? .greatestFiniteMagnitude
     }
 
-    private static func distance(from start: LatLngAltitude, to end: LatLngAltitude) -> Double {
+    private static func distance(from start: TransitCoordinate, to end: TransitCoordinate) -> Double {
         let latScale = 111_000.0
         let lonScale = 111_000.0 * cos(((start.latitude + end.latitude) / 2.0) * .pi / 180.0)
         let dx = (end.longitude - start.longitude) * lonScale
@@ -249,18 +254,12 @@ enum SearchTransitCorridorAnalyzer {
     }
 }
 
-private extension LatLngAltitude {
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    }
-}
-
 private extension MKPolyline {
-    var latLngAltitudes: [LatLngAltitude] {
+    var transitCoordinates: [TransitCoordinate] {
         let coords = coordinates
         guard !coords.isEmpty else { return [] }
         return coords.map {
-            LatLngAltitude(latitude: $0.latitude, longitude: $0.longitude)
+            TransitCoordinate(latitude: $0.latitude, longitude: $0.longitude)
         }
     }
 

@@ -1,5 +1,2 @@
 import SwiftUI
-
-final class TabBarVisibility: ObservableObject {
-    @Published var isHidden: Bool = false
-}
+// TabBarVisibility removed — no tab bar in this app.

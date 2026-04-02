@@ -1,5 +1,4 @@
 import SwiftUI
-import GoogleMaps3D
 
 struct SearchView: View {
     @StateObject private var locationManager = SearchLocationManager()
@@ -7,7 +6,7 @@ struct SearchView: View {
     @State private var selectedScope: SearchScope = .all
     @State private var origin = SearchJourneyMockData.defaultOrigin
     @State private var destination: SearchPlace?
-    @State private var activeField: SearchField = .destination
+    @State private var activeField: SearchField = .none
     @State private var query = ""
     @State private var journey: SearchJourney?
     @State private var isLoadingRoute = false
@@ -54,7 +53,7 @@ struct SearchView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack {
             SearchTransitMapView(
                 selectedScope: selectedScope,
                 journey: journey
@@ -63,8 +62,8 @@ struct SearchView: View {
 
             LinearGradient(
                 colors: [
-                    Color.black.opacity(0.26),
-                    Color.black.opacity(0.06),
+                    Color.black.opacity(0.14),
+                    Color.black.opacity(0.03),
                     .clear
                 ],
                 startPoint: .top,
@@ -73,31 +72,30 @@ struct SearchView: View {
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
-            VStack(spacing: 12) {
-                SearchRoutePanel(
-                    origin: effectiveOrigin,
+            VStack(spacing: 0) {
+                SearchTopBar(
+                    query: $query,
                     destination: destination,
-                    isUsingCurrentLocation: useCurrentLocation,
-                    isLocating: locationManager.isLocating,
-                    onOriginTap: {
-                        activeField = .origin
+                    isExpanded: activeField != .none,
+                    onOpenMenu: {},
+                    onOpenSearch: {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            activeField = .destination
+                        }
                     },
-                    onDestinationTap: {
-                        activeField = .destination
-                    },
-                    onSwap: swapPlaces
+                    onCloseSearch: {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                            activeField = .none
+                            query = ""
+                        }
+                    }
                 )
+                .padding(.top, 8)
+                .padding(.horizontal, DesignSystem.Spacing.md)
 
-                SearchScopes(selectedScope: $selectedScope)
-            }
-            .padding(.top, 8)
-            .padding(.horizontal, DesignSystem.Spacing.md)
-        }
-        .overlay(alignment: .bottom) {
-            VStack(spacing: 12) {
                 if activeField != .none {
                     SearchDestinationSheet(
-                        title: activeField == .origin ? "Choose your departure" : "Where do you want to go?",
+                        title: "Ou voulez-vous aller ?",
                         query: $query,
                         selectedField: activeField,
                         suggestions: visibleSuggestions,
@@ -112,17 +110,23 @@ struct SearchView: View {
                         onSelectSuggestion: applySuggestion,
                         onSelect: applySelection
                     )
-                } else if let journey {
-                    SearchJourneySummaryCard(
-                        journey: journey,
-                        isLoading: isLoadingRoute,
-                        routeNote: routeNote,
-                        onEditDestination: { activeField = .destination }
-                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.top, 14)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
+
+                Spacer()
             }
-            .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.bottom, 96)
+        }
+        .overlay(alignment: .bottom) {
+            Button("Derniers signalements") {}
+                .font(AppTheme.Fonts.clash(18))
+                .foregroundStyle(.white)
+                .frame(maxWidth: 311)
+                .frame(height: 58)
+                .background(Color(hex: "#0B111E"))
+                .clipShape(Capsule())
+                .padding(.bottom, 30)
         }
         .background(DesignSystem.Colors.background)
         .toolbar(.hidden, for: .navigationBar)
@@ -217,179 +221,72 @@ struct SearchView: View {
     }
 }
 
-private struct SearchRoutePanel: View {
-    let origin: SearchPlace
+private struct SearchTopBar: View {
+    @Binding var query: String
     let destination: SearchPlace?
-    let isUsingCurrentLocation: Bool
-    let isLocating: Bool
-    let onOriginTap: () -> Void
-    let onDestinationTap: () -> Void
-    let onSwap: () -> Void
+    let isExpanded: Bool
+    let onOpenMenu: () -> Void
+    let onOpenSearch: () -> Void
+    let onCloseSearch: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                Text("Search route")
-                    .font(DesignSystem.Typography.pageTitle)
-                    .foregroundStyle(.white)
-
-                Text("Set a departure and destination to preview the route directly on the 3D map.")
-                    .font(DesignSystem.Typography.description)
-                    .foregroundStyle(Color.white.opacity(0.82))
+        HStack {
+            Button(action: onOpenMenu) {
+                SearchIconButton(icon: "line.3.horizontal")
             }
+            .buttonStyle(.plain)
 
-                Spacer()
+            Spacer()
 
-                Button(action: onSwap) {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 15, weight: .semibold))
+            if isExpanded {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.white)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
 
-            if isUsingCurrentLocation {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(DesignSystem.Colors.success)
-                        .frame(width: 8, height: 8)
-
-                    Text(isLocating ? "Locating your current position..." : "Using your current location as departure")
-                        .font(DesignSystem.Typography.labelSemibold)
-                        .foregroundStyle(Color.white.opacity(0.86))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
-            }
-
-            VStack(spacing: 10) {
-                SearchRouteField(
-                    label: "From",
-                    icon: "circle.fill",
-                    title: origin.name,
-                    subtitle: origin.subtitle,
-                    tint: DesignSystem.Colors.success,
-                    action: onOriginTap
-                )
-
-                SearchRouteField(
-                    label: "To",
-                    icon: "mappin.circle.fill",
-                    title: destination?.name ?? "Choose a destination",
-                    subtitle: destination?.subtitle ?? "Tap to show destinations and build the route",
-                    tint: DesignSystem.Colors.accentSand,
-                    action: onDestinationTap
-                )
-            }
-        }
-        .padding(18)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 1)
-        )
-    }
-}
-
-private struct SearchRouteField: View {
-    let label: String
-    let icon: String
-    let title: String
-    let subtitle: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(tint.opacity(0.16))
-                        .frame(width: 48, height: 48)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(tint)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(label)
-                        .font(DesignSystem.Typography.labelSemibold)
-                        .foregroundStyle(Color.white.opacity(0.66))
-
-                    Text(title)
-                        .font(DesignSystem.Typography.bodySemibold)
+                    TextField("", text: $query, prompt: Text(destination?.name ?? "Ou voulez-vous aller ?").foregroundStyle(Color.white.opacity(0.72)))
+                        .font(AppTheme.Fonts.body(15, weight: .semibold))
                         .foregroundStyle(.white)
-                        .multilineTextAlignment(.leading)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
 
-                    Text(subtitle)
-                        .font(DesignSystem.Typography.description)
-                        .foregroundStyle(Color.white.opacity(0.78))
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.white.opacity(0.68))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct SearchScopes: View {
-    @Binding var selectedScope: SearchScope
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DesignSystem.Spacing.homeFilterChipsSpacing) {
-                ForEach(SearchScope.allCases) { scope in
-                    Button {
-                        selectedScope = scope
-                    } label: {
-                        Text(scope.title)
-                            .font(DesignSystem.Typography.homeFilterChip)
-                            .foregroundStyle(
-                                selectedScope == scope
-                                ? Color.white
-                                : Color.white.opacity(0.84)
-                            )
-                            .padding(.horizontal, DesignSystem.Spacing.homeFilterChipHorizontalPadding)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(
-                                        selectedScope == scope
-                                        ? Color.black.opacity(0.56)
-                                        : Color.white.opacity(0.12)
-                                    )
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                            )
+                    Button(action: onCloseSearch) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.82))
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 14)
+                .frame(width: 244, height: 40)
+                .background(Color(hex: "#0B111E"))
+                .clipShape(Capsule())
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                Button(action: onOpenSearch) {
+                    SearchIconButton(icon: "magnifyingglass")
+                }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
             }
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.88), value: isExpanded)
+    }
+}
+
+
+private struct SearchIconButton: View {
+    let icon: String
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(hex: "#0B111E"))
+                .frame(width: 42, height: 40)
+
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(.white)
         }
     }
 }
@@ -414,7 +311,7 @@ private struct SearchDestinationSheet: View {
                 .frame(maxWidth: .infinity)
 
             Text(title)
-                .font(DesignSystem.Typography.cardTitle)
+                .font(AppTheme.Fonts.clash(18))
                 .foregroundStyle(DesignSystem.Colors.primaryText)
 
             if selectedField == .origin {
@@ -430,11 +327,11 @@ private struct SearchDestinationSheet: View {
                             )
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Use my location")
+                            Text("Utiliser ma position")
                                 .font(DesignSystem.Typography.bodySemibold)
                                 .foregroundStyle(DesignSystem.Colors.primaryText)
 
-                            Text(locationDenied ? "Location access is denied right now." : "Use your real-time location as departure.")
+                            Text(locationDenied ? "L'acces a la localisation est refuse." : "Utilisez votre position actuelle comme depart.")
                                 .font(DesignSystem.Typography.description)
                                 .foregroundStyle(DesignSystem.Colors.secondaryText)
                                 .multilineTextAlignment(.leading)
@@ -466,7 +363,7 @@ private struct SearchDestinationSheet: View {
                     .foregroundStyle(DesignSystem.Colors.secondaryText)
 
                 TextField(
-                    selectedField == .origin ? "Search departure" : "Search destination",
+                    selectedField == .origin ? "Rechercher un depart" : "Rechercher une destination",
                     text: $query
                 )
                 .font(DesignSystem.Typography.body)
@@ -483,7 +380,7 @@ private struct SearchDestinationSheet: View {
                 VStack(spacing: 10) {
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Live suggestions")
+                            Text("Suggestions")
                                 .font(DesignSystem.Typography.labelSemibold)
                                 .foregroundStyle(DesignSystem.Colors.secondaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -534,7 +431,7 @@ private struct SearchDestinationSheet: View {
                     }
 
                     if !places.isEmpty {
-                        Text("Saved Brussels picks")
+                        Text("Bruxelles")
                             .font(DesignSystem.Typography.labelSemibold)
                             .foregroundStyle(DesignSystem.Colors.secondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -584,11 +481,11 @@ private struct SearchDestinationSheet: View {
             .frame(maxHeight: 300)
         }
         .padding(18)
-        .background(.ultraThinMaterial)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
         )
     }
 }
@@ -745,13 +642,13 @@ struct SearchPlace: Identifiable, Equatable {
     let id: String
     let name: String
     let subtitle: String
-    let coordinate: LatLngAltitude
+    let coordinate: TransitCoordinate
 }
 
 struct SearchJourney {
     let origin: SearchPlace
     let destination: SearchPlace
-    let path: [LatLngAltitude]
+    let path: [TransitCoordinate]
     let eta: Int
     let lineSummary: String
     let isReal: Bool
@@ -812,13 +709,13 @@ enum SearchJourneyMockData {
         )
     }
 
-    private static func curvedPath(from start: LatLngAltitude, to end: LatLngAltitude) -> [LatLngAltitude] {
+    private static func curvedPath(from start: TransitCoordinate, to end: TransitCoordinate) -> [TransitCoordinate] {
         let midLatitude = (start.latitude + end.latitude) / 2
         let midLongitude = (start.longitude + end.longitude) / 2
         let latDelta = end.latitude - start.latitude
         let lonDelta = end.longitude - start.longitude
         let offsetScale = max(0.004, min(0.012, sqrt(latDelta * latDelta + lonDelta * lonDelta) * 0.35))
-        let control = LatLngAltitude(
+        let control = TransitCoordinate(
             latitude: midLatitude + lonDelta * offsetScale,
             longitude: midLongitude - latDelta * offsetScale
         )
@@ -829,11 +726,11 @@ enum SearchJourneyMockData {
     }
 
     private static func quadraticPoint(
-        start: LatLngAltitude,
-        control: LatLngAltitude,
-        end: LatLngAltitude,
+        start: TransitCoordinate,
+        control: TransitCoordinate,
+        end: TransitCoordinate,
         t: Double
-    ) -> LatLngAltitude {
+    ) -> TransitCoordinate {
         let oneMinusT = 1 - t
         let latitude = oneMinusT * oneMinusT * start.latitude
             + 2 * oneMinusT * t * control.latitude
@@ -844,7 +741,7 @@ enum SearchJourneyMockData {
         return .init(latitude: latitude, longitude: longitude)
     }
 
-    private static func estimatedMinutes(from start: LatLngAltitude, to end: LatLngAltitude) -> Int {
+    private static func estimatedMinutes(from start: TransitCoordinate, to end: TransitCoordinate) -> Int {
         let latScale = 111_000.0
         let lonScale = 111_000.0 * cos(((start.latitude + end.latitude) / 2.0) * .pi / 180.0)
         let dx = (end.longitude - start.longitude) * lonScale
