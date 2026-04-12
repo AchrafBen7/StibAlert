@@ -83,24 +83,25 @@ struct OnboardingView: View {
                     onFinish()
                 }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: index == 0 ? 0 : 8) {
                     Text(actionTitle)
                         .font(AppTheme.Fonts.clash(14))
                         .lineLimit(1)
 
-                    Image(systemName: index == Self.pages.count - 1 ? "arrow.right" : "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                    if index != 0 {
+                        Image(systemName: index == Self.pages.count - 1 ? "arrow.right" : "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
                 }
                 .foregroundStyle(actionForeground)
-                .frame(width: 118, height: 40)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(actionBackground)
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .stroke(actionBorder, lineWidth: 1)
-                        )
-                )
+                .frame(width: index == 0 ? 90 : 118, height: 40, alignment: .trailing)
+                .background {
+                    if index == 0 {
+                        Color.clear
+                    } else {
+                        actionBackgroundShape
+                    }
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(actionTitle)
@@ -113,7 +114,10 @@ struct OnboardingView: View {
     }
 
     private var actionForeground: Color {
-        index < Self.pages.count - 1 ? AppTheme.Colors.textInverse : AppTheme.Colors.onboardingTitleSand
+        if index == 0 {
+            return AppTheme.Colors.textInverse
+        }
+        return index < Self.pages.count - 1 ? AppTheme.Colors.textInverse : AppTheme.Colors.onboardingTitleSand
     }
 
     private var actionBackground: Color {
@@ -124,6 +128,16 @@ struct OnboardingView: View {
 
     private var actionBorder: Color {
         index < Self.pages.count - 1 ? AppTheme.Colors.onboardingIndicatorBlue : AppTheme.Colors.onboardingTitleSand
+    }
+
+    @ViewBuilder
+    private var actionBackgroundShape: some View {
+        Capsule(style: .continuous)
+            .fill(actionBackground)
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(actionBorder, lineWidth: 1)
+            )
     }
 
     private func onboardingBackground(size: CGSize) -> some View {
@@ -174,25 +188,25 @@ struct OnboardingPageView: View {
     private var editorialPage: some View {
         VStack(alignment: .leading, spacing: 0) {
             editorialAccent
-                .padding(.bottom, pageIndex == 0 ? 48 : 34)
+                .padding(.bottom, 156)
 
             title
                 .font(AppTheme.Fonts.clash(32))
                 .frame(width: 363, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 22)
+                .padding(.bottom, 14)
 
             Text(page.subtitle)
-                .font(AppTheme.Fonts.clash(16))
+                .font(AppTheme.Fonts.body(16))
                 .foregroundStyle(AppTheme.Colors.textInverse)
                 .frame(width: 329, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(3)
+                .lineSpacing(1)
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.leading, 41)
+        .padding(.leading, 30)
         .padding(.trailing, 28)
     }
 
@@ -233,11 +247,11 @@ struct OnboardingPageView: View {
     private var accentWidth: CGFloat {
         switch pageIndex {
         case 0:
-            return 38
+            return 28.077
         case 1:
-            return 58
+            return 28.077
         default:
-            return 48
+            return 28.077
         }
     }
 

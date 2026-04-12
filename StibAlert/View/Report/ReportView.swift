@@ -24,9 +24,33 @@ struct ReportSheetView: View {
     @State private var level: SheetLevel = .full
     @GestureState private var liveOffset: CGFloat = 0
     @State private var selectedStop: UUID? = nil
+    @State private var selectedIssueLine: UUID? = nil
+    @State private var selectedProblemType: ReportProblemType? = nil
+    @State private var isShowingProblemTypeHelp = false
+    @State private var additionalDetails = ""
+    @State private var currentStep: ReportFlowStep = .stop
 
     private let screen = UIScreen.main.bounds.height
     private let snapSpring = Animation.spring(response: 0.36, dampingFraction: 0.78)
+
+    private var selectedStopItem: NearbyStop? {
+        NearbyStopMockData.stops.first(where: { $0.id == selectedStop })
+    }
+
+    private var availableIssueLines: [NearbyIssueLine] {
+        selectedStopItem?.issueLines ?? []
+    }
+
+    private var selectedIssueLineItem: NearbyIssueLine? {
+        availableIssueLines.first(where: { $0.id == selectedIssueLine })
+    }
+
+    private var formattedReportTime: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.dateFormat = "HH'h'mm"
+        return formatter.string(from: Date())
+    }
 
     // Leaves the status bar / dynamic island area uncovered
     private var safeTop: CGFloat {
@@ -89,59 +113,112 @@ struct ReportSheetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // ── Drag handle (white, always visible) ──────────────────
-            Capsule()
-                .fill(Color.white.opacity(0.55))
-                .frame(width: 44, height: 5)
-                .padding(.top, 12)
-                .padding(.bottom, 14)
-                .frame(maxWidth: .infinity)
+        ZStack {
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 44, height: 5)
+                    .padding(.top, 18)
+                    .padding(.bottom, 18)
+                    .frame(maxWidth: .infinity)
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    StepIndicatorRow(current: 1, total: 5)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
+                SheetNavigationRow(
+                    showsBack: currentStep != .stop,
+                    onBack: handleBack,
+                    onClose: handleClose
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
 
-                    Text("Arrets a proximité")
-                        .font(.custom("DelaGothicOne-Regular", size: 20))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        StepIndicatorRow(current: currentStep.rawValue, total: 5)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
 
-                    Text("Signaler un arret")
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 4)
-                        .padding(.bottom, 20)
+                        Text(currentStepTitle)
+                            .font(.custom("DelaGothicOne-Regular", size: 20))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20)
 
-                    StopCardsGrid(selectedStop: $selectedStop)
-                        .padding(.horizontal, 14)
+                        Text(currentStepSubtitle)
+                            .font(DesignSystem.Typography.description)
+                            .foregroundStyle(AppTheme.Colors.textInverse)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 4)
+                            .padding(.bottom, 20)
 
-                    // 36pt gap between last card and button
-                    Button("Continuer") {}
-                        .font(.custom("DelaGothicOne-Regular", size: 18))
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .padding(.horizontal, 14)
-                        .padding(.top, 36)
-                        .padding(.bottom, safeBottom + 6)
+                        if currentStep == .stop {
+                            StopCardsGrid(selectedStop: $selectedStop)
+                                .padding(.horizontal, 14)
+                        } else if currentStep == .line {
+                            IssueLineCardsGrid(
+                                lines: availableIssueLines,
+                                selectedLine: $selectedIssueLine
+                            )
+                            .padding(.horizontal, 14)
+                        } else if currentStep == .problemType {
+                            ProblemTypeStepView(selectedProblemType: $selectedProblemType)
+                                .padding(.horizontal, 12)
+                        } else if currentStep == .details {
+                            AdditionalDetailsStepView(details: $additionalDetails)
+                                .padding(.horizontal, 16)
+                        } else {
+                            ReportConfirmationStepView(
+                                stopName: selectedStopItem?.name ?? "Non défini",
+                                line: selectedIssueLineItem,
+                                problemType: selectedProblemType,
+                                description: additionalDetails,
+                                formattedTime: formattedReportTime
+                            )
+                            .padding(.horizontal, 16)
+                        }
+
+                        if currentStep == .problemType {
+                            ProblemTypeHelpRow {
+                                withAnimation(DesignSystem.Animation.quick) {
+                                    isShowingProblemTypeHelp = true
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 18)
+                        }
+
+                        Button(currentStep.primaryButtonTitle) {
+                            handleContinue()
+                        }
+                            .font(.custom("DelaGothicOne-Regular", size: 18))
+                            .foregroundStyle(buttonIsEnabled ? .black : .black.opacity(0.45))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 60)
+                            .background(buttonIsEnabled ? Color.white : Color.white.opacity(0.65))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .padding(.horizontal, 14)
+                            .padding(.top, 36)
+                            .padding(.bottom, safeBottom + 6)
+                            .disabled(!buttonIsEnabled)
+                    }
                 }
             }
-            .scrollDisabled(level != .full)
+            .scrollDisabled(level != .full || isShowingProblemTypeHelp)
+
+            if isShowingProblemTypeHelp {
+                ProblemTypeHelpOverlay {
+                    withAnimation(DesignSystem.Animation.quick) {
+                        isShowingProblemTypeHelp = false
+                    }
+                }
+                .padding(.horizontal, 12)
+                .transition(.opacity)
+                .zIndex(1)
+            }
         }
         .frame(height: displayHeight)
         .frame(maxWidth: .infinity)
         .background(
             ZStack(alignment: .bottom) {
-                // Extends fully to screen bottom covering safe area
                 Color(red: 0.11, green: 0.11, blue: 0.11)
                     .ignoresSafeArea(edges: .bottom)
-                // Rounded top corners only
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .fill(Color(red: 0.11, green: 0.11, blue: 0.11))
             }
@@ -156,9 +233,110 @@ struct ReportSheetView: View {
             baseHeight = fullHeight
         }
     }
+
+    private var currentStepTitle: String {
+        if currentStep == .line, let stopName = selectedStopItem?.name {
+            return stopName
+        }
+        return currentStep.title
+    }
+
+    private var currentStepSubtitle: String {
+        if currentStep == .line {
+            return "Signaler une ligne"
+        }
+        return currentStep.subtitle
+    }
+
+    private var buttonIsEnabled: Bool {
+        switch currentStep {
+        case .stop:
+            return selectedStop != nil
+        case .line:
+            return selectedIssueLine != nil
+        case .problemType:
+            return selectedProblemType != nil
+        case .details:
+            return true
+        case .confirmation:
+            return true
+        }
+    }
+
+    private func handleContinue() {
+        switch currentStep {
+        case .stop:
+            guard selectedStop != nil else { return }
+            selectedIssueLine = nil
+            currentStep = .line
+        case .line:
+            guard selectedIssueLine != nil else { return }
+            selectedProblemType = nil
+            currentStep = .problemType
+        case .problemType:
+            guard selectedProblemType != nil else { return }
+            currentStep = .details
+        case .details:
+            currentStep = .confirmation
+        case .confirmation:
+            return
+        }
+    }
+
+    private func handleBack() {
+        switch currentStep {
+        case .stop:
+            return
+        case .line:
+            selectedIssueLine = nil
+            currentStep = .stop
+        case .problemType:
+            isShowingProblemTypeHelp = false
+            selectedProblemType = nil
+            currentStep = .line
+        case .details:
+            currentStep = .problemType
+        case .confirmation:
+            currentStep = .details
+        }
+    }
+
+    private func handleClose() {
+        withAnimation(snapSpring) {
+            isShowingProblemTypeHelp = false
+            isShowing = false
+        }
+    }
 }
 
 // MARK: - Step indicator row
+
+private struct SheetNavigationRow: View {
+    let showsBack: Bool
+    let onBack: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: onBack) {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(showsBack ? Color.white : Color.clear)
+                    .frame(width: 24, height: 24)
+            }
+            .disabled(!showsBack)
+
+            Spacer()
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 24, height: 24)
+            }
+        }
+    }
+}
 
 private struct StepIndicatorRow: View {
     let current: Int
@@ -205,6 +383,313 @@ private struct StopCardsGrid: View {
     }
 }
 
+private struct IssueLineCardsGrid: View {
+    let lines: [NearbyIssueLine]
+    @Binding var selectedLine: UUID?
+
+    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(lines) { line in
+                IssueLineCard(line: line, isSelected: selectedLine == line.id)
+                    .onTapGesture { selectedLine = line.id }
+            }
+        }
+    }
+}
+
+private struct ProblemTypeStepView: View {
+    @Binding var selectedProblemType: ReportProblemType?
+
+    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(ReportProblemType.allCases) { problemType in
+                ReportProblemTypeCard(
+                    problemType: problemType,
+                    isSelected: selectedProblemType == problemType
+                )
+                .onTapGesture {
+                    selectedProblemType = problemType
+                }
+            }
+        }
+    }
+}
+
+private struct ReportProblemTypeCard: View {
+    let problemType: ReportProblemType
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                Text(problemType.title)
+                    .font(.custom("DelaGothicOne-Regular", size: 18))
+                    .foregroundStyle(.black)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 6)
+
+                Circle()
+                    .fill(problemType.accentColor)
+                    .frame(width: 12, height: 12)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.black.opacity(isSelected ? 0.18 : 0), lineWidth: 1.5)
+                    )
+            }
+
+            Spacer(minLength: 14)
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(problemType.descriptionLines, id: \.self) { line in
+                    Text(line)
+                        .font(.custom("Montserrat-Regular", size: 11))
+                        .foregroundStyle(.black)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+        .background(problemType.backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(Color.white.opacity(isSelected ? 0.8 : 0), lineWidth: 2)
+        )
+        .scaleEffect(isSelected ? 0.985 : 1)
+        .animation(.easeInOut(duration: 0.16), value: isSelected)
+    }
+}
+
+private struct ProblemTypeHelpRow: View {
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Je ne suis pas sûr?")
+                .font(DesignSystem.Typography.description)
+                .foregroundStyle(Color.white.opacity(0.95))
+
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.9))
+                    .frame(width: 22, height: 22)
+
+                Text("?")
+                    .font(.custom("Montserrat-SemiBold", size: 14))
+                    .foregroundStyle(Color.black.opacity(0.75))
+            }
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+    }
+}
+
+private struct ProblemTypeHelpOverlay: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.53)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Pas sûr du problème ?")
+                    .font(.custom("DelaGothicOne-Regular", size: 18))
+                    .foregroundStyle(Color(hex: "#052330"))
+                    .padding(.horizontal, 32)
+                    .padding(.top, 22)
+                    .padding(.bottom, 28)
+
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(ReportProblemType.allCases) { type in
+                        HStack(alignment: .top, spacing: 12) {
+                            Circle()
+                                .fill(type.accentColor)
+                                .frame(width: 30, height: 30)
+
+                            Text(type.helpDescription)
+                                .font(.custom("Montserrat-Regular", size: 12))
+                                .foregroundStyle(Color.black.opacity(0.84))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(.horizontal, 32)
+
+                Button("Je comprends", action: onDismiss)
+                    .font(.custom("DelaGothicOne-Regular", size: 16))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    .background(Color(hex: "#2A2A2A"))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 28)
+                    .padding(.bottom, 16)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        }
+    }
+}
+
+private struct AdditionalDetailsStepView: View {
+    @Binding var details: String
+
+    private let limit = 250
+
+    private var clampedDetails: Binding<String> {
+        Binding(
+            get: { details },
+            set: { newValue in
+                details = String(newValue.prefix(limit))
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(Color.white)
+                .frame(height: 273)
+                .overlay(alignment: .topLeading) {
+                    TextEditor(text: clampedDetails)
+                        .scrollContentBackground(.hidden)
+                        .font(.custom("Montserrat-Regular", size: 13))
+                        .foregroundStyle(Color.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 10)
+                        .background(Color.clear)
+                        .overlay(alignment: .topLeading) {
+                            if details.isEmpty {
+                                Text("Ce champ est facultatif. Ex: “Le tram est bloqué\ndepuis 5 min au feu.”")
+                                    .font(.custom("Montserrat-Regular", size: 13))
+                                    .foregroundStyle(Color.black.opacity(0.88))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 16)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                }
+
+            Text("\(details.count)/\(limit)")
+                .font(.custom("Montserrat-Regular", size: 13))
+                .foregroundStyle(Color(hex: "#A0A0A0"))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.top, 10)
+                .padding(.trailing, 4)
+        }
+    }
+}
+
+private struct ReportConfirmationStepView: View {
+    let stopName: String
+    let line: NearbyIssueLine?
+    let problemType: ReportProblemType?
+    let description: String
+    let formattedTime: String
+
+    private var finalDescription: String {
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Aucun détail supplémentaire" : trimmed
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                Text("Confirmation")
+                    .font(.custom("DelaGothicOne-Regular", size: 20))
+                    .foregroundStyle(Color.black)
+
+                Spacer()
+
+                Image(systemName: "checkmark")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.black)
+            }
+
+            Text("Votre signalement aide à améliorer les trajets.")
+                .font(DesignSystem.Typography.description)
+                .foregroundStyle(Color.black.opacity(0.88))
+
+            VStack(alignment: .leading, spacing: 18) {
+                confirmationRow(index: 1, title: "Arret", content: stopName)
+                confirmationLineRow(index: 2, line: line)
+                confirmationRow(index: 3, title: "Type de probleme", content: problemType?.title ?? "Non défini")
+                confirmationRow(index: 4, title: "Description", content: finalDescription)
+                confirmationRow(index: 5, title: "Heures", content: formattedTime)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: "#BBDCFF"))
+        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .stroke(Color(hex: "#81B7FF"), lineWidth: 1)
+        )
+    }
+
+    private func confirmationRow(index: Int, title: String, content: String) -> some View {
+        (
+            Text("\(index). ")
+                .font(.custom("Montserrat-SemiBold", size: 14))
+            + Text("\(title): ")
+                .font(.custom("Montserrat-SemiBold", size: 14))
+            + Text(content)
+                .font(.custom("Montserrat-Regular", size: 14))
+        )
+        .foregroundStyle(Color.black.opacity(0.95))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func confirmationLineRow(index: Int, line: NearbyIssueLine?) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            (
+                Text("\(index). ")
+                    .font(.custom("Montserrat-SemiBold", size: 14))
+                + Text("Lignes: ")
+                    .font(.custom("Montserrat-SemiBold", size: 14))
+            )
+            .foregroundStyle(Color.black.opacity(0.95))
+
+            if let line {
+                HStack(spacing: 8) {
+                    Text(line.number)
+                        .font(.custom("Montserrat-SemiBold", size: 12))
+                        .foregroundStyle(Color.black.opacity(0.95))
+                        .frame(width: 24, height: 24)
+                        .background(line.color)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+                    Text(line.direction)
+                        .font(.custom("Montserrat-Regular", size: 14))
+                        .foregroundStyle(Color.black.opacity(0.95))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text("Non définie")
+                    .font(.custom("Montserrat-Regular", size: 14))
+                    .foregroundStyle(Color.black.opacity(0.95))
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 private struct NearbyStopCard: View {
     let stop: NearbyStop
     let isSelected: Bool
@@ -233,6 +718,74 @@ private struct NearbyStopCard: View {
         .background(isSelected ? Color(hex: "#BDDDFF") : Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
         .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
+    }
+}
+
+private struct IssueLineCard: View {
+    let line: NearbyIssueLine
+    let isSelected: Bool
+
+    private var reliabilityColor: Color {
+        if line.reliability >= 90 { return Color(hex: "#52D8AB") }
+        if line.reliability >= 60 { return Color(hex: "#FF922A") }
+        return Color(hex: "#FF7878")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(line.number)
+                    .font(.custom("DelaGothicOne-Regular", size: 18))
+                    .foregroundStyle(line.lineTextColor)
+                    .frame(width: 32, height: 31)
+                    .background(line.color)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+                Spacer(minLength: 4)
+
+                Text("\(line.reliability)% fiable")
+                    .font(.custom("Montserrat-SemiBold", size: 12))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .frame(height: 32)
+                    .background(reliabilityColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            .padding(.bottom, 12)
+
+            Text(line.direction)
+                .font(.custom("Montserrat-SemiBold", size: 14))
+                .foregroundStyle(.black)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 12)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 6) {
+                Text("Affluence:")
+                    .font(.custom("Montserrat-Regular", size: 12))
+                    .foregroundStyle(.black)
+
+                HStack(spacing: 4) {
+                    ForEach(0..<5, id: \.self) { index in
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(index < line.crowding.level ? Color.black : Color.black.opacity(0.14))
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 126, alignment: .topLeading)
+        .background(isSelected ? Color(hex: "#BBDCFF") : Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(isSelected ? Color.clear : Color.clear, lineWidth: 0)
+        )
         .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
@@ -271,6 +824,154 @@ struct NearbyStop: Identifiable {
     let name: String
     let lines: [StopLine]
     let distanceMeters: Int
+    let issueLines: [NearbyIssueLine]
+}
+
+struct NearbyIssueLine: Identifiable {
+    let id = UUID()
+    let number: String
+    let color: Color
+    let direction: String
+    let crowding: IssueLineCrowding
+    let reliability: Int
+    let lineTextColor: Color
+}
+
+enum IssueLineCrowding {
+    case low
+    case medium
+    case high
+
+    var label: String {
+        switch self {
+        case .low: return "faible"
+        case .medium: return "moyenne"
+        case .high: return "élevée"
+        }
+    }
+
+    var level: Int {
+        switch self {
+        case .low: return 1
+        case .medium: return 3
+        case .high: return 5
+        }
+    }
+}
+
+enum ReportFlowStep: Int {
+    case stop = 1
+    case line = 2
+    case problemType = 3
+    case details = 4
+    case confirmation = 5
+
+    var title: String {
+        switch self {
+        case .stop: return "Arrets a proximité"
+        case .line: return "Lignes problematiques"
+        case .problemType: return "Quel est le problème ?"
+        case .details: return "Un détail à ajouter ?"
+        case .confirmation: return ""
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .stop: return "Signaler un arret"
+        case .line: return "Choisissez la ligne concernée"
+        case .problemType: return "Sélectionnez le type de problème recontré"
+        case .details: return "Aide les autres à comprendre la situation plus précisément."
+        case .confirmation: return ""
+        }
+    }
+
+    var primaryButtonTitle: String {
+        switch self {
+        case .confirmation:
+            return "Envoyer"
+        default:
+            return "Continuer"
+        }
+    }
+}
+
+enum ReportProblemType: String, CaseIterable, Identifiable {
+    case accident
+    case delay
+    case breakdown
+    case incivility
+    case cleanliness
+    case aggression
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .accident: return "Accident"
+        case .delay: return "Retard"
+        case .breakdown: return "Panne"
+        case .incivility: return "Incivilité"
+        case .cleanliness: return "Propreté"
+        case .aggression: return "Agression"
+        }
+    }
+
+    var descriptionLines: [String] {
+        switch self {
+        case .accident:
+            return ["Collision ou chute", "Police ou pompiers sur place"]
+        case .delay:
+            return ["Plus de 10 min d’attente?", "Transport non arrivé?"]
+        case .breakdown:
+            return ["Véhicule bloqué", "Portes ou moteur en panne"]
+        case .incivility:
+            return ["Musique ou cris forts", "Portes ou moteur en panne"]
+        case .cleanliness:
+            return ["Déchets ou odeur forte", "Sol ou siège très sale"]
+        case .aggression:
+            return ["Comportement violent", "Harcèlement observé"]
+        }
+    }
+
+    var backgroundColor: Color {
+        switch self {
+        case .accident: return Color(hex: "#FFB4B4")
+        case .delay: return Color(hex: "#FFB9EE")
+        case .breakdown: return Color(hex: "#FFED91")
+        case .incivility: return Color(hex: "#BBDCFF")
+        case .cleanliness: return Color(hex: "#CBFBE6")
+        case .aggression: return Color(hex: "#FFCFA1")
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .accident: return Color(hex: "#FF6B6B")
+        case .delay: return Color(hex: "#EE63D8")
+        case .breakdown: return Color(hex: "#FFD34D")
+        case .incivility: return Color(hex: "#73A9F8")
+        case .cleanliness: return Color(hex: "#45D29A")
+        case .aggression: return Color(hex: "#FF922E")
+        }
+    }
+
+    var helpDescription: String {
+        switch self {
+        case .accident:
+            return "Collision, chute, blessé ou véhicule endommagé."
+        case .delay:
+            return "Plus de 10 min d’attente, transport qui n’arrive pas."
+        case .breakdown:
+            return "Véhicule bloqué ou portes qui ne s’ouvrent pas."
+        case .incivility:
+            return "Cris, musique forte, comportements dérangeants."
+        case .cleanliness:
+            return "Mauvaises odeurs, saleté au sol ou sur les sièges."
+        case .aggression:
+            return "Personne violente ou harcèlement observé."
+        }
+    }
 }
 
 extension Array {
@@ -293,14 +994,74 @@ enum NearbyStopMockData {
     private static func l(_ n: String, _ r: Double, _ g: Double, _ b: Double) -> StopLine {
         StopLine(number: n, color: Color(red: r, green: g, blue: b))
     }
+    private static func i(_ n: String, _ r: Double, _ g: Double, _ b: Double, _ transport: String, _ direction: String, _ crowding: IssueLineCrowding) -> NearbyIssueLine {
+        NearbyIssueLine(
+            number: n,
+            color: Color(red: r, green: g, blue: b),
+            direction: direction,
+            crowding: crowding,
+            reliability: mockReliability(for: n, transport: transport),
+            lineTextColor: lineForeground(for: transport, number: n)
+        )
+    }
+
+    private static func mockReliability(for line: String, transport: String) -> Int {
+        switch (transport, line) {
+        case ("Metro", "1"): return 63
+        case ("Metro", "5"): return 98
+        case ("Metro", "2"): return 93
+        case ("Metro", "6"): return 25
+        case ("Tram", "92"): return 37
+        default: return 63
+        }
+    }
+
+    private static func lineForeground(for transport: String, number: String) -> Color {
+        switch (transport, number) {
+        case ("Tram", "92"), ("Metro", "5"), ("Bus", "95"), ("Bus", "33"):
+            return .white
+        default:
+            return .black
+        }
+    }
     static let stops: [NearbyStop] = [
-        .init(name: "Gare centrale",   lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 50),
-        .init(name: "Bourse",          lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 95),
-        .init(name: "Royale",          lines: [l("33",0.91,0.42,0.55),l("38",0.55,0.36,0.75),l("71",0.18,0.62,0.23),l("95",0.14,0.42,0.25)], distanceMeters: 120),
-        .init(name: "Parc",            lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("92",0.82,0.27,0.12),l("93",0.88,0.44,0.10),l("29",0.90,0.50,0.14)], distanceMeters: 150),
-        .init(name: "De Brouckère",    lines: [l("4",0.91,0.28,0.44),l("10",0.55,0.36,0.75),l("5",0.90,0.50,0.14),l("1",0.42,0.22,0.68)], distanceMeters: 175),
-        .init(name: "Palais",          lines: [l("92",0.82,0.27,0.12)], distanceMeters: 200),
-        .init(name: "Sainte-Catherine",lines: [l("1",0.42,0.22,0.68),l("5",0.90,0.50,0.14)], distanceMeters: 250),
-        .init(name: "Ravenstein",      lines: [l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("71",0.18,0.62,0.23)], distanceMeters: 300),
+        .init(name: "Gare centrale",   lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 50, issueLines: [
+            i("1",0.42,0.22,0.68,"Metro","vers Stockel",.medium),
+            i("5",0.90,0.50,0.14,"Metro","vers Erasme",.high),
+            i("38",0.55,0.36,0.75,"Bus","vers Herois",.low),
+            i("71",0.18,0.62,0.23,"Bus","vers Delta",.medium)
+        ]),
+        .init(name: "Bourse",          lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 95, issueLines: [
+            i("3",0.00,0.67,0.40,"Metro","vers Churchill",.high),
+            i("4",0.91,0.28,0.44,"Tram","vers Gare du Nord",.medium),
+            i("10",0.55,0.36,0.75,"Tram","vers Vanderkindere",.low)
+        ]),
+        .init(name: "Royale",          lines: [l("33",0.91,0.42,0.55),l("38",0.55,0.36,0.75),l("71",0.18,0.62,0.23),l("95",0.14,0.42,0.25)], distanceMeters: 120, issueLines: [
+            i("92",0.82,0.27,0.12,"Tram","vers Fort-Jaco",.medium),
+            i("33",0.91,0.42,0.55,"Bus","vers Dansaert",.low),
+            i("95",0.14,0.42,0.25,"Bus","vers Wiener",.high)
+        ]),
+        .init(name: "Parc",            lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("92",0.82,0.27,0.12),l("93",0.88,0.44,0.10),l("29",0.90,0.50,0.14)], distanceMeters: 150, issueLines: [
+            i("2",0.23,0.45,0.84,"Metro","vers Simonis",.medium),
+            i("6",0.14,0.35,0.71,"Metro","vers Roi Baudouin",.high),
+            i("29",0.90,0.50,0.14,"Bus","vers De Brouckere",.low)
+        ]),
+        .init(name: "De Brouckère",    lines: [l("4",0.91,0.28,0.44),l("10",0.55,0.36,0.75),l("5",0.90,0.50,0.14),l("1",0.42,0.22,0.68)], distanceMeters: 175, issueLines: [
+            i("1",0.42,0.22,0.68,"Metro","vers Weststation",.low),
+            i("5",0.90,0.50,0.14,"Metro","vers Herrmann-Debroux",.medium),
+            i("4",0.91,0.28,0.44,"Tram","vers Stalle",.high)
+        ]),
+        .init(name: "Palais",          lines: [l("92",0.82,0.27,0.12)], distanceMeters: 200, issueLines: [
+            i("92",0.82,0.27,0.12,"Tram","vers Schaerbeek Gare",.medium)
+        ]),
+        .init(name: "Sainte-Catherine",lines: [l("1",0.42,0.22,0.68),l("5",0.90,0.50,0.14)], distanceMeters: 250, issueLines: [
+            i("1",0.42,0.22,0.68,"Metro","vers Stockel",.low),
+            i("5",0.90,0.50,0.14,"Metro","vers Erasme",.medium)
+        ]),
+        .init(name: "Ravenstein",      lines: [l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("71",0.18,0.62,0.23)], distanceMeters: 300, issueLines: [
+            i("38",0.55,0.36,0.75,"Bus","vers Homborch",.low),
+            i("52",0.95,0.65,0.12,"Bus","vers Gare Centrale",.medium),
+            i("71",0.18,0.62,0.23,"Bus","vers Delta",.high)
+        ]),
     ]
 }

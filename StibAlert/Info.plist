@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>StibAlert gebruikt je locatie om je vertrekpunt en route in realtime te tonen.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>StibAlert gebruikt la caméra pour afficher un guidage AR pendant votre trajet.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DelaGothicOne-Regular.ttf</string>
