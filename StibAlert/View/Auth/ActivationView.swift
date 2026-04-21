@@ -1,0 +1,84 @@
+import SwiftUI
+
+struct ActivationView: View {
+    @EnvironmentObject private var session: AuthSession
+    @State private var code: String = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @FocusState private var codeFocused: Bool
+
+    var body: some View {
+        ZStack {
+            AppTheme.Colors.onboardingBackground.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Code d'activation")
+                        .font(AppTheme.Fonts.display(22))
+                        .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
+                    if let email = session.pendingActivationEmail {
+                        Text("Entrez le code envoyé à \(email).")
+                            .font(AppTheme.Fonts.body(14))
+                            .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
+                    }
+                }
+                .padding(.top, 20)
+
+                TextField("", text: $code)
+                    .keyboardType(.numberPad)
+                    .focused($codeFocused)
+                    .font(AppTheme.Fonts.display(28))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white)
+                    .frame(height: 64)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .onChange(of: code) { _, new in
+                        let filtered = String(new.filter { $0.isNumber }.prefix(4))
+                        if filtered != new { code = filtered }
+                    }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(AppTheme.Fonts.body(13))
+                        .foregroundStyle(AppTheme.Colors.danger)
+                }
+
+                Button(action: submit) {
+                    HStack {
+                        if isLoading { ProgressView().tint(.black) } else { Text("Activer mon compte") }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(AppTheme.Colors.onboardingTitleSand)
+                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.body(15, weight: .semibold))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .disabled(isLoading || code.count != 4)
+                .opacity(code.count == 4 ? 1 : 0.6)
+
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+        }
+        .onAppear { codeFocused = true }
+    }
+
+    private func submit() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                try await session.activer(code: code)
+            } catch {
+                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            }
+            isLoading = false
+        }
+    }
+}

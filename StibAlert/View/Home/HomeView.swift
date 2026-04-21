@@ -6,6 +6,7 @@ import AVFoundation
 struct HomeView: View {
     @EnvironmentObject private var nav: AppNavigation
     @StateObject private var locationManager = HomeLocationManager()
+    @StateObject private var realtimeSignalements = SignalementsRealtimeService()
 
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -27,9 +28,30 @@ struct HomeView: View {
     @State private var searchSuggestions: [MKMapItem] = []
     @State private var isRouting = false
     @State private var searchTask: Task<Void, Never>? = nil
+    @State private var remoteSignalements: [SignalementDTO] = []
+    @State private var signalementsPage = 1
+    @State private var signalementsTotalPages = 1
+    @State private var isLoadingSignalements = false
 
     private var homeSignalClusters: [SearchSignalCluster] {
         Array(SearchSignalCluster.mockClusters.prefix(5))
+    }
+
+    private struct LiveSignalPoint: Identifiable {
+        let id: String
+        let coordinate: CLLocationCoordinate2D
+        let typeProbleme: String
+    }
+
+    private var liveSignalPoints: [LiveSignalPoint] {
+        remoteSignalements.compactMap { s in
+            guard let lat = s.latitude, let lng = s.longitude else { return nil }
+            return LiveSignalPoint(
+                id: s.id,
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                typeProbleme: s.typeProbleme
+            )
+        }
     }
 
     var body: some View {
@@ -53,10 +75,18 @@ struct HomeView: View {
                             .shadow(radius: 4)
                     }
                 }
-                ForEach(homeSignalClusters.indices, id: \.self) { index in
-                    let cluster = homeSignalClusters[index]
-                    Annotation("", coordinate: cluster.coordinate.coordinate, anchor: .bottom) {
-                        HomeSignalMarker(cluster: cluster)
+                if liveSignalPoints.isEmpty {
+                    ForEach(homeSignalClusters.indices, id: \.self) { index in
+                        let cluster = homeSignalClusters[index]
+                        Annotation("", coordinate: cluster.coordinate.coordinate, anchor: .bottom) {
+                            HomeSignalMarker(cluster: cluster)
+                        }
+                    }
+                } else {
+                    ForEach(liveSignalPoints) { point in
+                        Annotation("", coordinate: point.coordinate, anchor: .bottom) {
+                            LiveSignalMarker(problemType: point.typeProbleme)
+                        }
                     }
                 }
             }
@@ -169,7 +199,14 @@ struct HomeView: View {
             }
 
             if showRecentReportsSheet {
-                RecentReportsBottomSheet {
+                RecentReportsBottomSheet(
+                    items: recentReportItems,
+                    canLoadMore: signalementsPage < signalementsTotalPages,
+                    isLoadingMore: isLoadingSignalements,
+                    onLoadMore: {
+                        Task { await loadMoreRemoteSignalementsIfNeeded() }
+                    }
+                ) {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                         showRecentReportsSheet = false
                     }
@@ -256,7 +293,11 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) {
             if nav.showReportSheet {
-                ReportSheetView(isShowing: $nav.showReportSheet)
+                ReportSheetView(
+                    isShowing: $nav.showReportSheet,
+                    userLatitude: locationManager.userCoordinate?.latitude,
+                    userLongitude: locationManager.userCoordinate?.longitude
+                )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
             } else if nav.currentPage == .home && !showRecentReportsSheet && !nav.showSideMenu && routeOptions.isEmpty {
@@ -281,7 +322,22 @@ struct HomeView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { locationManager.start() }
+        .onAppear {
+            locationManager.start()
+            realtimeSignalements.connect()
+        }
+        .onDisappear {
+            realtimeSignalements.disconnect()
+        }
+        .task { await loadRemoteSignalements() }
+        .onChange(of: nav.showReportSheet) { oldValue, newValue in
+            if oldValue && !newValue {
+                Task { await loadRemoteSignalements() }
+            }
+        }
+        .onReceive(realtimeSignalements.$latestSignalement.compactMap { $0 }) { signalement in
+            mergeIncomingSignalement(signalement)
+        }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }.first()) { coord in
             withAnimation(.easeInOut(duration: 0.8)) {
                 mapPosition = .region(MKCoordinateRegion(
@@ -315,6 +371,75 @@ struct HomeView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
                 )
             )
+        }
+    }
+
+    @MainActor
+    private func loadRemoteSignalements() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingSignalements else { return }
+        isLoadingSignalements = true
+        defer { isLoadingSignalements = false }
+        do {
+            let response = try await SignalementService.liste(page: 1)
+            remoteSignalements = response.signalements
+            signalementsPage = response.pagination?.page ?? 1
+            signalementsTotalPages = response.pagination?.totalPages ?? 1
+        } catch {
+            // Silencieux — les mocks restent affichés en cas d'échec réseau.
+        }
+    }
+
+    @MainActor
+    private func loadMoreRemoteSignalementsIfNeeded() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingSignalements else { return }
+        guard signalementsPage < signalementsTotalPages else { return }
+
+        isLoadingSignalements = true
+        defer { isLoadingSignalements = false }
+
+        do {
+            let nextPage = signalementsPage + 1
+            let response = try await SignalementService.liste(page: nextPage)
+            signalementsPage = response.pagination?.page ?? nextPage
+            signalementsTotalPages = response.pagination?.totalPages ?? signalementsTotalPages
+            let existingIds = Set(remoteSignalements.map(\.id))
+            let newItems = response.signalements.filter { !existingIds.contains($0.id) }
+            remoteSignalements.append(contentsOf: newItems)
+        } catch {
+            print("Signalements pagination failed: \(error.localizedDescription)")
+        }
+    }
+
+    private var recentReportItems: [RecentReportItem] {
+        if remoteSignalements.isEmpty {
+            return RecentReportItem.mockItems
+        }
+
+        return remoteSignalements.prefix(10).map { signalement in
+            RecentReportItem(
+                line: signalement.ligne,
+                title: signalement.typeProbleme,
+                time: relativeTimeString(from: signalement.dateSignalement),
+                details: signalement.description
+            )
+        }
+    }
+
+    private func relativeTimeString(from date: Date?) -> String {
+        guard let date else { return "À l'instant" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: .now)
+    }
+
+    @MainActor
+    private func mergeIncomingSignalement(_ signalement: SignalementDTO) {
+        if let index = remoteSignalements.firstIndex(where: { $0.id == signalement.id }) {
+            remoteSignalements[index] = signalement
+        } else {
+            remoteSignalements.insert(signalement, at: 0)
         }
     }
 
@@ -756,6 +881,32 @@ private struct HelpFloatingButton: View {
     }
 }
 
+private struct LiveSignalMarker: View {
+    let problemType: String
+
+    private var color: Color {
+        switch problemType {
+        case "Accident", "Agression": return Color(hex: "#FF7A7A")
+        case "Retard", "Panne": return Color(hex: "#FF9B2F")
+        case "Incivilité": return Color(hex: "#B5CFF8")
+        case "Propreté": return Color(hex: "#57E3B6")
+        default: return Color(hex: "#FFD34D")
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color)
+                .frame(width: 18, height: 18)
+                .shadow(color: .black.opacity(0.35), radius: 2, x: 0, y: 1)
+            Circle()
+                .stroke(Color.white, lineWidth: 2)
+                .frame(width: 18, height: 18)
+        }
+    }
+}
+
 private struct HomeSignalMarker: View {
     let cluster: SearchSignalCluster
 
@@ -845,12 +996,11 @@ private struct MapLegendOverlay: View {
 }
 
 private struct RecentReportsBottomSheet: View {
+    let items: [RecentReportItem]
+    let canLoadMore: Bool
+    let isLoadingMore: Bool
+    let onLoadMore: () -> Void
     let onDismiss: () -> Void
-
-    private let items: [RecentReportItem] = [
-        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu"),
-        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu")
-    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -894,6 +1044,26 @@ private struct RecentReportsBottomSheet: View {
                     ForEach(items) { item in
                         RecentReportCard(item: item)
                     }
+
+                    if canLoadMore {
+                        Button(action: onLoadMore) {
+                            Group {
+                                if isLoadingMore {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text("Voir plus")
+                                        .font(.custom("Montserrat-SemiBold", size: 14))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 22)
                 .padding(.bottom, 24)
@@ -917,6 +1087,11 @@ private struct RecentReportItem: Identifiable {
     let title: String
     let time: String
     let details: String
+
+    static let mockItems: [RecentReportItem] = [
+        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu"),
+        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu"),
+    ]
 }
 
 private struct RecentReportCard: View {

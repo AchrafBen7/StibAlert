@@ -5,11 +5,14 @@ struct SignalementsView: View {
     @State private var selectedFilter: LineFilter = .all
     @State private var query = ""
     @State private var selectedLine: LineStatusItem?
+    @State private var remoteLines: [LineStatusItem] = []
+    @State private var isLoadingRemote = false
 
     private var filteredLines: [LineStatusItem] {
+        let source = remoteLines.isEmpty ? LineStatusMockData.all : remoteLines
         let base = selectedFilter == .all
-            ? LineStatusMockData.all
-            : LineStatusMockData.all.filter { $0.filter == selectedFilter }
+            ? source
+            : source.filter { $0.filter == selectedFilter }
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return base }
@@ -44,8 +47,8 @@ struct SignalementsView: View {
                         .padding(.horizontal, 21)
                         .padding(.top, 24)
 
-                    Text("\(LineStatusMockData.availableCount) lignes disponible")
-                        .font(.custom("Darumadrop One", size: 12))
+                    Text("\(remoteLines.isEmpty ? LineStatusMockData.availableCount : remoteLines.count) lignes disponible")
+                        .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 21)
                         .padding(.top, 18)
@@ -71,6 +74,7 @@ struct SignalementsView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { await loadRemoteLines() }
     }
 
     private var topBar: some View {
@@ -136,14 +140,90 @@ struct SignalementsView: View {
             }
         }
     }
+
+    @MainActor
+    private func loadRemoteLines() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingRemote else { return }
+        isLoadingRemote = true
+        defer { isLoadingRemote = false }
+
+        do {
+            var page = 1
+            var totalPages = 1
+            var allSignalements: [SignalementDTO] = []
+
+            repeat {
+                let response = try await SignalementService.liste(page: page, limit: 100)
+                allSignalements.append(contentsOf: response.signalements)
+                totalPages = response.pagination?.totalPages ?? 1
+                page += 1
+            } while page <= totalPages
+
+            remoteLines = buildLineStatusItems(from: allSignalements)
+        } catch {
+            print("SignalementsView remote load failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func buildLineStatusItems(from signalements: [SignalementDTO]) -> [LineStatusItem] {
+        let grouped = Dictionary(grouping: signalements, by: \.ligne)
+        return grouped
+            .map { line, items in
+                let reportsCount = items.count
+                let status: LineHealthStatus = reportsCount >= 6 ? .critical : (reportsCount >= 3 ? .disrupted : .fluid)
+                let sampleStop = items.compactMap { signalement -> String? in
+                    switch signalement.arretId {
+                    case .populated(let arret): return arret.nom
+                    case .id, .none: return nil
+                    }
+                }.first ?? "Arrêts STIB"
+                let filter = LineFilter.from(line: line)
+                let (lineColor, lineTextColor) = linePalette(for: line, filter: filter)
+
+                return LineStatusItem(
+                    line: line,
+                    lineColor: lineColor,
+                    lineTextColor: lineTextColor,
+                    origin: sampleStop,
+                    destination: "Bruxelles",
+                    direction: "\(sampleStop) → Bruxelles",
+                    status: status,
+                    reportsCount: reportsCount,
+                    filter: filter
+                )
+            }
+            .sorted {
+                if $0.reportsCount == $1.reportsCount {
+                    return $0.line.compare($1.line, options: .numeric) == .orderedAscending
+                }
+                return $0.reportsCount > $1.reportsCount
+            }
+    }
+
+    private func linePalette(for line: String, filter: LineFilter) -> (Color, Color) {
+        switch filter {
+        case .metro:
+            return (Color(hex: "#8F4199"), .white)
+        case .tram:
+            return (Color(hex: "#FFDC01"), .black)
+        case .bus:
+            return (Color(hex: "#ED7807"), .white)
+        case .all:
+            let numeric = Int(line) ?? 0
+            return numeric % 2 == 0 ? (Color(hex: "#0066A3"), .white) : (Color(hex: "#8F4199"), .white)
+        }
+    }
 }
 
 private struct LineOverviewView: View {
     let line: LineStatusItem
     let onBack: () -> Void
+    @State private var remoteStops: [LineOverviewStop] = []
+    @State private var isLoadingStops = false
 
     private var stops: [LineOverviewStop] {
-        LineOverviewMockData.stops(for: line)
+        remoteStops.isEmpty ? LineOverviewMockData.stops(for: line) : remoteStops
     }
 
     var body: some View {
@@ -177,6 +257,7 @@ private struct LineOverviewView: View {
                 .padding(.bottom, 28)
             }
         }
+        .task { await loadRemoteStops() }
     }
 
     private var topBar: some View {
@@ -259,6 +340,50 @@ private struct LineOverviewView: View {
 
             Label("\(stops.count) arrets", systemImage: "mappin.and.ellipse")
                 .labelStyle(LineOverviewMetricLabelStyle())
+        }
+    }
+
+    @MainActor
+    private func loadRemoteStops() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingStops else { return }
+        isLoadingStops = true
+        defer { isLoadingStops = false }
+
+        do {
+            let arrets = try await SignalementService.arretsParLigne(line.line)
+            remoteStops = try await withThrowingTaskGroup(of: LineOverviewStop.self) { group in
+                for arret in arrets {
+                    group.addTask {
+                        let response = try await SignalementService.parLigneEtArret(ligne: line.line, arretId: arret.id, page: 1, limit: 10)
+                        let reportsCount = response.signalements.count
+                        let status: LineHealthStatus = reportsCount >= 6 ? .critical : (reportsCount >= 3 ? .disrupted : .fluid)
+                        return LineOverviewStop(
+                            name: arret.nom,
+                            connections: (arret.lignesDesservies ?? [line.line]).prefix(6).map {
+                                LineConnectionBadge(
+                                    label: $0,
+                                    color: line.lineColor,
+                                    textColor: line.lineTextColor,
+                                    fontSize: 10
+                                )
+                            },
+                            nextPassages: "--",
+                            status: status,
+                            reportsCount: reportsCount
+                        )
+                    }
+                }
+
+                var mapped: [LineOverviewStop] = []
+                for try await stop in group {
+                    mapped.append(stop)
+                }
+                return mapped
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        } catch {
+            print("LineOverview remote stops failed: \(error.localizedDescription)")
         }
     }
 }
@@ -386,7 +511,7 @@ private struct LineOverviewStopCard: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Prochain passage")
-                        .font(.custom("Darumadrop One", size: 10))
+                        .font(.custom("DelaGothicOne-Regular", size: 10))
                         .foregroundStyle(.black.opacity(0.92))
 
                     Text(stop.nextPassages)
@@ -501,6 +626,12 @@ enum LineFilter: CaseIterable, Identifiable {
         case .bus: return "Bus"
         case .metro: return "Metro"
         }
+    }
+
+    static func from(line: String) -> LineFilter {
+        if ["1", "2", "5", "6"].contains(line) { return .metro }
+        if let numeric = Int(line), numeric >= 90 { return .bus }
+        return .tram
     }
 }
 

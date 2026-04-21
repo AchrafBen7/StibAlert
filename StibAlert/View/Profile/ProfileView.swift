@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject private var session: AuthSession
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
@@ -14,6 +15,7 @@ struct ProfileView: View {
     @State private var lastName = "Benali"
     @State private var email = "Achrafb768@gmail.com"
     @State private var username = "user-48155848"
+    @State private var isSavingSettings = false
 
     private let items = SettingsMockData.items
 
@@ -37,6 +39,8 @@ struct ProfileView: View {
                     lastName: $lastName,
                     email: $email,
                     username: $username,
+                    isSaving: isSavingSettings,
+                    onSave: saveAccount,
                     onBack: { selectedSubpage = nil },
                     onClose: {
                         selectedSubpage = nil
@@ -118,6 +122,16 @@ struct ProfileView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { syncFromSession() }
+        .onChange(of: session.currentUser?.id) { _, _ in
+            syncFromSession()
+        }
+        .onChange(of: selectedLanguageCode) { _, newValue in
+            Task { await persistLanguageIfNeeded(newValue) }
+        }
+        .onChange(of: pushNotificationsEnabled) { _, newValue in
+            Task { await persistNotificationsIfNeeded(newValue) }
+        }
     }
 
     private var header: some View {
@@ -176,6 +190,61 @@ struct ProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func syncFromSession() {
+        guard let user = session.currentUser else { return }
+        let parts = user.nom.split(separator: " ", maxSplits: 1).map(String.init)
+        firstName = parts.first ?? user.nom
+        lastName = parts.count > 1 ? parts[1] : ""
+        email = user.email
+        username = String(user.email.split(separator: "@").first ?? "user")
+        selectedLanguageCode = user.langue ?? "FR"
+        pushNotificationsEnabled = user.notifications ?? true
+    }
+
+    private func persistLanguageIfNeeded(_ code: String) async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard let user = session.currentUser, user.langue != code else { return }
+        do {
+            let updated = try await UtilisateurService.modifierLangue(userId: user.id, langue: code)
+            session.applyCurrentUserUpdate(updated)
+        } catch {
+            print("Language update failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func persistNotificationsIfNeeded(_ enabled: Bool) async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard let user = session.currentUser, user.notifications != enabled else { return }
+        do {
+            let updated = try await UtilisateurService.mettreAJourProfil(userId: user.id, notifications: enabled)
+            session.applyCurrentUserUpdate(updated)
+            if enabled {
+                await PushNotificationManager.current?.requestAuthorizationAndRegister()
+            }
+        } catch {
+            print("Notifications update failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func saveAccount() {
+        guard AppConfig.isBackendEnabled else { return }
+        guard let user = session.currentUser else { return }
+        isSavingSettings = true
+        let nom = [firstName.trimmingCharacters(in: .whitespacesAndNewlines), lastName.trimmingCharacters(in: .whitespacesAndNewlines)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+
+        Task {
+            defer { isSavingSettings = false }
+            do {
+                let updated = try await UtilisateurService.mettreAJourProfil(userId: user.id, nom: nom)
+                session.applyCurrentUserUpdate(updated)
+            } catch {
+                print("Account update failed: \(error.localizedDescription)")
+            }
+        }
     }
 }
 
@@ -524,6 +593,8 @@ private struct AccountSettingsView: View {
     @Binding var lastName: String
     @Binding var email: String
     @Binding var username: String
+    let isSaving: Bool
+    let onSave: () -> Void
     let onBack: () -> Void
     let onClose: () -> Void
 
@@ -565,16 +636,24 @@ private struct AccountSettingsView: View {
             .padding(.horizontal, 39)
             .padding(.top, 16)
 
-            Button {} label: {
-                Text("Enregistrer")
-                    .font(.custom("DelaGothicOne-Regular", size: 16))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 63)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            Button(action: onSave) {
+                Group {
+                    if isSaving {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Text("Enregistrer")
+                            .font(.custom("DelaGothicOne-Regular", size: 16))
+                            .foregroundStyle(.black)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 63)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
+            .disabled(isSaving)
             .padding(.horizontal, 23)
             .padding(.top, 25)
 

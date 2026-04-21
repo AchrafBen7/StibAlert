@@ -3,18 +3,18 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>StibAlert gebruikt je locatie om je vertrekpunt en route in realtime te tonen.</string>
+	<string>StibAlert utilise votre position pour afficher votre point de départ et votre itinéraire en temps réel.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>StibAlert gebruikt la caméra pour afficher un guidage AR pendant votre trajet.</string>
+	<string>StibAlert utilise la caméra pour joindre une photo à vos signalements.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>StibAlert accède à votre bibliothèque pour joindre une photo à vos signalements.</string>
+	<key>GOOGLE_MAPS_3D_API_KEY</key>
+	<string></string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DelaGothicOne-Regular.ttf</string>
 		<string>Montserrat-Regular.ttf</string>
 		<string>Montserrat-SemiBold.ttf</string>
-		<string>Poppins-Regular.ttf</string>
-		<string>Poppins-Medium.ttf</string>
-		<string>Poppins-SemiBold.ttf</string>
-		<string>Poppins-Light.ttf</string>
 	</array>
 </dict>
 </plist>

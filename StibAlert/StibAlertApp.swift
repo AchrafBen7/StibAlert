@@ -10,6 +10,8 @@ import SwiftUI
 
 @main
 struct StibAlertApp: App {
+    @UIApplicationDelegateAdaptor(PushNotificationManager.self) private var pushNotificationManager
+
     init() {
         UITextView.appearance().backgroundColor = .clear
     }

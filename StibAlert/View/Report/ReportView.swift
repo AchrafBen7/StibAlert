@@ -20,6 +20,8 @@ enum SheetLevel: Int, CaseIterable {
 
 struct ReportSheetView: View {
     @Binding var isShowing: Bool
+    var userLatitude: Double? = nil
+    var userLongitude: Double? = nil
 
     @State private var level: SheetLevel = .full
     @GestureState private var liveOffset: CGFloat = 0
@@ -29,6 +31,9 @@ struct ReportSheetView: View {
     @State private var isShowingProblemTypeHelp = false
     @State private var additionalDetails = ""
     @State private var currentStep: ReportFlowStep = .stop
+    @State private var isSubmitting = false
+    @State private var submitError: String?
+    @State private var submitSuccess = false
 
     private let screen = UIScreen.main.bounds.height
     private let snapSpring = Animation.spring(response: 0.36, dampingFraction: 0.78)
@@ -184,19 +189,38 @@ struct ReportSheetView: View {
                             .padding(.top, 18)
                         }
 
-                        Button(currentStep.primaryButtonTitle) {
-                            handleContinue()
+                        VStack(spacing: 8) {
+                            if let submitError {
+                                Text(submitError)
+                                    .font(.custom("Montserrat-Regular", size: 13))
+                                    .foregroundStyle(Color(hex: "#FF7A7A"))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                            }
+                            Button(action: handleContinue) {
+                                HStack(spacing: 10) {
+                                    if isSubmitting {
+                                        ProgressView().tint(.black)
+                                    } else if submitSuccess {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 18, weight: .bold))
+                                        Text("Envoyé")
+                                    } else {
+                                        Text(currentStep.primaryButtonTitle)
+                                    }
+                                }
+                                .font(.custom("DelaGothicOne-Regular", size: 18))
+                                .foregroundStyle(buttonIsEnabled ? .black : .black.opacity(0.45))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 60)
+                                .background(buttonIsEnabled ? Color.white : Color.white.opacity(0.65))
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                            .disabled(!buttonIsEnabled || isSubmitting || submitSuccess)
                         }
-                            .font(.custom("DelaGothicOne-Regular", size: 18))
-                            .foregroundStyle(buttonIsEnabled ? .black : .black.opacity(0.45))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 60)
-                            .background(buttonIsEnabled ? Color.white : Color.white.opacity(0.65))
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .padding(.horizontal, 14)
-                            .padding(.top, 36)
-                            .padding(.bottom, safeBottom + 6)
-                            .disabled(!buttonIsEnabled)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 36)
+                        .padding(.bottom, safeBottom + 6)
                     }
                 }
             }
@@ -279,7 +303,41 @@ struct ReportSheetView: View {
         case .details:
             currentStep = .confirmation
         case .confirmation:
-            return
+            submitSignalement()
+        }
+    }
+
+    private func submitSignalement() {
+        guard
+            let stop = selectedStopItem,
+            let line = selectedIssueLineItem,
+            let problem = selectedProblemType
+        else { return }
+
+        let trimmed = additionalDetails.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = trimmed.isEmpty ? "Aucun détail supplémentaire" : trimmed
+
+        isSubmitting = true
+        submitError = nil
+
+        Task {
+            do {
+                _ = try await SignalementService.ajouter(
+                    nomArret: stop.name,
+                    ligne: line.number,
+                    typeProbleme: problem.title,
+                    description: description,
+                    latitude: userLatitude,
+                    longitude: userLongitude,
+                    photo: nil
+                )
+                submitSuccess = true
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                withAnimation(snapSpring) { isShowing = false }
+            } catch {
+                submitError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            }
+            isSubmitting = false
         }
     }
 

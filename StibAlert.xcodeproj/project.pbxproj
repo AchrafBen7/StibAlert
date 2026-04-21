@@ -11,6 +11,7 @@
 		3885F90A2E71FD09005F1CB1 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */; };
 		3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */; };
 		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
+		A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = A15F44003C01000100A1B2C3 /* SocketIO */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +77,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */,
+				A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,6 +150,7 @@
 			name = StibAlert;
 			packageProductDependencies = (
 				A14F33003B8D100100A1B2C3 /* GoogleMaps3D */,
+				A15F44003C01000100A1B2C3 /* SocketIO */,
 			);
 			productName = StibAlert;
 			productReference = 3831C0812D79C1D100452AA0 /* StibAlert.app */;
@@ -233,6 +236,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */,
+				A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3831C0822D79C1D100452AA0 /* Products */;
@@ -622,6 +626,14 @@
 				kind = branch;
 			};
 		};
+		A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 16.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -629,6 +641,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */;
 			productName = GoogleMaps3D;
+		};
+		A15F44003C01000100A1B2C3 /* SocketIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */;
+			productName = SocketIO;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

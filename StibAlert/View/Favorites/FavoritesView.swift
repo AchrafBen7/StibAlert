@@ -2,14 +2,18 @@ import SwiftUI
 
 struct FavoritesView: View {
     @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject private var session: AuthSession
     @State private var selectedFilter: FavoriteTransportFilter = .all
     @State private var query = ""
     @State private var selectedItem: FavoriteTransitItem?
+    @State private var remoteItems: [FavoriteTransitItem] = []
+    @State private var isLoadingRemote = false
 
     private var filteredItems: [FavoriteTransitItem] {
+        let source = remoteItems.isEmpty ? FavoritesMockData.items : remoteItems
         let base = selectedFilter == .all
-            ? FavoritesMockData.items
-            : FavoritesMockData.items.filter { $0.filter == selectedFilter }
+            ? source
+            : source.filter { $0.filter == selectedFilter }
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return base }
@@ -61,6 +65,7 @@ struct FavoritesView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { await loadFavoris() }
     }
 
     private var topBar: some View {
@@ -124,6 +129,51 @@ struct FavoritesView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func loadFavoris() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingRemote else { return }
+        guard let user = session.currentUser else { return }
+
+        isLoadingRemote = true
+        defer { isLoadingRemote = false }
+
+        do {
+            let remoteUser = try await UtilisateurService.me()
+            session.applyCurrentUserUpdate(remoteUser)
+            remoteItems = mapFavoriteItems(from: remoteUser.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
+        } catch {
+            print("Favorites load failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func mapFavoriteItems(from stops: [FavoriDetailDTO], fallbackStops: [FavoriDetailDTO]) -> [FavoriteTransitItem] {
+        let source = stops.isEmpty ? fallbackStops : stops
+        guard !source.isEmpty else { return [] }
+
+        return source.enumerated().map { index, stop in
+            let primaryLine = stop.primaryLine ?? stop.lignesDesservies?.first ?? "\(index + 1)"
+            let filter = FavoriteTransportFilter.from(lines: stop.lignesDesservies ?? [])
+            let severity = FavoriteSeverity.from(status: stop.status)
+            let problemLabel = stop.status ?? "Normal"
+
+            return FavoriteTransitItem(
+                code: primaryLine,
+                codeColor: filter.badgeColor,
+                codeTextColor: filter.badgeTextColor,
+                title: stop.nom,
+                crowding: stop.crowding ?? "Faible",
+                problemLabel: problemLabel,
+                reportCount: stop.signalementCount ?? 0,
+                nextPassage: stop.nextPassageMinutes.map { "\($0) min" } ?? "--",
+                filter: filter,
+                severity: severity,
+                detailLines: (stop.lignesDesservies ?? [primaryLine]).prefix(4).map {
+                    FavoriteLineChip(code: $0, color: filter.badgeColor, textColor: filter.badgeTextColor)
+                }
+            )
         }
     }
 }
@@ -279,7 +329,7 @@ private struct FavoriteStopDetailView: View {
             if let trailing {
                 HStack(spacing: 6) {
                     Text(trailing)
-                        .font(.custom("Darumadrop One", size: 12))
+                        .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.white)
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12, weight: .medium))
@@ -336,7 +386,7 @@ private struct FavoriteTransitCard: View {
                             .foregroundStyle(.black)
 
                         Text("Mis a jour il y a 1 min")
-                            .font(.custom("Darumadrop One", size: 12))
+                            .font(.custom("DelaGothicOne-Regular", size: 12))
                             .foregroundStyle(.black)
                     }
                 }
@@ -401,7 +451,7 @@ private struct FavoriteTransitCard: View {
 
                 VStack(alignment: .trailing, spacing: 6) {
                     Text("Prochain passage")
-                        .font(.custom("Darumadrop One", size: 12))
+                        .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.black.opacity(0.92))
 
                     Text(item.nextPassage)
@@ -456,7 +506,7 @@ private struct LiveStatusCard: View {
 
                 VStack(alignment: .trailing, spacing: 8) {
                     Text("Prochain passage")
-                        .font(.custom("Darumadrop One", size: 12))
+                        .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.black)
 
                     Text(status.nextPassage)
@@ -474,7 +524,7 @@ private struct LiveStatusCard: View {
 
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("Score")
-                        .font(.custom("Darumadrop One", size: 12))
+                        .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.black)
                     Text("\(status.score)%")
                         .font(.custom("Montserrat-SemiBold", size: 14))
@@ -588,12 +638,47 @@ private enum FavoriteTransportFilter: CaseIterable, Identifiable {
         case .metro: return "Metro"
         }
     }
+
+    static func from(lines: [String]) -> FavoriteTransportFilter {
+        let types = lines
+        if types.contains(where: { ["1", "2", "5", "6"].contains($0) }) { return .metro }
+        if let line = types.first, Int(line) ?? 100 >= 90 { return .bus }
+        if !types.isEmpty { return .tram }
+        return .all
+    }
+
+    var badgeColor: Color {
+        switch self {
+        case .all: return Color(hex: "#A67CB0")
+        case .tram: return Color(hex: "#F29DC3")
+        case .bus: return Color(hex: "#ED7807")
+        case .metro: return Color(hex: "#8F4199")
+        }
+    }
+
+    var badgeTextColor: Color {
+        switch self {
+        case .tram: return .black
+        default: return .white
+        }
+    }
 }
 
 private enum FavoriteSeverity {
     case normal
     case warning
     case blocked
+
+    static func from(status: String?) -> FavoriteSeverity {
+        switch status {
+        case "Bloqué":
+            return .blocked
+        case "Perturbé":
+            return .warning
+        default:
+            return .normal
+        }
+    }
 }
 
 private struct FavoriteTransitItem: Identifiable {

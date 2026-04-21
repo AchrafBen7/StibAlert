@@ -2,53 +2,110 @@ import SwiftUI
 
 struct ProfileMainView: View {
     @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject private var session: AuthSession
+    @State private var isLoggingOut = false
+    @State private var remoteActivities: [ProfileActivityItem] = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                header
+                    .padding(.horizontal, 21)
+                    .padding(.top, 12)
 
-            avatarSection
-                .padding(.top, 20)
+                avatarSection
+                    .padding(.top, 20)
 
-            statsRow
-                .padding(.horizontal, 37)
-                .padding(.top, 24)
+                statsRow
+                    .padding(.horizontal, 37)
+                    .padding(.top, 24)
 
-            activityHeader
-                .padding(.horizontal, 21)
-                .padding(.top, 34)
+                activityHeader
+                    .padding(.horizontal, 21)
+                    .padding(.top, 34)
 
-            VStack(spacing: 16) {
-                ForEach(ProfileMainMockData.activities) { activity in
-                    ProfileActivityCard(activity: activity)
+                VStack(spacing: 16) {
+                    ForEach(activities) { activity in
+                        ProfileActivityCard(activity: activity)
+                    }
                 }
-            }
-            .padding(.horizontal, 21)
-            .padding(.top, 14)
+                .padding(.horizontal, 21)
+                .padding(.top, 14)
 
-            Button {} label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("Voir tout vos signalements (5)")
-                        .font(.custom("Montserrat-Regular", size: 12))
+                Button {} label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Voir tout vos signalements (5)")
+                            .font(.custom("Montserrat-Regular", size: 12))
+                    }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 49)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                 }
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 49)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 21)
-            .padding(.top, 13)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 21)
+                .padding(.top, 13)
 
-            Spacer()
+                logoutButton
+                    .padding(.horizontal, 21)
+                    .padding(.top, 24)
+                    .padding(.bottom, 32)
+            }
         }
         .background(Color(hex: "#1B1B1B"))
         .toolbar(.hidden, for: .navigationBar)
+        .task { await loadProfileData() }
+    }
+
+    private var logoutButton: some View {
+        Button(action: logout) {
+            HStack(spacing: 8) {
+                if isLoggingOut {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Se déconnecter")
+                        .font(.custom("Montserrat-SemiBold", size: 14))
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 49)
+            .background(Color(hex: "#2A2A2A"))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .stroke(Color(hex: "#FF7A7A").opacity(0.5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoggingOut)
+    }
+
+    private func logout() {
+        isLoggingOut = true
+        Task {
+            await session.deconnexion()
+            isLoggingOut = false
+        }
+    }
+
+    private var displayName: String { session.currentUser?.nom ?? "Invité" }
+    private var displayEmail: String { session.currentUser?.email ?? "" }
+    private var activities: [ProfileActivityItem] {
+        remoteActivities.isEmpty ? ProfileMainMockData.activities : remoteActivities
+    }
+    private var reportCountText: String { "\(activities.count)" }
+    private var reliabilityValue: String {
+        guard !remoteActivities.isEmpty else { return "4.8" }
+        return String(format: "%.1f", min(5.0, 3.8 + Double(remoteActivities.count) * 0.15))
+    }
+    private var avatarInitial: String {
+        String(displayName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
     }
 
     private var header: some View {
@@ -97,16 +154,16 @@ struct ProfileMainView: View {
                 )
                 .frame(width: 49, height: 49)
                 .overlay(
-                    Text("A")
+                    Text(avatarInitial)
                         .font(.custom("DelaGothicOne-Regular", size: 18))
                         .foregroundStyle(Color(hex: "#5B2F1C"))
                 )
 
-            Text("Achraf Benali")
+            Text(displayName)
                 .font(.custom("Montserrat-SemiBold", size: 12))
                 .foregroundStyle(.white)
 
-            Text("Achrafb768@gmail.com")
+            Text(displayEmail)
                 .font(.custom("Montserrat-Regular", size: 12))
                 .foregroundStyle(.white)
         }
@@ -114,8 +171,8 @@ struct ProfileMainView: View {
 
     private var statsRow: some View {
         HStack(spacing: 10) {
-            ProfileStatCard(title: "Signalements", value: "12")
-            ProfileReliabilityCard(value: "4.8")
+            ProfileStatCard(title: "Signalements", value: reportCountText)
+            ProfileReliabilityCard(value: reliabilityValue)
         }
     }
 
@@ -130,6 +187,28 @@ struct ProfileMainView: View {
                 .foregroundStyle(.white)
 
             Spacer()
+        }
+    }
+
+    private func loadProfileData() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let user = try await UtilisateurService.me()
+            session.applyCurrentUserUpdate(user)
+            var page = 1
+            var totalPages = 1
+            var collected: [SignalementDTO] = []
+
+            repeat {
+                let response = try await SignalementService.liste(page: page)
+                collected.append(contentsOf: response.signalements.filter { $0.utilisateurId == user.id })
+                totalPages = response.pagination?.totalPages ?? 1
+                page += 1
+            } while collected.count < 5 && page <= totalPages
+
+            remoteActivities = Array(collected.prefix(5)).map(ProfileActivityItem.from(signalement:))
+        } catch {
+            print("Profile data load failed: \(error.localizedDescription)")
         }
     }
 }
@@ -231,7 +310,7 @@ private struct ProfileActivityCard: View {
                             .foregroundStyle(.black)
 
                         Text(activity.when)
-                            .font(.custom("Darumadrop One", size: 11))
+                            .font(.custom("DelaGothicOne-Regular", size: 11))
                             .foregroundStyle(.black)
                     }
 
@@ -274,6 +353,50 @@ private struct ProfileActivityItem: Identifiable {
     let location: String
     let confirmations: Int
     let background: Color
+
+    static func from(signalement: SignalementDTO) -> ProfileActivityItem {
+        .init(
+            line: signalement.ligne,
+            lineColor: lineColor(for: signalement.ligne),
+            lineTextColor: lineTextColor(for: signalement.ligne),
+            title: signalement.typeProbleme,
+            when: relativeTimestamp(from: signalement.dateSignalement),
+            description: signalement.description,
+            location: signalement.arretId?.id ?? "Arrêt",
+            confirmations: signalement.votesPositifs ?? 0,
+            background: background(for: signalement.typeProbleme)
+        )
+    }
+
+    private static func relativeTimestamp(from date: Date?) -> String {
+        guard let date else { return "Il y a un instant" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: .now)
+    }
+
+    private static func background(for type: String) -> Color {
+        switch type {
+        case "Accident": return Color(hex: "#FFB3B7")
+        case "Retard": return Color(hex: "#FFC98D")
+        case "Panne": return Color(hex: "#BBDCFF")
+        case "Propreté": return Color(hex: "#CFF8E7")
+        default: return Color(hex: "#FFC98D")
+        }
+    }
+
+    private static func lineColor(for line: String) -> Color {
+        switch line {
+        case "1", "5", "10": return Color(hex: "#8F4199")
+        case "7": return Color(hex: "#FFDC01")
+        case "46": return Color(hex: "#F29DC3")
+        default: return Color(hex: "#8F4199")
+        }
+    }
+
+    private static func lineTextColor(for line: String) -> Color {
+        line == "7" ? .black : .white
+    }
 }
 
 private enum ProfileMainMockData {
