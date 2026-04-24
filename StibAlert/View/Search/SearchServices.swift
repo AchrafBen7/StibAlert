@@ -17,6 +17,7 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
     static let currentLocationID = "current-location"
 
     @Published var currentPlace: SearchPlace?
+    @Published var latestLocation: CLLocation?
     @Published var isLocating = false
     @Published var isDenied = false
 
@@ -49,6 +50,18 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
         manager.requestLocation()
     }
 
+    func startLiveTracking() {
+        guard manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse else {
+            requestLocationAccess()
+            return
+        }
+        manager.startUpdatingLocation()
+    }
+
+    func stopLiveTracking() {
+        manager.stopUpdatingLocation()
+    }
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
@@ -69,6 +82,8 @@ final class SearchLocationManager: NSObject, ObservableObject, @preconcurrency C
             isLocating = false
             return
         }
+
+        latestLocation = location
 
         Task {
             await updateCurrentPlace(from: location)
@@ -133,7 +148,15 @@ enum SearchRouteCalculator {
             SearchRouteAlternative(
                 title: $0.name.isEmpty ? "Alternative route" : $0.name,
                 eta: max(1, Int(($0.expectedTravelTime / 60).rounded())),
-                lineSummary: $0.displaySummary
+                lineSummary: $0.displaySummary,
+                reason: nil,
+                confidenceText: nil,
+                trustLabel: nil,
+                severityLabel: nil,
+                sourceSummary: nil,
+                communitySummary: nil,
+                categoryTitles: [],
+                steps: []
             )
         }
 
@@ -301,11 +324,46 @@ struct SearchPlaceSuggestion: Identifiable {
     let completion: MKLocalSearchCompletion
 }
 
-struct SearchRouteAlternative: Identifiable {
-    let id = UUID()
+struct SearchRouteAlternative: Identifiable, Equatable {
+    let id: String
     let title: String
     let eta: Int
     let lineSummary: String
+    let reason: String?
+    let confidenceText: String?
+    let trustLabel: String?
+    let severityLabel: String?
+    let sourceSummary: String?
+    let communitySummary: String?
+    let categoryTitles: [String]
+    let steps: [TransportRouteStepDTO]
+
+    init(
+        title: String,
+        eta: Int,
+        lineSummary: String,
+        reason: String?,
+        confidenceText: String?,
+        trustLabel: String?,
+        severityLabel: String?,
+        sourceSummary: String?,
+        communitySummary: String?,
+        categoryTitles: [String],
+        steps: [TransportRouteStepDTO]
+    ) {
+        self.id = [title, String(eta), lineSummary].joined(separator: "|")
+        self.title = title
+        self.eta = eta
+        self.lineSummary = lineSummary
+        self.reason = reason
+        self.confidenceText = confidenceText
+        self.trustLabel = trustLabel
+        self.severityLabel = severityLabel
+        self.sourceSummary = sourceSummary
+        self.communitySummary = communitySummary
+        self.categoryTitles = categoryTitles
+        self.steps = steps
+    }
 }
 
 struct SearchNearbyTransit: Identifiable {

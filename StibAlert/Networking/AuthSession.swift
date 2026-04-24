@@ -58,6 +58,7 @@ final class AuthSession: ObservableObject {
         do {
             let user = try await AuthService.me()
             state = .signedIn(user)
+            PushNotificationManager.current?.loginOneSignal(userId: user.id)
             await registerForPushIfNeeded(using: user)
         } catch {
             KeychainHelper.deleteToken()
@@ -80,6 +81,7 @@ final class AuthSession: ObservableObject {
         pendingActivationToken = nil
         pendingActivationEmail = nil
         state = .signedIn(auth.utilisateur)
+        PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
     }
 
@@ -87,6 +89,7 @@ final class AuthSession: ObservableObject {
         let auth = try await AuthService.connexion(email: email, motDePasse: motDePasse)
         KeychainHelper.saveToken(auth.token)
         state = .signedIn(auth.utilisateur)
+        PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
     }
 
@@ -95,6 +98,7 @@ final class AuthSession: ObservableObject {
         KeychainHelper.deleteToken()
         pendingActivationToken = nil
         pendingActivationEmail = nil
+        PushNotificationManager.current?.logoutOneSignal()
         state = .signedOut
     }
 

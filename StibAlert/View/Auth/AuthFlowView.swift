@@ -16,8 +16,10 @@ struct AuthFlowView: View {
                     switch route {
                     case .signUp:
                         SignUpView(onRequireActivation: { path.append(.activation) })
+                            .environmentObject(session)
                     case .activation:
                         ActivationView()
+                            .environmentObject(session)
                     }
                 }
         }

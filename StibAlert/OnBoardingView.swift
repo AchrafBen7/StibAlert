@@ -1,314 +1,171 @@
-//
-//  OnBoardingView.swift
-//  StibAlert
-//
-
 import SwiftUI
 
 struct OnboardingView: View {
-    @State private var index = 0
-    @State private var animateLights = false
+    @ScaledMetric(relativeTo: .body) private var lineChipHeight: CGFloat = AppTheme.ButtonHeight.secondary
+    @ScaledMetric(relativeTo: .body) private var inputHeight: CGFloat = AppTheme.ButtonHeight.primary
+    @State private var selectedLines: Set<String> = Set(OnboardingPreferenceStore.load().favoriteLines)
+    @State private var homeLabel = OnboardingPreferenceStore.load().homeLabel
+    @State private var departureTime = OnboardingPreferenceStore.load().departureTime
     var onFinish: () -> Void = {}
 
-    private static let pages: [OnboardingPage] = [
-        .init(
-            imageName: "onboarding_bus",
-            title: L10n.Onboarding.page1Title,
-            subtitle: L10n.Onboarding.page1Subtitle,
-            style: .editorial,
-            accentAlignment: .trailing
-        ),
-        .init(
-            imageName: "onboarding_map",
-            title: L10n.Onboarding.page2Title,
-            subtitle: L10n.Onboarding.page2Subtitle,
-            style: .editorial,
-            accentAlignment: .center
-        ),
-        .init(
-            imageName: "onboarding_favoris",
-            title: L10n.Onboarding.page3Title,
-            subtitle: L10n.Onboarding.page3Subtitle,
-            style: .editorial,
-            accentAlignment: .leading
-        )
-    ]
+    private let suggestedLines = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "12", "19", "25", "38", "46", "71", "81", "92", "95"]
+
+    private var canContinue: Bool {
+        !selectedLines.isEmpty || !homeLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                onboardingBackground(size: proxy.size)
+        ZStack {
+            AppTheme.Colors.onboardingBackground.ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    Spacer(minLength: proxy.size.height * 0.52)
-
-                    TabView(selection: $index) {
-                        ForEach(Self.pages.indices, id: \.self) { pageIndex in
-                            OnboardingPageView(
-                                page: Self.pages[pageIndex],
-                                isFirstPage: pageIndex == 0,
-                                pageIndex: pageIndex
-                            )
-                                .tag(pageIndex)
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-
-                    footer
-                        .padding(.horizontal, 34)
-                        .padding(.bottom, 34)
-                        .padding(.top, 12)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    favoriteLinesSection
+                    homeSection
+                    departureSection
+                    footerNote
+                    continueButton
                 }
-            }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
-                    animateLights = true
-                }
+                .padding(.horizontal, 24)
+                .padding(.top, 56)
+                .padding(.bottom, 32)
             }
         }
         .preferredColorScheme(.dark)
     }
 
-    private var footer: some View {
-        HStack(alignment: .center) {
-            PageIndicator(current: index, total: Self.pages.count)
-            Spacer()
-
-            Button {
-                if index < Self.pages.count - 1 {
-                    withAnimation(.easeInOut(duration: 0.35)) {
-                        index += 1
-                    }
-                } else {
-                    onFinish()
-                }
-            } label: {
-                HStack(spacing: index == 0 ? 0 : 8) {
-                    Text(actionTitle)
-                        .font(AppTheme.Fonts.clash(14))
-                        .lineLimit(1)
-
-                    if index != 0 {
-                        Image(systemName: index == Self.pages.count - 1 ? "arrow.right" : "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                }
-                .foregroundStyle(actionForeground)
-                .frame(width: index == 0 ? 90 : 118, height: 40, alignment: .trailing)
-                .background {
-                    if index == 0 {
-                        Color.clear
-                    } else {
-                        actionBackgroundShape
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(actionTitle)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var actionTitle: String {
-        index < Self.pages.count - 1 ? L10n.Common.continueAction : L10n.Common.finishAction
-    }
-
-    private var actionForeground: Color {
-        if index == 0 {
-            return AppTheme.Colors.textInverse
-        }
-        return index < Self.pages.count - 1 ? AppTheme.Colors.textInverse : AppTheme.Colors.onboardingTitleSand
-    }
-
-    private var actionBackground: Color {
-        index < Self.pages.count - 1
-            ? AppTheme.Colors.onboardingIndicatorBlue.opacity(0.12)
-            : AppTheme.Colors.onboardingTitleSand.opacity(0.18)
-    }
-
-    private var actionBorder: Color {
-        index < Self.pages.count - 1 ? AppTheme.Colors.onboardingIndicatorBlue : AppTheme.Colors.onboardingTitleSand
-    }
-
-    @ViewBuilder
-    private var actionBackgroundShape: some View {
-        Capsule(style: .continuous)
-            .fill(actionBackground)
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(actionBorder, lineWidth: 1)
-            )
-    }
-
-    private func onboardingBackground(size: CGSize) -> some View {
-        ZStack {
-            AppTheme.Colors.onboardingBackground
-                .ignoresSafeArea()
-
-            Ellipse()
-                .fill(AppTheme.Colors.onboardingGlowWhite)
-                .frame(width: 665, height: 289)
-                .blur(radius: 79.5)
-                .offset(
-                    x: (-91 + 665 / 2) - size.width / 2,
-                    y: (-144 + 289 / 2) - size.height / 2
-                )
-                .scaleEffect(animateLights ? 1.03 : 0.98)
-
-            Ellipse()
-                .fill(AppTheme.Colors.onboardingGlowBlue)
-                .frame(width: 587.54, height: 507)
-                .blur(radius: 132.3)
-                .offset(
-                    x: (-97 + 587.54 / 2) - size.width / 2,
-                    y: (-211 + 507 / 2) - size.height / 2
-                )
-                .opacity(animateLights ? 0.95 : 0.82)
-                .scaleEffect(animateLights ? 1.05 : 0.98)
-
-            Circle()
-                .fill(AppTheme.Colors.onboardingIndicatorBlue.opacity(0.42))
-                .frame(width: 72, height: 72)
-                .blur(radius: 40)
-                .offset(x: size.width * 0.42, y: size.height * 0.06)
-                .opacity(animateLights ? 0.8 : 0.55)
-        }
-    }
-}
-
-struct OnboardingPageView: View {
-    let page: OnboardingPage
-    let isFirstPage: Bool
-    let pageIndex: Int
-
-    var body: some View {
-        editorialPage
-    }
-
-    private var editorialPage: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            editorialAccent
-                .padding(.bottom, 156)
-
-            title
-                .font(AppTheme.Fonts.clash(32))
-                .frame(width: 363, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 14)
-
-            Text(page.subtitle)
-                .font(AppTheme.Fonts.body(16))
-                .foregroundStyle(AppTheme.Colors.textInverse)
-                .frame(width: 329, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(1)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.leading, 30)
-        .padding(.trailing, 28)
-    }
-
-    private var editorialAccent: some View {
-        RoundedRectangle(cornerRadius: 999, style: .continuous)
-            .fill(accentFill)
-            .overlay(
-                RoundedRectangle(cornerRadius: 999, style: .continuous)
-                    .stroke(accentStroke, lineWidth: 1)
-            )
-            .frame(width: accentWidth, height: 8)
-            .frame(maxWidth: .infinity, alignment: page.accentAlignment)
-            .opacity(0.94)
-    }
-
-    private var accentFill: Color {
-        switch pageIndex {
-        case 0:
-            return AppTheme.Colors.onboardingTitleSand
-        case 1:
-            return AppTheme.Colors.onboardingIndicatorBlue.opacity(0.32)
-        default:
-            return AppTheme.Colors.onboardingTitleBlue.opacity(0.22)
-        }
-    }
-
-    private var accentStroke: Color {
-        switch pageIndex {
-        case 0:
-            return AppTheme.Colors.onboardingTitleSand
-        case 1:
-            return AppTheme.Colors.onboardingIndicatorBlue
-        default:
-            return AppTheme.Colors.onboardingTitleBlue.opacity(0.78)
-        }
-    }
-
-    private var accentWidth: CGFloat {
-        switch pageIndex {
-        case 0:
-            return 28.077
-        case 1:
-            return 28.077
-        default:
-            return 28.077
-        }
-    }
-
-    @ViewBuilder
-    private var title: some View {
-        if isFirstPage {
-            Text("Des ")
-                .foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
-            + Text("soucis")
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Rends StibAlert utile dès demain")
+                .font(.custom("DelaGothicOne-Regular", size: 28))
                 .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
-            + Text(" sur votre\ntrajet ?")
-                .foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
-        } else {
-            Text(page.title)
-                .foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
+
+            Text("Choisis 2 à 3 lignes que tu prends souvent et ton point de départ habituel. Stibi pourra ensuite te prévenir avant ton départ.")
+                .font(.custom("Montserrat-Regular", size: 15))
+                .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
-}
 
-struct PageIndicator: View {
-    let current: Int
-    let total: Int
-
-    private let width: CGFloat = 28.077
-    private let height: CGFloat = 8
-    private let gap: CGFloat = 6
-
-    var body: some View {
-        HStack(spacing: gap) {
-            ForEach(0..<total, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(i == current ? AppTheme.Colors.onboardingTitleSand : .clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(
-                                i == current
-                                    ? AppTheme.Colors.onboardingTitleSand
-                                    : AppTheme.Colors.onboardingIndicatorBlue,
-                                lineWidth: 1
-                            )
-                    )
-                    .frame(width: width, height: height)
-                    .accessibilityHidden(true)
+    private var favoriteLinesSection: some View {
+        onboardingCard(title: "Tes lignes du quotidien", subtitle: "Sélectionne les lignes que tu veux surveiller.") {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 10)], spacing: 10) {
+                ForEach(suggestedLines, id: \.self) { line in
+                    let isSelected = selectedLines.contains(line)
+                    Button {
+                        if isSelected {
+                            selectedLines.remove(line)
+                        } else if selectedLines.count < 4 {
+                            selectedLines.insert(line)
+                        }
+                        AppHaptics.soft()
+                    } label: {
+                        Text(line)
+                            .font(DesignSystem.Typography.title3)
+                            .foregroundStyle(isSelected ? .black : .white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: lineChipHeight)
+                            .background(isSelected ? AppTheme.Colors.onboardingTitleSand : Color.white.opacity(0.07))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Ligne \(line)")
+                    .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
+                    .accessibilityHint("Double-tape pour \(isSelected ? "retirer" : "ajouter") cette ligne favorite")
+                }
             }
         }
     }
-}
 
-struct OnboardingPage {
-    enum Style {
-        case editorial
-        case card
+    private var homeSection: some View {
+        onboardingCard(title: "Ton arrêt domicile", subtitle: "Exemple : De Brouckère, Simonis, Ma Campagne.") {
+            TextField("Nom de l'arrêt ou zone", text: $homeLabel)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .font(DesignSystem.Typography.body)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(height: inputHeight)
+                .background(AppTheme.Palette.surfaceMuted)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+                .accessibilityLabel("Arrêt domicile")
+        }
     }
 
-    let imageName: String
-    let title: String
-    let subtitle: String
-    let style: Style
-    let accentAlignment: Alignment
+    private var departureSection: some View {
+        onboardingCard(title: "Heure habituelle", subtitle: "Pour recevoir le brief du matin au bon moment.") {
+            TextField("08:15", text: $departureTime)
+                .keyboardType(.numbersAndPunctuation)
+                .font(DesignSystem.Typography.body)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(height: inputHeight)
+                .background(AppTheme.Palette.surfaceMuted)
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+                .accessibilityLabel("Heure habituelle de départ")
+        }
+    }
+
+    private var footerNote: some View {
+        Text("Tu pourras ajuster tout ça plus tard dans le profil. Le plus important est de donner à Stibi assez de contexte pour surveiller ce qui compte.")
+            .font(.custom("Montserrat-Regular", size: 13))
+            .foregroundStyle(Color.white.opacity(0.65))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var continueButton: some View {
+        Button(action: finishOnboarding) {
+            Text("Continuer")
+                .font(DesignSystem.Typography.bodyStrong)
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity)
+                .frame(height: inputHeight)
+                .background(canContinue ? AppTheme.Colors.onboardingTitleSand : Color.white.opacity(0.16))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!canContinue)
+        .accessibilityHint("Enregistre tes préférences et ouvre l’application")
+    }
+
+    private func onboardingCard<Content: View>(
+        title: String,
+        subtitle: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundStyle(.white)
+
+                Text(subtitle)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(Color.white.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            content()
+        }
+        .padding(18)
+        .background(AppTheme.Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
+    }
+
+    private func finishOnboarding() {
+        let normalizedTime = departureTime.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "08:15" : departureTime
+        let preferences = OnboardingPreferences(
+            favoriteLines: selectedLines.sorted(),
+            homeLabel: homeLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+            departureTime: normalizedTime
+        )
+        OnboardingPreferenceStore.save(preferences)
+        AppHaptics.success()
+        onFinish()
+    }
 }

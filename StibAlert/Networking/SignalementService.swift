@@ -67,6 +67,30 @@ enum SignalementService {
             requiresAuth: true
         )
     }
+
+    static func confirmer(signalementId: String) async throws -> SignalementCommunityActionResponse {
+        try await APIClient.shared.request(
+            "/api/signalements/\(signalementId)/confirm",
+            method: .POST,
+            requiresAuth: true
+        )
+    }
+
+    static func toujoursBloque(signalementId: String) async throws -> SignalementCommunityActionResponse {
+        try await APIClient.shared.request(
+            "/api/signalements/\(signalementId)/still-blocked",
+            method: .POST,
+            requiresAuth: true
+        )
+    }
+
+    static func resoudre(signalementId: String) async throws -> SignalementCommunityActionResponse {
+        try await APIClient.shared.request(
+            "/api/signalements/\(signalementId)/resolved",
+            method: .POST,
+            requiresAuth: true
+        )
+    }
 }
 
 struct VoteRequest: Encodable { let vote: String }
@@ -86,6 +110,13 @@ struct SignalementsPagination: Decodable {
 struct AjoutSignalementResponse: Decodable {
     let message: String
     let signalement: SignalementDTO
+}
+
+struct SignalementCommunityActionResponse: Decodable {
+    let message: String
+    let status: String?
+    let confidence: Double?
+    let community: SignalementCommunityDTO?
 }
 
 struct SignalementsParArretResponse: Decodable {

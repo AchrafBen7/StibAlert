@@ -11,14 +11,12 @@ struct PrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.buttonCTA)
-            .padding(.vertical, DesignSystem.Spacing.md)
             .padding(.horizontal, DesignSystem.Spacing.lg)
-            .foregroundStyle(.white)
+            .foregroundStyle(DesignSystem.Palette.textOnBrand)
             .frame(maxWidth: .infinity)
-            .background(
-                DesignSystem.Colors.primary.opacity(configuration.isPressed ? 0.8 : 1.0)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium, style: .continuous))
+            .frame(height: DesignSystem.Button.primaryHeight)
+            .background(DesignSystem.Palette.brand.opacity(configuration.isPressed ? 0.88 : 1.0))
+            .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(DesignSystem.Animation.quick, value: configuration.isPressed)
     }
@@ -28,14 +26,14 @@ struct SecondaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.buttonSecondary)
-            .padding(.vertical, DesignSystem.Spacing.md)
             .padding(.horizontal, DesignSystem.Spacing.lg)
-            .foregroundStyle(DesignSystem.Colors.primary)
+            .foregroundStyle(DesignSystem.Palette.textPrimary)
             .frame(maxWidth: .infinity)
-            .background(DesignSystem.Colors.cardBackground)
+            .frame(height: DesignSystem.Button.secondaryHeight)
+            .background(DesignSystem.Palette.surfaceMuted)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium, style: .continuous)
-                    .stroke(DesignSystem.Colors.borderStrong, lineWidth: 1.5)
+                    .stroke(DesignSystem.Palette.borderStrong, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -49,14 +47,14 @@ struct AppleHoverButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.system(size: fontSize, weight: .semibold))
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .foregroundColor(configuration.isPressed ? .white : DesignSystem.Colors.primaryText)
+            .frame(maxWidth: .infinity, minHeight: DesignSystem.Button.primaryHeight)
+            .foregroundColor(configuration.isPressed ? DesignSystem.Palette.textPrimary : DesignSystem.Palette.textPrimary)
             .background(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large)
-                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                    .stroke(DesignSystem.Palette.border, lineWidth: 1)
                     .background(
                         RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large)
-                            .fill(configuration.isPressed ? DesignSystem.Colors.primary : DesignSystem.Colors.cardBackground)
+                            .fill(configuration.isPressed ? DesignSystem.Palette.surfaceElevated : DesignSystem.Palette.surface)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large, style: .continuous))
@@ -69,12 +67,12 @@ struct AuthFieldStyle: ViewModifier {
         content
             .font(DesignSystem.Typography.body)
             .padding(.horizontal, DesignSystem.Spacing.md)
-            .padding(.vertical, 14)
-            .background(DesignSystem.Colors.cardBackground)
+            .frame(height: DesignSystem.Button.primaryHeight)
+            .background(DesignSystem.Palette.surfaceMuted)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.medium, style: .continuous)
-                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                    .stroke(DesignSystem.Palette.border, lineWidth: 1)
             )
             .textInputAutocapitalization(.never)
     }
@@ -89,11 +87,11 @@ extension View {
 struct NIOSCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(DesignSystem.Colors.cardBackground)
+            .background(DesignSystem.Palette.surface)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.large, style: .continuous)
-                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                    .stroke(DesignSystem.Palette.border, lineWidth: 1)
             )
             .shadow(color: DesignSystem.Colors.shadow, radius: 6, x: 0, y: 3)
     }

@@ -4,6 +4,8 @@ import MapKit
 struct SearchTransitMapView: View {
     let selectedScope: SearchScope
     let journey: SearchJourney?
+    let activeStepPath: [CLLocationCoordinate2D]
+    let snappedCoordinate: CLLocationCoordinate2D?
 
     @State private var position: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -18,12 +20,34 @@ struct SearchTransitMapView: View {
                 MapPolyline(coordinates: journey.path.map(\.coordinate))
                     .stroke(Color(hex: "#B5CFF8"), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
 
+                if activeStepPath.count >= 2 {
+                    MapPolyline(coordinates: activeStepPath)
+                        .stroke(Color(hex: "#57E3B6"), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                }
+
                 Annotation("", coordinate: journey.origin.coordinate.coordinate, anchor: .bottom) {
                     marker(color: Color(hex: "#57E3B6"), label: "A")
                 }
 
                 Annotation("", coordinate: journey.destination.coordinate.coordinate, anchor: .bottom) {
                     marker(color: Color(hex: "#FF9B2F"), label: "B")
+                }
+
+                if let snappedCoordinate {
+                    Annotation("", coordinate: snappedCoordinate, anchor: .center) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: "#57E3B6").opacity(0.22))
+                                .frame(width: 28, height: 28)
+                            Circle()
+                                .fill(Color(hex: "#57E3B6"))
+                                .frame(width: 12, height: 12)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.95), lineWidth: 2)
+                                )
+                        }
+                    }
                 }
             }
         }
@@ -34,6 +58,12 @@ struct SearchTransitMapView: View {
         }
         .onChange(of: journey?.destination.id) { _, _ in
             recenterIfNeeded()
+        }
+        .onChange(of: snappedCoordinate?.latitude) { _, _ in
+            followGuidanceIfNeeded()
+        }
+        .onChange(of: snappedCoordinate?.longitude) { _, _ in
+            followGuidanceIfNeeded()
         }
     }
 
@@ -72,6 +102,21 @@ struct SearchTransitMapView: View {
         )
 
         position = .region(MKCoordinateRegion(center: center, span: span))
+    }
+
+    private func followGuidanceIfNeeded() {
+        guard let snappedCoordinate else { return }
+
+        let currentSpan: MKCoordinateSpan
+        if activeStepPath.count >= 2 {
+            currentSpan = MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+        } else {
+            currentSpan = MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+        }
+
+        withAnimation(.easeInOut(duration: 0.35)) {
+            position = .region(MKCoordinateRegion(center: snappedCoordinate, span: currentSpan))
+        }
     }
 }
 

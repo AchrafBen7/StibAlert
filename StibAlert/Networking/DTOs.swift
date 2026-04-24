@@ -10,12 +10,25 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
     let role: String?
     let favoris: [String]?
     let favorisDetails: [FavoriDetailDTO]?
+    let routine: CommuteRoutineDTO?
     let votes: [String]?
+    let oneSignalPlayerId: String?
+    let favoriteLines: [String]?
+    let weeklyDigestEnabled: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, votes
+        case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, routine, votes, oneSignalPlayerId, favoriteLines, weeklyDigestEnabled
     }
+}
+
+struct CommuteRoutineDTO: Codable, Equatable {
+    let enabled: Bool
+    let homeLabel: String
+    let workLabel: String
+    let departureTime: String
+    let homeStopId: String?
+    let workStopId: String?
 }
 
 struct FavoriDetailDTO: Codable, Identifiable, Equatable {
@@ -83,15 +96,142 @@ struct SignalementDTO: Codable, Identifiable, Equatable {
     let latitude: Double?
     let longitude: Double?
     let confiance: String?
+    let source: String?
     let votesPositifs: Int?
     let votesNegatifs: Int?
     let dateSignalement: Date?
+    let status: String?
+    let community: SignalementCommunityDTO?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case utilisateurId, arretId, ligne, typeProbleme, description
-        case photo, latitude, longitude, confiance
-        case votesPositifs, votesNegatifs, dateSignalement
+        case photo, latitude, longitude, confiance, source
+        case votesPositifs, votesNegatifs, dateSignalement, status, community
+    }
+}
+
+struct SignalementCommunityDTO: Codable, Equatable {
+    let status: String?
+    let confidence: Double?
+    let freshnessMinutes: Int?
+    let confirmations: Int?
+    let stillBlocked: Int?
+    let resolved: Int?
+}
+
+extension SignalementDTO {
+    var effectiveFreshnessMinutes: Int? {
+        if let freshness = community?.freshnessMinutes {
+            return freshness
+        }
+
+        guard let dateSignalement else { return nil }
+        return max(Int(Date().timeIntervalSince(dateSignalement) / 60), 0)
+    }
+
+    var freshnessLabel: String {
+        guard let minutes = effectiveFreshnessMinutes else { return "Signalé à l'instant" }
+        if minutes < 1 { return "Signalé à l'instant" }
+        if minutes < 60 { return "Signalé il y a \(minutes) min" }
+        return "Signalé il y a \(minutes / 60) h"
+    }
+
+    var confirmationsSummaryLabel: String? {
+        guard let freshness = effectiveFreshnessMinutes else { return nil }
+        let confirmations = community?.confirmations ?? 0
+        guard confirmations > 0 else { return nil }
+        return "Confirmé \(confirmations)× en \(freshnessWindowLabel(minutes: freshness))"
+    }
+
+    var confidenceLabel: String? {
+        guard let confiance else { return nil }
+        switch confiance.lowercased() {
+        case "haute", "high":
+            return "Confiance haute"
+        case "moyenne", "medium":
+            return "Confiance moyenne"
+        case "basse", "low":
+            return "Confiance basse"
+        default:
+            return nil
+        }
+    }
+
+    var confidenceExplanation: String? {
+        guard let confiance else { return nil }
+        switch confiance.lowercased() {
+        case "haute", "high":
+            return "Basée sur une position GPS très proche de l'arrêt signalé."
+        case "moyenne", "medium":
+            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+        case "basse", "low":
+            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+        default:
+            return "Basée sur la proximité GPS observée au moment du signalement."
+        }
+    }
+
+    var isStale: Bool {
+        (effectiveFreshnessMinutes ?? 0) >= 120
+    }
+
+    var stalePromptLabel: String? {
+        isStale ? "Plus récent ?" : nil
+    }
+
+    var sourceLabel: String {
+        switch source?.lowercased() {
+        case let raw? where raw.contains("official") || raw.contains("stib"):
+            return "Source STIB"
+        case let raw? where raw.contains("mixed"):
+            return "STIB + communauté"
+        default:
+            return "Communauté"
+        }
+    }
+
+    private func freshnessWindowLabel(minutes: Int) -> String {
+        if minutes < 1 { return "moins d'1 min" }
+        if minutes < 60 { return "\(minutes) min" }
+        return "\(minutes / 60) h"
+    }
+}
+
+extension TransportIncidentDTO {
+    var sourceLabel: String {
+        let normalized = source?.lowercased() ?? ""
+        if normalized.contains("official") || normalized.contains("stib") {
+            return community == nil ? "Source STIB" : "STIB + communauté"
+        }
+        return community == nil ? "Terrain" : "Communauté"
+    }
+
+    var confidenceLabel: String? {
+        guard let legacyConfidence else { return nil }
+        switch legacyConfidence.lowercased() {
+        case "haute", "high":
+            return "Confiance haute"
+        case "moyenne", "medium":
+            return "Confiance moyenne"
+        case "basse", "low":
+            return "Confiance basse"
+        default:
+            return nil
+        }
+    }
+
+    var confidenceExplanation: String {
+        switch legacyConfidence?.lowercased() {
+        case "haute", "high":
+            return "Basée sur une position GPS très proche de l'arrêt signalé."
+        case "moyenne", "medium":
+            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+        case "basse", "low":
+            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+        default:
+            return "Basée sur les indices réseau et la proximité GPS disponibles."
+        }
     }
 }
 
@@ -126,13 +266,354 @@ enum ArretRef: Codable, Equatable {
 
 struct ArretDTO: Codable, Equatable {
     let id: String
+    let stopId: String?
     let nom: String
     let latitude: Double?
     let longitude: Double?
     let lignesDesservies: [String]?
+    let nextPassageMinutes: Int?
+    let nextPassages: [Int]?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
+        case stopId = "stop_id"
         case nom, latitude, longitude, lignesDesservies
+        case nextPassageMinutes, nextPassages
     }
+}
+
+struct TransportLabelDTO: Codable, Equatable {
+    let fr: String?
+    let nl: String?
+    let en: String?
+}
+
+struct TransportIncidentStopDTO: Codable, Equatable {
+    let id: String?
+    let name: String?
+}
+
+struct TransportIncidentDTO: Codable, Identifiable, Equatable {
+    let id: String
+    let type: String?
+    let description: String?
+    let severity: String?
+    let confidence: Double?
+    let legacyConfidence: String?
+    let source: String?
+    let line: String?
+    let stop: TransportIncidentStopDTO?
+    let date: Date?
+    let community: SignalementCommunityDTO?
+}
+
+struct TransportDepartureDTO: Codable, Identifiable, Equatable {
+    var id: String { "\(line)-\(destination ?? "unknown")-\(minutes)" }
+    let line: String
+    let destination: String?
+    let minutes: Int
+}
+
+struct TransportAlternativeDTO: Codable, Identifiable, Equatable {
+    var id: String { type }
+    let type: String
+    let label: String
+    let score: Double
+    let totalDurationMinutes: Int
+    let walkingMinutes: Int
+    let transfers: Int
+    let lines: [String]
+    let severity: String
+    let confidence: Double
+    let explanation: String
+    let explanationDetails: TransportAlternativeExplanationDTO?
+    let reasons: [String]?
+    let steps: [TransportRouteStepDTO]?
+}
+
+struct TransportAlternativeExplanationDTO: Codable, Equatable {
+    let riskLevel: String
+    let summary: String
+    let highlights: [String]
+    let categories: [TransportAlternativeExplanationCategoryDTO]
+}
+
+struct TransportAlternativeExplanationCategoryDTO: Codable, Equatable, Identifiable {
+    var id: String { key }
+    let key: String
+    let title: String
+    let impact: String
+    let detail: String
+}
+
+struct TransportRouteStepDTO: Codable, Identifiable, Equatable {
+    var id: String { "\(order)-\(mode)-\(line ?? "none")-\(instruction)" }
+    let order: Int
+    let mode: String
+    let instruction: String
+    let durationMinutes: Int
+    let line: String?
+    let destination: String?
+    let stopName: String?
+    let arrivalStopName: String?
+    let stopsCount: Int?
+    let startLatitude: Double?
+    let startLongitude: Double?
+    let targetLatitude: Double?
+    let targetLongitude: Double?
+    let path: [TransportStepCoordinateDTO]?
+}
+
+struct TransportStepCoordinateDTO: Codable, Equatable, Hashable {
+    let lat: Double
+    let lng: Double
+}
+
+struct TransportStopSummaryDTO: Codable, Identifiable, Equatable {
+    let id: String
+    let stopId: String?
+    let name: String
+    let latitude: Double?
+    let longitude: Double?
+    let lines: [String]
+}
+
+struct TransportLineStopDTO: Codable, Identifiable, Equatable {
+    let id: String
+    let stopId: String?
+    let name: String
+}
+
+struct TransportLineSummaryDTO: Codable, Equatable {
+    let id: String
+    let lineId: String
+    let name: String
+    let type: String
+    let color: String
+    let direction: String
+    let stops: [TransportLineStopDTO]
+}
+
+struct TransportVehicleDTO: Codable, Identifiable, Equatable {
+    var id: String { vehicleId ?? "\(line ?? "unknown")-\(latitude ?? 0)-\(longitude ?? 0)" }
+    let vehicleId: String?
+    let line: String?
+    let direction: String?
+    let latitude: Double?
+    let longitude: Double?
+    let updatedAt: Date?
+}
+
+struct TransportOverviewDTO: Codable, Equatable {
+    struct Context: Codable, Equatable {
+        let lat: String?
+        let lng: String?
+    }
+
+    let context: Context?
+    let severity: String
+    let confidence: Double
+    let realtimeStatus: String
+    let label: TransportLabelDTO?
+    let color: String?
+    let activeIncidents: [TransportIncidentDTO]
+    let stops: [TransportStopSummaryDTO]
+    let nextDepartures: [TransportDepartureDTO]
+    let recommendedAlternatives: [TransportAlternativeDTO]
+}
+
+struct TransportStopDTO: Codable, Equatable {
+    let stop: TransportStopSummaryDTO
+    let severity: String
+    let confidence: Double
+    let realtimeStatus: String
+    let label: TransportLabelDTO?
+    let color: String?
+    let activeIncidents: [TransportIncidentDTO]
+    let nextDepartures: [TransportDepartureDTO]
+    let recommendedAlternatives: [TransportAlternativeDTO]
+}
+
+struct TransportLineDTO: Codable, Equatable {
+    let line: TransportLineSummaryDTO
+    let severity: String
+    let confidence: Double
+    let realtimeStatus: String
+    let label: TransportLabelDTO?
+    let color: String?
+    let activeIncidents: [TransportIncidentDTO]
+    let nextDepartures: [TransportDepartureDTO]
+    let vehicles: [TransportVehicleDTO]?
+    let recommendedAlternatives: [TransportAlternativeDTO]
+}
+
+struct TransportRecommendationFallbackDTO: Codable, Equatable {
+    let reason: String
+    let message: String
+}
+
+struct TransportRecommendationRequest: Encodable {
+    let depart: String
+    let destination: String
+    let lignesBloquees: [String]
+}
+
+struct TransportRecommendationDTO: Codable, Equatable {
+    struct Request: Codable, Equatable {
+        let depart: String
+        let destination: String
+        let lignesBloquees: [String]
+    }
+
+    let request: Request
+    let severity: String
+    let confidence: Double
+    let realtimeStatus: String
+    let label: TransportLabelDTO?
+    let color: String?
+    let activeIncidents: [TransportIncidentDTO]
+    let nextDepartures: [TransportDepartureDTO]
+    let recommendedAlternatives: [TransportAlternativeDTO]
+    let fallback: TransportRecommendationFallbackDTO?
+}
+
+struct AssistantActionDTO: Codable, Equatable, Identifiable {
+    let id: String
+    let label: String
+}
+
+struct AssistantIdentityDTO: Codable, Equatable {
+    let name: String
+    let visualState: String
+}
+
+struct AssistantContextProfileDTO: Codable, Equatable {
+    let name: String?
+    let language: String?
+    let notificationsEnabled: Bool?
+    let oneSignalPlayerId: String?
+}
+
+struct AssistantContextFavoriteStopDTO: Codable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let lines: [String]
+    let stopId: String?
+}
+
+struct AssistantContextFavoritesDTO: Codable, Equatable {
+    let count: Int
+    let stops: [AssistantContextFavoriteStopDTO]
+    let lines: [String]
+}
+
+struct AssistantContextHabitsDTO: Codable, Equatable {
+    struct AnchorDTO: Codable, Equatable {
+        let id: String
+        let name: String
+        let stopId: String?
+        let label: String
+    }
+
+    let commutePattern: String
+    let hasFavorites: Bool
+    let primaryStopName: String?
+    let departureTime: String?
+    let home: AnchorDTO?
+    let work: AnchorDTO?
+}
+
+struct AssistantContextTransportDTO: Codable, Equatable {
+    let severity: String
+    let confidence: Double
+    let realtimeStatus: String
+    let nextDepartures: [TransportDepartureDTO]
+    let activeIncidentsCount: Int
+}
+
+struct AssistantContextDTO: Codable, Equatable {
+    let profile: AssistantContextProfileDTO?
+    let favorites: AssistantContextFavoritesDTO
+    let habits: AssistantContextHabitsDTO
+    let transport: AssistantContextTransportDTO
+}
+
+struct AssistantSupportingDTO: Codable, Equatable {
+    let realtimeStatus: String?
+    let nextDepartures: [TransportDepartureDTO]?
+    let activeIncidentsCount: Int?
+    let recommendedAlternatives: [TransportAlternativeDTO]?
+    let commuteDecision: String?
+    let briefingStage: String?
+    let minutesUntilDeparture: Int?
+    let departureTime: String?
+}
+
+struct AssistantBriefDTO: Codable, Equatable {
+    let assistant: AssistantIdentityDTO
+    let context: String
+    let type: String
+    let priority: String
+    let severity: String
+    let confidence: Double
+    let title: String
+    let message: String
+    let shortMessage: String?
+    let actions: [AssistantActionDTO]
+    let source: String?
+    let assistantContext: AssistantContextDTO?
+    let supporting: AssistantSupportingDTO?
+}
+
+extension AssistantBriefDTO {
+    var idForSpeech: String {
+        "\(context)|\(type)|\(title)|\(message)"
+    }
+
+    var speechTriggerKey: String {
+        if type == "commute_brief" {
+            return "\(context)|\(type)|\(supporting?.briefingStage ?? "none")|\(supporting?.commuteDecision ?? "none")"
+        }
+        if type == "guide" {
+            return "\(context)|\(type)|\(supporting?.recommendedAlternatives?.first?.id ?? title)"
+        }
+        return idForSpeech
+    }
+}
+
+struct AssistantRouteBriefRequest: Encodable {
+    let depart: String
+    let destination: String
+    let lignesBloquees: [String]
+}
+
+struct AssistantReportHelpRequest: Encodable {
+    let step: String
+    let stopName: String?
+    let line: String?
+    let problemType: String?
+    let details: String?
+    let lat: Double?
+    let lng: Double?
+}
+
+struct AssistantCommandRequest: Encodable {
+    let message: String?
+    let screen: String?
+    let lat: Double?
+    let lng: Double?
+    let memory: AssistantCommandMemoryDTO?
+}
+
+struct AssistantCommandMemoryDTO: Codable, Equatable {
+    let recentMessages: [String]
+    let lastIntent: String?
+    let lastActionId: String?
+    let lastAssistantTitle: String?
+}
+
+struct AssistantCommuteBriefRequest: Encodable {
+    let preferredStopId: String?
+    let lat: Double?
+    let lng: Double?
 }

@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SignalementsView: View {
     @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject private var stibi: StibiCenter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFilter: LineFilter = .all
     @State private var query = ""
     @State private var selectedLine: LineStatusItem?
@@ -23,6 +25,10 @@ struct SignalementsView: View {
         }
     }
 
+    private var availableLinesCount: Int {
+        remoteLines.isEmpty ? LineStatusMockData.availableCount : remoteLines.count
+    }
+
     var body: some View {
         ZStack {
             Color(hex: "#1B1B1B").ignoresSafeArea()
@@ -31,7 +37,7 @@ struct SignalementsView: View {
                 LineOverviewView(
                     line: selectedLine,
                     onBack: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
                             self.selectedLine = nil
                         }
                     }
@@ -47,7 +53,7 @@ struct SignalementsView: View {
                         .padding(.horizontal, 21)
                         .padding(.top, 24)
 
-                    Text("\(remoteLines.isEmpty ? LineStatusMockData.availableCount : remoteLines.count) lignes disponible")
+                    Text("\(availableLinesCount) lignes disponible")
                         .font(.custom("DelaGothicOne-Regular", size: 12))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 21)
@@ -57,7 +63,7 @@ struct SignalementsView: View {
                         LazyVStack(spacing: 10) {
                             ForEach(filteredLines) { line in
                                 Button {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
                                         selectedLine = line
                                     }
                                 } label: {
@@ -74,13 +80,17 @@ struct SignalementsView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .task { await loadRemoteLines() }
+        .task {
+            stibi.setCurrentScreen("signalements")
+            await loadRemoteLines()
+            await loadStibiContext()
+        }
     }
 
     private var topBar: some View {
         HStack(spacing: 19) {
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
                     nav.showSideMenu = true
                 }
             } label: {
@@ -121,7 +131,7 @@ struct SignalementsView: View {
         HStack(spacing: 16) {
             ForEach(LineFilter.allCases) { filter in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.18)) {
+                    withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
                         selectedFilter = filter
                     }
                 } label: {
@@ -148,57 +158,69 @@ struct SignalementsView: View {
         isLoadingRemote = true
         defer { isLoadingRemote = false }
 
+        async let etatTask: [LigneEtatDTO] = LigneService.etatLignes()
+        async let signalementsTask: SignalementsListResponse = SignalementService.liste(page: 1, limit: 100)
+
         do {
-            var page = 1
-            var totalPages = 1
-            var allSignalements: [SignalementDTO] = []
-
-            repeat {
-                let response = try await SignalementService.liste(page: page, limit: 100)
-                allSignalements.append(contentsOf: response.signalements)
-                totalPages = response.pagination?.totalPages ?? 1
-                page += 1
-            } while page <= totalPages
-
-            remoteLines = buildLineStatusItems(from: allSignalements)
+            let (etats, signalementsResponse) = try await (etatTask, signalementsTask)
+            remoteLines = buildLineStatusItems(from: etats, signalements: signalementsResponse.signalements)
         } catch {
             print("SignalementsView remote load failed: \(error.localizedDescription)")
         }
     }
 
-    private func buildLineStatusItems(from signalements: [SignalementDTO]) -> [LineStatusItem] {
-        let grouped = Dictionary(grouping: signalements, by: \.ligne)
-        return grouped
-            .map { line, items in
-                let reportsCount = items.count
-                let status: LineHealthStatus = reportsCount >= 6 ? .critical : (reportsCount >= 3 ? .disrupted : .fluid)
-                let sampleStop = items.compactMap { signalement -> String? in
-                    switch signalement.arretId {
-                    case .populated(let arret): return arret.nom
-                    case .id, .none: return nil
-                    }
-                }.first ?? "Arrêts STIB"
-                let filter = LineFilter.from(line: line)
-                let (lineColor, lineTextColor) = linePalette(for: line, filter: filter)
+    private func buildLineStatusItems(from etats: [LigneEtatDTO], signalements: [SignalementDTO]) -> [LineStatusItem] {
+        let signalementsByLine = Dictionary(grouping: signalements, by: \.ligne)
 
-                return LineStatusItem(
-                    line: line,
-                    lineColor: lineColor,
-                    lineTextColor: lineTextColor,
-                    origin: sampleStop,
-                    destination: "Bruxelles",
-                    direction: "\(sampleStop) → Bruxelles",
-                    status: status,
-                    reportsCount: reportsCount,
-                    filter: filter
-                )
-            }
-            .sorted {
-                if $0.reportsCount == $1.reportsCount {
-                    return $0.line.compare($1.line, options: .numeric) == .orderedAscending
+        return etats.map { etat in
+            let items = signalementsByLine[etat.lineid] ?? []
+            let reportsCount = max(etat.incidents, items.count)
+            let status: LineHealthStatus = {
+                switch etat.statut {
+                case "Bloqué": return .critical
+                case "Perturbé": return .disrupted
+                default:
+                    if reportsCount >= 6 { return .critical }
+                    if reportsCount >= 3 { return .disrupted }
+                    return .fluid
                 }
-                return $0.reportsCount > $1.reportsCount
+            }()
+
+            let filter = LineFilter.from(typeTransport: etat.typeTransport)
+            let (fallbackColor, fallbackTextColor) = linePalette(for: etat.lineid, filter: filter)
+            let lineColor = etat.couleur.flatMap { hex in hex.hasPrefix("#") ? Color(hex: hex) : Color(hex: "#" + hex) } ?? fallbackColor
+            let lineTextColor = lineColor.isDark ? Color.white : Color.black
+
+            let sampleStop = items.compactMap { signalement -> String? in
+                if case .populated(let arret) = signalement.arretId { return arret.nom }
+                return nil
+            }.first ?? etat.nom ?? "Arrêts STIB"
+
+            let destinationFallback = etat.destination?.fr ?? etat.nomRetour ?? "Bruxelles"
+            let directionLabel = etat.nom.map { "\($0) → \(destinationFallback)" }
+                ?? "\(sampleStop) → \(destinationFallback)"
+
+            return LineStatusItem(
+                line: etat.lineid,
+                lineColor: lineColor,
+                lineTextColor: lineTextColor,
+                origin: etat.nom ?? sampleStop,
+                destination: destinationFallback,
+                direction: directionLabel,
+                status: status,
+                reportsCount: reportsCount,
+                filter: filter,
+                confidenceText: items.compactMap { $0.community?.confidence }.max().map {
+                    "\(Int(($0 * 100).rounded()))% fiable"
+                }
+            )
+        }
+        .sorted {
+            if $0.reportsCount == $1.reportsCount {
+                return $0.line.compare($1.line, options: .numeric) == .orderedAscending
             }
+            return $0.reportsCount > $1.reportsCount
+        }
     }
 
     private func linePalette(for line: String, filter: LineFilter) -> (Color, Color) {
@@ -214,16 +236,41 @@ struct SignalementsView: View {
             return numeric % 2 == 0 ? (Color(hex: "#0066A3"), .white) : (Color(hex: "#8F4199"), .white)
         }
     }
+
+    @MainActor
+    private func loadStibiContext() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let context = try await AssistantService.context()
+            stibi.pushContextInsight(for: "signalements", context: context)
+        } catch {
+            print("Signalements Stibi context failed: \(error.localizedDescription)")
+        }
+    }
 }
 
 private struct LineOverviewView: View {
     let line: LineStatusItem
     let onBack: () -> Void
+    @State private var transportLine: TransportLineDTO?
     @State private var remoteStops: [LineOverviewStop] = []
+    @State private var selectedStopDetail: TransportStopDTO?
     @State private var isLoadingStops = false
+    @State private var isLoadingStopDetail = false
 
     private var stops: [LineOverviewStop] {
-        remoteStops.isEmpty ? LineOverviewMockData.stops(for: line) : remoteStops
+        if let transportLine {
+            return Self.stops(from: transportLine, fallbackColor: line.lineColor, fallbackTextColor: line.lineTextColor)
+        }
+        return remoteStops.isEmpty ? LineOverviewMockData.stops(for: line) : remoteStops
+    }
+
+    private var lineIncidents: [TransportIncidentDTO] {
+        transportLine?.activeIncidents ?? []
+    }
+
+    private var lineAlternatives: [TransportAlternativeDTO] {
+        Array((transportLine?.recommendedAlternatives ?? []).prefix(2))
     }
 
     var body: some View {
@@ -236,6 +283,15 @@ private struct LineOverviewView: View {
                 .padding(.horizontal, 21)
                 .padding(.top, 22)
 
+            if let transportLine {
+                TransportLineSnapshotCard(
+                    line: transportLine,
+                    alternatives: lineAlternatives
+                )
+                .padding(.horizontal, 21)
+                .padding(.top, 18)
+            }
+
             Divider()
                 .overlay(Color.white.opacity(0.84))
                 .padding(.horizontal, 24)
@@ -244,11 +300,29 @@ private struct LineOverviewView: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 14) {
                     ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                        LineOverviewStopRow(
-                            stop: stop,
-                            isFirst: index == 0,
-                            isLast: index == stops.count - 1
-                        )
+                        Button {
+                            Task { await loadStopDetail(for: stop) }
+                        } label: {
+                            LineOverviewStopRow(
+                                stop: stop,
+                                isFirst: index == 0,
+                                isLast: index == stops.count - 1
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if !lineIncidents.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Confirmations terrain")
+                                .font(.custom("DelaGothicOne-Regular", size: 15))
+                                .foregroundStyle(.white)
+
+                            ForEach(lineIncidents.prefix(3)) { incident in
+                                TransportIncidentCommunityCard(incident: incident)
+                            }
+                        }
+                        .padding(.top, 10)
                     }
                 }
                 .padding(.leading, 24)
@@ -257,7 +331,21 @@ private struct LineOverviewView: View {
                 .padding(.bottom, 28)
             }
         }
-        .task { await loadRemoteStops() }
+        .overlay {
+            if let selectedStopDetail {
+                TransportStopDetailOverlay(
+                    stopDetail: selectedStopDetail,
+                    isLoading: isLoadingStopDetail,
+                    onDismiss: { self.selectedStopDetail = nil }
+                )
+            }
+        }
+        .task {
+            await loadTransportLineDetail()
+            if transportLine == nil {
+                await loadRemoteStops()
+            }
+        }
     }
 
     private var topBar: some View {
@@ -359,6 +447,8 @@ private struct LineOverviewView: View {
                         let reportsCount = response.signalements.count
                         let status: LineHealthStatus = reportsCount >= 6 ? .critical : (reportsCount >= 3 ? .disrupted : .fluid)
                         return LineOverviewStop(
+                            backendId: arret.id,
+                            stopId: arret.stopId,
                             name: arret.nom,
                             connections: (arret.lignesDesservies ?? [line.line]).prefix(6).map {
                                 LineConnectionBadge(
@@ -368,9 +458,15 @@ private struct LineOverviewView: View {
                                     fontSize: 10
                                 )
                             },
-                            nextPassages: "--",
+                            nextPassages: Self.formattedNextPassages(for: arret),
                             status: status,
-                            reportsCount: reportsCount
+                            reportsCount: reportsCount,
+                            confidenceText: response.signalements.compactMap { $0.community?.confidence }.max().map {
+                                let value = Int(($0 * 100).rounded())
+                                return "\(value)% fiable"
+                            },
+                            fallbackColor: line.lineColor,
+                            fallbackTextColor: line.lineTextColor
                         )
                     }
                 }
@@ -379,12 +475,122 @@ private struct LineOverviewView: View {
                 for try await stop in group {
                     mapped.append(stop)
                 }
-                return mapped
+                return mapped.sorted(by: { lhs, rhs in
+                    lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                })
             }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         } catch {
             print("LineOverview remote stops failed: \(error.localizedDescription)")
         }
+    }
+
+    @MainActor
+    private func loadTransportLineDetail() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingStops else { return }
+        isLoadingStops = true
+        defer { isLoadingStops = false }
+
+        do {
+            transportLine = try await TransportService.line(id: line.line)
+        } catch {
+            print("Transport line detail failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func loadStopDetail(for stop: LineOverviewStop) async {
+        guard let stopIdentifier = stop.stopId ?? stop.backendId else { return }
+        isLoadingStopDetail = true
+        defer { isLoadingStopDetail = false }
+
+        do {
+            selectedStopDetail = try await TransportService.stop(id: stopIdentifier)
+        } catch {
+            print("Transport stop detail failed: \(error.localizedDescription)")
+        }
+    }
+
+    private static func stops(
+        from lineDetail: TransportLineDTO,
+        fallbackColor: Color,
+        fallbackTextColor: Color
+    ) -> [LineOverviewStop] {
+        let departureText = lineDetail.nextDepartures
+            .prefix(3)
+            .map { "\($0.minutes)" }
+            .joined(separator: ", ")
+        let formattedDeparture = departureText.isEmpty ? "--" : "\(departureText) min"
+
+        return lineDetail.line.stops.map { stop in
+            let incidents = lineDetail.activeIncidents.filter {
+                $0.stop?.id == stop.id || $0.stop?.name == stop.name
+            }
+            let severity = incidents
+                .compactMap(\.severity)
+                .max { severityRank($0) < severityRank($1) } ?? lineDetail.severity
+
+            return LineOverviewStop(
+                backendId: stop.id,
+                stopId: stop.stopId,
+                name: stop.name,
+                connections: [
+                    LineConnectionBadge(
+                        label: lineDetail.line.lineId,
+                        color: Color(hex: lineDetail.line.color),
+                        textColor: lineDetail.line.color.lowercased() == "#ffdc01" ? .black : .white,
+                        fontSize: 10
+                    )
+                ],
+                nextPassages: formattedDeparture,
+                status: status(from: severity),
+                reportsCount: incidents.count,
+                confidenceText: confidenceLabel(lineDetail.confidence),
+                fallbackColor: fallbackColor,
+                fallbackTextColor: fallbackTextColor
+            )
+        }
+    }
+
+    private static func status(from severity: String) -> LineHealthStatus {
+        switch severity {
+        case "critical": return .critical
+        case "major", "minor": return .disrupted
+        default: return .fluid
+        }
+    }
+
+    private static func severityRank(_ severity: String) -> Int {
+        switch severity {
+        case "critical": return 4
+        case "major": return 3
+        case "minor": return 2
+        default: return 1
+        }
+    }
+
+    private static func confidenceLabel(_ confidence: Double) -> String {
+        let value = Int((confidence * 100).rounded())
+        switch value {
+        case 85...: return "Très sûr"
+        case 65...: return "Assez sûr"
+        default: return "Faible confirmation"
+        }
+    }
+
+    nonisolated private static func formattedNextPassages(for arret: ArretDTO) -> String {
+        if let nextPassages = arret.nextPassages, !nextPassages.isEmpty {
+            return nextPassages
+                .prefix(3)
+                .map { "\($0)" }
+                .joined(separator: ", ") + " min"
+        }
+
+        if let nextPassageMinutes = arret.nextPassageMinutes {
+            return "\(nextPassageMinutes) min"
+        }
+
+        return "--"
     }
 }
 
@@ -434,6 +640,12 @@ private struct LineStatusCard: View {
                     Text("\(line.status.label) – \(line.reportsCount) signalements")
                         .font(.custom("Montserrat-Regular", size: 12))
                         .foregroundStyle(.black.opacity(0.78))
+                }
+
+                if let confidenceText = line.confidenceText {
+                    Text(confidenceText)
+                        .font(.custom("Montserrat-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.62))
                 }
             }
 
@@ -544,12 +756,321 @@ private struct LineOverviewStopCard: View {
                     .font(.custom("Montserrat-Regular", size: 12))
                     .foregroundStyle(.black.opacity(0.8))
             }
+
+            if let confidenceText = stop.confidenceText {
+                Text(confidenceText)
+                    .font(.custom("Montserrat-SemiBold", size: 11))
+                    .foregroundStyle(.black.opacity(0.65))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct TransportLineSnapshotCard: View {
+    let line: TransportLineDTO
+    let alternatives: [TransportAlternativeDTO]
+
+    private var confidenceText: String {
+        let score = Int((line.confidence * 100).rounded())
+        switch score {
+        case 85...: return "Très sûr"
+        case 65...: return "Assez sûr"
+        default: return "Faible confirmation"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(TransportViewAdapters.localizedSeverityLabel(severity: line.severity, fallback: line.label?.fr))
+                    .font(.custom("DelaGothicOne-Regular", size: 15))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Text(confidenceText)
+                    .font(.custom("Montserrat-SemiBold", size: 11))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: "#B5CFF8"))
+                    .clipShape(Capsule())
+            }
+
+            Text("\(line.activeIncidents.count) incidents actifs • \(line.nextDepartures.prefix(2).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))")
+                .font(.custom("Montserrat-Regular", size: 12))
+                .foregroundStyle(Color.white.opacity(0.78))
+
+            if let alternative = alternatives.first {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Alternative immédiate")
+                        .font(.custom("Montserrat-SemiBold", size: 12))
+                        .foregroundStyle(Color(hex: "#B5CFF8"))
+
+                    Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                        .font(.custom("Montserrat-Regular", size: 12))
+                        .foregroundStyle(.white.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: "#10151F"))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+private struct TransportStopDetailOverlay: View {
+    let stopDetail: TransportStopDTO
+    let isLoading: Bool
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack {
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(stopDetail.stop.name)
+                                .font(.custom("DelaGothicOne-Regular", size: 18))
+                                .foregroundStyle(.white)
+
+                            Text(TransportViewAdapters.localizedSeverityLabel(severity: stopDetail.severity, fallback: stopDetail.label?.fr))
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .foregroundStyle(Color(hex: "#B5CFF8"))
+                        }
+
+                        Spacer()
+
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if isLoading {
+                        ProgressView()
+                            .tint(.white)
+                    }
+
+                    if !stopDetail.nextDepartures.isEmpty {
+                        Text(stopDetail.nextDepartures.prefix(3).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))
+                            .font(.custom("Montserrat-SemiBold", size: 13))
+                            .foregroundStyle(.white)
+                    }
+
+                    if !stopDetail.recommendedAlternatives.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Alternative recommandée")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .foregroundStyle(Color(hex: "#B5CFF8"))
+                            Text(stopDetail.recommendedAlternatives[0].explanationDetails?.summary ?? stopDetail.recommendedAlternatives[0].explanation)
+                                .font(.custom("Montserrat-Regular", size: 12))
+                                .foregroundStyle(Color.white.opacity(0.8))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    if !stopDetail.activeIncidents.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Confirmations terrain")
+                                .font(.custom("DelaGothicOne-Regular", size: 15))
+                                .foregroundStyle(.white)
+
+                            ForEach(stopDetail.activeIncidents.prefix(3)) { incident in
+                                TransportIncidentCommunityCard(incident: incident)
+                            }
+                        }
+                    }
+                }
+                .padding(18)
+                .background(Color(hex: "#1B1B1B"))
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+        }
+    }
+}
+
+private struct TransportIncidentCommunityCard: View {
+    let incident: TransportIncidentDTO
+    @State private var community: SignalementCommunityDTO?
+    @State private var isSubmitting = false
+    @State private var showConfidenceExplanation = false
+
+    private var effectiveCommunity: SignalementCommunityDTO? { community ?? incident.community }
+    private var isStale: Bool { (effectiveCommunity?.freshnessMinutes ?? 0) >= 120 }
+    private var freshnessLabel: String? {
+        guard let freshness = effectiveCommunity?.freshnessMinutes else { return nil }
+        if freshness < 1 { return "Signalé à l'instant" }
+        if freshness < 60 { return "Signalé il y a \(freshness) min" }
+        return "Signalé il y a \(freshness / 60) h"
+    }
+    private var confirmationsSummary: String? {
+        guard let community = effectiveCommunity else { return nil }
+        let confirmations = community.confirmations ?? 0
+        guard confirmations > 0, let freshness = community.freshnessMinutes else { return nil }
+        let window = freshness < 60 ? "\(freshness) min" : "\(freshness / 60) h"
+        return "Confirmé \(confirmations)× en \(window)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(incident.line ?? "STIB")
+                    .font(.custom("Montserrat-SemiBold", size: 13))
+                    .foregroundStyle(.black)
+                    .frame(minWidth: 34, minHeight: 28)
+                    .background(Color(hex: "#B5CFF8"))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(incident.type ?? "Signalement")
+                        .font(.custom("DelaGothicOne-Regular", size: 14))
+                        .foregroundStyle(.black)
+
+                    Text(incident.description ?? "Incident actif sur cette ligne.")
+                        .font(.custom("Montserrat-Regular", size: 12))
+                        .foregroundStyle(.black.opacity(0.84))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 8) {
+                communityBadge(incident.sourceLabel, fill: incident.sourceLabel.contains("STIB") ? "#B5CFF8" : "#0B111E", textColor: incident.sourceLabel.contains("STIB") ? .black : .white)
+                if let freshnessLabel {
+                    communityBadge(freshnessLabel, fill: "#EEF1F7", textColor: .black)
+                }
+                if isStale {
+                    communityBadge("Plus récent ?", fill: "#D5D7DC", textColor: .black)
+                }
+            }
+
+            if let community = effectiveCommunity {
+                HStack(spacing: 8) {
+                    communityBadge("\(community.confirmations ?? 0) confirm.", fill: "#0B111E")
+                    communityBadge("\(community.stillBlocked ?? 0) bloqué", fill: "#FF9B3F")
+                    communityBadge("\(community.resolved ?? 0) résolu", fill: "#57E3B6", textColor: .black)
+                    if let confirmationsSummary {
+                        communityBadge(confirmationsSummary, fill: "#EEF1F7", textColor: .black)
+                    }
+                }
+
+                if let confidenceLabel = incident.confidenceLabel {
+                    Button {
+                        showConfidenceExplanation = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(confidenceLabel)
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .font(.custom("Montserrat-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if incident.id != "unknown" {
+                HStack(spacing: 8) {
+                    actionButton("Je confirme", action: { await apply(.confirm) })
+                    actionButton("Toujours bloqué", fill: "#FF9B3F", action: { await apply(.stillBlocked) })
+                    actionButton("C'est résolu", fill: "#57E3B6", textColor: .black, action: { await apply(.resolved) })
+                }
+                .opacity(isSubmitting ? 0.6 : 1)
+            }
+        }
+        .padding(12)
+        .background(Color.white)
+        .opacity(isStale ? 0.72 : 1)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .alert("Pourquoi cette confiance ?", isPresented: $showConfidenceExplanation) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(incident.confidenceExplanation)
+        }
+        .task { community = incident.community }
+    }
+
+    private func communityBadge(_ text: String, fill: String, textColor: Color = .white) -> some View {
+        Text(text)
+            .font(.custom("Montserrat-SemiBold", size: 11))
+            .foregroundStyle(textColor)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(Color(hex: fill))
+            .clipShape(Capsule())
+    }
+
+    private func actionButton(
+        _ title: String,
+        fill: String = "#0B111E",
+        textColor: Color = .white,
+        action: @escaping @Sendable () async -> Void
+    ) -> some View {
+        Button {
+            Task { await action() }
+        } label: {
+            Text(title)
+                .font(.custom("Montserrat-SemiBold", size: 11))
+                .foregroundStyle(textColor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .background(Color(hex: fill))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isSubmitting)
+    }
+
+    @MainActor
+    private func apply(_ action: CommunityAction) async {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        do {
+            let response: SignalementCommunityActionResponse
+            switch action {
+            case .confirm:
+                response = try await SignalementService.confirmer(signalementId: incident.id)
+            case .stillBlocked:
+                response = try await SignalementService.toujoursBloque(signalementId: incident.id)
+            case .resolved:
+                response = try await SignalementService.resoudre(signalementId: incident.id)
+            }
+            community = response.community ?? community
+        } catch {
+            print("Incident community action failed: \(error.localizedDescription)")
+        }
+    }
+
+    private enum CommunityAction {
+        case confirm
+        case stillBlocked
+        case resolved
     }
 }
 
@@ -633,6 +1154,15 @@ enum LineFilter: CaseIterable, Identifiable {
         if let numeric = Int(line), numeric >= 90 { return .bus }
         return .tram
     }
+
+    static func from(typeTransport: String?) -> LineFilter {
+        switch typeTransport?.lowercased() {
+        case "métro", "metro": return .metro
+        case "tram": return .tram
+        case "bus": return .bus
+        default: return .all
+        }
+    }
 }
 
 enum LineHealthStatus {
@@ -660,15 +1190,21 @@ struct LineStatusItem: Identifiable {
     let status: LineHealthStatus
     let reportsCount: Int
     let filter: LineFilter
+    let confidenceText: String?
 }
 
 struct LineOverviewStop: Identifiable {
     let id = UUID()
+    let backendId: String?
+    let stopId: String?
     let name: String
     let connections: [LineConnectionBadge]
     let nextPassages: String
     let status: LineHealthStatus
     let reportsCount: Int
+    let confidenceText: String?
+    let fallbackColor: Color?
+    let fallbackTextColor: Color?
 }
 
 struct LineConnectionBadge: Identifiable {
@@ -683,15 +1219,15 @@ enum LineStatusMockData {
     static let availableCount = 82
 
     static let all: [LineStatusItem] = [
-        .init(line: "1", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Gare de l'ouest", destination: "Stokkel", direction: "Gare de l’ouest → Stokkel", status: .fluid, reportsCount: 2, filter: .metro),
-        .init(line: "2", lineColor: Color(hex: "#ED7807"), lineTextColor: .white, origin: "Simonis", destination: "Elisabeth", direction: "Simonis → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro),
-        .init(line: "4", lineColor: Color(hex: "#EA4F80"), lineTextColor: .white, origin: "Gare du Nord", destination: "Stalle", direction: "Gare du Nord → Stalle", status: .fluid, reportsCount: 2, filter: .tram),
-        .init(line: "5", lineColor: Color(hex: "#F9A611"), lineTextColor: .white, origin: "Erasme", destination: "Herrmann-Debroux", direction: "Erasme → Herrmann-Debroux", status: .disrupted, reportsCount: 17, filter: .metro),
-        .init(line: "6", lineColor: Color(hex: "#0066A3"), lineTextColor: .white, origin: "Roi Baudouin", destination: "Elisabeth", direction: "Roi Baudouin → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro),
-        .init(line: "7", lineColor: Color(hex: "#EFE048"), lineTextColor: .black, origin: "Vanderkindere", destination: "Heysel", direction: "Vanderkindere → Heysel", status: .critical, reportsCount: 53, filter: .tram),
-        .init(line: "8", lineColor: Color(hex: "#378BFF"), lineTextColor: .white, origin: "Louise", destination: "Roodebeek", direction: "Louise → Roodebeek", status: .critical, reportsCount: 22, filter: .bus),
-        .init(line: "9", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Montgomery", destination: "Simonis", direction: "Montgomery → Simonis", status: .fluid, reportsCount: 4, filter: .tram),
-        .init(line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Rogier", destination: "Churchill", direction: "Rogier → Churchill", status: .fluid, reportsCount: 1, filter: .tram)
+        .init(line: "1", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Gare de l'ouest", destination: "Stokkel", direction: "Gare de l’ouest → Stokkel", status: .fluid, reportsCount: 2, filter: .metro, confidenceText: "92% fiable"),
+        .init(line: "2", lineColor: Color(hex: "#ED7807"), lineTextColor: .white, origin: "Simonis", destination: "Elisabeth", direction: "Simonis → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "78% fiable"),
+        .init(line: "4", lineColor: Color(hex: "#EA4F80"), lineTextColor: .white, origin: "Gare du Nord", destination: "Stalle", direction: "Gare du Nord → Stalle", status: .fluid, reportsCount: 2, filter: .tram, confidenceText: "88% fiable"),
+        .init(line: "5", lineColor: Color(hex: "#F9A611"), lineTextColor: .white, origin: "Erasme", destination: "Herrmann-Debroux", direction: "Erasme → Herrmann-Debroux", status: .disrupted, reportsCount: 17, filter: .metro, confidenceText: "71% fiable"),
+        .init(line: "6", lineColor: Color(hex: "#0066A3"), lineTextColor: .white, origin: "Roi Baudouin", destination: "Elisabeth", direction: "Roi Baudouin → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "74% fiable"),
+        .init(line: "7", lineColor: Color(hex: "#EFE048"), lineTextColor: .black, origin: "Vanderkindere", destination: "Heysel", direction: "Vanderkindere → Heysel", status: .critical, reportsCount: 53, filter: .tram, confidenceText: "58% fiable"),
+        .init(line: "8", lineColor: Color(hex: "#378BFF"), lineTextColor: .white, origin: "Louise", destination: "Roodebeek", direction: "Louise → Roodebeek", status: .critical, reportsCount: 22, filter: .bus, confidenceText: "63% fiable"),
+        .init(line: "9", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Montgomery", destination: "Simonis", direction: "Montgomery → Simonis", status: .fluid, reportsCount: 4, filter: .tram, confidenceText: "90% fiable"),
+        .init(line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Rogier", destination: "Churchill", direction: "Rogier → Churchill", status: .fluid, reportsCount: 1, filter: .tram, confidenceText: "94% fiable")
     ]
 }
 
@@ -749,11 +1285,16 @@ enum LineOverviewMockData {
 
         return baseNames.enumerated().map { index, name in
             LineOverviewStop(
+                backendId: nil,
+                stopId: nil,
                 name: name,
                 connections: connections[index],
                 nextPassages: nextPassages[index % nextPassages.count],
                 status: statuses[index],
-                reportsCount: reports[index]
+                reportsCount: reports[index],
+                confidenceText: nil,
+                fallbackColor: line.lineColor,
+                fallbackTextColor: line.lineTextColor
             )
         }
     }

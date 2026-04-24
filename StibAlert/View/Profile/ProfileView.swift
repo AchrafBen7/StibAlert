@@ -3,9 +3,12 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
+    @EnvironmentObject private var stibi: StibiCenter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
+    @State private var weeklyDigestEnabled = true
     @State private var emailNotificationsEnabled = false
     @State private var smsNotificationsEnabled = false
     @State private var dataSharingEnabled = true
@@ -15,13 +18,20 @@ struct ProfileView: View {
     @State private var lastName = "Benali"
     @State private var email = "Achrafb768@gmail.com"
     @State private var username = "user-48155848"
+    @State private var commuteEnabled = false
+    @State private var homeLabel = "Domicile"
+    @State private var workLabel = "Travail"
+    @State private var departureTime = "08:15"
+    @State private var homeStopId: String?
+    @State private var workStopId: String?
+    @State private var favoriteLinesSelection: Set<String> = []
     @State private var isSavingSettings = false
 
     private let items = SettingsMockData.items
 
     var body: some View {
         ZStack {
-            Color(hex: "#1B1B1B").ignoresSafeArea()
+            AppTheme.Palette.screen.ignoresSafeArea()
 
             if selectedSubpage == .languages {
                 LanguageSettingsView(
@@ -39,6 +49,14 @@ struct ProfileView: View {
                     lastName: $lastName,
                     email: $email,
                     username: $username,
+                    commuteEnabled: $commuteEnabled,
+                    homeLabel: $homeLabel,
+                    workLabel: $workLabel,
+                    departureTime: $departureTime,
+                    homeStopId: $homeStopId,
+                    workStopId: $workStopId,
+                    favoriteLinesSelection: $favoriteLinesSelection,
+                    favoriteStops: session.currentUser?.favorisDetails ?? [],
                     isSaving: isSavingSettings,
                     onSave: saveAccount,
                     onBack: { selectedSubpage = nil },
@@ -72,6 +90,7 @@ struct ProfileView: View {
             } else if selectedSubpage == .notifications {
                 NotificationSettingsView(
                     pushEnabled: $pushNotificationsEnabled,
+                    weeklyDigestEnabled: $weeklyDigestEnabled,
                     emailEnabled: $emailNotificationsEnabled,
                     smsEnabled: $smsNotificationsEnabled,
                     onBack: { selectedSubpage = nil },
@@ -122,7 +141,11 @@ struct ProfileView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .task { syncFromSession() }
+        .task {
+            stibi.setCurrentScreen("profile")
+            syncFromSession()
+            await loadStibiContext()
+        }
         .onChange(of: session.currentUser?.id) { _, _ in
             syncFromSession()
         }
@@ -132,13 +155,16 @@ struct ProfileView: View {
         .onChange(of: pushNotificationsEnabled) { _, newValue in
             Task { await persistNotificationsIfNeeded(newValue) }
         }
+        .onChange(of: weeklyDigestEnabled) { _, newValue in
+            Task { await persistWeeklyDigestIfNeeded(newValue) }
+        }
     }
 
     private var header: some View {
         ZStack {
             HStack {
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
                         nav.showSideMenu = true
                     }
                 } label: {
@@ -156,7 +182,7 @@ struct ProfileView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
                         nav.currentPage = .home
                     }
                 } label: {
@@ -201,6 +227,14 @@ struct ProfileView: View {
         username = String(user.email.split(separator: "@").first ?? "user")
         selectedLanguageCode = user.langue ?? "FR"
         pushNotificationsEnabled = user.notifications ?? true
+        weeklyDigestEnabled = user.weeklyDigestEnabled ?? true
+        commuteEnabled = user.routine?.enabled ?? false
+        homeLabel = user.routine?.homeLabel ?? "Domicile"
+        workLabel = user.routine?.workLabel ?? "Travail"
+        departureTime = user.routine?.departureTime ?? "08:15"
+        homeStopId = user.routine?.homeStopId
+        workStopId = user.routine?.workStopId
+        favoriteLinesSelection = Set(user.favoriteLines ?? [])
     }
 
     private func persistLanguageIfNeeded(_ code: String) async {
@@ -228,6 +262,20 @@ struct ProfileView: View {
         }
     }
 
+    private func persistWeeklyDigestIfNeeded(_ enabled: Bool) async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard let user = session.currentUser, user.weeklyDigestEnabled != enabled else { return }
+        do {
+            let updated = try await UtilisateurService.mettreAJourProfil(
+                userId: user.id,
+                weeklyDigestEnabled: enabled
+            )
+            session.applyCurrentUserUpdate(updated)
+        } catch {
+            print("Weekly digest update failed: \(error.localizedDescription)")
+        }
+    }
+
     private func saveAccount() {
         guard AppConfig.isBackendEnabled else { return }
         guard let user = session.currentUser else { return }
@@ -239,11 +287,33 @@ struct ProfileView: View {
         Task {
             defer { isSavingSettings = false }
             do {
-                let updated = try await UtilisateurService.mettreAJourProfil(userId: user.id, nom: nom)
+                let updated = try await UtilisateurService.mettreAJourProfil(
+                    userId: user.id,
+                    nom: nom,
+                    favoriteLines: favoriteLinesSelection.sorted(),
+                    routine: CommuteRoutineDTO(
+                        enabled: commuteEnabled,
+                        homeLabel: homeLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Domicile" : homeLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+                        workLabel: workLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Travail" : workLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+                        departureTime: departureTime.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "08:15" : departureTime.trimmingCharacters(in: .whitespacesAndNewlines),
+                        homeStopId: homeStopId,
+                        workStopId: workStopId
+                    )
+                )
                 session.applyCurrentUserUpdate(updated)
             } catch {
                 print("Account update failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    private func loadStibiContext() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let context = try await AssistantService.context()
+            stibi.pushContextInsight(for: "profile", context: context)
+        } catch {
+            print("Profile Stibi context failed: \(error.localizedDescription)")
         }
     }
 }
@@ -489,6 +559,7 @@ private enum LanguageMockData {
 
 private struct NotificationSettingsView: View {
     @Binding var pushEnabled: Bool
+    @Binding var weeklyDigestEnabled: Bool
     @Binding var emailEnabled: Bool
     @Binding var smsEnabled: Bool
     let onBack: () -> Void
@@ -513,6 +584,7 @@ private struct NotificationSettingsView: View {
 
                 VStack(spacing: 34) {
                     NotificationToggleRow(icon: "bell.fill", title: "Push", isOn: $pushEnabled)
+                    NotificationToggleRow(icon: "calendar.badge.clock", title: "Digest hebdo", isOn: $weeklyDigestEnabled)
                     NotificationToggleRow(icon: "envelope.fill", title: "Email", isOn: $emailEnabled)
                     NotificationToggleRow(icon: "message.fill", title: "SMS", isOn: $smsEnabled)
                 }
@@ -593,6 +665,14 @@ private struct AccountSettingsView: View {
     @Binding var lastName: String
     @Binding var email: String
     @Binding var username: String
+    @Binding var commuteEnabled: Bool
+    @Binding var homeLabel: String
+    @Binding var workLabel: String
+    @Binding var departureTime: String
+    @Binding var homeStopId: String?
+    @Binding var workStopId: String?
+    @Binding var favoriteLinesSelection: Set<String>
+    let favoriteStops: [FavoriDetailDTO]
     let isSaving: Bool
     let onSave: () -> Void
     let onBack: () -> Void
@@ -632,6 +712,36 @@ private struct AccountSettingsView: View {
                 AccountTextRow(icon: "person", text: $email, highlighted: false)
                 AccountTextRow(icon: "person", text: $username, highlighted: false, fontSize: 14)
                 PasswordRow()
+            }
+            .padding(.horizontal, 39)
+            .padding(.top, 16)
+
+            settingsSectionTitle("Routine quotidienne")
+                .padding(.top, 29)
+
+            Divider()
+                .overlay(Color.white.opacity(0.7))
+                .padding(.top, 8)
+
+            VStack(spacing: 13) {
+                ToggleRow(title: "Activer le mode trajet quotidien", isOn: $commuteEnabled)
+                AccountTextRow(icon: "house", text: $homeLabel, highlighted: true, placeholder: "Domicile")
+                AccountTextRow(icon: "clock", text: $departureTime, highlighted: false, fontSize: 15, placeholder: "08:15")
+                FavoriteStopPickerRow(
+                    title: "Arrêt domicile",
+                    selection: $homeStopId,
+                    options: favoriteStops
+                )
+                AccountTextRow(icon: "briefcase", text: $workLabel, highlighted: true, placeholder: "Travail")
+                FavoriteStopPickerRow(
+                    title: "Arrêt travail",
+                    selection: $workStopId,
+                    options: favoriteStops
+                )
+                FavoriteLinesSelector(
+                    selection: $favoriteLinesSelection,
+                    options: availableLines
+                )
             }
             .padding(.horizontal, 39)
             .padding(.top, 16)
@@ -728,6 +838,14 @@ private struct AccountSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 17)
     }
+
+    private var availableLines: [String] {
+        let lines = favoriteStops
+            .flatMap { $0.lignesDesservies ?? [] }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            .filter { !$0.isEmpty }
+        return Array(Set(lines)).sorted()
+    }
 }
 
 private struct AccountTextRow: View {
@@ -735,6 +853,7 @@ private struct AccountTextRow: View {
     @Binding var text: String
     let highlighted: Bool
     var fontSize: CGFloat = 16
+    var placeholder: String = ""
 
     var body: some View {
         HStack(spacing: 13) {
@@ -743,7 +862,7 @@ private struct AccountTextRow: View {
                 .foregroundStyle(.black)
                 .frame(width: 24)
 
-            TextField("", text: $text)
+            TextField(placeholder, text: $text)
                 .font(.custom("Montserrat-Regular", size: fontSize))
                 .foregroundStyle(.black)
                 .textInputAutocapitalization(.never)
@@ -761,6 +880,135 @@ private struct AccountTextRow: View {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .stroke(highlighted ? Color(hex: "#3E7BFE") : Color.black, lineWidth: 1)
         )
+    }
+}
+
+private struct FavoriteLinesSelector: View {
+    @Binding var selection: Set<String>
+    let options: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "tram.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.black)
+
+                Text("Lignes favorites")
+                    .font(.custom("Montserrat-SemiBold", size: 14))
+                    .foregroundStyle(.black)
+            }
+
+            if options.isEmpty {
+                Text("Ajoute d’abord des arrêts favoris pour sélectionner des lignes utiles.")
+                    .font(.custom("Montserrat-Regular", size: 12))
+                    .foregroundStyle(.black.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 62), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(options, id: \.self) { line in
+                        let isSelected = selection.contains(line)
+                        Button {
+                            if isSelected {
+                                selection.remove(line)
+                            } else {
+                                selection.insert(line)
+                            }
+                            AppHaptics.soft()
+                        } label: {
+                            Text(line)
+                                .font(.custom("Montserrat-SemiBold", size: 13))
+                                .foregroundStyle(isSelected ? .black : .white)
+                                .padding(.horizontal, 12)
+                                .frame(height: 34)
+                                .background(isSelected ? Color(hex: "#BBDCFF") : Color.white.opacity(0.14))
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(isSelected ? Color(hex: "#81B7FF") : Color.white.opacity(0.2), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Ligne favorite \(line)")
+                        .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ToggleRow: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.custom("Montserrat-Regular", size: 14))
+                .foregroundStyle(.black)
+            Spacer()
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(Color(hex: "#3E7BFE"))
+        }
+        .padding(.horizontal, 17)
+        .frame(height: 51)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .stroke(Color.black, lineWidth: 1)
+        )
+    }
+}
+
+private struct FavoriteStopPickerRow: View {
+    let title: String
+    @Binding var selection: String?
+    let options: [FavoriDetailDTO]
+
+    private var selectedName: String {
+        options.first(where: { $0.id == selection })?.nom ?? "Aucun"
+    }
+
+    var body: some View {
+        Menu {
+            Button("Aucun") { selection = nil }
+            ForEach(options) { stop in
+                Button(stop.nom) { selection = stop.id }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.custom("Montserrat-Regular", size: 11))
+                        .foregroundStyle(Color.black.opacity(0.55))
+                    Text(selectedName)
+                        .font(.custom("Montserrat-Regular", size: 15))
+                        .foregroundStyle(.black)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.black)
+            }
+            .padding(.horizontal, 17)
+            .frame(height: 51)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .stroke(Color.black, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

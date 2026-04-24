@@ -1,5 +1,5 @@
 {
-  "originHash" : "d5f1163689d0bccc5fe87736b0162bfb82644263f636782bf65a3b3749a5eb3b",
+  "originHash" : "50dc98200fd32a1481c81c79cbe87063ab54ee64b9839f089e1b7466fa9b9afc",
   "pins" : [
     {
       "identity" : "ios-maps-3d-sdk",
@@ -8,6 +8,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "f2201ea3ed1c7479b51e55908fae2b19e04746de"
+      }
+    },
+    {
+      "identity" : "onesignal-xcframework",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/OneSignal/OneSignal-XCFramework",
+      "state" : {
+        "revision" : "2353de6735d1b8090f192e6b1a62faabc43753ac",
+        "version" : "5.5.0"
       }
     },
     {

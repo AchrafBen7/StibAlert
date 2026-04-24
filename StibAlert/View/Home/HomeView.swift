@@ -5,8 +5,12 @@ import AVFoundation
 
 struct HomeView: View {
     @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject private var stibi: StibiCenter
+    @EnvironmentObject private var session: AuthSession
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var locationManager = HomeLocationManager()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
+    @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
 
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -17,6 +21,8 @@ struct HomeView: View {
     @State private var showSearch = false
     @State private var showLegend = false
     @State private var showRecentReportsSheet = false
+    @State private var selectedSignalementPreview: SignalementDTO? = nil
+    @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
     @State private var destinationCoord: CLLocationCoordinate2D? = nil
     @State private var routeOptions: [HomeRouteOption] = []
@@ -32,6 +38,12 @@ struct HomeView: View {
     @State private var signalementsPage = 1
     @State private var signalementsTotalPages = 1
     @State private var isLoadingSignalements = false
+    @State private var transportOverview: TransportOverviewDTO?
+    @State private var isLoadingTransportOverview = false
+    @State private var stibiBrief: AssistantBriefDTO?
+    @State private var isLoadingStibiBrief = false
+    @State private var problemFilter: ReportProblemType? = nil
+    @State private var cameraLatitudeDelta: Double = 0.04
 
     private var homeSignalClusters: [SearchSignalCluster] {
         Array(SearchSignalCluster.mockClusters.prefix(5))
@@ -43,8 +55,13 @@ struct HomeView: View {
         let typeProbleme: String
     }
 
+    private var filteredSignalements: [SignalementDTO] {
+        guard let filter = problemFilter else { return remoteSignalements }
+        return remoteSignalements.filter { $0.typeProbleme == filter.title }
+    }
+
     private var liveSignalPoints: [LiveSignalPoint] {
-        remoteSignalements.compactMap { s in
+        filteredSignalements.compactMap { s in
             guard let lat = s.latitude, let lng = s.longitude else { return nil }
             return LiveSignalPoint(
                 id: s.id,
@@ -54,24 +71,56 @@ struct HomeView: View {
         }
     }
 
+    private var mapClusters: [MapSignalCluster] {
+        MapSignalClusterer.cluster(
+            points: liveSignalPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme) },
+            latitudeDelta: cameraLatitudeDelta
+        )
+    }
+
+    private var visibleLineNumbers: Set<String> {
+        var numbers = Set<String>()
+        if let favs = session.currentUser?.favoriteLines {
+            numbers.formUnion(favs)
+        }
+        numbers.formUnion(remoteSignalements.map(\.ligne))
+        return numbers
+    }
+
+    private var visibleLineShapes: [LineShape] {
+        guard cameraLatitudeDelta <= 0.08 else { return [] }
+        return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
+    }
+
+    private var transitionSpring: Animation {
+        AppMotion.spring(reduceMotion: reduceMotion)
+    }
+
     var body: some View {
         ZStack {
             Map(position: $mapPosition) {
+                ForEach(visibleLineShapes) { shape in
+                    MapPolyline(coordinates: shape.coordinates)
+                        .stroke(
+                            shape.color.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
+                        )
+                }
                 MapCircle(center: locationManager.displayCoordinate, radius: 400)
-                    .foregroundStyle(Color(hex: "#0B111E").opacity(0.10))
-                    .stroke(Color(hex: "#B5CFF8"), lineWidth: 1)
+                    .foregroundStyle(AppTheme.Palette.screen.opacity(0.10))
+                    .stroke(AppTheme.Palette.info, lineWidth: 1)
                 Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
                     UserLocationDotView(heading: locationManager.heading)
                 }
                 if let route = currentRoute {
                     MapPolyline(route.polyline)
-                        .stroke(Color(hex: "#B5CFF8"), style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                        .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
                 }
                 if let dest = destinationCoord {
                     Annotation("", coordinate: dest, anchor: .bottom) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 32))
-                            .foregroundStyle(Color(hex: "#B5CFF8"))
+                            .foregroundStyle(AppTheme.Palette.info)
                             .shadow(radius: 4)
                     }
                 }
@@ -83,9 +132,18 @@ struct HomeView: View {
                         }
                     }
                 } else {
-                    ForEach(liveSignalPoints) { point in
-                        Annotation("", coordinate: point.coordinate, anchor: .bottom) {
-                            LiveSignalMarker(problemType: point.typeProbleme)
+                    ForEach(mapClusters) { cluster in
+                        Annotation("", coordinate: cluster.coordinate, anchor: .bottom) {
+                            Button {
+                                handleClusterTap(cluster)
+                            } label: {
+                                if cluster.count > 1 {
+                                    MapClusterMarker(count: cluster.count, dominantType: cluster.dominantType)
+                                } else {
+                                    LiveSignalMarker(problemType: cluster.dominantType)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -94,20 +152,32 @@ struct HomeView: View {
             .environment(\.colorScheme, .dark)
             .ignoresSafeArea()
             .allowsHitTesting(!(showSearch && !searchSuggestions.isEmpty))
+            .onMapCameraChange(frequency: .onEnd) { ctx in
+                cameraLatitudeDelta = ctx.region.span.latitudeDelta
+            }
+
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    Color.black.opacity(0.10),
+                    Color.black.opacity(0.46),
+                    Color.black.opacity(0.72)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
 
             VStack {
                 HStack {
-                    HamburgerButton(action: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { nav.showSideMenu = true }
-                    })
-
                     Spacer()
 
                     if showSearch {
                         HomeSearchBar(
                             query: $searchQuery,
                             onClose: {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                withAnimation(transitionSpring) {
                                     showSearch = false
                                     searchQuery = ""
                                     searchSuggestions = []
@@ -118,14 +188,14 @@ struct HomeView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                     } else {
                         SearchCircleButton(action: {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { showSearch = true }
+                            withAnimation(transitionSpring) { showSearch = true }
                         })
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
-                .animation(.spring(response: 0.28, dampingFraction: 0.88), value: showSearch)
+                .animation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.28, dampingFraction: 0.88), value: showSearch)
 
                 if showSearch, !searchSuggestions.isEmpty {
                     SearchSuggestionsDropdown(
@@ -135,8 +205,7 @@ struct HomeView: View {
                             Task { await buildRoute(to: item) }
                         }
                     )
-                    .padding(.leading, 76)
-                    .padding(.trailing, 20)
+                    .padding(.horizontal, 20)
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zIndex(30)
@@ -149,7 +218,7 @@ struct HomeView: View {
 
                     VStack(spacing: 12) {
                         HelpFloatingButton {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            withAnimation(transitionSpring) {
                                 showLegend = true
                             }
                         }
@@ -160,37 +229,13 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 118)
+                .padding(.bottom, 172)
             }
             .zIndex(2)
 
-            if nav.showSideMenu {
-                WazeMenuOverlay(
-                    isShowing: $nav.showSideMenu,
-                    onNavigate: { page in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { nav.showSideMenu = false }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                                nav.currentPage = page
-                            }
-                        }
-                    },
-                    onReport: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { nav.showSideMenu = false }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                                nav.showReportSheet = true
-                            }
-                        }
-                    }
-                )
-                .transition(.opacity)
-                .zIndex(10)
-            }
-
             if showLegend {
                 MapLegendOverlay {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(transitionSpring) {
                         showLegend = false
                     }
                 }
@@ -207,7 +252,7 @@ struct HomeView: View {
                         Task { await loadMoreRemoteSignalementsIfNeeded() }
                     }
                 ) {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    withAnimation(transitionSpring) {
                         showRecentReportsSheet = false
                     }
                 }
@@ -300,29 +345,118 @@ struct HomeView: View {
                 )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
-            } else if nav.currentPage == .home && !showRecentReportsSheet && !nav.showSideMenu && routeOptions.isEmpty {
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        showRecentReportsSheet = true
+            } else if nav.currentPage == .home, !showRecentReportsSheet, !nav.showSideMenu, routeOptions.isEmpty {
+                HomeDecisionDashboard(
+                    data: homeDashboardData,
+                    isLoadingDecision: isLoadingTransportOverview,
+                    onOpenStibi: { stibi.openConversation() },
+                    onPrimaryCommuteAction: {
+                        if let action = currentCommuteBrief?.actions.first {
+                            Task { await stibi.performTargetedAction(id: action.id) }
+                        } else {
+                            stibi.openConversation()
+                        }
+                    },
+                    onOpenRecentReports: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            showRecentReportsSheet = true
+                        }
                     }
-                } label: {
-                    Text("Derniers signalements")
-                        .font(.custom("DelaGothicOne-Regular", size: 18))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: 311)
-                        .frame(height: 58)
-                        .background(Color.black)
-                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 34)
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 132)
                 .zIndex(4)
+            }
+        }
+        .overlay(alignment: .top) {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !showSearch {
+                VStack(spacing: 10) {
+                    HomeStatusBanner(
+                        favoriteAffected: favoriteAffectedCount,
+                        totalActive: totalActiveSignalementsCount,
+                        lastUpdated: lastFetchedAt,
+                        onTap: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                showRecentReportsSheet = true
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+
+                    HomeMapFilterBar(selected: $problemFilter)
+                }
+                .padding(.top, 76)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(3)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if nav.currentPage == .home, !nav.showReportSheet, !showRecentReportsSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
+                HomeFloatingActions(
+                    onReport: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.showReportSheet = true
+                        }
+                    },
+                    onRoute: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            showSearch = true
+                        }
+                    }
+                )
+                .padding(.bottom, 330)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(6)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let preview = selectedSignalementPreview,
+               nav.currentPage == .home,
+               !nav.showReportSheet,
+               !nav.showSideMenu,
+               !showLegend,
+               routeOptions.isEmpty {
+                SignalementMiniCard(
+                    signalement: preview,
+                    arretName: arretName(for: preview),
+                    onClose: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            selectedSignalementPreview = nil
+                        }
+                    },
+                    onStillBlocked: {
+                        await reportStillBlocked(id: preview.id)
+                    },
+                    onResolved: {
+                        await reportResolved(id: preview.id)
+                    }
+                )
+                .padding(.horizontal, 18)
+                .padding(.bottom, 190)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(7)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if !nav.showReportSheet, routeOptions.isEmpty, selectedARRoute == nil, selectedRouteDetail == nil {
+                AppTabBar(selection: Binding(
+                    get: { AppTab.from(page: nav.currentPage) },
+                    set: { newTab in
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            nav.currentPage = newTab.page
+                        }
+                    }
+                ))
+                .padding(.bottom, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(8)
             }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            stibi.setCurrentScreen("home")
             locationManager.start()
             realtimeSignalements.connect()
         }
@@ -330,13 +464,36 @@ struct HomeView: View {
             realtimeSignalements.disconnect()
         }
         .task { await loadRemoteSignalements() }
+        .task { lineShapesLoader.loadIfNeeded() }
+        .task { await loadTransportOverview() }
+        .task { await loadStibiBrief() }
         .onChange(of: nav.showReportSheet) { oldValue, newValue in
             if oldValue && !newValue {
-                Task { await loadRemoteSignalements() }
+                Task {
+                    await loadRemoteSignalements()
+                    await loadStibiBrief(
+                        lat: locationManager.userCoordinate?.latitude,
+                        lng: locationManager.userCoordinate?.longitude
+                    )
+                }
             }
         }
         .onReceive(realtimeSignalements.$latestSignalement.compactMap { $0 }) { signalement in
             mergeIncomingSignalement(signalement)
+        }
+        .onChange(of: nav.currentPage) { _, newValue in
+            switch newValue {
+            case .home:
+                stibi.setCurrentScreen("home")
+            case .signalements:
+                stibi.setCurrentScreen("signalements")
+            case .favorites:
+                stibi.setCurrentScreen("favorites")
+            case .profile:
+                stibi.setCurrentScreen("profile")
+            case .profileMain:
+                stibi.setCurrentScreen("profile_main")
+            }
         }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }.first()) { coord in
             withAnimation(.easeInOut(duration: 0.8)) {
@@ -344,6 +501,10 @@ struct HomeView: View {
                     center: coord,
                     span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
                 ))
+            }
+            Task {
+                await loadTransportOverview(lat: coord.latitude, lng: coord.longitude)
+                await loadStibiBrief(lat: coord.latitude, lng: coord.longitude)
             }
         }
         .onChange(of: searchQuery) { _, newValue in
@@ -360,6 +521,20 @@ struct HomeView: View {
                 await searchSuggestions(for: trimmed)
             }
         }
+    }
+
+    private var currentCommuteBrief: AssistantBriefDTO? {
+        guard let brief = stibi.brief, brief.type == "commute_brief" else { return nil }
+        return brief
+    }
+
+    private var homeDashboardData: HomeDashboardData {
+        HomeDecisionAdapter.makeDashboardData(
+            transportOverview: transportOverview,
+            remoteSignalements: remoteSignalements,
+            stibiBrief: currentCommuteBrief,
+            stibiContext: stibi.context
+        )
     }
 
     private func recenterOnUser() {
@@ -385,8 +560,128 @@ struct HomeView: View {
             remoteSignalements = response.signalements
             signalementsPage = response.pagination?.page ?? 1
             signalementsTotalPages = response.pagination?.totalPages ?? 1
+            lastFetchedAt = Date()
+            if let stibiBrief {
+                let enriched = enrichHomeBriefWithCommunity(stibiBrief)
+                self.stibiBrief = enriched
+                stibi.consume(enriched)
+            }
         } catch {
             // Silencieux — les mocks restent affichés en cas d'échec réseau.
+        }
+    }
+
+    private var totalActiveSignalementsCount: Int {
+        remoteSignalements.filter { $0.status != "resolved" }.count
+    }
+
+    private var favoriteAffectedCount: Int {
+        guard let favoriteLines = session.currentUser?.favoriteLines, !favoriteLines.isEmpty else { return 0 }
+        let lines = Set(favoriteLines)
+        return remoteSignalements.filter { $0.status != "resolved" && lines.contains($0.ligne) }.count
+    }
+
+    private func openPreview(for signalementId: String) {
+        guard let match = remoteSignalements.first(where: { $0.id == signalementId }) else { return }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            selectedSignalementPreview = match
+        }
+    }
+
+    private func handleClusterTap(_ cluster: MapSignalCluster) {
+        if cluster.count == 1, let firstId = cluster.sampleIds.first {
+            openPreview(for: firstId)
+            return
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let targetDelta = max(0.004, cameraLatitudeDelta * 0.5)
+        withAnimation(.easeInOut(duration: 0.5)) {
+            mapPosition = .region(
+                MKCoordinateRegion(
+                    center: cluster.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: targetDelta, longitudeDelta: targetDelta)
+                )
+            )
+        }
+    }
+
+    private func arretName(for signalement: SignalementDTO) -> String? {
+        if let ref = signalement.arretId, case .populated(let arret) = ref {
+            return arret.nom
+        }
+        return nil
+    }
+
+    private func reportStillBlocked(id: String) async {
+        do {
+            let response = try await SignalementService.toujoursBloque(signalementId: id)
+            applyCommunityUpdate(id: id, community: response.community, status: response.status)
+        } catch {
+            // Silent fail; SignalementMiniCard affiche un message générique.
+        }
+    }
+
+    private func reportResolved(id: String) async {
+        do {
+            let response = try await SignalementService.resoudre(signalementId: id)
+            applyCommunityUpdate(id: id, community: response.community, status: response.status)
+        } catch {
+            // Silent fail.
+        }
+    }
+
+    private func applyCommunityUpdate(id: String, community: SignalementCommunityDTO?, status: String?) {
+        guard let index = remoteSignalements.firstIndex(where: { $0.id == id }) else { return }
+        let current = remoteSignalements[index]
+        remoteSignalements[index] = SignalementDTO(
+            id: current.id,
+            utilisateurId: current.utilisateurId,
+            arretId: current.arretId,
+            ligne: current.ligne,
+            typeProbleme: current.typeProbleme,
+            description: current.description,
+            photo: current.photo,
+            latitude: current.latitude,
+            longitude: current.longitude,
+            confiance: current.confiance,
+            source: current.source,
+            votesPositifs: current.votesPositifs,
+            votesNegatifs: current.votesNegatifs,
+            dateSignalement: current.dateSignalement,
+            status: status ?? current.status,
+            community: community ?? current.community
+        )
+    }
+
+    @MainActor
+    private func loadTransportOverview(lat: Double? = nil, lng: Double? = nil) async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingTransportOverview else { return }
+        isLoadingTransportOverview = true
+        defer { isLoadingTransportOverview = false }
+
+        do {
+            transportOverview = try await TransportService.overview(lat: lat, lng: lng)
+        } catch {
+            print("Transport overview failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func loadStibiBrief(lat: Double? = nil, lng: Double? = nil) async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !isLoadingStibiBrief else { return }
+        isLoadingStibiBrief = true
+        defer { isLoadingStibiBrief = false }
+
+        do {
+            let brief = try await AssistantService.homeBrief(lat: lat, lng: lng)
+            let enriched = enrichHomeBriefWithCommunity(brief)
+            stibiBrief = enriched
+            stibi.consume(enriched)
+        } catch {
+            print("Stibi home brief failed: \(error.localizedDescription)")
         }
     }
 
@@ -419,10 +714,16 @@ struct HomeView: View {
 
         return remoteSignalements.prefix(10).map { signalement in
             RecentReportItem(
+                id: signalement.id,
                 line: signalement.ligne,
                 title: signalement.typeProbleme,
-                time: relativeTimeString(from: signalement.dateSignalement),
-                details: signalement.description
+                time: signalement.freshnessLabel,
+                details: signalement.description,
+                signalementId: signalement.id,
+                status: signalement.status,
+                source: signalement.sourceLabel,
+                confidence: signalement.confidenceLabel,
+                community: signalement.community
             )
         }
     }
@@ -571,6 +872,42 @@ struct HomeView: View {
             }
         }
     }
+
+    private func enrichHomeBriefWithCommunity(_ brief: AssistantBriefDTO) -> AssistantBriefDTO {
+        let confirmationCount = remoteSignalements.reduce(0) { partialResult, signalement in
+            partialResult + (signalement.community?.confirmations ?? 0)
+        }
+        let stillBlockedCount = remoteSignalements.reduce(0) { partialResult, signalement in
+            partialResult + (signalement.community?.stillBlocked ?? 0)
+        }
+
+        guard confirmationCount > 0 || stillBlockedCount > 0 else { return brief }
+
+        let terrainNote: String
+        if stillBlockedCount > 0 {
+            terrainNote = "\(confirmationCount + stillBlockedCount) retours terrain confirment encore des zones bloquées."
+        } else {
+            terrainNote = "\(confirmationCount) confirmation(s) terrain récentes soutiennent cette lecture."
+        }
+
+        guard !brief.message.localizedCaseInsensitiveContains(terrainNote) else { return brief }
+
+        return AssistantBriefDTO(
+            assistant: brief.assistant,
+            context: brief.context,
+            type: brief.type,
+            priority: brief.priority,
+            severity: brief.severity,
+            confidence: brief.confidence,
+            title: brief.title,
+            message: "\(brief.message) \(terrainNote)",
+            shortMessage: brief.shortMessage,
+            actions: brief.actions,
+            source: brief.source,
+            assistantContext: brief.assistantContext,
+            supporting: brief.supporting
+        )
+    }
 }
 
 // MARK: - Waze overlay
@@ -607,9 +944,9 @@ private struct WazeMenuPanel: View {
     let onNavigate: (AppPage) -> Void
     let onReport: () -> Void
 
-    private let bg = Color(hex: "#141820")
-    private let itemText = Color.white.opacity(0.88)
-    private let iconColor = Color.white.opacity(0.7)
+    private let bg = AppTheme.Palette.screenElevated
+    private let itemText = AppTheme.Palette.textPrimary.opacity(0.88)
+    private let iconColor = AppTheme.Palette.textSecondary
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -628,8 +965,8 @@ private struct WazeMenuPanel: View {
 
                 Spacer()
                 Text("Version 1.0.0")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.white.opacity(0.3))
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Palette.textMuted)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, 40)
             }
@@ -643,20 +980,20 @@ private struct WazeMenuPanel: View {
         } label: {
             HStack(spacing: 14) {
                 Circle()
-                    .fill(Color.white.opacity(0.12))
+                    .fill(AppTheme.Palette.surfaceMuted)
                     .frame(width: 52, height: 52)
                     .overlay(
                         Image(systemName: "person.fill")
                             .font(.system(size: 22, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.8))
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
                     )
                 VStack(alignment: .leading, spacing: 3) {
                     Text("user-48155848")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(AppTheme.Fonts.bodyStrong)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
                     Text("Mon profil")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "#4CAF7C"))
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.success)
                 }
             }
             .padding(.horizontal, 24)
@@ -674,7 +1011,7 @@ private struct WazeMenuPanel: View {
                     .foregroundStyle(iconColor)
                     .frame(width: 26)
                 Text(label)
-                    .font(.system(size: 16, weight: .regular))
+                    .font(AppTheme.Fonts.body)
                     .foregroundStyle(itemText)
                 Spacer()
             }
@@ -695,7 +1032,7 @@ private struct UserLocationDotView: View {
         ZStack {
             DirectionConeShape()
                 .fill(LinearGradient(
-                    colors: [Color(hex: "#B5CFF8").opacity(0.55), .clear],
+                    colors: [AppTheme.Palette.info.opacity(0.55), .clear],
                     startPoint: .top, endPoint: .bottom
                 ))
                 .frame(width: 28, height: 36)
@@ -703,9 +1040,9 @@ private struct UserLocationDotView: View {
                 .rotationEffect(.degrees(heading))
 
             Circle()
-                .fill(Color(hex: "#0B111E"))
+                .fill(AppTheme.Palette.screen)
                 .frame(width: 12, height: 12)
-                .overlay(Circle().stroke(Color(hex: "#B5CFF8"), lineWidth: 1))
+                .overlay(Circle().stroke(AppTheme.Palette.info, lineWidth: 1))
                 .shadow(color: Color(red: 0.499, green: 0.527, blue: 0.962), radius: 4, x: 0, y: 4)
         }
     }
@@ -725,39 +1062,45 @@ private struct DirectionConeShape: Shape {
 // MARK: - Top bar buttons
 
 private struct HamburgerButton: View {
+    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 48
     let action: () -> Void
     var body: some View {
         Button(action: action) {
             Circle()
-                .fill(Color(hex: "#0B111E"))
-                .frame(width: 48, height: 48)
+                .fill(AppTheme.Palette.screen)
+                .frame(width: buttonSize, height: buttonSize)
                 .overlay(VStack(spacing: 5) {
                     ForEach(0..<3, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 1.5).fill(Color.white).frame(width: 20, height: 2)
+                        RoundedRectangle(cornerRadius: 1.5).fill(AppTheme.Palette.textPrimary).frame(width: 20, height: 2)
                     }
                 })
                 .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Ouvrir le menu")
+        .accessibilityHint("Affiche les sections principales de l’application")
     }
 }
 
 private struct SearchCircleButton: View {
+    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 48
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Circle()
-                .fill(Color(hex: "#0B111E"))
-                .frame(width: 48, height: 48)
+                .fill(AppTheme.Palette.screen)
+                .frame(width: buttonSize, height: buttonSize)
                 .overlay(
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 20, weight: .regular))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
                 )
                 .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Rechercher un trajet")
+        .accessibilityHint("Ouvre la recherche de destination")
     }
 }
 
@@ -769,24 +1112,24 @@ private struct HomeSearchBar: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
 
-            TextField("", text: $query, prompt: Text("Ou voulez-vous aller ?").foregroundStyle(Color.white.opacity(0.76)))
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white)
+            TextField("", text: $query, prompt: Text("Ou voulez-vous aller ?").foregroundStyle(AppTheme.Palette.textSecondary))
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.78))
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
-        .frame(height: 40)
-        .background(Color(hex: "#1B1B1B"))
+        .frame(height: AppTheme.ButtonHeight.secondary)
+        .background(AppTheme.Palette.surface)
         .clipShape(Capsule())
         .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
     }
@@ -806,15 +1149,15 @@ private struct SearchSuggestionsDropdown: View {
                     HStack(spacing: 12) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 18))
-                            .foregroundStyle(Color(hex: "#B5CFF8"))
+                            .foregroundStyle(AppTheme.Palette.info)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name ?? "Lieu")
-                                .font(.custom("Montserrat-SemiBold", size: 14))
-                                .foregroundStyle(.white)
+                                .font(AppTheme.Fonts.bodyStrong)
+                                .foregroundStyle(AppTheme.Palette.textPrimary)
                             Text(item.placemark.title ?? "")
-                                .font(.custom("Montserrat-Regular", size: 11))
-                                .foregroundStyle(Color.white.opacity(0.6))
+                                .font(AppTheme.Fonts.caption)
+                                .foregroundStyle(AppTheme.Palette.textSecondary)
                                 .lineLimit(1)
                         }
 
@@ -822,7 +1165,7 @@ private struct SearchSuggestionsDropdown: View {
 
                         if isRouting {
                             ProgressView()
-                                .tint(.white)
+                                .tint(AppTheme.Palette.textPrimary)
                                 .scaleEffect(0.85)
                         }
                     }
@@ -836,8 +1179,8 @@ private struct SearchSuggestionsDropdown: View {
                 }
             }
         }
-        .background(Color(hex: "#141820"))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(AppTheme.Palette.screenElevated)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
     }
 }
@@ -847,18 +1190,20 @@ private struct LocationFloatingButton: View {
 
     var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black)
-                .frame(width: 42, height: 40)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
+                .fill(AppTheme.Palette.screen)
+                .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
                 .overlay(
                     Image(systemName: "location.north.fill")
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
                         .rotationEffect(.degrees(18))
                 )
                 .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Recentrer la carte")
+        .accessibilityHint("Replace la carte sur votre position")
     }
 }
 
@@ -867,17 +1212,19 @@ private struct HelpFloatingButton: View {
 
     var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black)
-                .frame(width: 42, height: 40)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
+                .fill(AppTheme.Palette.screen)
+                .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
                 .overlay(
                     Image(systemName: "questionmark")
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
                 )
                 .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Aide de la carte")
+        .accessibilityHint("Explique les icônes et statuts affichés")
     }
 }
 
@@ -886,11 +1233,11 @@ private struct LiveSignalMarker: View {
 
     private var color: Color {
         switch problemType {
-        case "Accident", "Agression": return Color(hex: "#FF7A7A")
-        case "Retard", "Panne": return Color(hex: "#FF9B2F")
-        case "Incivilité": return Color(hex: "#B5CFF8")
-        case "Propreté": return Color(hex: "#57E3B6")
-        default: return Color(hex: "#FFD34D")
+        case "Accident", "Agression": return AppTheme.Palette.alert
+        case "Retard", "Panne": return AppTheme.Palette.warning
+        case "Incivilité": return AppTheme.Palette.info
+        case "Propreté": return AppTheme.Palette.success
+        default: return AppTheme.Palette.brand
         }
     }
 
@@ -904,6 +1251,9 @@ private struct LiveSignalMarker: View {
                 .stroke(Color.white, lineWidth: 2)
                 .frame(width: 18, height: 18)
         }
+        .accessibilityElement()
+        .accessibilityLabel("Signalement \(problemType)")
+        .accessibilityHint("Ouvre le détail du signalement")
     }
 }
 
@@ -913,11 +1263,11 @@ private struct HomeSignalMarker: View {
     private var backgroundColor: Color {
         switch cluster.level {
         case .low:
-            return Color(hex: "#57E3B6")
+            return AppTheme.Palette.success
         case .medium:
-            return Color(hex: "#FF9B2F")
+            return AppTheme.Palette.warning
         case .high:
-            return Color(hex: "#FF7A7A")
+            return AppTheme.Palette.alert
         }
     }
 
@@ -931,6 +1281,157 @@ private struct HomeSignalMarker: View {
                 .font(.custom("DelaGothicOne-Regular", size: 7))
                 .foregroundStyle(.black)
         }
+        .accessibilityElement()
+        .accessibilityLabel("Groupe de \(cluster.count) signalements")
+        .accessibilityHint("Ouvre le détail des incidents à proximité")
+    }
+}
+
+struct HomeDecisionCard: View {
+    let data: TransportHomeDecisionData
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                Text(data.title)
+                    .font(AppTheme.Fonts.title3)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
+
+                Spacer()
+
+                if isLoading {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.85)
+                } else {
+                    Text(data.severityLabel)
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(AppTheme.Palette.surfaceMuted)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Text(data.subtitle)
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(data.nextDepartureSummary)
+                .font(AppTheme.Fonts.bodyStrong)
+                .foregroundStyle(AppTheme.Palette.info)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.Palette.screenElevated.opacity(0.96))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
+    }
+}
+
+struct MorningCommuteStatusCard: View {
+    let brief: AssistantBriefDTO
+    let onOpenStibi: () -> Void
+    let onPrimaryAction: () -> Void
+
+    private var glowColor: Color {
+        AssistantViewAdapters.glowColor(for: brief.assistant.visualState)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(glowColor.opacity(0.2))
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Circle()
+                            .fill(glowColor)
+                            .frame(width: 12, height: 12)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Stibi • Trajet du matin")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textSecondary)
+
+                    Text(brief.title)
+                        .font(AppTheme.Fonts.title3)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                }
+
+                Spacer()
+
+                if let decision = brief.supporting?.commuteDecision {
+                    Text(localizedDecision(decision))
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 6)
+                        .background(glowColor)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Text(brief.message)
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let departureTime = brief.supporting?.departureTime, !departureTime.isEmpty {
+                Text("Départ habituel \(departureTime)")
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.info)
+            }
+
+            HStack(spacing: 10) {
+                Button(action: onPrimaryAction) {
+                    Text(brief.actions.first?.label ?? "Agir")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: AppTheme.ButtonHeight.secondary)
+                        .background(glowColor)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onOpenStibi) {
+                    Text("Ouvrir Stibi")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: AppTheme.ButtonHeight.secondary)
+                        .background(AppTheme.Palette.surfaceMuted)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.Palette.screenElevated.opacity(0.96))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
+    }
+
+    private func localizedDecision(_ decision: String) -> String {
+        switch decision {
+        case "leave_now": return "Pars"
+        case "prepare": return "Prépare"
+        case "wait": return "Attends"
+        case "detour": return "Détour"
+        default: return "Suivi"
+        }
     }
 }
 
@@ -938,12 +1439,12 @@ private struct MapLegendOverlay: View {
     let onDismiss: () -> Void
 
     private let items: [(Color, String)] = [
-        (Color(hex: "#FF7A7A"), "Perturbation critique"),
-        (Color(hex: "#FF922A"), "Perturbation légère"),
-        (Color(hex: "#57E3B6"), "Trafic normal"),
-        (Color(hex: "#7DB2FF"), "Vos arrêts favoris"),
-        (Color(hex: "#EE73D8"), "Lieu partenaire"),
-        (Color(hex: "#FFD34D"), "Info spéciale")
+        (AppTheme.Palette.alert, "Perturbation critique"),
+        (AppTheme.Palette.warning, "Perturbation légère"),
+        (AppTheme.Palette.success, "Trafic normal"),
+        (AppTheme.Palette.info, "Vos arrêts favoris"),
+        (AppTheme.Palette.brandStrong, "Lieu partenaire"),
+        (AppTheme.Palette.brand, "Info spéciale")
     ]
 
     var body: some View {
@@ -954,8 +1455,8 @@ private struct MapLegendOverlay: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("Que signifient les icônes ?")
-                    .font(.custom("DelaGothicOne-Regular", size: 18))
-                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.title2)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .padding(.horizontal, 28)
                     .padding(.top, 20)
                     .padding(.bottom, 28)
@@ -968,8 +1469,8 @@ private struct MapLegendOverlay: View {
                                 .frame(width: 30, height: 30)
 
                             Text(items[index].1)
-                                .font(.custom("Montserrat-Regular", size: 14))
-                                .foregroundStyle(.black.opacity(0.88))
+                                .font(AppTheme.Fonts.body)
+                                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.88))
 
                             Spacer()
                         }
@@ -978,19 +1479,19 @@ private struct MapLegendOverlay: View {
                 .padding(.horizontal, 28)
 
                 Button("Je comprends", action: onDismiss)
-                    .font(.custom("DelaGothicOne-Regular", size: 16))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 63)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(height: AppTheme.ButtonHeight.primary)
+                    .background(AppTheme.Palette.screen)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
                     .padding(.horizontal, 18)
                     .padding(.top, 30)
                     .padding(.bottom, 20)
             }
             .frame(width: 357)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .background(AppTheme.Palette.brand)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         }
     }
 }
@@ -1018,21 +1519,21 @@ private struct RecentReportsBottomSheet: View {
 
                 HStack(spacing: 8) {
                     Text("Derniers signalements")
-                        .font(.custom("DelaGothicOne-Regular", size: 20))
-                        .foregroundStyle(.white)
+                        .font(AppTheme.Fonts.title2)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
 
                     Image(systemName: "questionmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.white.opacity(0.9))
+                        .foregroundStyle(AppTheme.Palette.textSecondary)
 
                     Spacer()
 
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
                             .frame(width: 28, height: 28)
-                            .background(Color.white.opacity(0.08))
+                            .background(AppTheme.Palette.surfaceMuted)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -1053,14 +1554,14 @@ private struct RecentReportsBottomSheet: View {
                                         .tint(.white)
                                 } else {
                                     Text("Voir plus")
-                                        .font(.custom("Montserrat-SemiBold", size: 14))
-                                        .foregroundStyle(.white)
+                                        .font(AppTheme.Fonts.bodyStrong)
+                                        .foregroundStyle(AppTheme.Palette.textPrimary)
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .frame(height: AppTheme.ButtonHeight.secondary)
+                            .background(AppTheme.Palette.surfaceMuted)
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -1069,8 +1570,8 @@ private struct RecentReportsBottomSheet: View {
                 .padding(.bottom, 24)
             }
             .frame(maxWidth: .infinity)
-            .background(Color(hex: "#1B1B1B"))
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(AppTheme.Palette.screenElevated)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
         }
         .ignoresSafeArea()
         .background(
@@ -1082,54 +1583,223 @@ private struct RecentReportsBottomSheet: View {
 }
 
 private struct RecentReportItem: Identifiable {
-    let id = UUID()
+    let id: String
     let line: String
     let title: String
     let time: String
     let details: String
+    let signalementId: String?
+    let status: String?
+    let source: String?
+    let confidence: String?
+    let community: SignalementCommunityDTO?
 
     static let mockItems: [RecentReportItem] = [
-        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu"),
-        .init(line: "46", title: "Propreté", time: "Il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu"),
+        .init(id: UUID().uuidString, line: "46", title: "Propreté", time: "Signalé il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu", signalementId: nil, status: nil, source: "Communauté", confidence: "Confiance haute", community: nil),
+        .init(id: UUID().uuidString, line: "46", title: "Propreté", time: "Signalé il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu", signalementId: nil, status: nil, source: "Communauté", confidence: "Confiance moyenne", community: nil),
     ]
 }
 
 private struct RecentReportCard: View {
     let item: RecentReportItem
+    @State private var community: SignalementCommunityDTO?
+    @State private var status: String?
+    @State private var isSubmitting = false
+    @State private var showConfidenceExplanation = false
+
+    private var effectiveCommunity: SignalementCommunityDTO? { community ?? item.community }
+    private var effectiveStatus: String? { status ?? item.status }
+
+    private var statusColor: Color {
+        switch effectiveStatus {
+        case "resolved":
+            return AppTheme.Palette.success
+        case "active":
+            return AppTheme.Palette.warning
+        default:
+            return AppTheme.Palette.info
+        }
+    }
+
+    private var confidenceText: String? { item.confidence }
+    private var isStale: Bool { (effectiveCommunity?.freshnessMinutes ?? 0) >= 120 }
+    private var freshnessSummary: String { item.time }
+    private var confirmationsSummary: String? {
+        guard let community = effectiveCommunity else { return nil }
+        let confirmations = community.confirmations ?? 0
+        guard confirmations > 0, let freshness = community.freshnessMinutes else { return nil }
+        let window = freshness < 60 ? "\(freshness) min" : "\(freshness / 60) h"
+        return "Confirmé \(confirmations)× en \(window)"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Text(item.line)
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .frame(width: 30, height: 28)
-                    .background(Color(hex: "#F29DC3"))
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .background(AppTheme.Palette.brandStrong)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
                 (
                     Text(item.title + " ")
-                        .font(.custom("DelaGothicOne-Regular", size: 16))
+                        .font(AppTheme.Fonts.title3)
                     + Text(item.time)
-                        .font(.custom("Montserrat-SemiBold", size: 11))
+                        .font(AppTheme.Fonts.captionStrong)
                 )
-                .foregroundStyle(.black)
+                .foregroundStyle(AppTheme.Palette.textOnBrand)
 
                 Spacer()
 
                 Circle()
-                    .fill(Color(hex: "#91BEE5"))
+                    .fill(statusColor)
                     .frame(width: 10, height: 10)
             }
 
             Text(item.details)
-                .font(.custom("Montserrat-Regular", size: 13))
-                .foregroundStyle(.black.opacity(0.88))
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                communityPill(freshnessSummary, background: AppTheme.Palette.screen)
+                if let confirmationsSummary {
+                    communityPill(confirmationsSummary, background: AppTheme.Palette.screen)
+                }
+            }
+
+            if let community = effectiveCommunity {
+                HStack(spacing: 10) {
+                    communityPill("\(community.confirmations ?? 0) confirm.", background: AppTheme.Palette.screen)
+                    communityPill("\(community.stillBlocked ?? 0) bloqué", background: AppTheme.Palette.warning, textColor: AppTheme.Palette.textOnBrand)
+                    communityPill("\(community.resolved ?? 0) résolu", background: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand)
+
+                    if let confidenceText {
+                        Button {
+                            showConfidenceExplanation = true
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(confidenceText)
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .font(AppTheme.Fonts.captionStrong)
+                            .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                communityPill(item.source ?? "Communauté", background: AppTheme.Palette.brandStrong, textColor: AppTheme.Palette.textOnBrand)
+                if isStale {
+                    communityPill("Plus récent ?", background: AppTheme.Palette.surfaceMuted, textColor: AppTheme.Palette.textPrimary)
+                }
+            }
+
+            if let signalementId = item.signalementId {
+                HStack(spacing: 8) {
+                    actionButton("Je confirme", fill: AppTheme.Palette.screen) {
+                        await applyCommunityAction(.confirm, signalementId: signalementId)
+                    }
+                    actionButton("Toujours bloqué", fill: AppTheme.Palette.warning) {
+                        await applyCommunityAction(.stillBlocked, signalementId: signalementId)
+                    }
+                    actionButton("C'est résolu", fill: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand) {
+                        await applyCommunityAction(.resolved, signalementId: signalementId)
+                    }
+                }
+                .opacity(isSubmitting ? 0.6 : 1)
+            }
         }
         .padding(14)
-        .background(Color(hex: "#BBDCFF"))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(AppTheme.Palette.brand)
+        .opacity(isStale ? 0.7 : 1)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .alert("Pourquoi cette confiance ?", isPresented: $showConfidenceExplanation) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(confidenceExplanation)
+        }
+        .task {
+            community = item.community
+            status = item.status
+        }
+    }
+
+    private func communityPill(_ text: String, background: Color, textColor: Color? = nil) -> some View {
+        Text(text)
+            .font(AppTheme.Fonts.captionStrong)
+            .foregroundStyle(textColor ?? AppTheme.Palette.textPrimary)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(background)
+            .clipShape(Capsule())
+    }
+
+    private var confidenceExplanation: String {
+        switch item.confidence?.lowercased() {
+        case let value? where value.contains("haute"):
+            return "Basée sur une position GPS très proche de l'arrêt signalé."
+        case let value? where value.contains("moyenne"):
+            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+        case let value? where value.contains("basse"):
+            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+        default:
+            return "Basée sur la proximité GPS observée au moment du signalement."
+        }
+    }
+
+    private func actionButton(
+        _ title: String,
+        fill: Color,
+        textColor: Color = AppTheme.Palette.textPrimary,
+        action: @escaping @Sendable () async -> Void
+    ) -> some View {
+        Button {
+            Task { await action() }
+        } label: {
+            Text(title)
+                .font(AppTheme.Fonts.captionStrong)
+                .foregroundStyle(textColor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .background(fill)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isSubmitting)
+    }
+
+    @MainActor
+    private func applyCommunityAction(_ action: CommunityAction, signalementId: String) async {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        do {
+            let response: SignalementCommunityActionResponse
+            switch action {
+            case .confirm:
+                response = try await SignalementService.confirmer(signalementId: signalementId)
+            case .stillBlocked:
+                response = try await SignalementService.toujoursBloque(signalementId: signalementId)
+            case .resolved:
+                response = try await SignalementService.resoudre(signalementId: signalementId)
+            }
+            community = response.community ?? community
+            status = response.status ?? status
+        } catch {
+            print("RecentReport community action failed: \(error.localizedDescription)")
+        }
+    }
+
+    private enum CommunityAction {
+        case confirm
+        case stillBlocked
+        case resolved
     }
 }
 
@@ -1175,12 +1845,12 @@ private struct RouteRecommendationsSheet: View {
 
                     HStack(alignment: .center) {
                         Text("Autres options")
-                            .font(.custom("Montserrat-SemiBold", size: 14))
-                            .foregroundStyle(.black)
+                            .font(AppTheme.Fonts.bodyStrong)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
                         Spacer()
                         Text("\(others.count + 1) trajets disponible")
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(Color(hex: "#D0D0D0"))
+                            .font(AppTheme.Fonts.caption)
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 18)
@@ -1205,12 +1875,12 @@ private struct RouteRecommendationsSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: sheetHeight, alignment: .top)
-                .background(Color.black.opacity(0.82))
+                .background(AppTheme.Palette.overlay.opacity(0.82))
                 .overlay(alignment: .topTrailing) {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
                             .frame(width: 28, height: 28)
                     }
                     .buttonStyle(.plain)
@@ -1218,7 +1888,7 @@ private struct RouteRecommendationsSheet: View {
                     .padding(.trailing, 18)
                     .opacity(isExpanded ? 1 : 0)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
                 .offset(y: max(0, dragOffset))
                 .gesture(
                     DragGesture(minimumDistance: 8)
@@ -1258,45 +1928,45 @@ private struct RouteOptionCard: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? Color.white : Color.black)
+                    .fill(isSelected ? AppTheme.Palette.textPrimary : AppTheme.Palette.screen)
                     .frame(width: 42, height: 41)
                     .overlay(
                         Image(systemName: isSelected ? "point.topleft.down.curvedto.point.bottomright.up.fill" : "point.topleft.down.curvedto.point.bottomright.up")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(isSelected ? .black : .white)
+                            .foregroundStyle(isSelected ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textPrimary)
                     )
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(option.durationText)
-                        .font(.custom("DelaGothicOne-Regular", size: 16))
-                        .foregroundStyle(.black)
+                        .font(AppTheme.Fonts.title3)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
 
                     HStack(spacing: 10) {
                         Text(option.transitSummary)
                         Text(option.walkingSummary)
                         Text(option.reliabilityText)
-                            .foregroundStyle(Color(hex: "#52D8AB"))
+                            .foregroundStyle(AppTheme.Palette.success)
                     }
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                 }
 
                 Spacer()
 
                 if isRecommended {
                     Text("Recommandé")
-                        .font(.custom("Montserrat-SemiBold", size: 12))
-                        .foregroundStyle(.white)
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
                         .padding(.horizontal, 10)
                         .frame(height: 20)
-                        .background(Color.black)
+                        .background(AppTheme.Palette.screen)
                         .clipShape(Capsule())
                 }
             }
             .padding(.horizontal, 13)
             .frame(height: 83)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(AppTheme.Palette.brand)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -1358,7 +2028,7 @@ private struct HomeRouteOption: Identifiable {
                 timeText: schedule[1].clockString(from: startDate),
                 placeTitle: "Premier arrêt",
                 icon: "figure.walk",
-                accentColor: Color(hex: "#E3FFF4"),
+                accentColor: AppTheme.Palette.brand.opacity(0.9),
                 stepCard: RouteItineraryStepCard(
                     style: .mint,
                     title: "Marcher \(max(120, firstWalkDuration * 110))m jusqu’au premier arrêt",
@@ -1373,7 +2043,7 @@ private struct HomeRouteOption: Identifiable {
                 timeText: schedule[2].clockString(from: startDate),
                 placeTitle: "Correspondance",
                 icon: transitCount > 1 ? "tram.fill" : "tram.fill",
-                accentColor: Color(hex: "#22D79C"),
+                accentColor: AppTheme.Palette.success,
                 stepCard: RouteItineraryStepCard(
                     style: .mint,
                     title: "Prenez le tram \(firstLine)\ndirection centre-ville",
@@ -1403,7 +2073,7 @@ private struct HomeRouteOption: Identifiable {
                 timeText: schedule[4].clockString(from: startDate),
                 placeTitle: destinationName,
                 icon: transitCount > 1 ? "bus.fill" : nil,
-                accentColor: Color(hex: "#FAAC5A"),
+                accentColor: AppTheme.Palette.warning,
                 stepCard: transitCount > 1 ? RouteItineraryStepCard(
                     style: .white,
                     title: "Prenez le bus \(secondLine)\ndirection \(destinationName)",
@@ -1488,7 +2158,7 @@ private struct RouteItineraryDetailsView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#1B1B1B").ignoresSafeArea()
+            AppTheme.Palette.screen.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
@@ -1503,8 +2173,8 @@ private struct RouteItineraryDetailsView: View {
                     Spacer()
 
                     Text("Itinéraire détaillés")
-                        .font(.custom("Montserrat-SemiBold", size: 14))
-                        .foregroundStyle(.white)
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
 
                     Spacer()
 
@@ -1539,24 +2209,24 @@ private struct RouteItineraryDetailsView: View {
                                     Image(systemName: "camera.viewfinder")
                                         .font(.system(size: 18, weight: .medium))
                                     Text("Navigation AR")
-                                        .font(.custom("Montserrat-SemiBold", size: 16))
+                                        .font(AppTheme.Fonts.bodyStrong)
                                 }
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AppTheme.Palette.textOnBrand)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 49)
-                                .background(Color(hex: "#214ED8"))
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .frame(height: AppTheme.ButtonHeight.primary)
+                                .background(AppTheme.Palette.brandStrong)
+                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
                             }
                             .buttonStyle(.plain)
 
                             Button(action: onShowMap) {
                                 Text("Voir sur la carte")
-                                    .font(.custom("Montserrat-Regular", size: 16))
-                                    .foregroundStyle(Color(hex: "#1B1B1B"))
+                                    .font(AppTheme.Fonts.body)
+                                    .foregroundStyle(AppTheme.Palette.textPrimary)
                                     .frame(maxWidth: .infinity)
-                                    .frame(height: 49)
-                                    .background(Color.white)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .frame(height: AppTheme.ButtonHeight.secondary)
+                                    .background(AppTheme.Palette.surfaceMuted)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
                             }
                         }
                         .padding(.top, 8)
@@ -1576,21 +2246,21 @@ private struct RouteItineraryDetailsView: View {
                 Spacer()
                 Text(option.destinationName)
             }
-            .font(.custom("Montserrat-Regular", size: 14))
-            .foregroundStyle(.black)
+            .font(AppTheme.Fonts.body)
+            .foregroundStyle(AppTheme.Palette.textOnBrand)
 
             HStack {
                 Text("Arrivée estimé :")
                 Spacer()
                 Text(arrivalText)
             }
-            .font(.custom("Montserrat-Regular", size: 14))
-            .foregroundStyle(.black)
+            .font(AppTheme.Fonts.body)
+            .foregroundStyle(AppTheme.Palette.textOnBrand)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(AppTheme.Palette.brand)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
     }
 }
 
@@ -1636,10 +2306,10 @@ private struct RouteARNavigationView: View {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 42, height: 40)
-                            .background(Color.black.opacity(0.82))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
+                            .background(AppTheme.Palette.overlay.opacity(0.82))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -1697,7 +2367,7 @@ private struct ARRouteChevronOverlay: View {
                     )
                 }
                 .stroke(
-                    Color(hex: "#39A6FF").opacity(0.55),
+                    AppTheme.Palette.info.opacity(0.55),
                     style: StrokeStyle(lineWidth: 22, lineCap: .round)
                 )
                 .blur(radius: 4)
@@ -1707,12 +2377,12 @@ private struct ARRouteChevronOverlay: View {
 
                     ForEach(0..<8, id: \.self) { index in
                         ARChevronShape()
-                            .fill(Color(hex: "#48B2FF").opacity(0.92 - Double(index) * 0.08))
+                            .fill(AppTheme.Palette.info.opacity(0.92 - Double(index) * 0.08))
                             .frame(
                                 width: max(54, 148 - CGFloat(index) * 12),
                                 height: max(24, 56 - CGFloat(index) * 4)
                             )
-                            .shadow(color: Color(hex: "#48B2FF").opacity(0.45), radius: 10, x: 0, y: 0)
+                            .shadow(color: AppTheme.Palette.info.opacity(0.45), radius: 10, x: 0, y: 0)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1731,21 +2401,21 @@ private struct ARMiniMapCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(option.destinationName)
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                 Spacer()
                 Text(option.durationText)
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.title3)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
             }
 
             ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(hex: "#3A4365").opacity(0.94))
+                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                    .fill(AppTheme.Palette.surfaceElevated.opacity(0.94))
 
                 Map(initialPosition: .rect(option.mapRectWithPadding)) {
                     MapPolyline(option.route.polyline)
-                        .stroke(Color(hex: "#39A6FF"), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                        .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
 
                     Annotation("", coordinate: userCoordinate, anchor: .center) {
                         ZStack {
@@ -1753,7 +2423,7 @@ private struct ARMiniMapCard: View {
                                 .fill(Color.white.opacity(0.14))
                                 .frame(width: 52, height: 52)
                             Circle()
-                                .fill(Color(hex: "#7F8DFF"))
+                                .fill(AppTheme.Palette.brandStrong)
                                 .frame(width: 26, height: 26)
                             Image(systemName: "location.north.fill")
                                 .font(.system(size: 12, weight: .bold))
@@ -1765,13 +2435,13 @@ private struct ARMiniMapCard: View {
                 .mapStyle(.standard(elevation: .flat))
                 .environment(\.colorScheme, .dark)
                 .allowsHitTesting(false)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
             }
             .frame(height: 170)
         }
         .padding(18)
-        .background(Color(hex: "#2E3554").opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(AppTheme.Palette.screenElevated.opacity(0.92))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
     }
 }
 
@@ -1814,37 +2484,37 @@ private struct ARInstructionOverlay: View {
             HStack(spacing: 10) {
                 Image(systemName: directionIcon)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color(hex: "#48B2FF"))
+                    .foregroundStyle(AppTheme.Palette.info)
 
                 Text(directionText)
-                    .font(.custom("Montserrat-SemiBold", size: 15))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
 
                 Spacer()
 
                 Text(instruction.distanceText)
-                    .font(.custom("DelaGothicOne-Regular", size: 13))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
             }
 
             Text(instruction.primaryText)
-                .font(.custom("Montserrat-SemiBold", size: 18))
-                .foregroundStyle(.white)
+                .font(AppTheme.Fonts.title2)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let secondaryText = instruction.secondaryText {
                 Text(secondaryText)
-                    .font(.custom("Montserrat-Regular", size: 13))
-                    .foregroundStyle(.white.opacity(0.82))
+                    .font(AppTheme.Fonts.body)
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color.black.opacity(0.74))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(AppTheme.Palette.overlay.opacity(0.74))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
         )
     }
 }
@@ -1976,8 +2646,8 @@ private struct RouteTimelineRow: View {
 
                     if let stopCountText = segment.stopCountText {
                         Text(stopCountText)
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(Color(hex: "#969BA6"))
+                            .font(AppTheme.Fonts.caption)
+                            .foregroundStyle(AppTheme.Palette.textMuted)
                     }
                 }
 
@@ -1996,7 +2666,7 @@ private struct RouteTimelineRow: View {
                     .padding(.horizontal, 12)
                     .frame(height: 33)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous)
                             .stroke(Color.white, lineWidth: 1)
                     )
                 }
@@ -2013,17 +2683,17 @@ private struct RouteInstructionCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 6) {
                 Text(card.title)
-                    .font(.custom("Montserrat-SemiBold", size: 12))
-                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let lineBadge = card.lineBadge {
                     Text(lineBadge)
-                        .font(.custom("Montserrat-SemiBold", size: 10))
-                        .foregroundStyle(.black)
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
                         .padding(.horizontal, 5)
                         .frame(height: 17)
-                        .background(Color(hex: "#EFE048"))
+                        .background(AppTheme.Palette.brand)
                         .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
                 }
 
@@ -2031,8 +2701,8 @@ private struct RouteInstructionCard: View {
             }
 
             Text(card.subtitle)
-                .font(.custom("Montserrat-SemiBold", size: 12))
-                .foregroundStyle(Color(hex: "#214ED8"))
+                .font(AppTheme.Fonts.captionStrong)
+                .foregroundStyle(AppTheme.Palette.info)
 
             if let serviceInfo = card.serviceInfo {
                 RouteTransitServiceCard(info: serviceInfo)
@@ -2041,8 +2711,8 @@ private struct RouteInstructionCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(card.style == .mint ? Color(hex: "#DEFFF4") : .white)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(card.style == .mint ? AppTheme.Palette.brand.opacity(0.75) : AppTheme.Palette.brand)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
     }
 }
 
@@ -2052,40 +2722,40 @@ private struct RouteTransitServiceCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text(info.lineCode)
-                .font(.custom("Montserrat-SemiBold", size: 14))
-                .foregroundStyle(.white)
+                .font(AppTheme.Fonts.bodyStrong)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
                 .frame(width: 29, height: 28)
-                .background(Color(hex: "#4C8B33"))
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .background(AppTheme.Palette.success.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.statusTitle)
-                    .font(.custom("Montserrat-SemiBold", size: 12))
-                    .foregroundStyle(Color(hex: "#FB9324"))
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.warning)
                 Text(info.detail)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                 Text("Prochain passage")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                     .padding(.top, 4)
                 Text(info.waitTime)
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundStyle(.white)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(hex: "#FB9324"))
+                .foregroundStyle(AppTheme.Palette.warning)
                 .padding(.top, 4)
         }
         .padding(10)
-        .background(Color.black)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(AppTheme.Palette.screen)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
                 .stroke(Color.white, lineWidth: 1)
         )
     }
@@ -2178,16 +2848,16 @@ private struct SearchPillButton: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(AppTheme.Palette.textPrimary)
                 Text("Rechercher un arrêt…")
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundColor(.white.opacity(0.6))
+                    .font(AppTheme.Fonts.body)
+                    .foregroundColor(AppTheme.Palette.textSecondary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(Color(hex: "#0B111E"))
+            .frame(height: AppTheme.ButtonHeight.secondary)
+            .background(AppTheme.Palette.screen)
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
         }
@@ -2220,9 +2890,9 @@ private struct SearchInputOverlay: View {
                     Button { dismiss() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
                             .frame(width: 48, height: 48)
-                            .background(Color(hex: "#0B111E"))
+                            .background(AppTheme.Palette.screen)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -2230,16 +2900,16 @@ private struct SearchInputOverlay: View {
                     HStack(spacing: 10) {
                         Image(systemName: isRouting ? "arrow.triangle.turn.up.right.circle.fill" : "magnifyingglass")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.6))
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
                         ZStack(alignment: .leading) {
                             if query.isEmpty {
                                 Text("Où voulez-vous aller ?")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(Color.white.opacity(0.4))
+                                    .font(AppTheme.Fonts.body)
+                                    .foregroundStyle(AppTheme.Palette.textMuted)
                             }
                             TextField("", text: $query)
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color.white)
+                                .font(AppTheme.Fonts.body)
+                                .foregroundStyle(AppTheme.Palette.textPrimary)
                                 .focused($focused)
                                 .submitLabel(.go)
                                 .onChange(of: query) { _, newVal in
@@ -2255,15 +2925,15 @@ private struct SearchInputOverlay: View {
                         if !query.isEmpty {
                             Button { query = ""; suggestions = [] } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(Color.white.opacity(0.4))
+                                    .foregroundStyle(AppTheme.Palette.textMuted)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Color(hex: "#1A1F2E"))
+                    .frame(height: AppTheme.ButtonHeight.secondary)
+                    .background(AppTheme.Palette.surface)
                     .clipShape(Capsule())
                 }
                 .padding(.horizontal, 20)
@@ -2279,22 +2949,22 @@ private struct SearchInputOverlay: View {
                                 HStack(spacing: 14) {
                                     Image(systemName: "mappin.circle.fill")
                                         .font(.system(size: 22))
-                                        .foregroundStyle(Color(hex: "#B5CFF8"))
+                                        .foregroundStyle(AppTheme.Palette.info)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(item.name ?? "")
-                                            .font(.system(size: 15, weight: .medium))
-                                            .foregroundStyle(Color.white)
+                                            .font(AppTheme.Fonts.bodyStrong)
+                                            .foregroundStyle(AppTheme.Palette.textPrimary)
                                         if let addr = item.placemark.title {
                                             Text(addr)
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(Color.white.opacity(0.5))
+                                                .font(AppTheme.Fonts.caption)
+                                                .foregroundStyle(AppTheme.Palette.textSecondary)
                                                 .lineLimit(1)
                                         }
                                     }
                                     Spacer()
                                     if isRouting {
                                         ProgressView()
-                                            .tint(.white)
+                                            .tint(AppTheme.Palette.textPrimary)
                                             .scaleEffect(0.8)
                                     }
                                 }
@@ -2310,8 +2980,8 @@ private struct SearchInputOverlay: View {
                             }
                         }
                     }
-                    .background(Color(hex: "#141820"))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(AppTheme.Palette.screenElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
                     .padding(.horizontal, 20)
                     .padding(.top, 10)
                     .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 4)

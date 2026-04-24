@@ -35,7 +35,7 @@ struct SplashView: View {
             let titleTop = size.height * 0.66
 
             ZStack {
-                Color(hex: "#0B111E")
+                AppTheme.Palette.screen
                     .ignoresSafeArea()
 
                 Ellipse()

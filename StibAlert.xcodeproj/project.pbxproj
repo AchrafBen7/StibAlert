@@ -12,6 +12,7 @@
 		3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */; };
 		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
 		A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = A15F44003C01000100A1B2C3 /* SocketIO */; };
+		A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = A16F55003C22000100A1B2C3 /* OneSignalFramework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 			files = (
 				A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */,
 				A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */,
+				A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -151,6 +153,7 @@
 			packageProductDependencies = (
 				A14F33003B8D100100A1B2C3 /* GoogleMaps3D */,
 				A15F44003C01000100A1B2C3 /* SocketIO */,
+				A16F55003C22000100A1B2C3 /* OneSignalFramework */,
 			);
 			productName = StibAlert;
 			productReference = 3831C0812D79C1D100452AA0 /* StibAlert.app */;
@@ -236,7 +239,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */,
-				A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */,
+				A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket" */,
+				A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3831C0822D79C1D100452AA0 /* Products */;
@@ -626,12 +630,20 @@
 				kind = branch;
 			};
 		};
-		A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */ = {
+		A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/socketio/socket.io-client-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 16.1.1;
+			};
+		};
+		A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/OneSignal/OneSignal-XCFramework";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -644,8 +656,13 @@
 		};
 		A15F44003C01000100A1B2C3 /* SocketIO */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket.io-client-swift" */;
+			package = A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket" */;
 			productName = SocketIO;
+		};
+		A16F55003C22000100A1B2C3 /* OneSignalFramework */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */;
+			productName = OneSignalFramework;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

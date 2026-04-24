@@ -8,8 +8,23 @@
 	<string>StibAlert utilise la caméra pour joindre une photo à vos signalements.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>StibAlert accède à votre bibliothèque pour joindre une photo à vos signalements.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>StibAlert utilise le micro pour permettre les commandes vocales de Stibi.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>StibAlert utilise la reconnaissance vocale pour transcrire vos commandes à Stibi.</string>
 	<key>GOOGLE_MAPS_3D_API_KEY</key>
 	<string></string>
+	<key>OneSignalAppID</key>
+	<string></string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>stibalert</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIAppFonts</key>
 	<array>
 		<string>DelaGothicOne-Regular.ttf</string>

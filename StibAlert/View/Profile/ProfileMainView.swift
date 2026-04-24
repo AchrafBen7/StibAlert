@@ -3,8 +3,10 @@ import SwiftUI
 struct ProfileMainView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
+    @EnvironmentObject private var stibi: StibiCenter
     @State private var isLoggingOut = false
     @State private var remoteActivities: [ProfileActivityItem] = []
+    @State private var detailSignalement: SignalementDTO? = nil
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -20,13 +22,27 @@ struct ProfileMainView: View {
                     .padding(.horizontal, 37)
                     .padding(.top, 24)
 
+                if !earnedBadges.isEmpty {
+                    badgesSection
+                        .padding(.horizontal, 21)
+                        .padding(.top, 18)
+                }
+
                 activityHeader
                     .padding(.horizontal, 21)
                     .padding(.top, 34)
 
                 VStack(spacing: 16) {
                     ForEach(activities) { activity in
-                        ProfileActivityCard(activity: activity)
+                        Button {
+                            guard let signalement = activity.signalement else { return }
+                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                            detailSignalement = signalement
+                        } label: {
+                            ProfileActivityCard(activity: activity)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(activity.signalement == nil)
                     }
                 }
                 .padding(.horizontal, 21)
@@ -55,9 +71,21 @@ struct ProfileMainView: View {
                     .padding(.bottom, 32)
             }
         }
-        .background(Color(hex: "#1B1B1B"))
+        .background(AppTheme.Palette.screen)
         .toolbar(.hidden, for: .navigationBar)
-        .task { await loadProfileData() }
+        .sheet(item: $detailSignalement) { signalement in
+            SignalementDetailView(
+                signalement: signalement,
+                onDismiss: { detailSignalement = nil }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .task {
+            stibi.setCurrentScreen("profile_main")
+            await loadProfileData()
+            await loadStibiContext()
+        }
     }
 
     private var logoutButton: some View {
@@ -101,11 +129,66 @@ struct ProfileMainView: View {
     }
     private var reportCountText: String { "\(activities.count)" }
     private var reliabilityValue: String {
-        guard !remoteActivities.isEmpty else { return "4.8" }
-        return String(format: "%.1f", min(5.0, 3.8 + Double(remoteActivities.count) * 0.15))
+        guard !remoteActivities.isEmpty else { return "—" }
+        let confirmed = remoteActivities.filter { $0.confirmations > 0 }.count
+        let ratio = (Double(confirmed) / Double(remoteActivities.count)) * 100
+        return "\(Int(ratio.rounded()))%"
+    }
+    private var reliabilityDefinition: String {
+        guard !remoteActivities.isEmpty else {
+            return "Ajoute des signalements pour voir leur part confirmée par la communauté."
+        }
+        return "Part de tes signalements récents confirmés au moins une fois par la communauté."
     }
     private var avatarInitial: String {
         String(displayName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased()
+    }
+    private var reliabilityRatio: Double? {
+        guard !remoteActivities.isEmpty else { return nil }
+        let confirmed = remoteActivities.filter { $0.confirmations > 0 }.count
+        return Double(confirmed) / Double(remoteActivities.count)
+    }
+    private var earnedBadges: [ProfileBadgeItem] {
+        var badges: [ProfileBadgeItem] = []
+        let favoriteLines = session.currentUser?.favoriteLines ?? []
+
+        if remoteActivities.count >= 10 {
+            badges.append(
+                .init(
+                    title: "10 signalements validés",
+                    subtitle: "Tu aides déjà la communauté à voir plus clair.",
+                    accent: Color(hex: "#D6C7A8"),
+                    icon: "checkmark.seal.fill"
+                )
+            )
+        }
+
+        if let topLine = favoriteLines.first ?? remoteActivities.mostFrequentLine {
+            let lineCount = remoteActivities.filter { $0.line == topLine }.count
+            if lineCount >= 3 || favoriteLines.contains(topLine) {
+                badges.append(
+                    .init(
+                        title: "Guardian de la ligne \(topLine)",
+                        subtitle: "Stibi surveille cette ligne avec toi en priorité.",
+                        accent: Color(hex: "#7CB2FF"),
+                        icon: "tram.fill"
+                    )
+                )
+            }
+        }
+
+        if let reliabilityRatio, reliabilityRatio >= 0.7 {
+            badges.append(
+                .init(
+                    title: "Bruxellois fiable",
+                    subtitle: "La majorité de tes signalements sont confirmés ensuite.",
+                    accent: Color(hex: "#73D39C"),
+                    icon: "building.2.crop.circle.fill"
+                )
+            )
+        }
+
+        return Array(badges.prefix(3))
     }
 
     private var header: some View {
@@ -172,7 +255,32 @@ struct ProfileMainView: View {
     private var statsRow: some View {
         HStack(spacing: 10) {
             ProfileStatCard(title: "Signalements", value: reportCountText)
-            ProfileReliabilityCard(value: reliabilityValue)
+            ProfileReliabilityCard(value: reliabilityValue, definition: reliabilityDefinition)
+        }
+    }
+
+    private var badgesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text("Badges")
+                    .font(.custom("DelaGothicOne-Regular", size: 20))
+                    .foregroundStyle(.white)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Color(hex: "#D6C7A8"))
+
+                Spacer()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(earnedBadges) { badge in
+                        ProfileBadgeCard(badge: badge)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
         }
     }
 
@@ -209,6 +317,16 @@ struct ProfileMainView: View {
             remoteActivities = Array(collected.prefix(5)).map(ProfileActivityItem.from(signalement:))
         } catch {
             print("Profile data load failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadStibiContext() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let context = try await AssistantService.context()
+            stibi.pushContextInsight(for: "profile_main", context: context)
+        } catch {
+            print("ProfileMain Stibi context failed: \(error.localizedDescription)")
         }
     }
 }
@@ -249,6 +367,7 @@ private struct ProfileStatCard: View {
 
 private struct ProfileReliabilityCard: View {
     let value: String
+    let definition: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -268,15 +387,13 @@ private struct ProfileReliabilityCard: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 12)
 
-            HStack(spacing: 3) {
-                ForEach(0..<5, id: \.self) { index in
-                    Image(systemName: index < 4 ? "star.fill" : "star")
-                        .font(.system(size: 12))
-                        .foregroundStyle(index < 4 ? Color(hex: "#FFD400") : Color(hex: "#B8BBC3"))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 2)
+            Text(definition)
+                .font(.custom("Montserrat-Regular", size: 10))
+                .foregroundStyle(.black.opacity(0.72))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 6)
         }
         .padding(.horizontal, 18)
         .padding(.top, 18)
@@ -343,7 +460,7 @@ private struct ProfileActivityCard: View {
 }
 
 private struct ProfileActivityItem: Identifiable {
-    let id = UUID()
+    let id: String
     let line: String
     let lineColor: Color
     let lineTextColor: Color
@@ -353,18 +470,24 @@ private struct ProfileActivityItem: Identifiable {
     let location: String
     let confirmations: Int
     let background: Color
+    let signalement: SignalementDTO?
 
     static func from(signalement: SignalementDTO) -> ProfileActivityItem {
         .init(
+            id: signalement.id,
             line: signalement.ligne,
             lineColor: lineColor(for: signalement.ligne),
             lineTextColor: lineTextColor(for: signalement.ligne),
             title: signalement.typeProbleme,
             when: relativeTimestamp(from: signalement.dateSignalement),
             description: signalement.description,
-            location: signalement.arretId?.id ?? "Arrêt",
-            confirmations: signalement.votesPositifs ?? 0,
-            background: background(for: signalement.typeProbleme)
+            location: {
+                if case .populated(let arret) = signalement.arretId { return arret.nom }
+                return signalement.arretId?.id ?? "Arrêt"
+            }(),
+            confirmations: signalement.community?.confirmations ?? 0,
+            background: background(for: signalement.typeProbleme),
+            signalement: signalement
         )
     }
 
@@ -399,9 +522,62 @@ private struct ProfileActivityItem: Identifiable {
     }
 }
 
+private struct ProfileBadgeItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+    let accent: Color
+    let icon: String
+}
+
+private struct ProfileBadgeCard: View {
+    let badge: ProfileBadgeItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(badge.accent.opacity(0.18))
+                    .frame(width: 34, height: 34)
+
+                Image(systemName: badge.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(badge.accent)
+            }
+
+            Text(badge.title)
+                .font(.custom("DelaGothicOne-Regular", size: 14))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(badge.subtitle)
+                .font(.custom("Montserrat-Regular", size: 11))
+                .foregroundStyle(Color.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(width: 188, alignment: .leading)
+        .background(Color(hex: "#252525"))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(badge.accent.opacity(0.42), lineWidth: 1)
+        )
+    }
+}
+
+private extension Array where Element == ProfileActivityItem {
+    var mostFrequentLine: String? {
+        let counts = reduce(into: [String: Int]()) { partialResult, item in
+            partialResult[item.line, default: 0] += 1
+        }
+        return counts.max(by: { lhs, rhs in lhs.value < rhs.value })?.key
+    }
+}
+
 private enum ProfileMainMockData {
     static let activities: [ProfileActivityItem] = [
-        .init(line: "7", lineColor: Color(hex: "#FFDC01"), lineTextColor: .black, title: "Retard", when: "Il y a 2 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heysel", confirmations: 48, background: Color(hex: "#FFC98D")),
-        .init(line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, title: "Accident", when: "Il y a 3 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heembeek", confirmations: 48, background: Color(hex: "#FFB3B7"))
+        .init(id: "mock-1", line: "7", lineColor: Color(hex: "#FFDC01"), lineTextColor: .black, title: "Retard", when: "Il y a 2 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heysel", confirmations: 48, background: Color(hex: "#FFC98D"), signalement: nil),
+        .init(id: "mock-2", line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, title: "Accident", when: "Il y a 3 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heembeek", confirmations: 48, background: Color(hex: "#FFB3B7"), signalement: nil)
     ]
 }

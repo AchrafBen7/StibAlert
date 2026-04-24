@@ -9,12 +9,22 @@ enum UtilisateurService {
         userId: String,
         nom: String? = nil,
         langue: String? = nil,
-        notifications: Bool? = nil
+        notifications: Bool? = nil,
+        weeklyDigestEnabled: Bool? = nil,
+        favoriteLines: [String]? = nil,
+        routine: CommuteRoutineDTO? = nil
     ) async throws -> UtilisateurDTO {
         try await APIClient.shared.request(
             "/api/utilisateurs/\(userId)",
             method: .PATCH,
-            body: ProfilUpdateRequest(nom: nom, langue: langue, notifications: notifications),
+            body: ProfilUpdateRequest(
+                nom: nom,
+                langue: langue,
+                notifications: notifications,
+                weeklyDigestEnabled: weeklyDigestEnabled,
+                favoriteLines: favoriteLines,
+                routine: routine
+            ),
             requiresAuth: true
         )
     }
@@ -37,11 +47,11 @@ enum UtilisateurService {
         )
     }
 
-    static func enregistrerTokenPush(_ token: String) async throws {
+    static func enregistrerTokenPush(_ token: String? = nil, oneSignalPlayerId: String? = nil) async throws {
         let _: MessageResponse = try await APIClient.shared.request(
             "/api/utilisateurs/enregistrer-token",
             method: .POST,
-            body: PushTokenRequest(tokenPush: token),
+            body: PushTokenRequest(tokenPush: token, oneSignalPlayerId: oneSignalPlayerId),
             requiresAuth: true
         )
     }
@@ -51,6 +61,9 @@ private struct ProfilUpdateRequest: Encodable {
     let nom: String?
     let langue: String?
     let notifications: Bool?
+    let weeklyDigestEnabled: Bool?
+    let favoriteLines: [String]?
+    let routine: CommuteRoutineDTO?
 }
 
 private struct LangueUpdateRequest: Encodable {
@@ -58,7 +71,8 @@ private struct LangueUpdateRequest: Encodable {
 }
 
 private struct PushTokenRequest: Encodable {
-    let tokenPush: String
+    let tokenPush: String?
+    let oneSignalPlayerId: String?
 }
 
 private struct UtilisateurLangueUpdateResponse: Decodable {
