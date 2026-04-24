@@ -43,14 +43,16 @@ struct SignUpView: View {
                             if isLoading { ProgressView().tint(.black) } else { Text("Recevoir mon code") }
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                            .frame(height: AppTheme.ButtonHeight.primary)
                         .background(AppTheme.Colors.onboardingTitleSand)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
                         .font(AppTheme.Fonts.body(15, weight: .semibold))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
                     }
                     .disabled(isLoading || !canSubmit)
                     .opacity(canSubmit ? 1 : 0.6)
+                    .accessibilityLabel("Recevoir mon code")
+                    .accessibilityHint("Envoie un code d'activation par email pour terminer l'inscription.")
 
                     Spacer(minLength: 40)
                 }

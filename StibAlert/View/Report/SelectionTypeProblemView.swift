@@ -10,8 +10,8 @@ import SwiftUI
 struct SelectionTypeProblemView: View {
     var body: some View {
         Text(LocalizedStringKey("select_problem_type"))
-            .font(.custom("Montserrat-Regular", size: 14))
-            .foregroundColor(.white)
+            .font(DesignSystem.Typography.description)
+            .foregroundStyle(DesignSystem.Colors.primaryText)
             .multilineTextAlignment(.leading)
             .lineLimit(nil)
             .fixedSize(horizontal: false, vertical: true)

@@ -31,11 +31,11 @@ struct ActivationView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white)
                     .frame(height: 64)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .background(AppTheme.Palette.surfaceMuted)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.lg)
+                            .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
                     )
                     .onChange(of: code) { _, new in
                         let filtered = String(new.filter { $0.isNumber }.prefix(4))
@@ -53,14 +53,16 @@ struct ActivationView: View {
                         if isLoading { ProgressView().tint(.black) } else { Text("Activer mon compte") }
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
+                    .frame(height: AppTheme.ButtonHeight.primary)
                     .background(AppTheme.Colors.onboardingTitleSand)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .font(AppTheme.Fonts.body(15, weight: .semibold))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
                 }
                 .disabled(isLoading || code.count != 4)
                 .opacity(code.count == 4 ? 1 : 0.6)
+                .accessibilityLabel("Activer mon compte")
+                .accessibilityHint("Vérifie le code reçu par email pour finaliser le compte.")
 
                 Spacer()
             }

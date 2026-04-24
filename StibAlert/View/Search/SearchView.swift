@@ -1,62 +1,60 @@
 import SwiftUI
+import CoreLocation
 
 struct SearchView: View {
+    @EnvironmentObject private var stibi: StibiCenter
     @StateObject private var locationManager = SearchLocationManager()
     @StateObject private var autocompleteManager = SearchAutocompleteManager()
-    @State private var selectedScope: SearchScope = .all
-    @State private var origin = SearchJourneyMockData.defaultOrigin
-    @State private var destination: SearchPlace?
-    @State private var activeField: SearchField = .none
-    @State private var query = ""
-    @State private var journey: SearchJourney?
-    @State private var isLoadingRoute = false
-    @State private var routeNote: String?
-    @State private var useCurrentLocation = true
-    @State private var isResolvingSuggestion = false
+    @StateObject private var viewState = SearchViewState()
+    @StateObject private var coordinator = SearchCoordinator()
+    @StateObject private var guidanceSession = SearchGuidanceSession()
+    @StateObject private var realtimeSignalements = SignalementsRealtimeService()
 
     private var effectiveOrigin: SearchPlace {
-        if useCurrentLocation, let current = locationManager.currentPlace {
+        if viewState.useCurrentLocation, let current = locationManager.currentPlace {
             return current
         }
 
-        return origin
+        return viewState.origin
     }
 
     private var visiblePlaces: [SearchPlace] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        var base = SearchJourneyMockData.places
-
-        if activeField == .origin, let current = locationManager.currentPlace {
-            base.removeAll { $0.id == current.id }
-            base.insert(current, at: 0)
-        }
-
-        guard !trimmed.isEmpty else { return base }
-
-        return base.filter {
-            $0.name.localizedCaseInsensitiveContains(trimmed)
-            || $0.subtitle.localizedCaseInsensitiveContains(trimmed)
-        }
+        viewState.visiblePlaces(currentPlace: locationManager.currentPlace)
     }
 
     private var visibleSuggestions: [SearchPlaceSuggestion] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        guard !viewState.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         return autocompleteManager.suggestions
     }
 
     private var routeRequestKey: String {
-        let originToken = "\(effectiveOrigin.id)-\(effectiveOrigin.coordinate.latitude)-\(effectiveOrigin.coordinate.longitude)"
-        let destinationToken = destination.map {
-            "\($0.id)-\($0.coordinate.latitude)-\($0.coordinate.longitude)"
-        } ?? "none"
-        return "\(originToken)|\(destinationToken)|\(selectedScope.title)"
+        viewState.routeRequestKey(effectiveOrigin: effectiveOrigin)
+    }
+
+    private var guidanceRefreshKey: String {
+        guard guidanceSession.guidance.isGuiding else { return "guidance-idle" }
+        return "guidance-\(guidanceSession.guidance.activeAlternative?.id ?? "none")-\(routeRequestKey)"
+    }
+
+    private var stepProgressText: String? {
+        guard guidanceSession.guidance.isGuiding else { return nil }
+        let progress = Int((guidanceSession.guidance.stepProgress * 100).rounded())
+        guard progress > 0 else { return nil }
+        return "\(progress)%"
+    }
+
+    private var activeStepPath: [CLLocationCoordinate2D] {
+        guard let step = guidanceSession.guidance.currentStep else { return [] }
+        return (step.path ?? []).map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
     }
 
     var body: some View {
         ZStack {
             SearchTransitMapView(
-                selectedScope: selectedScope,
-                journey: journey
+                selectedScope: viewState.selectedScope,
+                journey: viewState.journey,
+                activeStepPath: activeStepPath,
+                snappedCoordinate: guidanceSession.guidance.snappedCoordinate
             )
             .ignoresSafeArea()
 
@@ -74,41 +72,39 @@ struct SearchView: View {
 
             VStack(spacing: 0) {
                 SearchTopBar(
-                    query: $query,
-                    destination: destination,
-                    isExpanded: activeField != .none,
+                    query: $viewState.query,
+                    destination: viewState.destination,
+                    isExpanded: viewState.activeField != .none,
                     onOpenMenu: {},
                     onOpenSearch: {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                            activeField = .destination
+                            viewState.openDestinationSearch()
                         }
                     },
                     onCloseSearch: {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                            activeField = .none
-                            query = ""
+                            viewState.clearSearchUI()
                         }
                     }
                 )
                 .padding(.top, 8)
                 .padding(.horizontal, DesignSystem.Spacing.md)
 
-                if activeField != .none {
+                if viewState.activeField != .none {
                     SearchDestinationSheet(
                         title: "Ou voulez-vous aller ?",
-                        query: $query,
-                        selectedField: activeField,
+                        query: $viewState.query,
+                        selectedField: viewState.activeField,
                         suggestions: visibleSuggestions,
                         places: visiblePlaces,
-                        isResolvingSuggestion: isResolvingSuggestion,
+                        isResolvingSuggestion: viewState.isResolvingSuggestion,
                         locationDenied: locationManager.isDenied,
                         onUseCurrentLocation: {
-                            useCurrentLocation = true
-                            activeField = .none
-                            query = ""
+                            viewState.useCurrentLocation = true
+                            viewState.clearSearchUI()
                         },
                         onSelectSuggestion: applySuggestion,
-                        onSelect: applySelection
+                        onSelect: viewState.applySelection
                     )
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.top, 14)
@@ -119,495 +115,171 @@ struct SearchView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Button("Derniers signalements") {}
-                .font(AppTheme.Fonts.clash(18))
-                .foregroundStyle(.white)
-                .frame(maxWidth: 311)
-                .frame(height: 58)
-                .background(Color(hex: "#0B111E"))
-                .clipShape(Capsule())
-                .padding(.bottom, 30)
+            VStack(spacing: 14) {
+                if guidanceSession.isRerouting {
+                    SearchOffRouteStatusCard(
+                        title: "Hors itinéraire détecté",
+                        message: "Je recalcule une route plus cohérente avec ta position actuelle.",
+                        tone: .rerouting
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if let rerouteNotice = guidanceSession.guidance.rerouteNotice,
+                          guidanceSession.guidance.isGuiding {
+                    SearchOffRouteStatusCard(
+                        title: "Itinéraire ajusté",
+                        message: rerouteNotice,
+                        tone: .updated
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if let offRouteWarning = guidanceSession.guidance.offRouteWarning,
+                          guidanceSession.guidance.isGuiding {
+                    SearchOffRouteStatusCard(
+                        title: "Tu quittes le corridor",
+                        message: offRouteWarning,
+                        tone: .warning
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                if let journey = viewState.journey {
+                    SearchJourneySummaryCard(
+                        journey: journey,
+                        isLoading: viewState.isLoadingRoute,
+                        routeNote: viewState.routeNote,
+                        selectedAlternativeID: guidanceSession.guidance.activeAlternative?.id,
+                        isGuiding: guidanceSession.guidance.isGuiding,
+                        onEditDestination: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                                viewState.openDestinationSearch()
+                            }
+                        },
+                        onSelectAlternative: { alternative in
+                            guidanceSession.start(with: alternative, locationManager: locationManager)
+                        }
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                if let currentStep = guidanceSession.guidance.currentStep, guidanceSession.guidance.isGuiding {
+                    CurrentStepCard(
+                        routeTitle: guidanceSession.guidance.activeAlternative?.title ?? "Guidage",
+                        progressText: guidanceSession.guidance.progressText,
+                        stepProgressText: stepProgressText,
+                        rerouteNotice: guidanceSession.guidance.rerouteNotice,
+                        offRouteWarning: guidanceSession.guidance.offRouteWarning,
+                        currentStep: currentStep,
+                        upcomingSteps: guidanceSession.guidance.upcomingSteps,
+                        onBack: {
+                            guidanceSession.goBack()
+                        },
+                        onNext: {
+                            guidanceSession.advance()
+                        },
+                        onStop: {
+                            guidanceSession.stop(locationManager: locationManager)
+                        },
+                        onSpeak: {
+                            guidanceSession.speechSynthesizer.speak(currentStep.instruction)
+                        }
+                    )
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                Button("Derniers signalements") {}
+                    .font(DesignSystem.Typography.buttonText)
+                    .foregroundStyle(DesignSystem.Colors.primaryText)
+                    .frame(maxWidth: 311)
+                    .frame(height: AppTheme.ButtonHeight.primary)
+                    .background(DesignSystem.Colors.background)
+                    .clipShape(Capsule())
+                    .accessibilityHint("Ouvre la liste récente des signalements autour de vous.")
+            }
+            .padding(.bottom, 30)
         }
         .background(DesignSystem.Colors.background)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            stibi.setCurrentScreen("route")
+            realtimeSignalements.connect()
+        }
+        .onDisappear {
+            realtimeSignalements.disconnect()
+            coordinator.resetLiveRefreshThrottle()
+            guidanceSession.stop(locationManager: locationManager)
+        }
         .task(id: routeRequestKey) {
             await rebuildJourney()
         }
-        .onChange(of: query) { _, newValue in
+        .task(id: guidanceRefreshKey) {
+            await coordinator.runGuidanceRefreshLoop(
+                state: viewState,
+                effectiveOrigin: effectiveOrigin,
+                stibi: stibi,
+                guidance: guidanceSession.guidance,
+                speechSynthesizer: guidanceSession.speechSynthesizer
+            )
+        }
+        .onReceive(realtimeSignalements.$latestSignalement.compactMap { $0 }) { signalement in
+            Task {
+                await coordinator.handleGuidanceSignalement(
+                    signalement,
+                    state: viewState,
+                    guidance: guidanceSession.guidance,
+                    effectiveOrigin: effectiveOrigin,
+                    stibi: stibi,
+                    speechSynthesizer: guidanceSession.speechSynthesizer
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stibiPushOpened)) { _ in
+            guard guidanceSession.guidance.isGuiding else { return }
+            Task {
+                await rebuildJourney(showLoading: false)
+            }
+        }
+        .onChange(of: viewState.query) { _, newValue in
             autocompleteManager.updateQuery(newValue)
+        }
+        .onReceive(locationManager.$latestLocation.compactMap { $0 }) { location in
+            guidanceSession.handleLocationUpdate(location)
+        }
+        .task(id: guidanceSession.rerouteRequestID) {
+            guard guidanceSession.rerouteRequestID > 0 else { return }
+            await rebuildJourney(showLoading: false)
+            guidanceSession.consumeRerouteRequest()
         }
     }
 
     private func swapPlaces() {
-        guard let destination else { return }
+        guard let destination = viewState.destination else { return }
 
         let previousOrigin = effectiveOrigin
-        origin = destination
-        self.destination = previousOrigin
-        useCurrentLocation = false
-    }
-
-    private func applySelection(_ place: SearchPlace) {
-        switch activeField {
-        case .origin:
-            if place.id == SearchLocationManager.currentLocationID {
-                useCurrentLocation = true
-            } else {
-                useCurrentLocation = false
-                origin = place
-            }
-        case .destination:
-            destination = place
-        case .none:
-            break
-        }
-
-        query = ""
-        activeField = .none
+        viewState.origin = destination
+        viewState.destination = previousOrigin
+        viewState.useCurrentLocation = false
     }
 
     private func applySuggestion(_ suggestion: SearchPlaceSuggestion) {
-        isResolvingSuggestion = true
-
-        Task {
-            do {
-                let place = try await autocompleteManager.resolve(suggestion)
-                await MainActor.run {
-                    applySelection(place)
-                    isResolvingSuggestion = false
-                }
-            } catch {
-                await MainActor.run {
-                    isResolvingSuggestion = false
-                }
-            }
-        }
-    }
-
-    private func rebuildJourney() async {
-        guard let destination, destination.id != effectiveOrigin.id else {
-            await MainActor.run {
-                journey = nil
-                isLoadingRoute = false
-                routeNote = nil
-            }
-            return
-        }
-
-        await MainActor.run {
-            isLoadingRoute = true
-            routeNote = nil
-        }
-
-        do {
-            let calculated = try await SearchRouteCalculator.calculate(
-                from: effectiveOrigin,
-                to: destination
-            )
-
-            await MainActor.run {
-                journey = calculated
-                isLoadingRoute = false
-                routeNote = "Real route via Apple Maps"
-            }
-        } catch {
-            let fallback = SearchJourneyMockData.journey(from: effectiveOrigin, to: destination)
-            await MainActor.run {
-                journey = fallback
-                isLoadingRoute = false
-                routeNote = "Fallback preview used"
-            }
-        }
-    }
-}
-
-private struct SearchTopBar: View {
-    @Binding var query: String
-    let destination: SearchPlace?
-    let isExpanded: Bool
-    let onOpenMenu: () -> Void
-    let onOpenSearch: () -> Void
-    let onCloseSearch: () -> Void
-
-    var body: some View {
-        HStack {
-            Button(action: onOpenMenu) {
-                SearchIconButton(icon: "line.3.horizontal")
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            if isExpanded {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-
-                    TextField("", text: $query, prompt: Text(destination?.name ?? "Ou voulez-vous aller ?").foregroundStyle(Color.white.opacity(0.72)))
-                        .font(AppTheme.Fonts.body(15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-
-                    Button(action: onCloseSearch) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.82))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 14)
-                .frame(width: 244, height: 40)
-                .background(Color(hex: "#0B111E"))
-                .clipShape(Capsule())
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else {
-                Button(action: onOpenSearch) {
-                    SearchIconButton(icon: "magnifyingglass")
-                }
-                .buttonStyle(.plain)
-                .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.28, dampingFraction: 0.88), value: isExpanded)
-    }
-}
-
-
-private struct SearchIconButton: View {
-    let icon: String
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(hex: "#0B111E"))
-                .frame(width: 42, height: 40)
-
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(.white)
-        }
-    }
-}
-
-private struct SearchDestinationSheet: View {
-    let title: String
-    @Binding var query: String
-    let selectedField: SearchField
-    let suggestions: [SearchPlaceSuggestion]
-    let places: [SearchPlace]
-    let isResolvingSuggestion: Bool
-    let locationDenied: Bool
-    let onUseCurrentLocation: () -> Void
-    let onSelectSuggestion: (SearchPlaceSuggestion) -> Void
-    let onSelect: (SearchPlace) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Capsule()
-                .fill(Color.white.opacity(0.18))
-                .frame(width: 42, height: 5)
-                .frame(maxWidth: .infinity)
-
-            Text(title)
-                .font(AppTheme.Fonts.clash(18))
-                .foregroundStyle(DesignSystem.Colors.primaryText)
-
-            if selectedField == .origin {
-                Button(action: onUseCurrentLocation) {
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .fill(DesignSystem.Colors.success.opacity(0.14))
-                            .frame(width: 46, height: 46)
-                            .overlay(
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(DesignSystem.Colors.success)
-                            )
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Utiliser ma position")
-                                .font(DesignSystem.Typography.bodySemibold)
-                                .foregroundStyle(DesignSystem.Colors.primaryText)
-
-                            Text(locationDenied ? "L'acces a la localisation est refuse." : "Utilisez votre position actuelle comme depart.")
-                                .font(DesignSystem.Typography.description)
-                                .foregroundStyle(DesignSystem.Colors.secondaryText)
-                                .multilineTextAlignment(.leading)
-                        }
-
-                        Spacer()
-                    }
-                    .padding(14)
-                    .background(LinearGradient(
-                        colors: [
-                            DesignSystem.Colors.accentSoft,
-                            Color.white
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(DesignSystem.Colors.border, lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-
-            HStack(spacing: 12) {
-                Image(systemName: selectedField == .origin ? "location.fill" : "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(DesignSystem.Colors.secondaryText)
-
-                TextField(
-                    selectedField == .origin ? "Rechercher un depart" : "Rechercher une destination",
-                    text: $query
-                )
-                .font(DesignSystem.Typography.body)
-                .foregroundStyle(DesignSystem.Colors.primaryText)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 54)
-            .background(DesignSystem.Colors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 10) {
-                    if !suggestions.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Suggestions")
-                                .font(DesignSystem.Typography.labelSemibold)
-                                .foregroundStyle(DesignSystem.Colors.secondaryText)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            ForEach(suggestions) { suggestion in
-                                Button {
-                                    onSelectSuggestion(suggestion)
-                                } label: {
-                                    HStack(spacing: 14) {
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(DesignSystem.Colors.accent.opacity(0.10))
-                                            .frame(width: 46, height: 46)
-                                            .overlay(
-                                                Image(systemName: "sparkle.magnifyingglass")
-                                                    .font(.system(size: 18, weight: .semibold))
-                                                    .foregroundStyle(DesignSystem.Colors.accent)
-                                            )
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(suggestion.title)
-                                                .font(DesignSystem.Typography.bodySemibold)
-                                                .foregroundStyle(DesignSystem.Colors.primaryText)
-
-                                            Text(suggestion.subtitle)
-                                                .font(DesignSystem.Typography.description)
-                                                .foregroundStyle(DesignSystem.Colors.secondaryText)
-                                                .multilineTextAlignment(.leading)
-                                        }
-
-                                        Spacer()
-
-                                        if isResolvingSuggestion {
-                                            ProgressView()
-                                                .controlSize(.small)
-                                        }
-                                    }
-                                    .padding(14)
-                                    .background(DesignSystem.Colors.cardBackground)
-                                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .stroke(DesignSystem.Colors.border, lineWidth: 1)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-
-                    if !places.isEmpty {
-                        Text("Bruxelles")
-                            .font(DesignSystem.Typography.labelSemibold)
-                            .foregroundStyle(DesignSystem.Colors.secondaryText)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, suggestions.isEmpty ? 0 : 4)
-                    }
-
-                    ForEach(places) { place in
-                        Button {
-                            onSelect(place)
-                        } label: {
-                            HStack(spacing: 14) {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(DesignSystem.Colors.accentSoft)
-                                    .frame(width: 46, height: 46)
-                                    .overlay(
-                                        Image(systemName: place.id == SearchLocationManager.currentLocationID ? "location.fill" : "mappin.and.ellipse")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundStyle(DesignSystem.Colors.accent)
-                                    )
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(place.name)
-                                        .font(DesignSystem.Typography.bodySemibold)
-                                        .foregroundStyle(DesignSystem.Colors.primaryText)
-
-                                    Text(place.subtitle)
-                                        .font(DesignSystem.Typography.description)
-                                        .foregroundStyle(DesignSystem.Colors.secondaryText)
-                                        .multilineTextAlignment(.leading)
-                                }
-
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(DesignSystem.Colors.cardBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.bottom, 4)
-            }
-            .frame(maxHeight: 300)
-        }
-        .padding(18)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+        coordinator.applySuggestion(
+            suggestion,
+            autocompleteManager: autocompleteManager,
+            state: viewState
         )
     }
-}
 
-private struct SearchJourneySummaryCard: View {
-    let journey: SearchJourney
-    let isLoading: Bool
-    let routeNote: String?
-    let onEditDestination: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text(journey.isReal ? "Real route" : "Preview route")
-                            .font(DesignSystem.Typography.labelSemibold)
-                            .foregroundStyle(journey.isReal ? DesignSystem.Colors.success : DesignSystem.Colors.accentSand)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background((journey.isReal ? DesignSystem.Colors.success : DesignSystem.Colors.accentSand).opacity(0.12))
-                            .clipShape(Capsule())
-
-                        if isLoading {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-                    }
-
-                    Text("\(journey.origin.name) → \(journey.destination.name)")
-                        .font(DesignSystem.Typography.cardTitle)
-                        .foregroundStyle(DesignSystem.Colors.primaryText)
-                        .lineLimit(2)
-
-                    Text("\(journey.eta) min • \(journey.lineSummary)")
-                        .font(DesignSystem.Typography.description)
-                        .foregroundStyle(DesignSystem.Colors.secondaryText)
-
-                    if let routeNote {
-                        Text(routeNote)
-                            .font(DesignSystem.Typography.labelSemibold)
-                            .foregroundStyle(DesignSystem.Colors.secondaryText)
-                    }
-
-                    if !journey.alternatives.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(journey.alternatives) { alternative in
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(alternative.title)
-                                            .font(DesignSystem.Typography.labelSemibold)
-                                            .foregroundStyle(DesignSystem.Colors.primaryText)
-                                            .lineLimit(1)
-
-                                        Text("\(alternative.eta) min")
-                                            .font(DesignSystem.Typography.bodySemibold)
-                                            .foregroundStyle(DesignSystem.Colors.accent)
-
-                                        Text(alternative.lineSummary)
-                                            .font(DesignSystem.Typography.description)
-                                            .foregroundStyle(DesignSystem.Colors.secondaryText)
-                                            .lineLimit(2)
-                                    }
-                                    .frame(width: 180, alignment: .leading)
-                                    .padding(12)
-                                    .background(DesignSystem.Colors.cardBackground.opacity(0.82))
-                                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                            .stroke(DesignSystem.Colors.border, lineWidth: 1)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if !journey.nearbyVehicles.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Nearby STIB vehicles")
-                                .font(DesignSystem.Typography.labelSemibold)
-                                .foregroundStyle(DesignSystem.Colors.secondaryText)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(journey.nearbyVehicles) { vehicle in
-                                        HStack(spacing: 7) {
-                                            Image(systemName: vehicle.icon)
-                                                .font(.system(size: 12, weight: .bold))
-                                                .foregroundStyle(.white)
-                                                .frame(width: 22, height: 22)
-                                                .background(vehicle.tint)
-                                                .clipShape(Circle())
-
-                                            Text("\(vehicle.routeCode) • \(vehicle.label)")
-                                                .font(DesignSystem.Typography.labelSemibold)
-                                                .foregroundStyle(DesignSystem.Colors.primaryText)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 8)
-                                        .background(DesignSystem.Colors.cardBackground.opacity(0.88))
-                                        .clipShape(Capsule())
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer()
-            }
-
-            Button("Change destination") {
-                onEditDestination()
-            }
-            .buttonStyle(SecondaryButton())
-        }
-        .padding(18)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+    private func rebuildJourney(showLoading: Bool = true) async {
+        await coordinator.rebuildJourney(
+            state: viewState,
+            effectiveOrigin: effectiveOrigin,
+            stibi: stibi,
+            guidance: guidanceSession.guidance,
+            speechSynthesizer: guidanceSession.speechSynthesizer,
+            showLoading: showLoading
         )
     }
 }

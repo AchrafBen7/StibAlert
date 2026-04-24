@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 // MARK: - 3-level snap sheet heights
 
@@ -19,6 +20,7 @@ enum SheetLevel: Int, CaseIterable {
 // MARK: - Report sheet (overlaid on HomeView's map)
 
 struct ReportSheetView: View {
+    @EnvironmentObject private var stibi: StibiCenter
     @Binding var isShowing: Bool
     var userLatitude: Double? = nil
     var userLongitude: Double? = nil
@@ -34,6 +36,7 @@ struct ReportSheetView: View {
     @State private var isSubmitting = false
     @State private var submitError: String?
     @State private var submitSuccess = false
+    @State private var stibiReportBrief: AssistantBriefDTO?
 
     private let screen = UIScreen.main.bounds.height
     private let snapSpring = Animation.spring(response: 0.36, dampingFraction: 0.78)
@@ -142,7 +145,7 @@ struct ReportSheetView: View {
                             .padding(.bottom, 20)
 
                         Text(currentStepTitle)
-                            .font(.custom("DelaGothicOne-Regular", size: 20))
+                            .font(DesignSystem.Typography.title2)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 20)
 
@@ -192,15 +195,15 @@ struct ReportSheetView: View {
                         VStack(spacing: 8) {
                             if let submitError {
                                 Text(submitError)
-                                    .font(.custom("Montserrat-Regular", size: 13))
-                                    .foregroundStyle(Color(hex: "#FF7A7A"))
+                                    .font(AppTheme.Fonts.caption)
+                                    .foregroundStyle(AppTheme.Palette.alert)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 20)
                             }
                             Button(action: handleContinue) {
                                 HStack(spacing: 10) {
                                     if isSubmitting {
-                                        ProgressView().tint(.black)
+                                        ProgressView().tint(AppTheme.Palette.textOnBrand)
                                     } else if submitSuccess {
                                         Image(systemName: "checkmark")
                                             .font(.system(size: 18, weight: .bold))
@@ -209,14 +212,16 @@ struct ReportSheetView: View {
                                         Text(currentStep.primaryButtonTitle)
                                     }
                                 }
-                                .font(.custom("DelaGothicOne-Regular", size: 18))
-                                .foregroundStyle(buttonIsEnabled ? .black : .black.opacity(0.45))
+                                .font(AppTheme.Fonts.bodyStrong)
+                                .foregroundStyle(buttonIsEnabled ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textOnBrand.opacity(0.45))
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 60)
-                                .background(buttonIsEnabled ? Color.white : Color.white.opacity(0.65))
-                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .frame(height: AppTheme.ButtonHeight.primary)
+                                .background(buttonIsEnabled ? AppTheme.Palette.brand : AppTheme.Palette.brand.opacity(0.65))
+                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
                             }
                             .disabled(!buttonIsEnabled || isSubmitting || submitSuccess)
+                            .accessibilityLabel(currentStep.primaryButtonTitle)
+                            .accessibilityHint("Passe à l'étape suivante du signalement ou envoie la confirmation finale.")
                         }
                         .padding(.horizontal, 14)
                         .padding(.top, 36)
@@ -241,10 +246,10 @@ struct ReportSheetView: View {
         .frame(maxWidth: .infinity)
         .background(
             ZStack(alignment: .bottom) {
-                Color(red: 0.11, green: 0.11, blue: 0.11)
+                AppTheme.Palette.screenElevated
                     .ignoresSafeArea(edges: .bottom)
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(Color(red: 0.11, green: 0.11, blue: 0.11))
+                RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
+                    .fill(AppTheme.Palette.screenElevated)
             }
             .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: -2)
         )
@@ -252,7 +257,14 @@ struct ReportSheetView: View {
         .onChange(of: level) { _, newLevel in
             baseHeight = heightFor(newLevel)
         }
+        .task { await refreshStibiReportHelp() }
+        .onChange(of: currentStep) { _, _ in Task { await refreshStibiReportHelp() } }
+        .onChange(of: selectedStop) { _, _ in Task { await refreshStibiReportHelp() } }
+        .onChange(of: selectedIssueLine) { _, _ in Task { await refreshStibiReportHelp() } }
+        .onChange(of: selectedProblemType) { _, _ in Task { await refreshStibiReportHelp() } }
+        .onChange(of: additionalDetails) { _, _ in Task { await refreshStibiReportHelp() } }
         .onAppear {
+            stibi.setCurrentScreen("report")
             level = .full
             baseHeight = fullHeight
         }
@@ -365,6 +377,26 @@ struct ReportSheetView: View {
             isShowing = false
         }
     }
+
+    @MainActor
+    private func refreshStibiReportHelp() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let brief = try await AssistantService.reportHelp(
+                step: currentStep.stibiStepName,
+                stopName: selectedStopItem?.name,
+                line: selectedIssueLineItem?.number,
+                problemType: selectedProblemType?.title,
+                details: additionalDetails.trimmingCharacters(in: .whitespacesAndNewlines),
+                lat: userLatitude,
+                lng: userLongitude
+            )
+            stibiReportBrief = brief
+            stibi.consume(brief)
+        } catch {
+            print("Stibi report help failed: \(error.localizedDescription)")
+        }
+    }
 }
 
 // MARK: - Step indicator row
@@ -383,6 +415,8 @@ private struct SheetNavigationRow: View {
                     .frame(width: 24, height: 24)
             }
             .disabled(!showsBack)
+            .accessibilityLabel("Revenir")
+            .accessibilityHint("Revient à l'étape précédente du signalement.")
 
             Spacer()
 
@@ -392,6 +426,8 @@ private struct SheetNavigationRow: View {
                     .foregroundStyle(Color.white)
                     .frame(width: 24, height: 24)
             }
+            .accessibilityLabel("Fermer")
+            .accessibilityHint("Ferme le flow de signalement.")
         }
     }
 }
@@ -485,8 +521,8 @@ private struct ReportProblemTypeCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 Text(problemType.title)
-                    .font(.custom("DelaGothicOne-Regular", size: 18))
-                    .foregroundStyle(.black)
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Spacer(minLength: 6)
@@ -505,8 +541,8 @@ private struct ReportProblemTypeCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(problemType.descriptionLines, id: \.self) { line in
                     Text(line)
-                        .font(.custom("Montserrat-Regular", size: 11))
-                        .foregroundStyle(.black)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.92))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -515,9 +551,9 @@ private struct ReportProblemTypeCard: View {
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
         .background(problemType.backgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
                 .stroke(Color.white.opacity(isSelected ? 0.8 : 0), lineWidth: 2)
         )
         .scaleEffect(isSelected ? 0.985 : 1)
@@ -540,8 +576,8 @@ private struct ProblemTypeHelpRow: View {
                     .frame(width: 22, height: 22)
 
                 Text("?")
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundStyle(Color.black.opacity(0.75))
+                    .font(DesignSystem.Typography.bodySemibold)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.75))
             }
 
             Spacer()
@@ -562,8 +598,8 @@ private struct ProblemTypeHelpOverlay: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("Pas sûr du problème ?")
-                    .font(.custom("DelaGothicOne-Regular", size: 18))
-                    .foregroundStyle(Color(hex: "#052330"))
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .padding(.horizontal, 32)
                     .padding(.top, 22)
                     .padding(.bottom, 28)
@@ -576,8 +612,8 @@ private struct ProblemTypeHelpOverlay: View {
                                 .frame(width: 30, height: 30)
 
                             Text(type.helpDescription)
-                                .font(.custom("Montserrat-Regular", size: 12))
-                                .foregroundStyle(Color.black.opacity(0.84))
+                                .font(DesignSystem.Typography.caption)
+                                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.84))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -585,19 +621,20 @@ private struct ProblemTypeHelpOverlay: View {
                 .padding(.horizontal, 32)
 
                 Button("Je comprends", action: onDismiss)
-                    .font(.custom("DelaGothicOne-Regular", size: 16))
-                    .foregroundStyle(.white)
+                    .font(DesignSystem.Typography.buttonText)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 64)
-                    .background(Color(hex: "#2A2A2A"))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(height: AppTheme.ButtonHeight.primary)
+                    .background(AppTheme.Palette.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
                     .padding(.horizontal, 12)
                     .padding(.top, 28)
                     .padding(.bottom, 16)
+                    .accessibilityHint("Ferme l'aide sur les types de problème.")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         }
     }
 }
@@ -618,22 +655,22 @@ private struct AdditionalDetailsStepView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
                 .fill(Color.white)
                 .frame(height: 273)
                 .overlay(alignment: .topLeading) {
                     TextEditor(text: clampedDetails)
                         .scrollContentBackground(.hidden)
-                        .font(.custom("Montserrat-Regular", size: 13))
-                        .foregroundStyle(Color.black)
+                        .font(DesignSystem.Typography.body)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 10)
                         .background(Color.clear)
                         .overlay(alignment: .topLeading) {
                             if details.isEmpty {
                                 Text("Ce champ est facultatif. Ex: “Le tram est bloqué\ndepuis 5 min au feu.”")
-                                    .font(.custom("Montserrat-Regular", size: 13))
-                                    .foregroundStyle(Color.black.opacity(0.88))
+                                    .font(DesignSystem.Typography.body)
+                                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.82))
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 16)
                                     .allowsHitTesting(false)
@@ -642,8 +679,8 @@ private struct AdditionalDetailsStepView: View {
                 }
 
             Text("\(details.count)/\(limit)")
-                .font(.custom("Montserrat-Regular", size: 13))
-                .foregroundStyle(Color(hex: "#A0A0A0"))
+                .font(DesignSystem.Typography.body)
+                .foregroundStyle(AppTheme.Palette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.top, 10)
                 .padding(.trailing, 4)
@@ -667,19 +704,19 @@ private struct ReportConfirmationStepView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 Text("Confirmation")
-                    .font(.custom("DelaGothicOne-Regular", size: 20))
-                    .foregroundStyle(Color.black)
+                    .font(DesignSystem.Typography.title2)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
 
                 Spacer()
 
                 Image(systemName: "checkmark")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
             }
 
             Text("Votre signalement aide à améliorer les trajets.")
                 .font(DesignSystem.Typography.description)
-                .foregroundStyle(Color.black.opacity(0.88))
+                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.84))
 
             VStack(alignment: .leading, spacing: 18) {
                 confirmationRow(index: 1, title: "Arret", content: stopName)
@@ -692,24 +729,24 @@ private struct ReportConfirmationStepView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "#BBDCFF"))
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .background(AppTheme.Palette.brandStrong.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .stroke(Color(hex: "#81B7FF"), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
+                .stroke(AppTheme.Palette.info.opacity(0.72), lineWidth: 1)
         )
     }
 
     private func confirmationRow(index: Int, title: String, content: String) -> some View {
         (
             Text("\(index). ")
-                .font(.custom("Montserrat-SemiBold", size: 14))
+                .font(DesignSystem.Typography.bodySemibold)
             + Text("\(title): ")
-                .font(.custom("Montserrat-SemiBold", size: 14))
+                .font(DesignSystem.Typography.bodySemibold)
             + Text(content)
-                .font(.custom("Montserrat-Regular", size: 14))
+                .font(DesignSystem.Typography.body)
         )
-        .foregroundStyle(Color.black.opacity(0.95))
+        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -718,30 +755,30 @@ private struct ReportConfirmationStepView: View {
         HStack(alignment: .top, spacing: 0) {
             (
                 Text("\(index). ")
-                    .font(.custom("Montserrat-SemiBold", size: 14))
+                    .font(DesignSystem.Typography.bodySemibold)
                 + Text("Lignes: ")
-                    .font(.custom("Montserrat-SemiBold", size: 14))
+                    .font(DesignSystem.Typography.bodySemibold)
             )
-            .foregroundStyle(Color.black.opacity(0.95))
+            .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
 
             if let line {
                 HStack(spacing: 8) {
                     Text(line.number)
-                        .font(.custom("Montserrat-SemiBold", size: 12))
-                        .foregroundStyle(Color.black.opacity(0.95))
+                        .font(DesignSystem.Typography.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
                         .frame(width: 24, height: 24)
                         .background(line.color)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
                     Text(line.direction)
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(Color.black.opacity(0.95))
+                        .font(DesignSystem.Typography.body)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 Text("Non définie")
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundStyle(Color.black.opacity(0.95))
+                    .font(DesignSystem.Typography.body)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -756,25 +793,25 @@ private struct NearbyStopCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 Text(stop.name)
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.black)
+                    .font(DesignSystem.Typography.title3)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Circle()
-                    .fill(Color(hex: "#B5CFF8"))
+                    .fill(AppTheme.Palette.info)
                     .frame(width: 10, height: 10)
                     .padding(.top, 3)
             }
             WrappingLineBadges(lines: stop.lines)
             Spacer(minLength: 0)
             Text("\(stop.distanceMeters)m de votre position")
-                .font(.custom("Montserrat-Regular", size: 10))
-                .foregroundStyle(.black)
+                .font(DesignSystem.Typography.caption)
+                .foregroundStyle(AppTheme.Palette.textOnBrand)
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-        .background(isSelected ? Color(hex: "#BDDDFF") : Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .background(isSelected ? AppTheme.Palette.brandStrong.opacity(0.92) : Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
         .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
@@ -785,36 +822,36 @@ private struct IssueLineCard: View {
     let isSelected: Bool
 
     private var reliabilityColor: Color {
-        if line.reliability >= 90 { return Color(hex: "#52D8AB") }
-        if line.reliability >= 60 { return Color(hex: "#FF922A") }
-        return Color(hex: "#FF7878")
+        if line.reliability >= 90 { return AppTheme.Palette.success }
+        if line.reliability >= 60 { return AppTheme.Palette.warning }
+        return AppTheme.Palette.alert
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 8) {
                 Text(line.number)
-                    .font(.custom("DelaGothicOne-Regular", size: 18))
+                    .font(DesignSystem.Typography.title2)
                     .foregroundStyle(line.lineTextColor)
                     .frame(width: 32, height: 31)
                     .background(line.color)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
                 Spacer(minLength: 4)
 
                 Text("\(line.reliability)% fiable")
-                    .font(.custom("Montserrat-SemiBold", size: 12))
-                    .foregroundStyle(.black)
+                    .font(DesignSystem.Typography.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
                     .padding(.horizontal, 10)
                     .frame(height: 32)
                     .background(reliabilityColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
             }
             .padding(.bottom, 12)
 
             Text(line.direction)
-                .font(.custom("Montserrat-SemiBold", size: 14))
-                .foregroundStyle(.black)
+                .font(DesignSystem.Typography.bodySemibold)
+                .foregroundStyle(AppTheme.Palette.textOnBrand)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 12)
@@ -823,25 +860,25 @@ private struct IssueLineCard: View {
 
             HStack(spacing: 6) {
                 Text("Affluence:")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
 
                 HStack(spacing: 4) {
                     ForEach(0..<5, id: \.self) { index in
                         Image(systemName: "person.fill")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(index < line.crowding.level ? Color.black : Color.black.opacity(0.14))
+                            .foregroundStyle(index < line.crowding.level ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textOnBrand.opacity(0.16))
                     }
                 }
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 126, alignment: .topLeading)
-        .background(isSelected ? Color(hex: "#BBDCFF") : Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .background(isSelected ? AppTheme.Palette.brandStrong.opacity(0.9) : Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
         .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
                 .stroke(isSelected ? Color.clear : Color.clear, lineWidth: 0)
         )
         .animation(.easeInOut(duration: 0.15), value: isSelected)
@@ -857,11 +894,11 @@ private struct WrappingLineBadges: View {
                 HStack(spacing: 5) {
                     ForEach(chunks[i]) { line in
                         Text(line.number)
-                            .font(.custom("Montserrat-SemiBold", size: 12))
-                            .foregroundStyle(.black)
+                            .font(DesignSystem.Typography.captionStrong)
+                            .foregroundStyle(AppTheme.Palette.textOnBrand)
                             .frame(width: 28, height: 24)
                             .background(line.color)
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
                     }
                 }
             }
@@ -883,6 +920,7 @@ struct NearbyStop: Identifiable {
     let lines: [StopLine]
     let distanceMeters: Int
     let issueLines: [NearbyIssueLine]
+    var coordinate: CLLocationCoordinate2D? = nil
 }
 
 struct NearbyIssueLine: Identifiable {
@@ -950,6 +988,16 @@ enum ReportFlowStep: Int {
             return "Envoyer"
         default:
             return "Continuer"
+        }
+    }
+
+    var stibiStepName: String {
+        switch self {
+        case .stop: return "stop"
+        case .line: return "line"
+        case .problemType: return "problemType"
+        case .details: return "details"
+        case .confirmation: return "confirmation"
         }
     }
 }
@@ -1082,44 +1130,47 @@ enum NearbyStopMockData {
             return .black
         }
     }
+    private static func c(_ lat: Double, _ lng: Double) -> CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
     static let stops: [NearbyStop] = [
-        .init(name: "Gare centrale",   lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 50, issueLines: [
+        .init(name: "Gare centrale", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 50, issueLines: [
             i("1",0.42,0.22,0.68,"Metro","vers Stockel",.medium),
             i("5",0.90,0.50,0.14,"Metro","vers Erasme",.high),
             i("38",0.55,0.36,0.75,"Bus","vers Herois",.low),
             i("71",0.18,0.62,0.23,"Bus","vers Delta",.medium)
-        ]),
-        .init(name: "Bourse",          lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 95, issueLines: [
+        ], coordinate: c(50.8446, 4.3571)),
+        .init(name: "Bourse", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 95, issueLines: [
             i("3",0.00,0.67,0.40,"Metro","vers Churchill",.high),
             i("4",0.91,0.28,0.44,"Tram","vers Gare du Nord",.medium),
             i("10",0.55,0.36,0.75,"Tram","vers Vanderkindere",.low)
-        ]),
-        .init(name: "Royale",          lines: [l("33",0.91,0.42,0.55),l("38",0.55,0.36,0.75),l("71",0.18,0.62,0.23),l("95",0.14,0.42,0.25)], distanceMeters: 120, issueLines: [
+        ], coordinate: c(50.8487, 4.3514)),
+        .init(name: "Royale", lines: [l("33",0.91,0.42,0.55),l("38",0.55,0.36,0.75),l("71",0.18,0.62,0.23),l("95",0.14,0.42,0.25)], distanceMeters: 120, issueLines: [
             i("92",0.82,0.27,0.12,"Tram","vers Fort-Jaco",.medium),
             i("33",0.91,0.42,0.55,"Bus","vers Dansaert",.low),
             i("95",0.14,0.42,0.25,"Bus","vers Wiener",.high)
-        ]),
-        .init(name: "Parc",            lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("92",0.82,0.27,0.12),l("93",0.88,0.44,0.10),l("29",0.90,0.50,0.14)], distanceMeters: 150, issueLines: [
+        ], coordinate: c(50.8443, 4.3657)),
+        .init(name: "Parc", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("92",0.82,0.27,0.12),l("93",0.88,0.44,0.10),l("29",0.90,0.50,0.14)], distanceMeters: 150, issueLines: [
             i("2",0.23,0.45,0.84,"Metro","vers Simonis",.medium),
             i("6",0.14,0.35,0.71,"Metro","vers Roi Baudouin",.high),
             i("29",0.90,0.50,0.14,"Bus","vers De Brouckere",.low)
-        ]),
-        .init(name: "De Brouckère",    lines: [l("4",0.91,0.28,0.44),l("10",0.55,0.36,0.75),l("5",0.90,0.50,0.14),l("1",0.42,0.22,0.68)], distanceMeters: 175, issueLines: [
+        ], coordinate: c(50.8453, 4.3658)),
+        .init(name: "De Brouckère", lines: [l("4",0.91,0.28,0.44),l("10",0.55,0.36,0.75),l("5",0.90,0.50,0.14),l("1",0.42,0.22,0.68)], distanceMeters: 175, issueLines: [
             i("1",0.42,0.22,0.68,"Metro","vers Weststation",.low),
             i("5",0.90,0.50,0.14,"Metro","vers Herrmann-Debroux",.medium),
             i("4",0.91,0.28,0.44,"Tram","vers Stalle",.high)
-        ]),
-        .init(name: "Palais",          lines: [l("92",0.82,0.27,0.12)], distanceMeters: 200, issueLines: [
+        ], coordinate: c(50.8509, 4.3535)),
+        .init(name: "Palais", lines: [l("92",0.82,0.27,0.12)], distanceMeters: 200, issueLines: [
             i("92",0.82,0.27,0.12,"Tram","vers Schaerbeek Gare",.medium)
-        ]),
-        .init(name: "Sainte-Catherine",lines: [l("1",0.42,0.22,0.68),l("5",0.90,0.50,0.14)], distanceMeters: 250, issueLines: [
+        ], coordinate: c(50.8423, 4.3666)),
+        .init(name: "Sainte-Catherine", lines: [l("1",0.42,0.22,0.68),l("5",0.90,0.50,0.14)], distanceMeters: 250, issueLines: [
             i("1",0.42,0.22,0.68,"Metro","vers Stockel",.low),
             i("5",0.90,0.50,0.14,"Metro","vers Erasme",.medium)
-        ]),
-        .init(name: "Ravenstein",      lines: [l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("71",0.18,0.62,0.23)], distanceMeters: 300, issueLines: [
+        ], coordinate: c(50.8511, 4.3493)),
+        .init(name: "Ravenstein", lines: [l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("71",0.18,0.62,0.23)], distanceMeters: 300, issueLines: [
             i("38",0.55,0.36,0.75,"Bus","vers Homborch",.low),
             i("52",0.95,0.65,0.12,"Bus","vers Gare Centrale",.medium),
             i("71",0.18,0.62,0.23,"Bus","vers Delta",.high)
-        ]),
+        ], coordinate: c(50.8434, 4.3635)),
     ]
 }

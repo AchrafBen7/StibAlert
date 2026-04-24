@@ -20,7 +20,7 @@ struct LoginView: View {
                             Text("Stib").foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
                             Text("Alert").foregroundStyle(AppTheme.Colors.onboardingTitleSand)
                         }
-                        .font(AppTheme.Fonts.display(28))
+                        .font(AppTheme.Fonts.display)
 
                         Text("Connectez-vous pour signaler et suivre le réseau STIB.")
                             .font(AppTheme.Fonts.body(14))
@@ -44,14 +44,16 @@ struct LoginView: View {
                             if isLoading { ProgressView().tint(.black) } else { Text("Se connecter") }
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
+                        .frame(height: AppTheme.ButtonHeight.primary)
                         .background(AppTheme.Colors.onboardingTitleSand)
-                        .foregroundStyle(.black)
+                        .foregroundStyle(AppTheme.Palette.textOnBrand)
                         .font(AppTheme.Fonts.body(15, weight: .semibold))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
                     }
                     .disabled(isLoading || email.isEmpty || motDePasse.isEmpty)
                     .opacity(email.isEmpty || motDePasse.isEmpty ? 0.6 : 1)
+                    .accessibilityLabel("Se connecter")
+                    .accessibilityHint("Envoie vos identifiants pour ouvrir la session.")
 
                     HStack {
                         Spacer()
@@ -62,6 +64,8 @@ struct LoginView: View {
                                 .foregroundStyle(AppTheme.Colors.onboardingTitleBlue))
                             .font(AppTheme.Fonts.body(13))
                         }
+                        .accessibilityLabel("Créer un compte")
+                        .accessibilityHint("Ouvre l'écran d'inscription pour recevoir un code d'activation.")
                         Spacer()
                     }
                     .padding(.top, 4)
@@ -110,14 +114,14 @@ struct AuthField: View {
                 }
             }
             .foregroundStyle(.white)
-            .font(AppTheme.Fonts.body(15))
+            .font(AppTheme.Fonts.body)
             .padding(.horizontal, 14)
-            .frame(height: 48)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .frame(height: AppTheme.ButtonHeight.primary)
+            .background(AppTheme.Palette.surfaceMuted)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppTheme.Radius.md)
+                    .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
             )
         }
     }
