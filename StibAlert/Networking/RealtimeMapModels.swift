@@ -13,13 +13,6 @@ struct SearchSignalCluster: Identifiable, Equatable {
     let count: Int
     let level: Level
 
-    static let mockClusters: [SearchSignalCluster] = [
-        .init(id: "cluster_1", coordinate: .init(latitude: 50.8661, longitude: 4.3494), count: 1, level: .low),
-        .init(id: "cluster_2", coordinate: .init(latitude: 50.8583, longitude: 4.3452), count: 4, level: .medium),
-        .init(id: "cluster_3", coordinate: .init(latitude: 50.8511, longitude: 4.3389), count: 14, level: .high),
-        .init(id: "cluster_4", coordinate: .init(latitude: 50.8465, longitude: 4.3578), count: 1, level: .low),
-        .init(id: "cluster_5", coordinate: .init(latitude: 50.8408, longitude: 4.3443), count: 5, level: .medium),
-    ]
 }
 
 struct TransitVehicleMock: Identifiable, Equatable {

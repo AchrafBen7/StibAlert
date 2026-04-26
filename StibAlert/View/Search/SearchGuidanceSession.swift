@@ -20,13 +20,28 @@ final class SearchGuidanceSession: ObservableObject {
             .store(in: &cancellables)
     }
 
-    func start(with alternative: SearchRouteAlternative, locationManager: SearchLocationManager) {
+    func start(
+        with alternative: SearchRouteAlternative,
+        locationManager: SearchLocationManager,
+        originName: String = "",
+        destinationName: String = ""
+    ) {
         guard !alternative.steps.isEmpty else { return }
         guidance.start(with: alternative)
         locationManager.startLiveTracking()
         hasPendingOffRouteReroute = false
         isRerouting = false
         replayCurrentStep()
+        if #available(iOS 16.1, *) {
+            JourneyActivityManager.shared.start(
+                originName: originName,
+                destinationName: destinationName,
+                lineSummary: alternative.lineSummary,
+                stepInstruction: guidance.currentStep?.instruction ?? alternative.title,
+                arrivalMinutes: alternative.eta,
+                currentLine: alternative.steps.first?.line
+            )
+        }
     }
 
     func stop(locationManager: SearchLocationManager) {
@@ -35,11 +50,22 @@ final class SearchGuidanceSession: ObservableObject {
         speechSynthesizer.stop()
         hasPendingOffRouteReroute = false
         isRerouting = false
+        if #available(iOS 16.1, *) {
+            JourneyActivityManager.shared.finish()
+        }
     }
 
     func replayCurrentStep() {
         guard let currentStep = guidance.currentStep else { return }
         speechSynthesizer.speak(currentStep.instruction)
+        if #available(iOS 16.1, *) {
+            let remaining = guidance.activeAlternative?.eta ?? 0
+            JourneyActivityManager.shared.update(
+                stepInstruction: currentStep.instruction,
+                arrivalMinutes: remaining,
+                currentLine: currentStep.line
+            )
+        }
     }
 
     func goBack() {

@@ -77,6 +77,14 @@ struct AppRoot: View {
         .environmentObject(nav)
         .environmentObject(session)
         .environmentObject(stibi)
+        .sheet(isPresented: $nav.showAuthFlow) {
+            AuthFlowView()
+                .environmentObject(session)
+                .presentationDragIndicator(.visible)
+        }
+        .onChange(of: session.isSignedIn) { _, signedIn in
+            if signedIn { nav.showAuthFlow = false }
+        }
         .task { await session.bootstrap() }
         .task(id: session.currentUser?.id) {
             await applyOnboardingPreferencesIfNeeded()
@@ -92,7 +100,7 @@ struct AppRoot: View {
             handlePush(userInfo: output.userInfo)
         }
         .onOpenURL { url in
-            guard case .signedIn = session.state, let link = DeepLinkRouter.parse(url) else { return }
+            guard session.state != .unknown, let link = DeepLinkRouter.parse(url) else { return }
             applyDeepLink(link)
         }
         .onChange(of: stibi.brief?.speechTriggerKey) { _, _ in
@@ -112,14 +120,9 @@ struct AppRoot: View {
                 ProgressView().tint(.white)
             }
         case .signedOut:
-            if AppConfig.isBackendEnabled {
-                if hasSeenOnboarding {
-                    AuthFlowView()
-                } else {
-                    OnboardingView {
-                        hasSeenOnboarding = true
-                        onboardingPendingPushPermission = true
-                    }
+            if !hasSeenOnboarding {
+                OnboardingView {
+                    hasSeenOnboarding = true
                 }
             } else {
                 HomeView()
@@ -203,6 +206,17 @@ struct AppRoot: View {
             case .stibi:
                 nav.currentPage = .home
                 stibi.openConversation()
+            case .route(let fromName, let fromLat, let fromLng, let toName, let toLat, let toLng):
+                nav.currentPage = .home
+                stibi.closeConversation()
+                NotificationCenter.default.post(
+                    name: .stibiRouteDeepLink,
+                    object: nil,
+                    userInfo: [
+                        "fromName": fromName, "fromLat": fromLat, "fromLng": fromLng,
+                        "toName": toName, "toLat": toLat, "toLng": toLng
+                    ]
+                )
             }
         }
     }
@@ -239,9 +253,7 @@ struct AppRoot: View {
     }
 
     private func requestDeferredPushPermissionIfNeeded() async {
-        guard onboardingPendingPushPermission else { return }
         guard session.isSignedIn else { return }
-        onboardingPendingPushPermission = false
         await PushNotificationManager.current?.requestAuthorizationAndRegister()
     }
 }

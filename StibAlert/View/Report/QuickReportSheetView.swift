@@ -23,6 +23,8 @@ struct QuickReportSheetView: View {
     @State private var confirmingExistingId: String? = nil
 
     @State private var showConfetti: Bool = false
+    @State private var nearbyStops: [NearbyStop] = []
+    @State private var isLoadingStops = false
 
     private let screen = UIScreen.main.bounds.height
 
@@ -177,11 +179,20 @@ struct QuickReportSheetView: View {
                         .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(selectedStop?.name ?? "Choisir un arrêt")
-                            .font(AppTheme.Fonts.title3)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .lineLimit(1)
-                        Text(autoDetectedStop ? "Détecté à proximité" : "Toucher pour changer")
+                        if isLoadingStops {
+                            HStack(spacing: 6) {
+                                ProgressView().scaleEffect(0.7)
+                                Text("Recherche...")
+                                    .font(AppTheme.Fonts.title3)
+                                    .foregroundStyle(AppTheme.Palette.textMuted)
+                            }
+                        } else {
+                            Text(selectedStop?.name ?? "Choisir un arrêt")
+                                .font(AppTheme.Fonts.title3)
+                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .lineLimit(1)
+                        }
+                        Text(autoDetectedStop ? "Détecté à proximité" : (isLoadingStops ? "" : "Toucher pour changer"))
                             .font(AppTheme.Fonts.caption)
                             .foregroundStyle(AppTheme.Palette.textSecondary)
                     }
@@ -208,33 +219,55 @@ struct QuickReportSheetView: View {
 
     private var stopPickerSheet: some View {
         NavigationStack {
-            List {
-                ForEach(NearbyStopMockData.stops) { stop in
-                    Button {
-                        selectedStop = stop
-                        selectedLine = nil
-                        showStopPicker = false
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(stop.name)
-                                    .font(AppTheme.Fonts.bodyStrong)
-                                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                                Text("\(stop.lines.count) lignes desservies")
-                                    .font(AppTheme.Fonts.caption)
-                                    .foregroundStyle(AppTheme.Palette.textSecondary)
+            Group {
+                if isLoadingStops {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Recherche des arrêts...")
+                            .font(AppTheme.Fonts.caption)
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if nearbyStops.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "mappin.slash")
+                            .font(.system(size: 32))
+                            .foregroundStyle(AppTheme.Palette.textMuted)
+                        Text("Aucun arrêt trouvé à proximité")
+                            .font(AppTheme.Fonts.body)
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(nearbyStops) { stop in
+                            Button {
+                                selectedStop = stop
+                                selectedLine = nil
+                                showStopPicker = false
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(stop.name)
+                                            .font(AppTheme.Fonts.bodyStrong)
+                                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                                        Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
+                                            .font(AppTheme.Fonts.caption)
+                                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                                    }
+                                    Spacer()
+                                    if selectedStop?.id == stop.id {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(AppTheme.Palette.success)
+                                    }
+                                }
                             }
-                            Spacer()
-                            if selectedStop?.id == stop.id {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(AppTheme.Palette.success)
-                            }
+                            .listRowBackground(AppTheme.Palette.screen)
                         }
                     }
-                    .listRowBackground(AppTheme.Palette.screen)
+                    .listStyle(.plain)
                 }
             }
-            .listStyle(.plain)
             .background(AppTheme.Palette.screen)
             .navigationTitle("Changer d'arrêt")
             .navigationBarTitleDisplayMode(.inline)
@@ -563,12 +596,22 @@ struct QuickReportSheetView: View {
     }
 
     private func bootstrap() {
-        let nearby = NearestStopFinder.nearest(
-            to: userCoordinate,
-            in: NearbyStopMockData.stops,
-            maxMeters: 50
-        ) ?? NearestStopFinder.closest(to: userCoordinate, in: NearbyStopMockData.stops)
-        selectedStop = nearby
+        guard let lat = userLatitude, let lng = userLongitude else { return }
+        isLoadingStops = true
+        Task {
+            defer { isLoadingStops = false }
+            do {
+                let stops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
+                nearbyStops = stops
+                selectedStop = NearestStopFinder.nearest(
+                    to: userCoordinate,
+                    in: stops,
+                    maxMeters: 80
+                ) ?? stops.first
+            } catch {
+                print("NearbyStopService failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func relativeTime(from date: Date?) -> String {

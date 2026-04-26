@@ -4,6 +4,14 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>StibAlert utilise votre position pour afficher votre point de départ et votre itinéraire en temps réel.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>StibAlert utilise votre position en arrière-plan pour maintenir le guidage actif et recalculer votre itinéraire si vous déviez.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>StibAlert utilise la caméra pour joindre une photo à vos signalements.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -12,16 +20,22 @@
 	<string>StibAlert utilise le micro pour permettre les commandes vocales de Stibi.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>StibAlert utilise la reconnaissance vocale pour transcrire vos commandes à Stibi.</string>
-	<key>GOOGLE_MAPS_3D_API_KEY</key>
-	<string></string>
 	<key>OneSignalAppID</key>
-	<string></string>
+	<string>c572317d-1a24-49fa-9631-b6556438ae34</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>stibalert</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Google Sign-In</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.251264362988-o8g33gdke3dd91s1upbg42tmtti2ie8d</string>
 			</array>
 		</dict>
 	</array>

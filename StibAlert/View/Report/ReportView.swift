@@ -31,18 +31,19 @@ struct ReportSheetView: View {
     @State private var selectedIssueLine: UUID? = nil
     @State private var selectedProblemType: ReportProblemType? = nil
     @State private var isShowingProblemTypeHelp = false
-    @State private var additionalDetails = ""
     @State private var currentStep: ReportFlowStep = .stop
     @State private var isSubmitting = false
     @State private var submitError: String?
     @State private var submitSuccess = false
-    @State private var stibiReportBrief: AssistantBriefDTO?
+    @State private var nearbyStops: [NearbyStop] = []
+    @State private var isLoadingStops = false
+    @State private var stopsLoadError: String? = nil
 
     private let screen = UIScreen.main.bounds.height
     private let snapSpring = Animation.spring(response: 0.36, dampingFraction: 0.78)
 
     private var selectedStopItem: NearbyStop? {
-        NearbyStopMockData.stops.first(where: { $0.id == selectedStop })
+        nearbyStops.first(where: { $0.id == selectedStop })
     }
 
     private var availableIssueLines: [NearbyIssueLine] {
@@ -51,13 +52,6 @@ struct ReportSheetView: View {
 
     private var selectedIssueLineItem: NearbyIssueLine? {
         availableIssueLines.first(where: { $0.id == selectedIssueLine })
-    }
-
-    private var formattedReportTime: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
-        formatter.dateFormat = "HH'h'mm"
-        return formatter.string(from: Date())
     }
 
     // Leaves the status bar / dynamic island area uncovered
@@ -140,7 +134,7 @@ struct ReportSheetView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
-                        StepIndicatorRow(current: currentStep.rawValue, total: 5)
+                        StepIndicatorRow(current: currentStep.rawValue, total: 3)
                             .padding(.horizontal, 20)
                             .padding(.bottom, 20)
 
@@ -157,7 +151,15 @@ struct ReportSheetView: View {
                             .padding(.bottom, 20)
 
                         if currentStep == .stop {
-                            StopCardsGrid(selectedStop: $selectedStop)
+                            if let stopsLoadError, nearbyStops.isEmpty, !isLoadingStops {
+                                Text(stopsLoadError)
+                                    .font(AppTheme.Fonts.caption)
+                                    .foregroundStyle(AppTheme.Palette.alert)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 12)
+                            }
+                            StopCardsGrid(stops: nearbyStops, isLoading: isLoadingStops, selectedStop: $selectedStop)
                                 .padding(.horizontal, 14)
                         } else if currentStep == .line {
                             IssueLineCardsGrid(
@@ -165,21 +167,9 @@ struct ReportSheetView: View {
                                 selectedLine: $selectedIssueLine
                             )
                             .padding(.horizontal, 14)
-                        } else if currentStep == .problemType {
+                        } else {
                             ProblemTypeStepView(selectedProblemType: $selectedProblemType)
                                 .padding(.horizontal, 12)
-                        } else if currentStep == .details {
-                            AdditionalDetailsStepView(details: $additionalDetails)
-                                .padding(.horizontal, 16)
-                        } else {
-                            ReportConfirmationStepView(
-                                stopName: selectedStopItem?.name ?? "Non défini",
-                                line: selectedIssueLineItem,
-                                problemType: selectedProblemType,
-                                description: additionalDetails,
-                                formattedTime: formattedReportTime
-                            )
-                            .padding(.horizontal, 16)
                         }
 
                         if currentStep == .problemType {
@@ -257,12 +247,10 @@ struct ReportSheetView: View {
         .onChange(of: level) { _, newLevel in
             baseHeight = heightFor(newLevel)
         }
-        .task { await refreshStibiReportHelp() }
-        .onChange(of: currentStep) { _, _ in Task { await refreshStibiReportHelp() } }
-        .onChange(of: selectedStop) { _, _ in Task { await refreshStibiReportHelp() } }
-        .onChange(of: selectedIssueLine) { _, _ in Task { await refreshStibiReportHelp() } }
-        .onChange(of: selectedProblemType) { _, _ in Task { await refreshStibiReportHelp() } }
-        .onChange(of: additionalDetails) { _, _ in Task { await refreshStibiReportHelp() } }
+        .task {
+            await loadNearbyStops()
+            await refreshStibiReportHelp()
+        }
         .onAppear {
             stibi.setCurrentScreen("report")
             level = .full
@@ -286,16 +274,9 @@ struct ReportSheetView: View {
 
     private var buttonIsEnabled: Bool {
         switch currentStep {
-        case .stop:
-            return selectedStop != nil
-        case .line:
-            return selectedIssueLine != nil
-        case .problemType:
-            return selectedProblemType != nil
-        case .details:
-            return true
-        case .confirmation:
-            return true
+        case .stop:      return selectedStop != nil
+        case .line:      return selectedIssueLine != nil
+        case .problemType: return selectedProblemType != nil
         }
     }
 
@@ -311,10 +292,6 @@ struct ReportSheetView: View {
             currentStep = .problemType
         case .problemType:
             guard selectedProblemType != nil else { return }
-            currentStep = .details
-        case .details:
-            currentStep = .confirmation
-        case .confirmation:
             submitSignalement()
         }
     }
@@ -326,9 +303,6 @@ struct ReportSheetView: View {
             let problem = selectedProblemType
         else { return }
 
-        let trimmed = additionalDetails.trimmingCharacters(in: .whitespacesAndNewlines)
-        let description = trimmed.isEmpty ? "Aucun détail supplémentaire" : trimmed
-
         isSubmitting = true
         submitError = nil
 
@@ -338,7 +312,7 @@ struct ReportSheetView: View {
                     nomArret: stop.name,
                     ligne: line.number,
                     typeProbleme: problem.title,
-                    description: description,
+                    description: "Signalement rapide",
                     latitude: userLatitude,
                     longitude: userLongitude,
                     photo: nil
@@ -364,10 +338,6 @@ struct ReportSheetView: View {
             isShowingProblemTypeHelp = false
             selectedProblemType = nil
             currentStep = .line
-        case .details:
-            currentStep = .problemType
-        case .confirmation:
-            currentStep = .details
         }
     }
 
@@ -375,6 +345,25 @@ struct ReportSheetView: View {
         withAnimation(snapSpring) {
             isShowingProblemTypeHelp = false
             isShowing = false
+        }
+    }
+
+    @MainActor
+    private func loadNearbyStops() async {
+        guard let lat = userLatitude, let lng = userLongitude else {
+            stopsLoadError = "Localisation indisponible. Activez le GPS pour voir les arrêts proches."
+            return
+        }
+        isLoadingStops = true
+        stopsLoadError = nil
+        defer { isLoadingStops = false }
+        do {
+            nearbyStops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
+            if nearbyStops.isEmpty {
+                stopsLoadError = "Aucun arrêt trouvé à proximité."
+            }
+        } catch {
+            stopsLoadError = "Impossible de charger les arrêts. Vérifie ta connexion."
         }
     }
 
@@ -387,11 +376,10 @@ struct ReportSheetView: View {
                 stopName: selectedStopItem?.name,
                 line: selectedIssueLineItem?.number,
                 problemType: selectedProblemType?.title,
-                details: additionalDetails.trimmingCharacters(in: .whitespacesAndNewlines),
+                details: nil,
                 lat: userLatitude,
                 lng: userLongitude
             )
-            stibiReportBrief = brief
             stibi.consume(brief)
         } catch {
             print("Stibi report help failed: \(error.localizedDescription)")
@@ -464,14 +452,40 @@ private struct StepIndicatorRow: View {
 // MARK: - Stop cards
 
 private struct StopCardsGrid: View {
+    let stops: [NearbyStop]
+    let isLoading: Bool
     @Binding var selectedStop: UUID?
     private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(NearbyStopMockData.stops) { stop in
-                NearbyStopCard(stop: stop, isSelected: selectedStop == stop.id)
-                    .onTapGesture { selectedStop = stop.id }
+        if isLoading {
+            HStack {
+                ProgressView()
+                    .tint(.white)
+                Text("Recherche des arrêts...")
+                    .font(DesignSystem.Typography.description)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
+        } else if stops.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "mappin.slash")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.white.opacity(0.5))
+                Text("Aucun arrêt trouvé à proximité")
+                    .font(DesignSystem.Typography.description)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
+        } else {
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(stops) { stop in
+                    NearbyStopCard(stop: stop, isSelected: selectedStop == stop.id)
+                        .onTapGesture { selectedStop = stop.id }
+                }
             }
         }
     }
@@ -639,151 +653,6 @@ private struct ProblemTypeHelpOverlay: View {
     }
 }
 
-private struct AdditionalDetailsStepView: View {
-    @Binding var details: String
-
-    private let limit = 250
-
-    private var clampedDetails: Binding<String> {
-        Binding(
-            get: { details },
-            set: { newValue in
-                details = String(newValue.prefix(limit))
-            }
-        )
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .fill(Color.white)
-                .frame(height: 273)
-                .overlay(alignment: .topLeading) {
-                    TextEditor(text: clampedDetails)
-                        .scrollContentBackground(.hidden)
-                        .font(DesignSystem.Typography.body)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 10)
-                        .background(Color.clear)
-                        .overlay(alignment: .topLeading) {
-                            if details.isEmpty {
-                                Text("Ce champ est facultatif. Ex: “Le tram est bloqué\ndepuis 5 min au feu.”")
-                                    .font(DesignSystem.Typography.body)
-                                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.82))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 16)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                }
-
-            Text("\(details.count)/\(limit)")
-                .font(DesignSystem.Typography.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.top, 10)
-                .padding(.trailing, 4)
-        }
-    }
-}
-
-private struct ReportConfirmationStepView: View {
-    let stopName: String
-    let line: NearbyIssueLine?
-    let problemType: ReportProblemType?
-    let description: String
-    let formattedTime: String
-
-    private var finalDescription: String {
-        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Aucun détail supplémentaire" : trimmed
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                Text("Confirmation")
-                    .font(DesignSystem.Typography.title2)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand)
-
-                Spacer()
-
-                Image(systemName: "checkmark")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textOnBrand)
-            }
-
-            Text("Votre signalement aide à améliorer les trajets.")
-                .font(DesignSystem.Typography.description)
-                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.84))
-
-            VStack(alignment: .leading, spacing: 18) {
-                confirmationRow(index: 1, title: "Arret", content: stopName)
-                confirmationLineRow(index: 2, line: line)
-                confirmationRow(index: 3, title: "Type de probleme", content: problemType?.title ?? "Non défini")
-                confirmationRow(index: 4, title: "Description", content: finalDescription)
-                confirmationRow(index: 5, title: "Heures", content: formattedTime)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.brandStrong.opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .stroke(AppTheme.Palette.info.opacity(0.72), lineWidth: 1)
-        )
-    }
-
-    private func confirmationRow(index: Int, title: String, content: String) -> some View {
-        (
-            Text("\(index). ")
-                .font(DesignSystem.Typography.bodySemibold)
-            + Text("\(title): ")
-                .font(DesignSystem.Typography.bodySemibold)
-            + Text(content)
-                .font(DesignSystem.Typography.body)
-        )
-        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    @ViewBuilder
-    private func confirmationLineRow(index: Int, line: NearbyIssueLine?) -> some View {
-        HStack(alignment: .top, spacing: 0) {
-            (
-                Text("\(index). ")
-                    .font(DesignSystem.Typography.bodySemibold)
-                + Text("Lignes: ")
-                    .font(DesignSystem.Typography.bodySemibold)
-            )
-            .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
-
-            if let line {
-                HStack(spacing: 8) {
-                    Text(line.number)
-                        .font(DesignSystem.Typography.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
-                        .frame(width: 24, height: 24)
-                        .background(line.color)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
-
-                    Text(line.direction)
-                        .font(DesignSystem.Typography.body)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } else {
-                Text("Non définie")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.95))
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-}
 
 private struct NearbyStopCard: View {
     let stop: NearbyStop
@@ -916,6 +785,7 @@ struct StopLine: Identifiable {
 
 struct NearbyStop: Identifiable {
     let id = UUID()
+    let backendId: String?
     let name: String
     let lines: [StopLine]
     let distanceMeters: Int
@@ -959,45 +829,35 @@ enum ReportFlowStep: Int {
     case stop = 1
     case line = 2
     case problemType = 3
-    case details = 4
-    case confirmation = 5
 
     var title: String {
         switch self {
-        case .stop: return "Arrets a proximité"
-        case .line: return "Lignes problematiques"
+        case .stop:        return "Arrêts à proximité"
+        case .line:        return "Lignes problématiques"
         case .problemType: return "Quel est le problème ?"
-        case .details: return "Un détail à ajouter ?"
-        case .confirmation: return ""
         }
     }
 
     var subtitle: String {
         switch self {
-        case .stop: return "Signaler un arret"
-        case .line: return "Choisissez la ligne concernée"
-        case .problemType: return "Sélectionnez le type de problème recontré"
-        case .details: return "Aide les autres à comprendre la situation plus précisément."
-        case .confirmation: return ""
+        case .stop:        return "Signaler un arrêt"
+        case .line:        return "Choisissez la ligne concernée"
+        case .problemType: return "Sélectionnez le type de problème rencontré"
         }
     }
 
     var primaryButtonTitle: String {
         switch self {
-        case .confirmation:
-            return "Envoyer"
-        default:
-            return "Continuer"
+        case .problemType: return "Envoyer"
+        default:           return "Continuer"
         }
     }
 
     var stibiStepName: String {
         switch self {
-        case .stop: return "stop"
-        case .line: return "line"
+        case .stop:        return "stop"
+        case .line:        return "line"
         case .problemType: return "problemType"
-        case .details: return "details"
-        case .confirmation: return "confirmation"
         }
     }
 }
@@ -1094,83 +954,3 @@ extension Comparable {
     }
 }
 
-// MARK: - Mock data
-
-enum NearbyStopMockData {
-    private static func l(_ n: String, _ r: Double, _ g: Double, _ b: Double) -> StopLine {
-        StopLine(number: n, color: Color(red: r, green: g, blue: b))
-    }
-    private static func i(_ n: String, _ r: Double, _ g: Double, _ b: Double, _ transport: String, _ direction: String, _ crowding: IssueLineCrowding) -> NearbyIssueLine {
-        NearbyIssueLine(
-            number: n,
-            color: Color(red: r, green: g, blue: b),
-            direction: direction,
-            crowding: crowding,
-            reliability: mockReliability(for: n, transport: transport),
-            lineTextColor: lineForeground(for: transport, number: n)
-        )
-    }
-
-    private static func mockReliability(for line: String, transport: String) -> Int {
-        switch (transport, line) {
-        case ("Metro", "1"): return 63
-        case ("Metro", "5"): return 98
-        case ("Metro", "2"): return 93
-        case ("Metro", "6"): return 25
-        case ("Tram", "92"): return 37
-        default: return 63
-        }
-    }
-
-    private static func lineForeground(for transport: String, number: String) -> Color {
-        switch (transport, number) {
-        case ("Tram", "92"), ("Metro", "5"), ("Bus", "95"), ("Bus", "33"):
-            return .white
-        default:
-            return .black
-        }
-    }
-    private static func c(_ lat: Double, _ lng: Double) -> CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: lat, longitude: lng)
-    }
-    static let stops: [NearbyStop] = [
-        .init(name: "Gare centrale", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 50, issueLines: [
-            i("1",0.42,0.22,0.68,"Metro","vers Stockel",.medium),
-            i("5",0.90,0.50,0.14,"Metro","vers Erasme",.high),
-            i("38",0.55,0.36,0.75,"Bus","vers Herois",.low),
-            i("71",0.18,0.62,0.23,"Bus","vers Delta",.medium)
-        ], coordinate: c(50.8446, 4.3571)),
-        .init(name: "Bourse", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12)], distanceMeters: 95, issueLines: [
-            i("3",0.00,0.67,0.40,"Metro","vers Churchill",.high),
-            i("4",0.91,0.28,0.44,"Tram","vers Gare du Nord",.medium),
-            i("10",0.55,0.36,0.75,"Tram","vers Vanderkindere",.low)
-        ], coordinate: c(50.8487, 4.3514)),
-        .init(name: "Royale", lines: [l("33",0.91,0.42,0.55),l("38",0.55,0.36,0.75),l("71",0.18,0.62,0.23),l("95",0.14,0.42,0.25)], distanceMeters: 120, issueLines: [
-            i("92",0.82,0.27,0.12,"Tram","vers Fort-Jaco",.medium),
-            i("33",0.91,0.42,0.55,"Bus","vers Dansaert",.low),
-            i("95",0.14,0.42,0.25,"Bus","vers Wiener",.high)
-        ], coordinate: c(50.8443, 4.3657)),
-        .init(name: "Parc", lines: [l("63",0.57,0.75,0.90),l("66",0.14,0.35,0.71),l("65",0.93,0.64,0.18),l("89",0.52,0.63,0.19),l("92",0.82,0.27,0.12),l("93",0.88,0.44,0.10),l("29",0.90,0.50,0.14)], distanceMeters: 150, issueLines: [
-            i("2",0.23,0.45,0.84,"Metro","vers Simonis",.medium),
-            i("6",0.14,0.35,0.71,"Metro","vers Roi Baudouin",.high),
-            i("29",0.90,0.50,0.14,"Bus","vers De Brouckere",.low)
-        ], coordinate: c(50.8453, 4.3658)),
-        .init(name: "De Brouckère", lines: [l("4",0.91,0.28,0.44),l("10",0.55,0.36,0.75),l("5",0.90,0.50,0.14),l("1",0.42,0.22,0.68)], distanceMeters: 175, issueLines: [
-            i("1",0.42,0.22,0.68,"Metro","vers Weststation",.low),
-            i("5",0.90,0.50,0.14,"Metro","vers Herrmann-Debroux",.medium),
-            i("4",0.91,0.28,0.44,"Tram","vers Stalle",.high)
-        ], coordinate: c(50.8509, 4.3535)),
-        .init(name: "Palais", lines: [l("92",0.82,0.27,0.12)], distanceMeters: 200, issueLines: [
-            i("92",0.82,0.27,0.12,"Tram","vers Schaerbeek Gare",.medium)
-        ], coordinate: c(50.8423, 4.3666)),
-        .init(name: "Sainte-Catherine", lines: [l("1",0.42,0.22,0.68),l("5",0.90,0.50,0.14)], distanceMeters: 250, issueLines: [
-            i("1",0.42,0.22,0.68,"Metro","vers Stockel",.low),
-            i("5",0.90,0.50,0.14,"Metro","vers Erasme",.medium)
-        ], coordinate: c(50.8511, 4.3493)),
-        .init(name: "Ravenstein", lines: [l("38",0.55,0.36,0.75),l("52",0.95,0.65,0.12),l("71",0.18,0.62,0.23)], distanceMeters: 300, issueLines: [
-            i("38",0.55,0.36,0.75,"Bus","vers Homborch",.low),
-            i("52",0.95,0.65,0.12,"Bus","vers Gare Centrale",.medium),
-            i("71",0.18,0.62,0.23,"Bus","vers Delta",.high)
-        ], coordinate: c(50.8434, 4.3635)),
-    ]
-}

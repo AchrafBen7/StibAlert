@@ -29,6 +29,14 @@ enum AuthService {
         try await APIClient.shared.request("/api/utilisateurs/me", requiresAuth: true)
     }
 
+    static func renvoyerCode(activationToken: String) async throws -> InscriptionResponse {
+        try await APIClient.shared.request(
+            "/api/utilisateurs/renvoyer-code",
+            method: .POST,
+            body: RenvoyerCodeRequest(activationToken: activationToken)
+        )
+    }
+
     static func deconnexion() async throws {
         let _: MessageResponse = try await APIClient.shared.request(
             "/api/utilisateurs/deconnexion",
@@ -36,4 +44,8 @@ enum AuthService {
             requiresAuth: true
         )
     }
+}
+
+private struct RenvoyerCodeRequest: Encodable {
+    let activationToken: String
 }

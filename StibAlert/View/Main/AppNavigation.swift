@@ -12,4 +12,5 @@ final class AppNavigation: ObservableObject {
     @Published var currentPage: AppPage = .home
     @Published var showReportSheet = false
     @Published var showSideMenu = false
+    @Published var showAuthFlow = false
 }

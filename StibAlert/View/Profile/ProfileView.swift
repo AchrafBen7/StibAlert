@@ -5,6 +5,7 @@ struct ProfileView: View {
     @EnvironmentObject private var session: AuthSession
     @EnvironmentObject private var stibi: StibiCenter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openURL) private var openURL
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
@@ -14,10 +15,10 @@ struct ProfileView: View {
     @State private var dataSharingEnabled = true
     @State private var locationTrackingEnabled = false
     @State private var adsPersonalizationEnabled = false
-    @State private var firstName = "Achraf"
-    @State private var lastName = "Benali"
-    @State private var email = "Achrafb768@gmail.com"
-    @State private var username = "user-48155848"
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var email = ""
+    @State private var username = ""
     @State private var commuteEnabled = false
     @State private var homeLabel = "Domicile"
     @State private var workLabel = "Travail"
@@ -194,14 +195,18 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
 
-            Text("Parametres")
+            Text("Paramètres")
                 .font(.custom("Montserrat-SemiBold", size: 20))
                 .foregroundStyle(.white)
         }
     }
 
     private var feedbackButton: some View {
-        Button {} label: {
+        Button {
+            if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
+                openURL(url)
+            }
+        } label: {
             HStack(spacing: 8) {
                 Text("Votre avis compte")
                     .font(.custom("Montserrat-Regular", size: 12))
@@ -442,7 +447,7 @@ private struct LanguageSettingsView: View {
                 .padding(.bottom, 24)
             }
 
-            Button {} label: {
+            Button(action: onBack) {
                 Text("Continuer")
                     .font(.custom("DelaGothicOne-Regular", size: 16))
                     .foregroundStyle(.black)
@@ -1047,6 +1052,9 @@ private struct PrivacySettingsView: View {
     @Binding var adsPersonalizationEnabled: Bool
     let onBack: () -> Void
     let onClose: () -> Void
+    @Environment(\.openURL) private var openURL
+
+    private let privacyPolicyURL = URL(string: "https://stib-alert-backend.onrender.com/privacy")!
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -1054,6 +1062,24 @@ private struct PrivacySettingsView: View {
                 header
                     .padding(.horizontal, 21)
                     .padding(.top, 12)
+
+                Button {
+                    openURL(privacyPolicyURL)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 13))
+                        Text("Lire la politique de confidentialité complète")
+                            .font(.custom("Montserrat-Regular", size: 13))
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundStyle(Color(hex: "#3E7BFE"))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
 
                 Text("Paramètres de confidentialité")
                     .font(.custom("DelaGothicOne-Regular", size: 14))
@@ -1095,8 +1121,9 @@ private struct PrivacySettingsView: View {
                 VStack(spacing: 0) {
                     PrivacyActionRow(
                         title: "Applications tierces",
-                        description: "Certaines fonctionnalités peuvent s’appuyer sur des services externes.",
-                        actionLabel: "Apps"
+                        description: "Certaines fonctionnalités peuvent s’appuyer sur des services externes (OneSignal, Cloudinary, Anthropic).",
+                        actionLabel: "Apps",
+                        learnMoreURL: URL(string: "https://stib-alert-backend.onrender.com/privacy")
                     )
                     PrivacyActionRow(
                         title: "Télécharger vos données",
@@ -1179,6 +1206,8 @@ private struct PrivacyActionRow: View {
     let title: String
     let description: String
     let actionLabel: String
+    var learnMoreURL: URL? = nil
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -1192,11 +1221,13 @@ private struct PrivacyActionRow: View {
                     .foregroundStyle(.black)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Button("En savoir plus") {}
-                    .buttonStyle(.plain)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(Color(hex: "#3E7BFE"))
-                    .padding(.top, 2)
+                if let url = learnMoreURL {
+                    Button("En savoir plus") { openURL(url) }
+                        .buttonStyle(.plain)
+                        .font(.custom("Montserrat-Regular", size: 12))
+                        .foregroundStyle(Color(hex: "#3E7BFE"))
+                        .padding(.top, 2)
+                }
             }
 
             Spacer(minLength: 12)
@@ -1275,9 +1306,12 @@ private struct SupportSettingsView: View {
 
 private struct SupportRow: View {
     let item: SupportItem
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        Button {} label: {
+        Button {
+            if let url = item.url { openURL(url) }
+        } label: {
             HStack(spacing: 15) {
                 Image(systemName: "questionmark.bubble")
                     .font(.system(size: 24, weight: .regular))
@@ -1315,6 +1349,7 @@ private struct SupportRow: View {
 }
 
 private struct SupportItem: Identifiable {
+    let url: URL?
     let id = UUID()
     let title: String
     let subtitle: String
@@ -1323,10 +1358,10 @@ private struct SupportItem: Identifiable {
 
 private enum SupportMockData {
     static let items: [SupportItem] = [
-        .init(title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
-        .init(title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
-        .init(title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
-        .init(title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
+        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Aide%20StibAlert"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
+        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Bug%20StibAlert"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
+        .init(url: URL(string: "mailto:community@stib-alert.be"), title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
+        .init(url: URL(string: "mailto:contact@stib-alert.be?subject=Contact%20StibAlert"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
     ]
 }
 

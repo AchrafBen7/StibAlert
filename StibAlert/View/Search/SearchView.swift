@@ -157,7 +157,12 @@ struct SearchView: View {
                             }
                         },
                         onSelectAlternative: { alternative in
-                            guidanceSession.start(with: alternative, locationManager: locationManager)
+                            guidanceSession.start(
+                                with: alternative,
+                                locationManager: locationManager,
+                                originName: viewState.journey?.origin.name ?? "",
+                                destinationName: viewState.journey?.destination.name ?? ""
+                            )
                         }
                     )
                     .padding(.horizontal, DesignSystem.Spacing.md)
@@ -329,52 +334,16 @@ struct SearchJourney {
 }
 
 enum SearchJourneyMockData {
-    static let places: [SearchPlace] = [
-        .init(
-            id: "central",
-            name: "Bruxelles-Central",
-            subtitle: "Historic core and fast interchange",
-            coordinate: .init(latitude: 50.8466, longitude: 4.3572)
-        ),
-        .init(
-            id: "arts-loi",
-            name: "Arts-Loi",
-            subtitle: "European quarter connection",
-            coordinate: .init(latitude: 50.8455, longitude: 4.3697)
-        ),
-        .init(
-            id: "rogier",
-            name: "Rogier",
-            subtitle: "Retail district and metro hub",
-            coordinate: .init(latitude: 50.8559, longitude: 4.3603)
-        ),
-        .init(
-            id: "heysel",
-            name: "Heysel",
-            subtitle: "Northern events and expo zone",
-            coordinate: .init(latitude: 50.8949, longitude: 4.3417)
-        ),
-        .init(
-            id: "ulb",
-            name: "ULB Solbosch",
-            subtitle: "Campus and southern tram corridor",
-            coordinate: .init(latitude: 50.8138, longitude: 4.3815)
-        )
-    ]
-
-    static let defaultOrigin = places[0]
-
     static func journey(from origin: SearchPlace, to destination: SearchPlace) -> SearchJourney {
         let path = curvedPath(from: origin.coordinate, to: destination.coordinate)
         let eta = estimatedMinutes(from: origin.coordinate, to: destination.coordinate)
-        let lines = suggestedLineSummary(from: origin, to: destination)
 
         return .init(
             origin: origin,
             destination: destination,
             path: path,
             eta: eta,
-            lineSummary: lines,
+            lineSummary: "",
             isReal: false,
             alternatives: [],
             nearbyVehicles: SearchTransitCorridorAnalyzer.nearbyVehicles(for: path)
@@ -422,15 +391,4 @@ enum SearchJourneyMockData {
         return max(8, Int((kilometers / 0.55).rounded()))
     }
 
-    private static func suggestedLineSummary(from origin: SearchPlace, to destination: SearchPlace) -> String {
-        let combos: [Set<String>: String] = [
-            Set(["central", "arts-loi"]): "Metro 1 / 5",
-            Set(["central", "rogier"]): "Metro 2 / 6",
-            Set(["arts-loi", "ulb"]): "Tram 8 + Metro 2",
-            Set(["rogier", "heysel"]): "Metro 6",
-            Set(["central", "ulb"]): "Bus 95 + Tram 8",
-        ]
-
-        return combos[Set([origin.id, destination.id])] ?? "Metro + Tram mix"
-    }
 }

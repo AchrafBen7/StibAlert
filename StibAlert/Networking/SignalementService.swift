@@ -63,8 +63,7 @@ enum SignalementService {
     static func signalerFaux(signalementId: String) async throws {
         let _: MessageResponse = try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/signalement-faux",
-            method: .POST,
-            requiresAuth: true
+            method: .POST
         )
     }
 

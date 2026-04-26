@@ -12,6 +12,7 @@ struct SignalementMiniCard: View {
     @State private var userAction: String?
     @State private var feedback: String?
     @State private var showConfidenceExplanation = false
+    @State private var reportedFake = false
 
     private var accentColor: Color {
         switch signalement.typeProbleme {
@@ -132,6 +133,19 @@ struct SignalementMiniCard: View {
                 )
             }
             .padding(.top, 14)
+
+            Button(action: triggerReportFake) {
+                HStack(spacing: 5) {
+                    Image(systemName: reportedFake ? "flag.fill" : "flag")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(reportedFake ? "Signalé comme faux" : "Signaler comme faux / abus")
+                        .font(.custom("Montserrat-Regular", size: 12))
+                }
+                .foregroundStyle(reportedFake ? AppTheme.Palette.textSecondary : AppTheme.Palette.alert.opacity(0.8))
+            }
+            .buttonStyle(.plain)
+            .disabled(reportedFake || isSubmitting)
+            .padding(.top, 6)
         }
         .padding(16)
         .background(AppTheme.Palette.surface)
@@ -213,6 +227,19 @@ struct SignalementMiniCard: View {
             await onResolved()
             feedback = "Merci, le signalement est marqué résolu."
             isSubmitting = false
+        }
+    }
+
+    private func triggerReportFake() {
+        guard !reportedFake && !isSubmitting else { return }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Task {
+            do {
+                try await SignalementService.signalerFaux(signalementId: signalement.id)
+                reportedFake = true
+            } catch {
+                // Silent fail — user has already reported or network error
+            }
         }
     }
 }

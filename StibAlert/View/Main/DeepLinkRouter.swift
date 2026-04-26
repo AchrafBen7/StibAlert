@@ -10,6 +10,7 @@ enum DeepLink: Equatable {
     case signalementDetail(id: String)
     case stibiCommute
     case stibi
+    case route(fromName: String, fromLat: Double, fromLng: Double, toName: String, toLat: Double, toLng: Double)
 }
 
 enum DeepLinkRouter {
@@ -42,9 +43,35 @@ enum DeepLinkRouter {
         case "stibi":
             if segments.first == "commute" { return .stibiCommute }
             return .stibi
+        case "route":
+            let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let qis = comps?.queryItems ?? []
+            func q(_ key: String) -> String? { qis.first(where: { $0.name == key })?.value }
+            guard let fromName = q("fromName"),
+                  let fromLat = q("fromLat").flatMap(Double.init),
+                  let fromLng = q("fromLng").flatMap(Double.init),
+                  let toName = q("toName"),
+                  let toLat = q("toLat").flatMap(Double.init),
+                  let toLng = q("toLng").flatMap(Double.init) else { return .home }
+            return .route(fromName: fromName, fromLat: fromLat, fromLng: fromLng, toName: toName, toLat: toLat, toLng: toLng)
         default:
             return nil
         }
+    }
+
+    static func routeURL(fromName: String, fromLat: Double, fromLng: Double, toName: String, toLat: Double, toLng: Double) -> URL? {
+        var comps = URLComponents()
+        comps.scheme = scheme
+        comps.host = "route"
+        comps.queryItems = [
+            .init(name: "fromName", value: fromName),
+            .init(name: "fromLat", value: String(fromLat)),
+            .init(name: "fromLng", value: String(fromLng)),
+            .init(name: "toName", value: toName),
+            .init(name: "toLat", value: String(toLat)),
+            .init(name: "toLng", value: String(toLng))
+        ]
+        return comps.url
     }
 
     static func parse(_ raw: String?) -> DeepLink? {

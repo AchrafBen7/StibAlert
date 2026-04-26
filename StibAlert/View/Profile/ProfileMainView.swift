@@ -7,8 +7,17 @@ struct ProfileMainView: View {
     @State private var isLoggingOut = false
     @State private var remoteActivities: [ProfileActivityItem] = []
     @State private var detailSignalement: SignalementDTO? = nil
+    @State private var hasLoadedProfile = false
+    @State private var profileLoadError: String? = nil
 
     var body: some View {
+        if session.isGuest {
+            GuestTabPlaceholder(
+                reason: .profile,
+                onSignIn: { nav.showAuthFlow = true },
+                onSignUp: { nav.showAuthFlow = true }
+            )
+        } else {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 header
@@ -32,38 +41,80 @@ struct ProfileMainView: View {
                     .padding(.horizontal, 21)
                     .padding(.top, 34)
 
-                VStack(spacing: 16) {
-                    ForEach(activities) { activity in
+                if let profileLoadError {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(hex: "#FF7A7A"))
+                        Text(profileLoadError)
+                            .font(.custom("Montserrat-Regular", size: 12))
+                            .foregroundStyle(.white.opacity(0.8))
+                        Spacer()
                         Button {
-                            guard let signalement = activity.signalement else { return }
-                            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            detailSignalement = signalement
+                            self.profileLoadError = nil
+                            Task { await loadProfileData() }
                         } label: {
-                            ProfileActivityCard(activity: activity)
+                            Text("Réessayer")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .foregroundStyle(Color(hex: "#7CB2FF"))
                         }
                         .buttonStyle(.plain)
-                        .disabled(activity.signalement == nil)
                     }
+                    .padding(.horizontal, 21)
+                    .padding(.top, 14)
                 }
-                .padding(.horizontal, 21)
-                .padding(.top, 14)
 
-                Button {} label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .medium))
-                        Text("Voir tout vos signalements (5)")
-                            .font(.custom("Montserrat-Regular", size: 12))
+                if hasLoadedProfile && activities.isEmpty && profileLoadError == nil {
+                    VStack(spacing: 8) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(.white.opacity(0.4))
+                        Text("Aucun signalement pour l'instant")
+                            .font(.custom("Montserrat-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.5))
                     }
-                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 49)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .padding(.vertical, 32)
+                } else {
+                    VStack(spacing: 16) {
+                        ForEach(activities) { activity in
+                            Button {
+                                guard let signalement = activity.signalement else { return }
+                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                detailSignalement = signalement
+                            } label: {
+                                ProfileActivityCard(activity: activity)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(activity.signalement == nil)
+                        }
+                    }
+                    .padding(.horizontal, 21)
+                    .padding(.top, 14)
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 21)
-                .padding(.top, 13)
+
+                if !activities.isEmpty {
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.currentPage = .signalements
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Voir tous vos signalements (\(remoteActivities.count))")
+                                .font(.custom("Montserrat-Regular", size: 12))
+                        }
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 49)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 21)
+                    .padding(.top, 13)
+                }
 
                 logoutButton
                     .padding(.horizontal, 21)
@@ -86,6 +137,7 @@ struct ProfileMainView: View {
             await loadProfileData()
             await loadStibiContext()
         }
+        } // end else (guest check)
     }
 
     private var logoutButton: some View {
@@ -124,9 +176,7 @@ struct ProfileMainView: View {
 
     private var displayName: String { session.currentUser?.nom ?? "Invité" }
     private var displayEmail: String { session.currentUser?.email ?? "" }
-    private var activities: [ProfileActivityItem] {
-        remoteActivities.isEmpty ? ProfileMainMockData.activities : remoteActivities
-    }
+    private var activities: [ProfileActivityItem] { remoteActivities }
     private var reportCountText: String { "\(activities.count)" }
     private var reliabilityValue: String {
         guard !remoteActivities.isEmpty else { return "—" }
@@ -299,7 +349,8 @@ struct ProfileMainView: View {
     }
 
     private func loadProfileData() async {
-        guard AppConfig.isBackendEnabled else { return }
+        guard AppConfig.isBackendEnabled else { hasLoadedProfile = true; return }
+        defer { hasLoadedProfile = true }
         do {
             let user = try await UtilisateurService.me()
             session.applyCurrentUserUpdate(user)
@@ -315,8 +366,9 @@ struct ProfileMainView: View {
             } while collected.count < 5 && page <= totalPages
 
             remoteActivities = Array(collected.prefix(5)).map(ProfileActivityItem.from(signalement:))
+            profileLoadError = nil
         } catch {
-            print("Profile data load failed: \(error.localizedDescription)")
+            profileLoadError = "Impossible de charger vos signalements."
         }
     }
 
@@ -575,9 +627,3 @@ private extension Array where Element == ProfileActivityItem {
     }
 }
 
-private enum ProfileMainMockData {
-    static let activities: [ProfileActivityItem] = [
-        .init(id: "mock-1", line: "7", lineColor: Color(hex: "#FFDC01"), lineTextColor: .black, title: "Retard", when: "Il y a 2 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heysel", confirmations: 48, background: Color(hex: "#FFC98D"), signalement: nil),
-        .init(id: "mock-2", line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, title: "Accident", when: "Il y a 3 jours", description: "Panne technique sur la ligne, service\ntemporairement interrompu", location: "Heembeek", confirmations: 48, background: Color(hex: "#FFB3B7"), signalement: nil)
-    ]
-}

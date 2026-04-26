@@ -7,6 +7,7 @@ import OneSignalFramework
 
 extension Notification.Name {
     static let stibiPushOpened = Notification.Name("stibiPushOpened")
+    static let stibiRouteDeepLink = Notification.Name("stibiRouteDeepLink")
 }
 
 final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {

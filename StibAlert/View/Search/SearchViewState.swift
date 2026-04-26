@@ -3,7 +3,12 @@ import Foundation
 @MainActor
 final class SearchViewState: ObservableObject {
     @Published var selectedScope: SearchScope = .all
-    @Published var origin = SearchJourneyMockData.defaultOrigin
+    @Published var origin = SearchPlace(
+        id: "brussels-center",
+        name: "Bruxelles",
+        subtitle: "Région de Bruxelles-Capitale",
+        coordinate: .init(latitude: 50.8503, longitude: 4.3517)
+    )
     @Published var destination: SearchPlace?
     @Published var activeField: SearchField = .none
     @Published var query = ""
@@ -33,14 +38,13 @@ final class SearchViewState: ObservableObject {
     }
 
     func visiblePlaces(currentPlace: SearchPlace?) -> [SearchPlace] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        var base = SearchJourneyMockData.places
+        var base: [SearchPlace] = []
 
         if activeField == .origin, let currentPlace {
-            base.removeAll { $0.id == currentPlace.id }
             base.insert(currentPlace, at: 0)
         }
 
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return base }
 
         return base.filter {

@@ -102,12 +102,37 @@ struct SearchJourneySummaryCard: View {
                 Spacer()
             }
 
-            Button("Change destination") {
-                onEditDestination()
+            HStack(spacing: 10) {
+                Button("Change destination") {
+                    onEditDestination()
+                }
+                .buttonStyle(SecondaryButton())
+                .accessibilityLabel("Modifier la destination")
+                .accessibilityHint("Rouvre la recherche pour changer le trajet.")
+
+                if let shareURL = DeepLinkRouter.routeURL(
+                    fromName: journey.origin.name,
+                    fromLat: journey.origin.coordinate.latitude,
+                    fromLng: journey.origin.coordinate.longitude,
+                    toName: journey.destination.name,
+                    toLat: journey.destination.coordinate.latitude,
+                    toLng: journey.destination.coordinate.longitude
+                ) {
+                    ShareLink(
+                        item: shareURL,
+                        subject: Text("Trajet StibAlert"),
+                        message: Text("\(journey.origin.name) → \(journey.destination.name) • \(journey.eta) min • \(journey.lineSummary)")
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(DesignSystem.Colors.primaryText)
+                            .frame(width: 44, height: 44)
+                            .background(DesignSystem.Colors.cardBackground.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .accessibilityLabel("Partager ce trajet")
+                }
             }
-            .buttonStyle(SecondaryButton())
-            .accessibilityLabel("Modifier la destination")
-            .accessibilityHint("Rouvre la recherche pour changer le trajet.")
         }
         .padding(18)
         .background(.ultraThinMaterial)

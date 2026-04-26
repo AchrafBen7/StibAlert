@@ -10,6 +10,9 @@
 		3885F9082E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */; };
 		3885F90A2E71FD09005F1CB1 /* Montserrat-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */; };
 		3885F90C2E71FD15005F1CB1 /* Montserrat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */; };
+		9B8AAF892F9BFF0900B8581A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B8AAF882F9BFF0900B8581A /* WidgetKit.framework */; };
+		9B8AAF8B2F9BFF0900B8581A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B8AAF8A2F9BFF0900B8581A /* SwiftUI.framework */; };
+		9B8AAF9A2F9BFF0A00B8581A /* StibAlertWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B8AAF862F9BFF0900B8581A /* StibAlertWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
 		A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = A15F44003C01000100A1B2C3 /* SocketIO */; };
 		A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = A16F55003C22000100A1B2C3 /* OneSignalFramework */; };
@@ -30,7 +33,28 @@
 			remoteGlobalIDString = 3831C0802D79C1D100452AA0;
 			remoteInfo = StibAlert;
 		};
+		9B8AAF982F9BFF0A00B8581A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3831C0792D79C1D100452AA0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9B8AAF852F9BFF0900B8581A;
+			remoteInfo = StibAlertWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9B8AAF9B2F9BFF0A00B8581A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9B8AAF9A2F9BFF0A00B8581A /* StibAlertWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		3831C0812D79C1D100452AA0 /* StibAlert.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StibAlert.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -39,6 +63,9 @@
 		3885F9072E71FCE3005F1CB1 /* DelaGothicOne-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "DelaGothicOne-Regular.ttf"; sourceTree = "<group>"; };
 		3885F9092E71FD09005F1CB1 /* Montserrat-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-SemiBold.ttf"; sourceTree = "<group>"; };
 		3885F90B2E71FD15005F1CB1 /* Montserrat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Montserrat-Regular.ttf"; sourceTree = "<group>"; };
+		9B8AAF862F9BFF0900B8581A /* StibAlertWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StibAlertWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9B8AAF882F9BFF0900B8581A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		9B8AAF8A2F9BFF0900B8581A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -48,6 +75,13 @@
 				Info.plist,
 			);
 			target = 3831C0802D79C1D100452AA0 /* StibAlert */;
+		};
+		9B8AAF9E2F9BFF0A00B8581A /* Exceptions for "StibAlertWidget" folder in "StibAlertWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9B8AAF852F9BFF0900B8581A /* StibAlertWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -68,6 +102,14 @@
 				3885F90E2E71FFDB005F1CB1 /* Exceptions for "StibAlert" folder in "StibAlert" target */,
 			);
 			path = StibAlert;
+			sourceTree = "<group>";
+		};
+		9B8AAF8C2F9BFF0900B8581A /* StibAlertWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9B8AAF9E2F9BFF0A00B8581A /* Exceptions for "StibAlertWidget" folder in "StibAlertWidgetExtension" target */,
+			);
+			path = StibAlertWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -97,6 +139,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9B8AAF832F9BFF0900B8581A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B8AAF8B2F9BFF0900B8581A /* SwiftUI.framework in Frameworks */,
+				9B8AAF892F9BFF0900B8581A /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -106,6 +157,8 @@
 				3885F9062E71FC83005F1CB1 /* Fonts */,
 				3831C0942D79C1D400452AA0 /* StibAlertTests */,
 				3831C09E2D79C1D400452AA0 /* StibAlertUITests */,
+				9B8AAF8C2F9BFF0900B8581A /* StibAlertWidget */,
+				9B8AAF872F9BFF0900B8581A /* Frameworks */,
 				3831C0822D79C1D100452AA0 /* Products */,
 				3831C0CE2D79D7B700452AA0 /* StibAlert */,
 			);
@@ -117,6 +170,7 @@
 				3831C0812D79C1D100452AA0 /* StibAlert.app */,
 				3831C0912D79C1D400452AA0 /* StibAlertTests.xctest */,
 				3831C09B2D79C1D400452AA0 /* StibAlertUITests.xctest */,
+				9B8AAF862F9BFF0900B8581A /* StibAlertWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -131,6 +185,15 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		9B8AAF872F9BFF0900B8581A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9B8AAF882F9BFF0900B8581A /* WidgetKit.framework */,
+				9B8AAF8A2F9BFF0900B8581A /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -141,10 +204,12 @@
 				3831C07D2D79C1D100452AA0 /* Sources */,
 				3831C07E2D79C1D100452AA0 /* Frameworks */,
 				3831C07F2D79C1D100452AA0 /* Resources */,
+				9B8AAF9B2F9BFF0A00B8581A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9B8AAF992F9BFF0A00B8581A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				3831C0CE2D79D7B700452AA0 /* StibAlert */,
@@ -205,6 +270,28 @@
 			productReference = 3831C09B2D79C1D400452AA0 /* StibAlertUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		9B8AAF852F9BFF0900B8581A /* StibAlertWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9B8AAF9F2F9BFF0A00B8581A /* Build configuration list for PBXNativeTarget "StibAlertWidgetExtension" */;
+			buildPhases = (
+				9B8AAF822F9BFF0900B8581A /* Sources */,
+				9B8AAF832F9BFF0900B8581A /* Frameworks */,
+				9B8AAF842F9BFF0900B8581A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9B8AAF8C2F9BFF0900B8581A /* StibAlertWidget */,
+			);
+			name = StibAlertWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = StibAlertWidgetExtension;
+			productReference = 9B8AAF862F9BFF0900B8581A /* StibAlertWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -212,7 +299,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					3831C0802D79C1D100452AA0 = {
@@ -225,6 +312,9 @@
 					3831C09A2D79C1D400452AA0 = {
 						CreatedOnToolsVersion = 16.2;
 						TestTargetID = 3831C0802D79C1D100452AA0;
+					};
+					9B8AAF852F9BFF0900B8581A = {
+						CreatedOnToolsVersion = 26.0.1;
 					};
 				};
 			};
@@ -250,6 +340,7 @@
 				3831C0802D79C1D100452AA0 /* StibAlert */,
 				3831C0902D79C1D400452AA0 /* StibAlertTests */,
 				3831C09A2D79C1D400452AA0 /* StibAlertUITests */,
+				9B8AAF852F9BFF0900B8581A /* StibAlertWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -273,6 +364,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3831C0992D79C1D400452AA0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9B8AAF842F9BFF0900B8581A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -303,6 +401,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9B8AAF822F9BFF0900B8581A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -315,6 +420,11 @@
 			isa = PBXTargetDependency;
 			target = 3831C0802D79C1D100452AA0 /* StibAlert */;
 			targetProxy = 3831C09C2D79C1D400452AA0 /* PBXContainerItemProxy */;
+		};
+		9B8AAF992F9BFF0A00B8581A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9B8AAF852F9BFF0900B8581A /* StibAlertWidgetExtension */;
+			targetProxy = 9B8AAF982F9BFF0A00B8581A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -443,10 +553,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = StibAlert/StibAlert.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"StibAlert/Preview Content\"";
-				DEVELOPMENT_TEAM = M8S7S446XZ;
+				DEVELOPMENT_TEAM = SLUL8PUP37;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StibAlert/Info.plist;
@@ -480,10 +591,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = StibAlert/StibAlert.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"StibAlert/Preview Content\"";
-				DEVELOPMENT_TEAM = M8S7S446XZ;
+				DEVELOPMENT_TEAM = SLUL8PUP37;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StibAlert/Info.plist;
@@ -580,6 +692,78 @@
 			};
 			name = Release;
 		};
+		9B8AAF9C2F9BFF0A00B8581A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = StibAlertWidget/StibAlertWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLUL8PUP37;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StibAlertWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StibAlertWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ehb.StibAlert.StibAlertWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		9B8AAF9D2F9BFF0A00B8581A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = StibAlertWidget/StibAlertWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLUL8PUP37;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StibAlertWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StibAlertWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ehb.StibAlert.StibAlertWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -615,6 +799,15 @@
 			buildConfigurations = (
 				3831C0AC2D79C1D400452AA0 /* Debug */,
 				3831C0AD2D79C1D400452AA0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9B8AAF9F2F9BFF0A00B8581A /* Build configuration list for PBXNativeTarget "StibAlertWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9B8AAF9C2F9BFF0A00B8581A /* Debug */,
+				9B8AAF9D2F9BFF0A00B8581A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

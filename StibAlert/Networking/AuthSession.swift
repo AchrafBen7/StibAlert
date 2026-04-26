@@ -41,6 +41,11 @@ final class AuthSession: ObservableObject {
         return false
     }
 
+    var isGuest: Bool {
+        if case .signedOut = state { return true }
+        return false
+    }
+
     var currentUser: UtilisateurDTO? {
         if case .signedIn(let u) = state { return u }
         return nil
@@ -83,6 +88,14 @@ final class AuthSession: ObservableObject {
         state = .signedIn(auth.utilisateur)
         PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
+    }
+
+    func renvoyerCode() async throws {
+        guard let token = pendingActivationToken else {
+            throw APIError.server(status: 0, message: "Aucune activation en attente.")
+        }
+        let response = try await AuthService.renvoyerCode(activationToken: token)
+        pendingActivationToken = response.activationToken
     }
 
     func connexion(email: String, motDePasse: String) async throws {

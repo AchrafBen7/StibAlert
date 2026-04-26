@@ -9,12 +9,16 @@ struct SignalementsView: View {
     @State private var selectedLine: LineStatusItem?
     @State private var remoteLines: [LineStatusItem] = []
     @State private var isLoadingRemote = false
+    @State private var hasLoadedLines = false
+
+    private var displayLines: [LineStatusItem] {
+        AppConfig.isBackendEnabled ? remoteLines : (remoteLines.isEmpty ? LineStatusMockData.all : remoteLines)
+    }
 
     private var filteredLines: [LineStatusItem] {
-        let source = remoteLines.isEmpty ? LineStatusMockData.all : remoteLines
         let base = selectedFilter == .all
-            ? source
-            : source.filter { $0.filter == selectedFilter }
+            ? displayLines
+            : displayLines.filter { $0.filter == selectedFilter }
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return base }
@@ -26,7 +30,7 @@ struct SignalementsView: View {
     }
 
     private var availableLinesCount: Int {
-        remoteLines.isEmpty ? LineStatusMockData.availableCount : remoteLines.count
+        displayLines.count
     }
 
     var body: some View {
@@ -53,28 +57,41 @@ struct SignalementsView: View {
                         .padding(.horizontal, 21)
                         .padding(.top, 24)
 
-                    Text("\(availableLinesCount) lignes disponible")
-                        .font(.custom("DelaGothicOne-Regular", size: 12))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 21)
-                        .padding(.top, 18)
+                    if isLoadingRemote && !hasLoadedLines {
+                        Spacer()
+                        ProgressView()
+                            .tint(Color.white.opacity(0.6))
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                        Spacer()
+                    } else if AppConfig.isBackendEnabled && displayLines.isEmpty {
+                        linesEmptyState
+                    } else if filteredLines.isEmpty {
+                        linesSearchEmptyState
+                    } else {
+                        Text("\(availableLinesCount) ligne\(availableLinesCount == 1 ? "" : "s") disponible\(availableLinesCount == 1 ? "" : "s")")
+                            .font(.custom("DelaGothicOne-Regular", size: 12))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 21)
+                            .padding(.top, 18)
 
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 10) {
-                            ForEach(filteredLines) { line in
-                                Button {
-                                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
-                                        selectedLine = line
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 10) {
+                                ForEach(filteredLines) { line in
+                                    Button {
+                                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
+                                            selectedLine = line
+                                        }
+                                    } label: {
+                                        LineStatusCard(line: line)
                                     }
-                                } label: {
-                                    LineStatusCard(line: line)
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, 21)
+                            .padding(.top, 14)
+                            .padding(.bottom, 120)
                         }
-                        .padding(.horizontal, 21)
-                        .padding(.top, 14)
-                        .padding(.bottom, 24)
                     }
                 }
             }
@@ -110,7 +127,7 @@ struct SignalementsView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.black)
 
-                TextField("", text: $query, prompt: Text("Zoek hier naar een topic").foregroundStyle(Color.black.opacity(0.55)))
+                TextField("", text: $query, prompt: Text("Rechercher une ligne ou direction").foregroundStyle(Color.black.opacity(0.55)))
                     .font(.custom("Montserrat-Regular", size: 14))
                     .foregroundStyle(.black)
                     .textInputAutocapitalization(.words)
@@ -156,7 +173,10 @@ struct SignalementsView: View {
         guard AppConfig.isBackendEnabled else { return }
         guard !isLoadingRemote else { return }
         isLoadingRemote = true
-        defer { isLoadingRemote = false }
+        defer {
+            isLoadingRemote = false
+            hasLoadedLines = true
+        }
 
         async let etatTask: [LigneEtatDTO] = LigneService.etatLignes()
         async let signalementsTask: SignalementsListResponse = SignalementService.liste(page: 1, limit: 100)
@@ -247,6 +267,41 @@ struct SignalementsView: View {
             print("Signalements Stibi context failed: \(error.localizedDescription)")
         }
     }
+
+    private var linesEmptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color(hex: "#6CE8C8"))
+            Text("Tout roule")
+                .font(.custom("DelaGothicOne-Regular", size: 22))
+                .foregroundStyle(.white)
+            Text("Aucun incident signalé sur le réseau STIB pour le moment.")
+                .font(.custom("Montserrat-Regular", size: 13))
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var linesSearchEmptyState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 36, weight: .light))
+                .foregroundStyle(.white.opacity(0.4))
+            Text("Aucun résultat pour « \(query) »")
+                .font(.custom("Montserrat-Regular", size: 14))
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
 }
 
 private struct LineOverviewView: View {
@@ -257,12 +312,13 @@ private struct LineOverviewView: View {
     @State private var selectedStopDetail: TransportStopDTO?
     @State private var isLoadingStops = false
     @State private var isLoadingStopDetail = false
+    @State private var hasLoadedStops = false
 
     private var stops: [LineOverviewStop] {
         if let transportLine {
             return Self.stops(from: transportLine, fallbackColor: line.lineColor, fallbackTextColor: line.lineTextColor)
         }
-        return remoteStops.isEmpty ? LineOverviewMockData.stops(for: line) : remoteStops
+        return remoteStops
     }
 
     private var lineIncidents: [TransportIncidentDTO] {
@@ -299,17 +355,30 @@ private struct LineOverviewView: View {
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 14) {
-                    ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                        Button {
-                            Task { await loadStopDetail(for: stop) }
-                        } label: {
-                            LineOverviewStopRow(
-                                stop: stop,
-                                isFirst: index == 0,
-                                isLast: index == stops.count - 1
-                            )
+                    if isLoadingStops {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 40)
+                    } else if hasLoadedStops && stops.isEmpty {
+                        Text("Aucun arrêt disponible")
+                            .font(.custom("Montserrat-Regular", size: 14))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 40)
+                    } else {
+                        ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                            Button {
+                                Task { await loadStopDetail(for: stop) }
+                            } label: {
+                                LineOverviewStopRow(
+                                    stop: stop,
+                                    isFirst: index == 0,
+                                    isLast: index == stops.count - 1
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
 
                     if !lineIncidents.isEmpty {
@@ -423,10 +492,7 @@ private struct LineOverviewView: View {
 
     private var routeSummary: some View {
         HStack(spacing: 22) {
-            Label("45min", systemImage: "clock.arrow.circlepath")
-                .labelStyle(LineOverviewMetricLabelStyle())
-
-            Label("\(stops.count) arrets", systemImage: "mappin.and.ellipse")
+            Label("\(stops.count) arrêts", systemImage: "mappin.and.ellipse")
                 .labelStyle(LineOverviewMetricLabelStyle())
         }
     }
@@ -436,7 +502,7 @@ private struct LineOverviewView: View {
         guard AppConfig.isBackendEnabled else { return }
         guard !isLoadingStops else { return }
         isLoadingStops = true
-        defer { isLoadingStops = false }
+        defer { isLoadingStops = false; hasLoadedStops = true }
 
         do {
             let arrets = try await SignalementService.arretsParLigne(line.line)
@@ -489,7 +555,7 @@ private struct LineOverviewView: View {
         guard AppConfig.isBackendEnabled else { return }
         guard !isLoadingStops else { return }
         isLoadingStops = true
-        defer { isLoadingStops = false }
+        defer { isLoadingStops = false; hasLoadedStops = true }
 
         do {
             transportLine = try await TransportService.line(id: line.line)
@@ -1231,75 +1297,3 @@ enum LineStatusMockData {
     ]
 }
 
-enum LineOverviewMockData {
-    static func stops(for line: LineStatusItem) -> [LineOverviewStop] {
-        let baseNames = [
-            line.origin,
-            "Beekkant",
-            "Etangs Noirs",
-            "Comte de Flandre",
-            "Sainte-Catherine",
-            "De Brouckere",
-            "Gare Centrale",
-            "Parc",
-            "Arts-Loi",
-            "Maelbeek",
-            "Schuman",
-            "Mérode",
-            "Montgomery",
-            "Joséphine-Charlotte",
-            "Gribaumont",
-            "Tomberg",
-            "Roodebeek",
-            line.destination
-        ]
-
-        let connections: [[LineConnectionBadge]] = [
-            [badges("63", "#91BEE5", .black, 10), badges("66", "#0065A6", .white, 10), badges("65", "#F3C300", .black, 10), badges("89", "#B4BD10", .black, 10), badges("38", "#A67CB0", .white, 10), badges("52", "#FFDC01", .black, 10)],
-            [badges("1", "#8F4199", .white, 10), badges("2", "#ED7807", .white, 10), badges("5", "#F9A611", .white, 10), badges("6", "#0066A3", .white, 10), badges("87", "#4C8B33", .white, 10)],
-            [badges("1", "#8F4199", .white, 10), badges("5", "#F9A611", .white, 10), badges("13", "#91BEE5", .black, 10), badges("20", "#F3C300", .black, 10), badges("86", "#0066A3", .white, 10)],
-            [badges("1", "#8F4199", .white, 10), badges("5", "#F9A611", .white, 10), badges("13", "#91BEE5", .black, 10), badges("20", "#F3C300", .black, 10), badges("86", "#0066A3", .white, 10)],
-            [badges("1", "#8F4199", .white, 10), badges("5", "#F9A611", .white, 10), badges("13", "#91BEE5", .black, 10), badges("20", "#F3C300", .black, 10), badges("86", "#0066A3", .white, 10)],
-            [badges("1", "#8F4199", .white, 10), badges("5", "#F9A611", .white, 10), badges("13", "#91BEE5", .black, 10), badges("20", "#F3C300", .black, 10), badges("86", "#0066A3", .white, 10)],
-            [badges("3", "#8F4199", .white, 10), badges("4", "#EA4F80", .white, 10), badges("29", "#F3C300", .black, 9)],
-            [badges("12", "#4C8B33", .white, 9), badges("21", "#ED7807", .white, 9), badges("34", "#91BEE5", .black, 9)],
-            [badges("1", "#8F4199", .white, 10), badges("2", "#ED7807", .white, 10), badges("6", "#0066A3", .white, 10)],
-            [badges("36", "#91BEE5", .black, 9), badges("56", "#A67CB0", .white, 9), badges("79", "#F3C300", .black, 9)],
-            [badges("12", "#4C8B33", .white, 9), badges("21", "#ED7807", .white, 9), badges("36", "#91BEE5", .black, 9)],
-            [badges("81", "#91BEE5", .black, 9), badges("27", "#ED7807", .white, 9)],
-            [badges("7", "#EFE048", .black, 10), badges("25", "#F9A611", .white, 9)],
-            [badges("39", "#A67CB0", .white, 9), badges("44", "#91BEE5", .black, 9)],
-            [badges("28", "#4C8B33", .white, 9), badges("80", "#F3C300", .black, 9)],
-            [badges("42", "#EA4F80", .white, 9), badges("79", "#F3C300", .black, 9)],
-            [badges("45", "#91BEE5", .black, 9), badges("66", "#0065A6", .white, 9)],
-            [badges("39", "#A67CB0", .white, 9), badges("44", "#91BEE5", .black, 9), badges("76", "#ED7807", .white, 9)]
-        ]
-
-        let statuses: [LineHealthStatus] = [
-            .fluid, .critical, .disrupted, .disrupted, .fluid, .fluid, .fluid, .disrupted, .fluid,
-            .disrupted, .fluid, .fluid, .critical, .fluid, .disrupted, .fluid, .fluid, line.status
-        ]
-
-        let reports = [2, 19, 8, 5, 1, 1, 0, 3, 2, 4, 1, 0, 7, 1, 3, 0, 1, line.reportsCount]
-        let nextPassages = ["2, 5, 15 min", "1, 7, 11 min", "3, 9, 17 min", "4, 10, 18 min"]
-
-        return baseNames.enumerated().map { index, name in
-            LineOverviewStop(
-                backendId: nil,
-                stopId: nil,
-                name: name,
-                connections: connections[index],
-                nextPassages: nextPassages[index % nextPassages.count],
-                status: statuses[index],
-                reportsCount: reports[index],
-                confidenceText: nil,
-                fallbackColor: line.lineColor,
-                fallbackTextColor: line.lineTextColor
-            )
-        }
-    }
-
-    private static func badges(_ label: String, _ color: String, _ textColor: Color, _ fontSize: CGFloat) -> LineConnectionBadge {
-        LineConnectionBadge(label: label, color: Color(hex: color), textColor: textColor, fontSize: fontSize)
-    }
-}

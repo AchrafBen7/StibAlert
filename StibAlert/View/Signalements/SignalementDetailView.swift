@@ -10,6 +10,7 @@ struct SignalementDetailView: View {
     @State private var isSubmitting = false
     @State private var userAction: String? = nil
     @State private var feedback: String? = nil
+    @State private var reportedFake = false
 
     init(
         signalement: SignalementDTO,
@@ -241,21 +242,35 @@ struct SignalementDetailView: View {
     }
 
     private var actionsRow: some View {
-        HStack(spacing: 10) {
-            actionButton(
-                label: "Toujours bloqué",
-                icon: "exclamationmark.circle.fill",
-                background: AppTheme.Palette.warning,
-                isActive: userAction == "stillBlocked",
-                action: { triggerAction(kind: "stillBlocked") }
-            )
-            actionButton(
-                label: "Résolu",
-                icon: "checkmark.circle.fill",
-                background: AppTheme.Palette.success,
-                isActive: userAction == "resolved",
-                action: { triggerAction(kind: "resolved") }
-            )
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                actionButton(
+                    label: "Toujours bloqué",
+                    icon: "exclamationmark.circle.fill",
+                    background: AppTheme.Palette.warning,
+                    isActive: userAction == "stillBlocked",
+                    action: { triggerAction(kind: "stillBlocked") }
+                )
+                actionButton(
+                    label: "Résolu",
+                    icon: "checkmark.circle.fill",
+                    background: AppTheme.Palette.success,
+                    isActive: userAction == "resolved",
+                    action: { triggerAction(kind: "resolved") }
+                )
+            }
+            Button(action: triggerReportFake) {
+                HStack(spacing: 5) {
+                    Image(systemName: reportedFake ? "flag.fill" : "flag")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(reportedFake ? "Signalé comme faux" : "Signaler comme faux / abus")
+                        .font(AppTheme.Fonts.caption)
+                }
+                .foregroundStyle(reportedFake ? AppTheme.Palette.textSecondary : AppTheme.Palette.alert.opacity(0.8))
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.plain)
+            .disabled(reportedFake || isSubmitting)
         }
     }
 
@@ -318,6 +333,19 @@ struct SignalementDetailView: View {
                 feedback = (error as? APIError)?.errorDescription ?? error.localizedDescription
             }
             isSubmitting = false
+        }
+    }
+
+    private func triggerReportFake() {
+        guard !reportedFake && !isSubmitting else { return }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Task {
+            do {
+                try await SignalementService.signalerFaux(signalementId: latest.id)
+                reportedFake = true
+            } catch {
+                // Silent fail
+            }
         }
     }
 

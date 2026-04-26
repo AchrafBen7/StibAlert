@@ -10,6 +10,7 @@ struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var locationManager = HomeLocationManager()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
+    @StateObject private var vehicleTracker = VehicleTrackingService()
     @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
 
     @State private var mapPosition: MapCameraPosition = .region(
@@ -38,21 +39,22 @@ struct HomeView: View {
     @State private var signalementsPage = 1
     @State private var signalementsTotalPages = 1
     @State private var isLoadingSignalements = false
+    @State private var hasLoadedSignalements = false
+    @State private var signalementLoadError: String? = nil
     @State private var transportOverview: TransportOverviewDTO?
     @State private var isLoadingTransportOverview = false
     @State private var stibiBrief: AssistantBriefDTO?
     @State private var isLoadingStibiBrief = false
     @State private var problemFilter: ReportProblemType? = nil
     @State private var cameraLatitudeDelta: Double = 0.04
-
-    private var homeSignalClusters: [SearchSignalCluster] {
-        Array(SearchSignalCluster.mockClusters.prefix(5))
-    }
+    @State private var showReportAuthGate = false
+    @State private var guestGateReason: GuestAuthReason = .report
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
         let typeProbleme: String
+        let source: String?
     }
 
     private var filteredSignalements: [SignalementDTO] {
@@ -66,14 +68,20 @@ struct HomeView: View {
             return LiveSignalPoint(
                 id: s.id,
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                typeProbleme: s.typeProbleme
+                typeProbleme: s.typeProbleme,
+                source: s.source
             )
         }
     }
 
+    private var officialSignalPoints: [LiveSignalPoint] {
+        liveSignalPoints.filter { $0.source == "stib_officiel" }
+    }
+
     private var mapClusters: [MapSignalCluster] {
-        MapSignalClusterer.cluster(
-            points: liveSignalPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme) },
+        let communityPoints = liveSignalPoints.filter { $0.source != "stib_officiel" }
+        return MapSignalClusterer.cluster(
+            points: communityPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme) },
             latitudeDelta: cameraLatitudeDelta
         )
     }
@@ -92,249 +100,23 @@ struct HomeView: View {
         return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
     }
 
+    private var mapVehicles: [TransportVehicleDTO] {
+        guard cameraLatitudeDelta <= 0.12 else { return [] }
+        return vehicleTracker.vehicles.filter { $0.latitude != nil && $0.longitude != nil }
+    }
+
     private var transitionSpring: Animation {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
 
+    // MARK: - Body
+
     var body: some View {
         ZStack {
-            Map(position: $mapPosition) {
-                ForEach(visibleLineShapes) { shape in
-                    MapPolyline(coordinates: shape.coordinates)
-                        .stroke(
-                            shape.color.opacity(0.85),
-                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
-                        )
-                }
-                MapCircle(center: locationManager.displayCoordinate, radius: 400)
-                    .foregroundStyle(AppTheme.Palette.screen.opacity(0.10))
-                    .stroke(AppTheme.Palette.info, lineWidth: 1)
-                Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
-                    UserLocationDotView(heading: locationManager.heading)
-                }
-                if let route = currentRoute {
-                    MapPolyline(route.polyline)
-                        .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                }
-                if let dest = destinationCoord {
-                    Annotation("", coordinate: dest, anchor: .bottom) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(AppTheme.Palette.info)
-                            .shadow(radius: 4)
-                    }
-                }
-                if liveSignalPoints.isEmpty {
-                    ForEach(homeSignalClusters.indices, id: \.self) { index in
-                        let cluster = homeSignalClusters[index]
-                        Annotation("", coordinate: cluster.coordinate.coordinate, anchor: .bottom) {
-                            HomeSignalMarker(cluster: cluster)
-                        }
-                    }
-                } else {
-                    ForEach(mapClusters) { cluster in
-                        Annotation("", coordinate: cluster.coordinate, anchor: .bottom) {
-                            Button {
-                                handleClusterTap(cluster)
-                            } label: {
-                                if cluster.count > 1 {
-                                    MapClusterMarker(count: cluster.count, dominantType: cluster.dominantType)
-                                } else {
-                                    LiveSignalMarker(problemType: cluster.dominantType)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .mapStyle(.standard(elevation: .realistic))
-            .environment(\.colorScheme, .dark)
-            .ignoresSafeArea()
-            .allowsHitTesting(!(showSearch && !searchSuggestions.isEmpty))
-            .onMapCameraChange(frequency: .onEnd) { ctx in
-                cameraLatitudeDelta = ctx.region.span.latitudeDelta
-            }
-
-            LinearGradient(
-                colors: [
-                    Color.clear,
-                    Color.black.opacity(0.10),
-                    Color.black.opacity(0.46),
-                    Color.black.opacity(0.72)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
-            VStack {
-                HStack {
-                    Spacer()
-
-                    if showSearch {
-                        HomeSearchBar(
-                            query: $searchQuery,
-                            onClose: {
-                                withAnimation(transitionSpring) {
-                                    showSearch = false
-                                    searchQuery = ""
-                                    searchSuggestions = []
-                                }
-                            }
-                        )
-                        .frame(width: 291)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                    } else {
-                        SearchCircleButton(action: {
-                            withAnimation(transitionSpring) { showSearch = true }
-                        })
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .animation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.28, dampingFraction: 0.88), value: showSearch)
-
-                if showSearch, !searchSuggestions.isEmpty {
-                    SearchSuggestionsDropdown(
-                        suggestions: searchSuggestions,
-                        isRouting: isRouting,
-                        onSelect: { item in
-                            Task { await buildRoute(to: item) }
-                        }
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(30)
-                }
-
-                Spacer()
-
-                HStack {
-                    Spacer()
-
-                    VStack(spacing: 12) {
-                        HelpFloatingButton {
-                            withAnimation(transitionSpring) {
-                                showLegend = true
-                            }
-                        }
-
-                        LocationFloatingButton {
-                            recenterOnUser()
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 172)
-            }
-            .zIndex(2)
-
-            if showLegend {
-                MapLegendOverlay {
-                    withAnimation(transitionSpring) {
-                        showLegend = false
-                    }
-                }
-                .transition(.opacity)
-                .zIndex(9)
-            }
-
-            if showRecentReportsSheet {
-                RecentReportsBottomSheet(
-                    items: recentReportItems,
-                    canLoadMore: signalementsPage < signalementsTotalPages,
-                    isLoadingMore: isLoadingSignalements,
-                    onLoadMore: {
-                        Task { await loadMoreRemoteSignalementsIfNeeded() }
-                    }
-                ) {
-                    withAnimation(transitionSpring) {
-                        showRecentReportsSheet = false
-                    }
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
-            }
-
-            if !routeOptions.isEmpty {
-                RouteRecommendationsSheet(
-                    options: routeOptions,
-                    selectedRouteID: $selectedRouteID,
-                    isExpanded: $isRouteSheetExpanded,
-                    onSelect: { option in
-                        applyRouteOption(option)
-                        selectedRouteDetail = option
-                    },
-                    onClose: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            routeOptions = []
-                            selectedRouteID = nil
-                            currentRoute = nil
-                            destinationCoord = nil
-                            isRouteSheetExpanded = false
-                            selectedRouteDetail = nil
-                        }
-                    }
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
-            }
-
-            if let selectedRouteDetail {
-                RouteItineraryDetailsView(
-                    option: selectedRouteDetail,
-                    onBack: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            self.selectedRouteDetail = nil
-                        }
-                    },
-                    onClose: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            self.selectedRouteDetail = nil
-                            routeOptions = []
-                            selectedRouteID = nil
-                            currentRoute = nil
-                            destinationCoord = nil
-                            isRouteSheetExpanded = false
-                        }
-                    },
-                    onShowMap: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            self.selectedRouteDetail = nil
-                        }
-                    },
-                    onStartAR: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            selectedARRoute = selectedRouteDetail
-                        }
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-                .zIndex(9)
-            }
-
-            if let selectedARRoute {
-                RouteARNavigationView(
-                    option: selectedARRoute,
-                    onClose: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            self.selectedARRoute = nil
-                        }
-                    }
-                )
-                .transition(.opacity)
-                .zIndex(11)
-            }
-
-            if nav.currentPage != .home {
-                pageOverlay
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .zIndex(6)
-            }
+            mapLayer
+            mapGradient
+            controlsLayer
+            zstackOverlays
         }
         .overlay(alignment: .bottom) {
             if nav.showReportSheet {
@@ -382,6 +164,32 @@ struct HomeView: View {
                         }
                     )
                     .padding(.horizontal, 20)
+
+                    if let signalementLoadError {
+                        HStack(spacing: 8) {
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(AppTheme.Palette.alert)
+                            Text(signalementLoadError)
+                                .font(AppTheme.Fonts.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                            Spacer()
+                            Button {
+                                self.signalementLoadError = nil
+                                Task { await loadRemoteSignalements() }
+                            } label: {
+                                Text("Réessayer")
+                                    .font(AppTheme.Fonts.captionStrong)
+                                    .foregroundStyle(AppTheme.Palette.info)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .padding(.horizontal, 20)
+                    }
 
                     HomeMapFilterBar(selected: $problemFilter)
                 }
@@ -452,6 +260,12 @@ struct HomeView: View {
                 .zIndex(8)
             }
         }
+        .guestAuthGate(
+            isPresented: $showReportAuthGate,
+            reason: guestGateReason,
+            onSignIn: { nav.showAuthFlow = true },
+            onSignUp: { nav.showAuthFlow = true }
+        )
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
@@ -459,9 +273,15 @@ struct HomeView: View {
             stibi.setCurrentScreen("home")
             locationManager.start()
             realtimeSignalements.connect()
+            vehicleTracker.start(lines: visibleLineNumbers)
         }
         .onDisappear {
             realtimeSignalements.disconnect()
+            vehicleTracker.stop()
+        }
+        .onChange(of: visibleLineNumbers) { _, newLines in
+            vehicleTracker.updateLines(newLines)
+            syncFavoritesToWidget(newLines)
         }
         .task { await loadRemoteSignalements() }
         .task { lineShapesLoader.loadIfNeeded() }
@@ -483,16 +303,11 @@ struct HomeView: View {
         }
         .onChange(of: nav.currentPage) { _, newValue in
             switch newValue {
-            case .home:
-                stibi.setCurrentScreen("home")
-            case .signalements:
-                stibi.setCurrentScreen("signalements")
-            case .favorites:
-                stibi.setCurrentScreen("favorites")
-            case .profile:
-                stibi.setCurrentScreen("profile")
-            case .profileMain:
-                stibi.setCurrentScreen("profile_main")
+            case .home:        stibi.setCurrentScreen("home")
+            case .signalements: stibi.setCurrentScreen("signalements")
+            case .favorites:   stibi.setCurrentScreen("favorites")
+            case .profile:     stibi.setCurrentScreen("profile")
+            case .profileMain: stibi.setCurrentScreen("profile_main")
             }
         }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }.first()) { coord in
@@ -510,16 +325,267 @@ struct HomeView: View {
         .onChange(of: searchQuery) { _, newValue in
             searchTask?.cancel()
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard showSearch, !trimmed.isEmpty else {
-            searchSuggestions = []
-            return
+            guard showSearch, !trimmed.isEmpty else {
+                searchSuggestions = []
+                return
             }
-
             searchTask = Task {
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 guard !Task.isCancelled else { return }
                 await searchSuggestions(for: trimmed)
             }
+        }
+    }
+
+    // MARK: - Map layer
+
+    @ViewBuilder private var mapLayer: some View {
+        Map(position: $mapPosition) {
+            ForEach(visibleLineShapes) { shape in
+                MapPolyline(coordinates: shape.coordinates)
+                    .stroke(
+                        shape.color.opacity(0.85),
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
+                    )
+            }
+            MapCircle(center: locationManager.displayCoordinate, radius: 400)
+                .foregroundStyle(AppTheme.Palette.screen.opacity(0.10))
+                .stroke(AppTheme.Palette.info, lineWidth: 1)
+            Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
+                UserLocationDotView(heading: locationManager.heading)
+            }
+            if let route = currentRoute {
+                MapPolyline(route.polyline)
+                    .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+            }
+            if let dest = destinationCoord {
+                Annotation("", coordinate: dest, anchor: .bottom) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(AppTheme.Palette.info)
+                        .shadow(radius: 4)
+                }
+            }
+            ForEach(officialSignalPoints) { point in
+                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
+                    Button { openPreview(for: point.id) } label: {
+                        OfficialSignalMarker(problemType: point.typeProbleme)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            ForEach(mapClusters) { cluster in
+                Annotation("", coordinate: cluster.coordinate, anchor: .bottom) {
+                    Button { handleClusterTap(cluster) } label: {
+                        if cluster.count > 1 {
+                            MapClusterMarker(count: cluster.count, dominantType: cluster.dominantType)
+                        } else {
+                            LiveSignalMarker(problemType: cluster.dominantType)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            ForEach(mapVehicles) { vehicle in
+                if let lat = vehicle.latitude, let lng = vehicle.longitude {
+                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
+                        VehicleMarker(vehicle: vehicle)
+                    }
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .realistic))
+        .environment(\.colorScheme, .dark)
+        .ignoresSafeArea()
+        .allowsHitTesting(!(showSearch && !searchSuggestions.isEmpty))
+        .onMapCameraChange(frequency: .onEnd) { ctx in
+            cameraLatitudeDelta = ctx.region.span.latitudeDelta
+        }
+    }
+
+    // MARK: - Map gradient
+
+    private var mapGradient: some View {
+        LinearGradient(
+            colors: [Color.clear, Color.black.opacity(0.10), Color.black.opacity(0.46), Color.black.opacity(0.72)],
+            startPoint: .top, endPoint: .bottom
+        )
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Controls (search + floating buttons)
+
+    @ViewBuilder private var controlsLayer: some View {
+        VStack {
+            HStack {
+                Spacer()
+
+                if showSearch {
+                    HomeSearchBar(
+                        query: $searchQuery,
+                        onClose: {
+                            withAnimation(transitionSpring) {
+                                showSearch = false
+                                searchQuery = ""
+                                searchSuggestions = []
+                            }
+                        }
+                    )
+                    .frame(width: 291)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                } else {
+                    SearchCircleButton(action: {
+                        withAnimation(transitionSpring) { showSearch = true }
+                    })
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .animation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.28, dampingFraction: 0.88), value: showSearch)
+
+            if showSearch, !searchSuggestions.isEmpty {
+                SearchSuggestionsDropdown(
+                        suggestions: searchSuggestions,
+                        isRouting: isRouting,
+                        onSelect: { item in
+                            Task { await buildRoute(to: item) }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(30)
+                }
+
+                Spacer()
+
+                HStack {
+                    Spacer()
+
+                    VStack(spacing: 12) {
+                        HelpFloatingButton {
+                            withAnimation(transitionSpring) {
+                                showLegend = true
+                            }
+                        }
+
+                        LocationFloatingButton {
+                            recenterOnUser()
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 172)
+            }
+            .zIndex(2)
+    }
+
+    // MARK: - ZStack overlays (legend, sheets, AR, page)
+
+    @ViewBuilder private var zstackOverlays: some View {
+        if showLegend {
+            MapLegendOverlay {
+                withAnimation(transitionSpring) {
+                    showLegend = false
+                }
+            }
+            .transition(.opacity)
+            .zIndex(9)
+        }
+
+        if showRecentReportsSheet {
+            RecentReportsBottomSheet(
+                items: recentReportItems,
+                canLoadMore: signalementsPage < signalementsTotalPages,
+                isLoadingMore: isLoadingSignalements,
+                onLoadMore: {
+                    Task { await loadMoreRemoteSignalementsIfNeeded() }
+                }
+            ) {
+                withAnimation(transitionSpring) {
+                    showRecentReportsSheet = false
+                }
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(8)
+        }
+
+        if !routeOptions.isEmpty {
+            RouteRecommendationsSheet(
+                options: routeOptions,
+                selectedRouteID: $selectedRouteID,
+                isExpanded: $isRouteSheetExpanded,
+                onSelect: { option in
+                    applyRouteOption(option)
+                    selectedRouteDetail = option
+                },
+                onClose: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        routeOptions = []
+                        selectedRouteID = nil
+                        currentRoute = nil
+                        destinationCoord = nil
+                        isRouteSheetExpanded = false
+                        selectedRouteDetail = nil
+                    }
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(8)
+        }
+
+        if let selectedRouteDetail {
+            RouteItineraryDetailsView(
+                option: selectedRouteDetail,
+                onBack: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        self.selectedRouteDetail = nil
+                    }
+                },
+                onClose: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        self.selectedRouteDetail = nil
+                        routeOptions = []
+                        selectedRouteID = nil
+                        currentRoute = nil
+                        destinationCoord = nil
+                        isRouteSheetExpanded = false
+                    }
+                },
+                onShowMap: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        self.selectedRouteDetail = nil
+                    }
+                },
+                onStartAR: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        selectedARRoute = selectedRouteDetail
+                    }
+                }
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+            .zIndex(9)
+        }
+
+        if let selectedARRoute {
+            RouteARNavigationView(
+                option: selectedARRoute,
+                onClose: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        self.selectedARRoute = nil
+                    }
+                }
+            )
+            .transition(.opacity)
+            .zIndex(11)
+        }
+
+        if nav.currentPage != .home {
+            pageOverlay
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .zIndex(6)
         }
     }
 
@@ -537,6 +603,12 @@ struct HomeView: View {
         )
     }
 
+    private func syncFavoritesToWidget(_ lines: Set<String>) {
+        if let shared = UserDefaults(suiteName: AppConfig.appGroupID) {
+            shared.set(lines.sorted(), forKey: "favoriteLines")
+        }
+    }
+
     private func recenterOnUser() {
         let coord = locationManager.displayCoordinate
         withAnimation(.easeInOut(duration: 0.6)) {
@@ -551,23 +623,24 @@ struct HomeView: View {
 
     @MainActor
     private func loadRemoteSignalements() async {
-        guard AppConfig.isBackendEnabled else { return }
+        guard AppConfig.isBackendEnabled else { hasLoadedSignalements = true; return }
         guard !isLoadingSignalements else { return }
         isLoadingSignalements = true
-        defer { isLoadingSignalements = false }
+        defer { isLoadingSignalements = false; hasLoadedSignalements = true }
         do {
             let response = try await SignalementService.liste(page: 1)
             remoteSignalements = response.signalements
             signalementsPage = response.pagination?.page ?? 1
             signalementsTotalPages = response.pagination?.totalPages ?? 1
             lastFetchedAt = Date()
+            signalementLoadError = nil
             if let stibiBrief {
                 let enriched = enrichHomeBriefWithCommunity(stibiBrief)
                 self.stibiBrief = enriched
                 stibi.consume(enriched)
             }
         } catch {
-            // Silencieux — les mocks restent affichés en cas d'échec réseau.
+            signalementLoadError = "Impossible de charger les signalements."
         }
     }
 
@@ -614,20 +687,30 @@ struct HomeView: View {
     }
 
     private func reportStillBlocked(id: String) async {
+        guard !session.isGuest else {
+            guestGateReason = .confirm
+            showReportAuthGate = true
+            return
+        }
         do {
             let response = try await SignalementService.toujoursBloque(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
         } catch {
-            // Silent fail; SignalementMiniCard affiche un message générique.
+            signalementLoadError = "Impossible d'envoyer ton vote. Réessaie."
         }
     }
 
     private func reportResolved(id: String) async {
+        guard !session.isGuest else {
+            guestGateReason = .confirm
+            showReportAuthGate = true
+            return
+        }
         do {
             let response = try await SignalementService.resoudre(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
         } catch {
-            // Silent fail.
+            signalementLoadError = "Impossible de marquer comme résolu. Réessaie."
         }
     }
 
@@ -708,10 +791,6 @@ struct HomeView: View {
     }
 
     private var recentReportItems: [RecentReportItem] {
-        if remoteSignalements.isEmpty {
-            return RecentReportItem.mockItems
-        }
-
         return remoteSignalements.prefix(10).map { signalement in
             RecentReportItem(
                 id: signalement.id,
@@ -988,10 +1067,10 @@ private struct WazeMenuPanel: View {
                             .foregroundStyle(AppTheme.Palette.textSecondary)
                     )
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("user-48155848")
+                    Text(session.currentUser?.nom ?? "Mon profil")
                         .font(AppTheme.Fonts.bodyStrong)
                         .foregroundStyle(AppTheme.Palette.textPrimary)
-                    Text("Mon profil")
+                    Text(session.currentUser?.email ?? "")
                         .font(AppTheme.Fonts.captionStrong)
                         .foregroundStyle(AppTheme.Palette.success)
                 }
@@ -1257,33 +1336,23 @@ private struct LiveSignalMarker: View {
     }
 }
 
-private struct HomeSignalMarker: View {
-    let cluster: SearchSignalCluster
-
-    private var backgroundColor: Color {
-        switch cluster.level {
-        case .low:
-            return AppTheme.Palette.success
-        case .medium:
-            return AppTheme.Palette.warning
-        case .high:
-            return AppTheme.Palette.alert
-        }
-    }
+private struct OfficialSignalMarker: View {
+    let problemType: String
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(backgroundColor)
-                .frame(width: cluster.count > 9 ? 24 : 20, height: 20)
-
-            Text("\(cluster.count)")
-                .font(.custom("DelaGothicOne-Regular", size: 7))
-                .foregroundStyle(.black)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(Color(hex: "#0055A4"))
+                .frame(width: 28, height: 20)
+                .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
+            Text("STIB")
+                .font(.system(size: 8, weight: .black))
+                .foregroundStyle(.white)
+                .kerning(0.5)
         }
         .accessibilityElement()
-        .accessibilityLabel("Groupe de \(cluster.count) signalements")
-        .accessibilityHint("Ouvre le détail des incidents à proximité")
+        .accessibilityLabel("Alerte officielle STIB — \(problemType)")
+        .accessibilityHint("Ouvre le détail de la perturbation officielle")
     }
 }
 
@@ -1594,10 +1663,6 @@ private struct RecentReportItem: Identifiable {
     let confidence: String?
     let community: SignalementCommunityDTO?
 
-    static let mockItems: [RecentReportItem] = [
-        .init(id: UUID().uuidString, line: "46", title: "Propreté", time: "Signalé il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu", signalementId: nil, status: nil, source: "Communauté", confidence: "Confiance haute", community: nil),
-        .init(id: UUID().uuidString, line: "46", title: "Propreté", time: "Signalé il y a 1 min", details: "Panne technique sur la ligne, service temporairement interrompu", signalementId: nil, status: nil, source: "Communauté", confidence: "Confiance moyenne", community: nil),
-    ]
 }
 
 private struct RecentReportCard: View {
@@ -1606,6 +1671,7 @@ private struct RecentReportCard: View {
     @State private var status: String?
     @State private var isSubmitting = false
     @State private var showConfidenceExplanation = false
+    @State private var actionError: String? = nil
 
     private var effectiveCommunity: SignalementCommunityDTO? { community ?? item.community }
     private var effectiveStatus: String? { status ?? item.status }
@@ -1693,7 +1759,11 @@ private struct RecentReportCard: View {
             }
 
             HStack(spacing: 10) {
-                communityPill(item.source ?? "Communauté", background: AppTheme.Palette.brandStrong, textColor: AppTheme.Palette.textOnBrand)
+                communityPill(
+                    item.source ?? "Communauté",
+                    background: (item.source?.contains("STIB") == true) ? Color(hex: "#0055A4") : AppTheme.Palette.brandStrong,
+                    textColor: AppTheme.Palette.textOnBrand
+                )
                 if isStale {
                     communityPill("Plus récent ?", background: AppTheme.Palette.surfaceMuted, textColor: AppTheme.Palette.textPrimary)
                 }
@@ -1712,6 +1782,12 @@ private struct RecentReportCard: View {
                     }
                 }
                 .opacity(isSubmitting ? 0.6 : 1)
+            }
+            if let actionError {
+                Text(actionError)
+                    .font(AppTheme.Fonts.caption)
+                    .foregroundStyle(AppTheme.Palette.alert)
+                    .padding(.top, 2)
             }
         }
         .padding(14)
@@ -1791,8 +1867,9 @@ private struct RecentReportCard: View {
             }
             community = response.community ?? community
             status = response.status ?? status
+            actionError = nil
         } catch {
-            print("RecentReport community action failed: \(error.localizedDescription)")
+            actionError = "Action non envoyée. Réessaie."
         }
     }
 

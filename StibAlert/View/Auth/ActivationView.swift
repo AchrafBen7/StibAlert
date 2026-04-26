@@ -4,8 +4,12 @@ struct ActivationView: View {
     @EnvironmentObject private var session: AuthSession
     @State private var code: String = ""
     @State private var isLoading = false
+    @State private var isResending = false
     @State private var errorMessage: String?
+    @State private var resendCooldown = 0
     @FocusState private var codeFocused: Bool
+
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -64,11 +68,31 @@ struct ActivationView: View {
                 .accessibilityLabel("Activer mon compte")
                 .accessibilityHint("Vérifie le code reçu par email pour finaliser le compte.")
 
+                Button(action: resend) {
+                    HStack(spacing: 6) {
+                        if isResending {
+                            ProgressView().tint(AppTheme.Colors.onboardingTitleSand)
+                        } else if resendCooldown > 0 {
+                            Text("Renvoyer le code (\(resendCooldown)s)")
+                        } else {
+                            Text("Renvoyer le code")
+                        }
+                    }
+                    .font(AppTheme.Fonts.body(14))
+                    .foregroundStyle(AppTheme.Colors.onboardingTitleSand.opacity(resendCooldown > 0 ? 0.5 : 1))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .disabled(isResending || resendCooldown > 0 || isLoading)
+
                 Spacer()
             }
             .padding(.horizontal, 28)
         }
         .onAppear { codeFocused = true }
+        .onReceive(timer) { _ in
+            if resendCooldown > 0 { resendCooldown -= 1 }
+        }
     }
 
     private func submit() {
@@ -81,6 +105,20 @@ struct ActivationView: View {
                 errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
             }
             isLoading = false
+        }
+    }
+
+    private func resend() {
+        isResending = true
+        errorMessage = nil
+        Task {
+            do {
+                try await session.renvoyerCode()
+                resendCooldown = 60
+            } catch {
+                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            }
+            isResending = false
         }
     }
 }
