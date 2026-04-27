@@ -15,7 +15,7 @@ enum APIError: Error, LocalizedError {
         case .decoding: return "Réponse serveur illisible."
         case .server(_, let msg): return msg ?? "Erreur serveur."
         case .unauthorized: return "Session expirée, reconnectez-vous."
-        case .backendDisabled: return AppConfig.backendDisabledMessage
+        case .backendDisabled: return "Fonctionnalités en ligne désactivées."
         }
     }
 }
@@ -87,6 +87,25 @@ struct APIClient {
         }
 
         if http.statusCode == 401 {
+            if requiresAuth, let newToken = await attemptTokenRefresh() {
+                var retryReq = req
+                retryReq.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+                guard let (retryData, retryResponse) = try? await session.data(for: retryReq),
+                      let retryHttp = retryResponse as? HTTPURLResponse else {
+                    NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                    throw APIError.unauthorized
+                }
+                if retryHttp.statusCode == 401 {
+                    NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                    throw APIError.unauthorized
+                }
+                guard (200..<300).contains(retryHttp.statusCode) else {
+                    let msg = (try? decoder.decode(ServerError.self, from: retryData))?.message
+                    throw APIError.server(status: retryHttp.statusCode, message: msg)
+                }
+                if Response.self == EmptyResponse.self { return EmptyResponse() as! Response }
+                do { return try decoder.decode(Response.self, from: retryData) } catch { throw APIError.decoding(error) }
+            }
             NotificationCenter.default.post(name: .sessionExpired, object: nil)
             throw APIError.unauthorized
         }
@@ -105,6 +124,25 @@ struct APIClient {
         } catch {
             throw APIError.decoding(error)
         }
+    }
+
+    // Direct call — bypasses retry logic to avoid recursion
+    private func attemptTokenRefresh() async -> String? {
+        guard let rawRefresh = KeychainHelper.readRefreshToken() else { return nil }
+        guard let url = URL(string: AppConfig.backendBaseURL + "/api/utilisateurs/refresh") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? encoder.encode(AnyEncodable(RefreshTokenRequest(refreshToken: rawRefresh)))
+        guard let (data, response) = try? await session.data(for: req),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let refreshed = try? decoder.decode(RefreshTokenResponse.self, from: data) else {
+            KeychainHelper.deleteRefreshToken()
+            return nil
+        }
+        KeychainHelper.saveToken(refreshed.token)
+        KeychainHelper.saveRefreshToken(refreshed.refreshToken)
+        return refreshed.token
     }
 
     func upload<Response: Decodable>(
@@ -146,6 +184,17 @@ struct APIClient {
             throw APIError.server(status: -1, message: nil)
         }
         if http.statusCode == 401 {
+            if requiresAuth, let newToken = await attemptTokenRefresh() {
+                var retryReq = req
+                retryReq.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+                guard let (retryData, retryResponse) = try? await session.data(for: retryReq),
+                      let retryHttp = retryResponse as? HTTPURLResponse,
+                      (200..<300).contains(retryHttp.statusCode) else {
+                    NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                    throw APIError.unauthorized
+                }
+                return try decoder.decode(Response.self, from: retryData)
+            }
             NotificationCenter.default.post(name: .sessionExpired, object: nil)
             throw APIError.unauthorized
         }

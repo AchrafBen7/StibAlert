@@ -44,6 +44,14 @@ enum AuthService {
             requiresAuth: true
         )
     }
+
+    static func refreshToken(_ refreshToken: String) async throws -> RefreshTokenResponse {
+        try await APIClient.shared.request(
+            "/api/utilisateurs/refresh",
+            method: .POST,
+            body: RefreshTokenRequest(refreshToken: refreshToken)
+        )
+    }
 }
 
 private struct RenvoyerCodeRequest: Encodable {

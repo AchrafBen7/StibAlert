@@ -24,6 +24,7 @@ final class AuthSession: ObservableObject {
                 guard let self else { return }
                 if self.isSignedIn {
                     KeychainHelper.deleteToken()
+                    KeychainHelper.deleteRefreshToken()
                     self.state = .signedOut
                 }
             }
@@ -83,6 +84,7 @@ final class AuthSession: ObservableObject {
         }
         let auth = try await AuthService.activation(activationToken: token, code: code)
         KeychainHelper.saveToken(auth.token)
+        if let refresh = auth.refreshToken { KeychainHelper.saveRefreshToken(refresh) }
         pendingActivationToken = nil
         pendingActivationEmail = nil
         state = .signedIn(auth.utilisateur)
@@ -101,6 +103,7 @@ final class AuthSession: ObservableObject {
     func connexion(email: String, motDePasse: String) async throws {
         let auth = try await AuthService.connexion(email: email, motDePasse: motDePasse)
         KeychainHelper.saveToken(auth.token)
+        if let refresh = auth.refreshToken { KeychainHelper.saveRefreshToken(refresh) }
         state = .signedIn(auth.utilisateur)
         PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
@@ -109,6 +112,7 @@ final class AuthSession: ObservableObject {
     func deconnexion() async {
         try? await AuthService.deconnexion()
         KeychainHelper.deleteToken()
+        KeychainHelper.deleteRefreshToken()
         pendingActivationToken = nil
         pendingActivationEmail = nil
         PushNotificationManager.current?.logoutOneSignal()

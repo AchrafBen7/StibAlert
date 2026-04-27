@@ -74,6 +74,16 @@ struct AuthResponse: Decodable {
     let message: String
     let utilisateur: UtilisateurDTO
     let token: String
+    let refreshToken: String?
+}
+
+struct RefreshTokenRequest: Encodable {
+    let refreshToken: String
+}
+
+struct RefreshTokenResponse: Decodable {
+    let token: String
+    let refreshToken: String
 }
 
 struct ConnexionRequest: Encodable {
