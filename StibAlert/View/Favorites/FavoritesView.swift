@@ -482,7 +482,7 @@ private struct FavoriteStopDetailView: View {
                 Button {
                     onClose()
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        nav.currentPage = .signalements
+                        nav.currentPage = .reports
                     }
                 } label: {
                     HStack(spacing: 8) {

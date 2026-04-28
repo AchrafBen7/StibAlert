@@ -96,7 +96,7 @@ struct ProfileMainView: View {
                 if !activities.isEmpty {
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.currentPage = .signalements
+                            nav.currentPage = .reports
                         }
                     } label: {
                         HStack(spacing: 8) {
@@ -626,4 +626,3 @@ private extension Array where Element == ProfileActivityItem {
         return counts.max(by: { lhs, rhs in lhs.value < rhs.value })?.key
     }
 }
-

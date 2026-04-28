@@ -2,6 +2,7 @@ import SwiftUI
 import CoreLocation
 
 struct SearchView: View {
+    @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
     @StateObject private var locationManager = SearchLocationManager()
     @StateObject private var autocompleteManager = SearchAutocompleteManager()
@@ -198,7 +199,11 @@ struct SearchView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
-                Button("Derniers signalements") {}
+                Button("Derniers signalements") {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        nav.currentPage = .reports
+                    }
+                }
                     .font(DesignSystem.Typography.buttonText)
                     .foregroundStyle(DesignSystem.Colors.primaryText)
                     .frame(maxWidth: 311)

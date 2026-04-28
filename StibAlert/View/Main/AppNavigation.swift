@@ -3,6 +3,7 @@ import SwiftUI
 enum AppPage {
     case home
     case signalements
+    case reports
     case favorites
     case profile
     case profileMain

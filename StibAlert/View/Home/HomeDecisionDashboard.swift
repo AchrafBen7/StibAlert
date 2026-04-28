@@ -29,7 +29,6 @@ struct HomeDecisionDashboard: View {
     let isLoadingDecision: Bool
     let onOpenStibi: () -> Void
     let onPrimaryCommuteAction: () -> Void
-    let onOpenRecentReports: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -107,16 +106,6 @@ struct HomeDecisionDashboard: View {
                     }
                 }
 
-                Button(action: onOpenRecentReports) {
-                    Text("Derniers signalements")
-                        .font(.custom("DelaGothicOne-Regular", size: 17))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(Color.black.opacity(0.88))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
             }
             .padding(14)
             .background(Color(hex: "#0C121D").opacity(0.98))

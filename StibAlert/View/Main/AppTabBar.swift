@@ -4,6 +4,7 @@ import UIKit
 enum AppTab: String, CaseIterable, Identifiable {
     case home
     case lines
+    case reports
     case favorites
     case profile
 
@@ -13,6 +14,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "Carte"
         case .lines: return "Lignes"
+        case .reports: return "Reports"
         case .favorites: return "Favoris"
         case .profile: return "Profil"
         }
@@ -22,6 +24,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "map.fill"
         case .lines: return "tram.fill"
+        case .reports: return "bubble.left.and.exclamationmark.bubble.right.fill"
         case .favorites: return "heart.fill"
         case .profile: return "person.crop.circle.fill"
         }
@@ -31,6 +34,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return .home
         case .lines: return .signalements
+        case .reports: return .reports
         case .favorites: return .favorites
         case .profile: return .profileMain
         }
@@ -40,6 +44,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch page {
         case .home: return .home
         case .signalements: return .lines
+        case .reports: return .reports
         case .favorites: return .favorites
         case .profile, .profileMain: return .profile
         }

@@ -21,7 +21,6 @@ struct HomeView: View {
     )
     @State private var showSearch = false
     @State private var showLegend = false
-    @State private var showRecentReportsSheet = false
     @State private var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -131,7 +130,7 @@ struct HomeView: View {
                 )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
-            } else if nav.currentPage == .home, !showRecentReportsSheet, !nav.showSideMenu, routeOptions.isEmpty {
+            } else if nav.currentPage == .home, !nav.showSideMenu, routeOptions.isEmpty {
                 HomeDecisionDashboard(
                     data: homeDashboardData,
                     isLoadingDecision: isLoadingTransportOverview,
@@ -141,11 +140,6 @@ struct HomeView: View {
                             Task { await stibi.performTargetedAction(id: action.id) }
                         } else {
                             stibi.openConversation()
-                        }
-                    },
-                    onOpenRecentReports: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            showRecentReportsSheet = true
                         }
                     }
                 )
@@ -164,7 +158,7 @@ struct HomeView: View {
                         officialNotice: transportOverview?.officialDataStatus == "available" ? nil : transportOverview?.officialDataMessage,
                         onTap: {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                showRecentReportsSheet = true
+                                nav.currentPage = .reports
                             }
                         }
                     )
@@ -204,7 +198,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if nav.currentPage == .home, !nav.showReportSheet, !showRecentReportsSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
                 HomeFloatingActions(
                     onReport: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
@@ -308,8 +302,9 @@ struct HomeView: View {
         }
         .onChange(of: nav.currentPage) { _, newValue in
             switch newValue {
-            case .home:        stibi.setCurrentScreen("home")
+            case .home: stibi.setCurrentScreen("home")
             case .signalements: stibi.setCurrentScreen("signalements")
+            case .reports: stibi.setCurrentScreen("reports")
             case .favorites:   stibi.setCurrentScreen("favorites")
             case .profile:     stibi.setCurrentScreen("profile")
             case .profileMain: stibi.setCurrentScreen("profile_main")
@@ -495,23 +490,6 @@ struct HomeView: View {
             }
             .transition(.opacity)
             .zIndex(9)
-        }
-
-        if showRecentReportsSheet {
-            RecentReportsBottomSheet(
-                items: recentReportItems,
-                canLoadMore: signalementsPage < signalementsTotalPages,
-                isLoadingMore: isLoadingSignalements,
-                onLoadMore: {
-                    Task { await loadMoreRemoteSignalementsIfNeeded() }
-                }
-            ) {
-                withAnimation(transitionSpring) {
-                    showRecentReportsSheet = false
-                }
-            }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(8)
         }
 
         if !routeOptions.isEmpty {
@@ -817,45 +795,6 @@ struct HomeView: View {
         await refreshHomeSurface(reason: "location", force: false)
     }
 
-    @MainActor
-    private func loadMoreRemoteSignalementsIfNeeded() async {
-        guard AppConfig.isBackendEnabled else { return }
-        guard !isLoadingSignalements else { return }
-        guard signalementsPage < signalementsTotalPages else { return }
-
-        isLoadingSignalements = true
-        defer { isLoadingSignalements = false }
-
-        do {
-            let nextPage = signalementsPage + 1
-            let response = try await SignalementService.liste(page: nextPage)
-            signalementsPage = response.pagination?.page ?? nextPage
-            signalementsTotalPages = response.pagination?.totalPages ?? signalementsTotalPages
-            let existingIds = Set(remoteSignalements.map(\.id))
-            let newItems = response.signalements.filter { !existingIds.contains($0.id) }
-            remoteSignalements.append(contentsOf: newItems)
-        } catch {
-            print("Signalements pagination failed: \(error.localizedDescription)")
-        }
-    }
-
-    private var recentReportItems: [RecentReportItem] {
-        return remoteSignalements.prefix(10).map { signalement in
-            RecentReportItem(
-                id: signalement.id,
-                line: signalement.ligne,
-                title: signalement.typeProbleme,
-                time: signalement.freshnessLabel,
-                details: signalement.description,
-                signalementId: signalement.id,
-                status: signalement.status,
-                source: signalement.sourceLabel,
-                confidence: signalement.confidenceLabel,
-                community: signalement.community
-            )
-        }
-    }
-
     private func relativeTimeString(from date: Date?) -> String {
         guard let date else { return "À l'instant" }
         let formatter = RelativeDateTimeFormatter()
@@ -954,9 +893,9 @@ struct HomeView: View {
     @ViewBuilder
     private var pageOverlay: some View {
         ZStack {
-            Color((nav.currentPage == .signalements || nav.currentPage == .favorites || nav.currentPage == .profile || nav.currentPage == .profileMain) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
+            Color((nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile || nav.currentPage == .profileMain) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
 
-            if nav.currentPage != .signalements && nav.currentPage != .favorites && nav.currentPage != .profile && nav.currentPage != .profileMain {
+            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .favorites && nav.currentPage != .profile && nav.currentPage != .profileMain {
                 VStack {
                     HStack {
                         Button {
@@ -989,6 +928,8 @@ struct HomeView: View {
             switch nav.currentPage {
             case .signalements:
                 SignalementsView()
+            case .reports:
+                ReportsView()
             case .favorites:
                 FavoritesView()
             case .profile:
@@ -1089,6 +1030,7 @@ private struct WazeMenuPanel: View {
                 item("mappin.and.ellipse",   "Carte & trafic en direct")  { onNavigate(.home);         onClose() }
                 item("exclamationmark.circle","Signaler un arrêt")         { onReport() }
                 item("clock.arrow.circlepath","Lignes")                    { onNavigate(.signalements); onClose() }
+                item("bubble.left.and.exclamationmark.bubble.right", "Reports") { onNavigate(.reports); onClose() }
                 item("heart",                "Mes favoris")                { onNavigate(.favorites);    onClose() }
                 item("gearshape",            "Paramètres")                 { onNavigate(.profile);      onClose() }
                 item("questionmark.circle",  "Besoin d'aide ?")            {}

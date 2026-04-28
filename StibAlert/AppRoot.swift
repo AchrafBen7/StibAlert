@@ -152,8 +152,11 @@ struct AppRoot: View {
                     case "open_commute_brief":
                         stibi.openConversation()
                         Task { await stibi.loadCommuteBrief() }
-                    case "open_lines", "view_reports":
+                    case "open_lines":
                         nav.currentPage = .signalements
+                        stibi.closeConversation()
+                    case "view_reports":
+                        nav.currentPage = .reports
                         stibi.closeConversation()
                     case "open_profile":
                         nav.currentPage = .profile
@@ -186,8 +189,11 @@ struct AppRoot: View {
             case .home:
                 nav.currentPage = .home
                 stibi.closeConversation()
-            case .signalements, .line, .signalementDetail:
+            case .line:
                 nav.currentPage = .signalements
+                stibi.closeConversation()
+            case .signalements, .signalementDetail:
+                nav.currentPage = .reports
                 stibi.closeConversation()
             case .favorites:
                 nav.currentPage = .favorites
