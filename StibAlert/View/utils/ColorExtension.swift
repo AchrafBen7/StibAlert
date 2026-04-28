@@ -11,7 +11,9 @@ extension Color {
     init(hex: String) {
         let scanner = Scanner(string: hex.trimmingCharacters(in: .whitespacesAndNewlines))
         var rgbValue: UInt64 = 0
-        scanner.scanString("#", into: nil)
+        if scanner.string.hasPrefix("#") {
+            scanner.currentIndex = scanner.string.index(after: scanner.string.startIndex)
+        }
         scanner.scanHexInt64(&rgbValue)
         
         let r = (rgbValue >> 16) & 0xff

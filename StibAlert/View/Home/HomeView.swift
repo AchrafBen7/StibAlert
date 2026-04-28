@@ -49,6 +49,10 @@ struct HomeView: View {
     @State private var cameraLatitudeDelta: Double = 0.04
     @State private var showReportAuthGate = false
     @State private var guestGateReason: GuestAuthReason = .report
+    @State private var hasBootstrappedHomeData = false
+    @State private var homeRefreshTask: Task<Void, Never>? = nil
+    @State private var lastHomeRefreshAt: Date? = nil
+    @State private var lastRefreshCoordinate: CLLocationCoordinate2D? = nil
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
@@ -146,7 +150,7 @@ struct HomeView: View {
                     }
                 )
                 .padding(.horizontal, 20)
-                .padding(.bottom, 132)
+                .padding(.bottom, 210)
                 .zIndex(4)
             }
         }
@@ -213,7 +217,7 @@ struct HomeView: View {
                         }
                     }
                 )
-                .padding(.bottom, 330)
+                .padding(.bottom, 108)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
@@ -286,16 +290,16 @@ struct HomeView: View {
         }
         .task { await loadRemoteSignalements() }
         .task { lineShapesLoader.loadIfNeeded() }
-        .task { await loadTransportOverview() }
-        .task { await loadStibiBrief() }
+        .task {
+            guard !hasBootstrappedHomeData else { return }
+            hasBootstrappedHomeData = true
+            await refreshHomeSurface(reason: "initial", force: true)
+        }
         .onChange(of: nav.showReportSheet) { oldValue, newValue in
             if oldValue && !newValue {
                 Task {
                     await loadRemoteSignalements()
-                    await loadStibiBrief(
-                        lat: locationManager.userCoordinate?.latitude,
-                        lng: locationManager.userCoordinate?.longitude
-                    )
+                    await refreshHomeSurface(reason: "report_closed", force: true)
                 }
             }
         }
@@ -311,17 +315,14 @@ struct HomeView: View {
             case .profileMain: stibi.setCurrentScreen("profile_main")
             }
         }
-        .onReceive(locationManager.$userCoordinate.compactMap { $0 }.first()) { coord in
+        .onReceive(locationManager.$userCoordinate.compactMap { $0 }) { coord in
             withAnimation(.easeInOut(duration: 0.8)) {
                 mapPosition = .region(MKCoordinateRegion(
                     center: coord,
                     span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
                 ))
             }
-            Task {
-                await loadTransportOverview(lat: coord.latitude, lng: coord.longitude)
-                await loadStibiBrief(lat: coord.latitude, lng: coord.longitude)
-            }
+            Task { await refreshHomeSurfaceForLocation(coord) }
         }
         .onChange(of: searchQuery) { _, newValue in
             searchTask?.cancel()
@@ -755,6 +756,10 @@ struct HomeView: View {
     @MainActor
     private func loadStibiBrief(lat: Double? = nil, lng: Double? = nil) async {
         guard AppConfig.isBackendEnabled else { return }
+        guard session.isSignedIn else {
+            stibiBrief = nil
+            return
+        }
         guard !isLoadingStibiBrief else { return }
         isLoadingStibiBrief = true
         defer { isLoadingStibiBrief = false }
@@ -767,6 +772,49 @@ struct HomeView: View {
         } catch {
             print("Stibi home brief failed: \(error.localizedDescription)")
         }
+    }
+
+    @MainActor
+    private func refreshHomeSurface(reason: String, force: Bool = false) async {
+        guard AppConfig.isBackendEnabled else { return }
+
+        let now = Date()
+        if !force, let lastHomeRefreshAt, now.timeIntervalSince(lastHomeRefreshAt) < 12 {
+            return
+        }
+
+        homeRefreshTask?.cancel()
+        let lat = locationManager.userCoordinate?.latitude
+        let lng = locationManager.userCoordinate?.longitude
+
+        homeRefreshTask = Task {
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await loadTransportOverview(lat: lat, lng: lng) }
+                if session.isSignedIn {
+                    group.addTask { await loadStibiBrief(lat: lat, lng: lng) }
+                }
+            }
+        }
+
+        await homeRefreshTask?.value
+        guard !Task.isCancelled else { return }
+        lastHomeRefreshAt = Date()
+    }
+
+    @MainActor
+    private func refreshHomeSurfaceForLocation(_ coord: CLLocationCoordinate2D) async {
+        let movedEnough: Bool
+        if let lastRefreshCoordinate {
+            let previous = CLLocation(latitude: lastRefreshCoordinate.latitude, longitude: lastRefreshCoordinate.longitude)
+            let current = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            movedEnough = previous.distance(from: current) >= 250
+        } else {
+            movedEnough = true
+        }
+
+        guard movedEnough else { return }
+        lastRefreshCoordinate = coord
+        await refreshHomeSurface(reason: "location", force: false)
     }
 
     @MainActor

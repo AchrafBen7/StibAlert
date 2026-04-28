@@ -207,7 +207,7 @@ struct SignalementsView: View {
             }()
 
             let filter = LineFilter.from(typeTransport: etat.typeTransport)
-            let (fallbackColor, fallbackTextColor) = linePalette(for: etat.lineid, filter: filter)
+            let (fallbackColor, _) = linePalette(for: etat.lineid, filter: filter)
             let lineColor = etat.couleur.flatMap { hex in hex.hasPrefix("#") ? Color(hex: hex) : Color(hex: "#" + hex) } ?? fallbackColor
             let lineTextColor = lineColor.isDark ? Color.white : Color.black
 
@@ -1296,4 +1296,3 @@ enum LineStatusMockData {
         .init(line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Rogier", destination: "Churchill", direction: "Rogier → Churchill", status: .fluid, reportsCount: 1, filter: .tram, confidenceText: "94% fiable")
     ]
 }
-

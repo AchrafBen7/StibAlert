@@ -28,20 +28,206 @@ struct LigneNearbyDestination: Decodable {
     let nl: String?
 }
 
+private struct StaticTransitCatalog: Codable {
+    let generatedAt: Date
+    let stops: [StaticTransitStop]
+    let lines: [String: StaticTransitLine]
+}
+
+private struct StaticTransitStop: Codable {
+    let id: String
+    let stopId: String?
+    let name: String
+    let latitude: Double
+    let longitude: Double
+    let lines: [String]
+}
+
+private struct StaticTransitLine: Codable {
+    let lineId: String
+    let colorHex: String?
+    let direction: String?
+    let destinationFr: String?
+    let typeTransport: String?
+}
+
+private struct StaticLineDTO: Decodable {
+    let lineid: String
+    let nomComplet: String?
+    let nomCompletRetour: String?
+    let typeTransport: String?
+    let couleur: String?
+    let direction: String?
+}
+
+private enum StaticTransitCatalogStore {
+    private static let fileName = "stib-static-catalog.json"
+    private static let maxAge: TimeInterval = 14 * 24 * 60 * 60
+
+    static func loadOrRefresh() async throws -> StaticTransitCatalog? {
+        let cached = loadFromDisk()
+        let shouldRefresh = cached == nil || isExpired(cached)
+
+        if shouldRefresh, AppConfig.isBackendEnabled {
+            do {
+                let refreshed = try await refreshFromBackend()
+                saveToDisk(refreshed)
+                return refreshed
+            } catch {
+                if let cached {
+                    return cached
+                }
+                throw error
+            }
+        }
+
+        return cached
+    }
+
+    private static func refreshFromBackend() async throws -> StaticTransitCatalog {
+        let stops: [ArretDTO] = try await APIClient.shared.request("/api/arrets")
+        let lines: [StaticLineDTO] = try await APIClient.shared.request("/api/lignes")
+
+        let mappedStops = stops.compactMap { stop -> StaticTransitStop? in
+            guard
+                let latitude = stop.latitude,
+                let longitude = stop.longitude
+            else {
+                return nil
+            }
+
+            return StaticTransitStop(
+                id: stop.id,
+                stopId: stop.stopId,
+                name: stop.nom,
+                latitude: latitude,
+                longitude: longitude,
+                lines: (stop.lignesDesservies ?? [])
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+                    .filter { !$0.isEmpty }
+            )
+        }
+
+        let mappedLines = Dictionary(
+            uniqueKeysWithValues: lines.map { line in
+                let key = line.lineid.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                return (
+                    key,
+                    StaticTransitLine(
+                        lineId: key,
+                        colorHex: line.couleur,
+                        direction: line.direction,
+                        destinationFr: line.nomCompletRetour ?? line.nomComplet,
+                        typeTransport: line.typeTransport
+                    )
+                )
+            }
+        )
+
+        return StaticTransitCatalog(
+            generatedAt: Date(),
+            stops: mappedStops,
+            lines: mappedLines
+        )
+    }
+
+    private static func isExpired(_ catalog: StaticTransitCatalog?) -> Bool {
+        guard let catalog else { return true }
+        return Date().timeIntervalSince(catalog.generatedAt) > maxAge
+    }
+
+    private static func loadFromDisk() -> StaticTransitCatalog? {
+        guard let url = fileURL(),
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(StaticTransitCatalog.self, from: data)
+    }
+
+    private static func saveToDisk(_ catalog: StaticTransitCatalog) {
+        guard let url = fileURL() else { return }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        do {
+            let data = try encoder.encode(catalog)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+            try data.write(to: url, options: .atomic)
+        } catch {
+            print("Static transit catalog save failed: \(error.localizedDescription)")
+        }
+    }
+
+    private static func fileURL() -> URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("StibAlert", isDirectory: true)
+            .appendingPathComponent(fileName)
+    }
+}
+
 enum NearbyStopService {
     static func fetchNearby(lat: Double, lng: Double, radius: Double = 600) async throws -> [NearbyStop] {
+        if let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
+           !catalog.stops.isEmpty {
+            return nearbyStops(from: catalog, lat: lat, lng: lng, radius: radius)
+        }
+
         let dtos: [ArretNearbyDTO] = try await APIClient.shared.request(
             "/api/arrets/nearby?lat=\(lat)&lng=\(lng)&radius=\(Int(radius))"
         )
         return dtos.map { toNearbyStop($0) }
     }
 
+    private static func nearbyStops(
+        from catalog: StaticTransitCatalog,
+        lat: Double,
+        lng: Double,
+        radius: Double
+    ) -> [NearbyStop] {
+        let origin = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+
+        return catalog.stops
+            .map { stop in
+                let coordinate = CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)
+                let distance = haversineMeters(from: origin, to: coordinate)
+                return (stop: stop, coordinate: coordinate, distance: distance)
+            }
+            .filter { $0.distance <= radius }
+            .sorted { $0.distance < $1.distance }
+            .prefix(10)
+            .map { entry in
+                let issueLines = entry.stop.lines.map { lineId in
+                    toNearbyIssueLine(
+                        lineId: lineId,
+                        metadata: catalog.lines[lineId]
+                    )
+                }
+
+                return NearbyStop(
+                    backendId: entry.stop.id,
+                    name: entry.stop.name,
+                    lines: issueLines.map { StopLine(number: $0.number, color: $0.color) },
+                    distanceMeters: Int(entry.distance.rounded()),
+                    issueLines: issueLines,
+                    coordinate: entry.coordinate
+                )
+            }
+    }
+
     private static func toNearbyStop(_ dto: ArretNearbyDTO) -> NearbyStop {
-        let stopLines = dto.lignes.map { StopLine(number: $0.lineid, color: Color(hex: $0.couleur)) }
+        let stopLines = dto.lignes.map { StopLine(number: $0.lineid, color: normalizedColor(from: $0.couleur)) }
         let issueLines = dto.lignes.map { ligne -> NearbyIssueLine in
             NearbyIssueLine(
-                number: ligne.lineid,
-                color: Color(hex: ligne.couleur),
+                number: normalizedLineId(ligne.lineid),
+                color: normalizedColor(from: ligne.couleur),
                 direction: ligne.destination?.fr ?? ligne.lineid,
                 crowding: .low,
                 reliability: 80,
@@ -56,6 +242,44 @@ enum NearbyStopService {
             issueLines: issueLines,
             coordinate: CLLocationCoordinate2D(latitude: dto.latitude, longitude: dto.longitude)
         )
+    }
+
+    private static func toNearbyIssueLine(lineId: String, metadata: StaticTransitLine?) -> NearbyIssueLine {
+        let color = normalizedColor(from: metadata?.colorHex)
+        let normalizedLine = normalizedLineId(lineId)
+        let direction = metadata?.destinationFr ?? metadata?.direction ?? normalizedLine
+
+        return NearbyIssueLine(
+            number: normalizedLine,
+            color: color,
+            direction: direction,
+            crowding: .low,
+            reliability: 80,
+            lineTextColor: color.isDark ? .white : .black
+        )
+    }
+
+    private static func normalizedLineId(_ lineId: String) -> String {
+        lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    private static func normalizedColor(from hex: String?) -> Color {
+        guard let hex, !hex.isEmpty else { return Color(hex: "#3B82F6") }
+        if hex.hasPrefix("#") {
+            return Color(hex: hex)
+        }
+        return Color(hex: "#\(hex)")
+    }
+
+    private static func haversineMeters(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let radius = 6_371_000.0
+        let dLat = (to.latitude - from.latitude) * .pi / 180
+        let dLng = (to.longitude - from.longitude) * .pi / 180
+        let lat1 = from.latitude * .pi / 180
+        let lat2 = to.latitude * .pi / 180
+        let h = sin(dLat / 2) * sin(dLat / 2)
+            + sin(dLng / 2) * sin(dLng / 2) * cos(lat1) * cos(lat2)
+        return 2 * radius * atan2(sqrt(h), sqrt(1 - h))
     }
 
     private static func isLight(hex: String) -> Bool {

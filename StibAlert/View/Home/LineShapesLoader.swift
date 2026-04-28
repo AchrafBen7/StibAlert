@@ -44,17 +44,16 @@ final class LineShapesLoader: ObservableObject {
 
     func loadIfNeeded() {
         guard !isLoaded, loadTask == nil else { return }
-        loadTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let parsed = await Self.parseFromBundle()
-            await MainActor.run {
-                self?.shapes = parsed
-                self?.isLoaded = true
-                self?.loadTask = nil
-            }
+        loadTask = Task(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let parsed = Self.parseFromBundle()
+            self.shapes = parsed
+            self.isLoaded = true
+            self.loadTask = nil
         }
     }
 
-    private static func parseFromBundle() async -> [LineShape] {
+    private static func parseFromBundle() -> [LineShape] {
         guard let url = Bundle.main.url(forResource: "line-shapes", withExtension: "json") else {
             print("line-shapes.json not found in bundle")
             return []
