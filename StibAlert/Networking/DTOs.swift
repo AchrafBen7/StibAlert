@@ -424,6 +424,8 @@ struct TransportOverviewDTO: Codable, Equatable {
     let severity: String
     let confidence: Double
     let realtimeStatus: String
+    let officialDataStatus: String?
+    let officialDataMessage: String?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -437,6 +439,8 @@ struct TransportStopDTO: Codable, Equatable {
     let severity: String
     let confidence: Double
     let realtimeStatus: String
+    let officialDataStatus: String?
+    let officialDataMessage: String?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -449,6 +453,8 @@ struct TransportLineDTO: Codable, Equatable {
     let severity: String
     let confidence: Double
     let realtimeStatus: String
+    let officialDataStatus: String?
+    let officialDataMessage: String?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -479,6 +485,8 @@ struct TransportRecommendationDTO: Codable, Equatable {
     let severity: String
     let confidence: Double
     let realtimeStatus: String
+    let officialDataStatus: String?
+    let officialDataMessage: String?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]

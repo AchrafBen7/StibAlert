@@ -4,6 +4,7 @@ struct HomeStatusBanner: View {
     let favoriteAffected: Int
     let totalActive: Int
     let lastUpdated: Date?
+    let officialNotice: String?
     let onTap: () -> Void
 
     private enum Level {
@@ -62,38 +63,66 @@ struct HomeStatusBanner: View {
         return parts.joined(separator: " · ")
     }
 
+    private var showsOfficialNotice: Bool {
+        guard let officialNotice else { return false }
+        return !officialNotice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                Image(systemName: level.icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .frame(width: 28, height: 28)
-                    .background(level.color)
-                    .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: level.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(width: 28, height: 28)
+                        .background(level.color)
+                        .clipShape(Circle())
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(headline)
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .lineLimit(1)
-
-                    if !subline.isEmpty {
-                        Text(subline)
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(headline)
+                            .font(AppTheme.Fonts.captionStrong)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
                             .lineLimit(1)
+
+                        if !subline.isEmpty {
+                            Text(subline)
+                                .font(AppTheme.Fonts.caption)
+                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .lineLimit(1)
+                        }
                     }
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppTheme.Palette.textMuted)
                 }
 
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textMuted)
+                if showsOfficialNotice, let officialNotice {
+                    HStack(spacing: 8) {
+                        Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppTheme.Palette.warning)
+                        Text(officialNotice)
+                            .font(AppTheme.Fonts.caption)
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(AppTheme.Palette.warning.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AppTheme.Palette.warning.opacity(0.24), lineWidth: 1)
+                    )
+                }
             }
             .padding(.horizontal, 14)
-            .frame(height: AppTheme.ButtonHeight.primary)
+            .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
                     .fill(AppTheme.Palette.surface)
@@ -104,7 +133,7 @@ struct HomeStatusBanner: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(headline). \(subline)")
+        .accessibilityLabel([headline, subline, officialNotice].compactMap { $0 }.joined(separator: ". "))
     }
 
     private func relativeTime(from date: Date) -> String {

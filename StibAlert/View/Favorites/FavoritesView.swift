@@ -410,7 +410,7 @@ private struct FavoriteStopDetailView: View {
                             .foregroundStyle(.white.opacity(0.8))
                         Spacer()
                         Button {
-                            stopLoadError = nil
+                            self.stopLoadError = nil
                             Task { await loadTransportStop() }
                         } label: {
                             Text("Réessayer")
@@ -1460,4 +1460,3 @@ private enum FavoritesMockData {
         .init(stopBackendId: nil, stopId: nil, code: "7", codeColor: Color(hex: "#EFE048"), codeTextColor: .black, title: "Vanderkindere", crowding: "Haute", problemLabel: "Bloqué", reportCount: 9, nextPassage: "8 min", filter: .tram, severity: .blocked, detailLines: [.init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "92", color: Color(hex: "#4C8B33"), textColor: .white)])
     ]
 }
-

@@ -129,6 +129,8 @@ struct CurrentStepCard: View {
         switch step.mode.lowercased() {
         case "walk":
             return "Marche"
+        case "bike":
+            return "Vélo"
         case "tram", "metro", "bus":
             return "Transport"
         default:

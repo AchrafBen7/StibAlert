@@ -149,6 +149,9 @@ struct SearchView: View {
                         journey: journey,
                         isLoading: viewState.isLoadingRoute,
                         routeNote: viewState.routeNote,
+                        officialNotice: viewState.transportRecommendation?.officialDataStatus == "available"
+                            ? nil
+                            : viewState.transportRecommendation?.officialDataMessage,
                         selectedAlternativeID: guidanceSession.guidance.activeAlternative?.id,
                         isGuiding: guidanceSession.guidance.isGuiding,
                         onEditDestination: {

@@ -93,7 +93,7 @@ enum TransportViewAdapters {
             return SearchRouteAlternative(
                 title: alternative.label,
                 eta: alternative.totalDurationMinutes,
-                lineSummary: alternative.lines.joined(separator: " • "),
+                lineSummary: lineSummary(for: alternative),
                 reason: reason,
                 confidenceText: confidenceText,
                 trustLabel: trustLabel,
@@ -172,6 +172,22 @@ enum TransportViewAdapters {
         }
 
         return "Basé sur " + sources.uniqued().joined(separator: " • ")
+    }
+
+    private static func lineSummary(for alternative: TransportAlternativeDTO) -> String {
+        if !alternative.lines.isEmpty {
+            return alternative.lines.joined(separator: " • ")
+        }
+
+        let modes = Set((alternative.steps ?? []).map { $0.mode.lowercased() })
+        if modes.contains("bike") {
+            return "Trajet à vélo"
+        }
+        if modes.contains("walk") {
+            return "Trajet à pied"
+        }
+
+        return "Alternative terrain"
     }
 
     private static func communitySummary(from incidents: [TransportIncidentDTO]) -> String? {

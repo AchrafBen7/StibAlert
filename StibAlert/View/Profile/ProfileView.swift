@@ -101,6 +101,15 @@ struct ProfileView: View {
                     }
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else if selectedSubpage == .transitPass {
+                TransitPassSettingsView(
+                    onBack: { selectedSubpage = nil },
+                    onClose: {
+                        selectedSubpage = nil
+                        nav.currentPage = .home
+                    }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
                 VStack(spacing: 0) {
                     header
@@ -384,11 +393,13 @@ private enum SettingsSubpage {
     case notifications
     case privacy
     case support
+    case transitPass
 }
 
 private enum SettingsMockData {
     static let items: [SettingsTileItem] = [
         .init(title: "Compte", description: "Gérer vos informations\npersonnelles et préférences.", isInitiallyHighlighted: true, subpage: .account),
+        .init(title: "Ma carte STIB", description: "Associer votre carte\net retrouver votre abonnement.", isInitiallyHighlighted: false, subpage: .transitPass),
         .init(title: "Notifications", description: "Choisir quand et comment\nrecevoir des alertes.", isInitiallyHighlighted: false, subpage: .notifications),
         .init(title: "Langues", description: "Sélectionner votre langue\npréférée dans l’app.", isInitiallyHighlighted: false, subpage: .languages),
         .init(title: "A propos", description: "Découvrir la mission et\nl’équipe derrière l’application", isInitiallyHighlighted: false, subpage: nil),

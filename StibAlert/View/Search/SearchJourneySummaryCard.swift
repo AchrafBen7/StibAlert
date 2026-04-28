@@ -4,6 +4,7 @@ struct SearchJourneySummaryCard: View {
     let journey: SearchJourney
     let isLoading: Bool
     let routeNote: String?
+    let officialNotice: String?
     let selectedAlternativeID: String?
     let isGuiding: Bool
     let onEditDestination: () -> Void
@@ -41,6 +42,28 @@ struct SearchJourneySummaryCard: View {
                         Text(routeNote)
                             .font(DesignSystem.Typography.labelSemibold)
                             .foregroundStyle(DesignSystem.Colors.secondaryText)
+                    }
+
+                    if let officialNotice, !officialNotice.isEmpty {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(DesignSystem.Colors.warning)
+                                .padding(.top, 2)
+
+                            Text(officialNotice)
+                                .font(DesignSystem.Typography.labelSemibold)
+                                .foregroundStyle(DesignSystem.Colors.primaryText)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(DesignSystem.Colors.warning.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(DesignSystem.Colors.warning.opacity(0.2), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
 
                     if let recommended = journey.alternatives.first {

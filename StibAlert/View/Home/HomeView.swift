@@ -157,6 +157,7 @@ struct HomeView: View {
                         favoriteAffected: favoriteAffectedCount,
                         totalActive: totalActiveSignalementsCount,
                         lastUpdated: lastFetchedAt,
+                        officialNotice: transportOverview?.officialDataStatus == "available" ? nil : transportOverview?.officialDataMessage,
                         onTap: {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                                 showRecentReportsSheet = true
@@ -1019,6 +1020,8 @@ private struct WazeMenuOverlay: View {
 }
 
 private struct WazeMenuPanel: View {
+    @EnvironmentObject private var session: AuthSession
+
     let onClose: () -> Void
     let onNavigate: (AppPage) -> Void
     let onReport: () -> Void
