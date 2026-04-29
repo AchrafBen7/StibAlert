@@ -23,7 +23,15 @@ struct HomeFloatingActions: View {
                 action: onReport
             )
         }
-        .padding(.horizontal, 18)
+        .padding(8)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 16, x: 0, y: 8)
+        .padding(.horizontal, 20)
     }
 }
 
@@ -41,19 +49,19 @@ private struct FloatingActionButton: View {
         }) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                 Text(label)
-                    .font(.custom("Montserrat-SemiBold", size: 14))
+                    .font(.custom("Montserrat-SemiBold", size: 13))
             }
             .foregroundStyle(foreground)
-            .padding(.horizontal, 18)
-            .frame(height: 52)
+            .padding(.horizontal, 14)
+            .frame(height: 46)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(background)
             )
-            .shadow(color: background.opacity(0.35), radius: 10, x: 0, y: 6)
+            .shadow(color: background.opacity(0.24), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

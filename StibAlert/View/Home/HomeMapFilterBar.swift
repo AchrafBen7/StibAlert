@@ -3,10 +3,11 @@ import UIKit
 
 struct HomeMapFilterBar: View {
     @Binding var selected: ReportProblemType?
+    @Binding var showVillo: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 chip(
                     title: "Tout",
                     icon: "dot.radiowaves.left.and.right",
@@ -26,8 +27,21 @@ struct HomeMapFilterBar: View {
                         tap(type)
                     }
                 }
+
+                chip(
+                    title: "Villo!",
+                    icon: "bicycle",
+                    accent: Color(hex: "#57E3B6"),
+                    isActive: showVillo
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        showVillo.toggle()
+                    }
+                }
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 2)
         }
     }
 
@@ -46,15 +60,15 @@ struct HomeMapFilterBar: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                 Text(title)
                     .font(AppTheme.Fonts.captionStrong)
             }
             .foregroundStyle(isActive ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 12)
-            .frame(height: 34)
+            .padding(.horizontal, 10)
+            .frame(height: 31)
             .background(
                 Capsule(style: .continuous)
                     .fill(isActive ? accent : AppTheme.Palette.screenElevated.opacity(0.9))

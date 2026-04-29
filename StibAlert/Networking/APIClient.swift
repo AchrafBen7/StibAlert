@@ -67,8 +67,9 @@ struct APIClient {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        if requiresAuth, let token = KeychainHelper.readToken() {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let accessToken = requiresAuth ? KeychainHelper.readToken() : nil
+        if let accessToken {
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
 
         if let body {
@@ -87,7 +88,7 @@ struct APIClient {
         }
 
         if http.statusCode == 401 {
-            if requiresAuth, let newToken = await attemptTokenRefresh() {
+            if requiresAuth, accessToken != nil, let newToken = await attemptTokenRefresh() {
                 var retryReq = req
                 retryReq.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
                 guard let (retryData, retryResponse) = try? await session.data(for: retryReq),
@@ -106,7 +107,9 @@ struct APIClient {
                 if Response.self == EmptyResponse.self { return EmptyResponse() as! Response }
                 do { return try decoder.decode(Response.self, from: retryData) } catch { throw APIError.decoding(error) }
             }
-            NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            if requiresAuth, accessToken != nil {
+                NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            }
             throw APIError.unauthorized
         }
 
@@ -159,8 +162,9 @@ struct APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        if requiresAuth, let token = KeychainHelper.readToken() {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let accessToken = requiresAuth ? KeychainHelper.readToken() : nil
+        if let accessToken {
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
 
         var body = Data()
@@ -184,7 +188,7 @@ struct APIClient {
             throw APIError.server(status: -1, message: nil)
         }
         if http.statusCode == 401 {
-            if requiresAuth, let newToken = await attemptTokenRefresh() {
+            if requiresAuth, accessToken != nil, let newToken = await attemptTokenRefresh() {
                 var retryReq = req
                 retryReq.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
                 guard let (retryData, retryResponse) = try? await session.data(for: retryReq),
@@ -195,7 +199,9 @@ struct APIClient {
                 }
                 return try decoder.decode(Response.self, from: retryData)
             }
-            NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            if requiresAuth, accessToken != nil {
+                NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            }
             throw APIError.unauthorized
         }
         guard (200..<300).contains(http.statusCode) else {

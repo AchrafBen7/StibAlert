@@ -32,6 +32,7 @@ enum HomeDecisionAdapter {
             commuteBrief: stibiBrief?.type == "commute_brief" ? stibiBrief : nil,
             decision: transportOverview.map(TransportViewAdapters.homeDecisionData(from:)),
             recommendedAlternative: recommendedAlternative,
+            recommendedAlternativeDetail: transportOverview?.recommendedAlternatives.first,
             monitoredLines: monitoredLines,
             nearbyAlerts: nearbyAlerts,
             favoriteLines: favoriteLines(from: transportOverview, context: stibiContext)

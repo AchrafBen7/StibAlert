@@ -3,6 +3,7 @@ import SwiftUI
 struct SignalementsView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
+    @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFilter: LineFilter = .all
     @State private var query = ""
@@ -35,7 +36,28 @@ struct SignalementsView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "#1B1B1B").ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    AppTheme.Palette.screen,
+                    AppTheme.Palette.screenElevated,
+                    AppTheme.Palette.screen
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            Circle()
+                .fill(AppTheme.Palette.glowInfo.opacity(0.16))
+                .frame(width: 240, height: 240)
+                .blur(radius: 38)
+                .offset(x: 150, y: -260)
+
+            Circle()
+                .fill(AppTheme.Palette.glowBrand.opacity(0.1))
+                .frame(width: 220, height: 220)
+                .blur(radius: 42)
+                .offset(x: -120, y: -140)
 
             if let selectedLine {
                 LineOverviewView(
@@ -54,8 +76,7 @@ struct SignalementsView: View {
                         .padding(.top, 12)
 
                     filtersRow
-                        .padding(.horizontal, 21)
-                        .padding(.top, 24)
+                        .padding(.top, 18)
 
                     if isLoadingRemote && !hasLoadedLines {
                         Spacer()
@@ -69,14 +90,22 @@ struct SignalementsView: View {
                     } else if filteredLines.isEmpty {
                         linesSearchEmptyState
                     } else {
-                        Text("\(availableLinesCount) ligne\(availableLinesCount == 1 ? "" : "s") disponible\(availableLinesCount == 1 ? "" : "s")")
-                            .font(.custom("DelaGothicOne-Regular", size: 12))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 21)
-                            .padding(.top, 18)
+                        HStack {
+                            Text("\(availableLinesCount) ligne\(availableLinesCount == 1 ? "" : "s") disponible\(availableLinesCount == 1 ? "" : "s")")
+                                .font(AppTheme.Fonts.captionStrong)
+                                .foregroundStyle(AppTheme.Palette.textSecondary)
+
+                            Spacer()
+
+                            Text(selectedFilter == .all ? "Vue réseau" : "Focus \(selectedFilter.label)")
+                                .font(AppTheme.Fonts.caption)
+                                .foregroundStyle(AppTheme.Palette.textMuted)
+                        }
+                        .padding(.horizontal, 21)
+                        .padding(.top, 18)
 
                         ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 10) {
+                            LazyVStack(spacing: 12) {
                                 ForEach(filteredLines) { line in
                                     Button {
                                         withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
@@ -100,71 +129,97 @@ struct SignalementsView: View {
         .task {
             stibi.setCurrentScreen("signalements")
             await loadRemoteLines()
+            applyPendingLineFocusIfPossible()
             await loadStibiContext()
+        }
+        .onChange(of: displayLines.count) { _, _ in
+            applyPendingLineFocusIfPossible()
         }
     }
 
     private var topBar: some View {
-        HStack(spacing: 19) {
-            Button {
-                withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
-                    nav.showSideMenu = true
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 19) {
+                Button {
+                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
+                        nav.showSideMenu = true
+                    }
+                } label: {
+                    Circle()
+                        .fill(AppTheme.Palette.surfaceElevated)
+                        .frame(width: 42, height: 40)
+                        .overlay(
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 20, weight: .regular))
+                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                        )
                 }
-            } label: {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 42, height: 40)
-                    .overlay(
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(Color.black.opacity(0.8))
-                    )
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.black)
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
 
-                TextField("", text: $query, prompt: Text("Rechercher une ligne ou direction").foregroundStyle(Color.black.opacity(0.55)))
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundStyle(.black)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
+                    TextField("", text: $query, prompt: Text("Rechercher une ligne ou direction").foregroundStyle(AppTheme.Palette.textMuted))
+                        .font(AppTheme.Fonts.body)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 40)
+                .background(AppTheme.Palette.surfaceElevated)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+                )
             }
-            .padding(.horizontal, 14)
-            .frame(height: 40)
-            .background(Color.white)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.black, lineWidth: 1)
-            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Desk réseau")
+                    .font(AppTheme.Fonts.captionStrong)
+                    .textCase(.uppercase)
+                    .tracking(0.9)
+                    .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
+
+                Text("Lignes")
+                    .font(AppTheme.Fonts.clash(28))
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
+
+                Text("Etat du réseau STIB, lignes surveillées et confirmations terrain en direct.")
+                    .font(AppTheme.Fonts.body)
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
+            }
         }
     }
 
     private var filtersRow: some View {
-        HStack(spacing: 16) {
-            ForEach(LineFilter.allCases) { filter in
-                Button {
-                    withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
-                        selectedFilter = filter
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(LineFilter.allCases) { filter in
+                    Button {
+                        withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
+                            selectedFilter = filter
+                        }
+                    } label: {
+                        Text(filter.label)
+                            .font(AppTheme.Fonts.bodyStrong)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .padding(.horizontal, 14)
+                            .frame(height: 36)
+                            .background(selectedFilter == filter ? AppTheme.Palette.surfaceElevated : Color.clear)
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(selectedFilter == filter ? AppTheme.Palette.borderStrong : AppTheme.Palette.border, lineWidth: 1)
+                            )
                     }
-                } label: {
-                    Text(filter.label)
-                        .font(.custom("Montserrat-Regular", size: 15))
-                        .foregroundStyle(selectedFilter == filter ? .black : .white)
-                        .frame(width: filter == .metro ? 78 : 76, height: 35)
-                        .background(selectedFilter == filter ? Color.white : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white, lineWidth: 1)
-                        )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 21)
         }
     }
 
@@ -186,6 +241,23 @@ struct SignalementsView: View {
             remoteLines = buildLineStatusItems(from: etats, signalements: signalementsResponse.signalements)
         } catch {
             print("SignalementsView remote load failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func applyPendingLineFocusIfPossible() {
+        guard let line = nav.pendingLineFocus?.trimmingCharacters(in: .whitespacesAndNewlines), !line.isEmpty else {
+            return
+        }
+
+        query = line
+        selectedFilter = LineFilter.from(line: line)
+
+        if let match = displayLines.first(where: { $0.line == line }) {
+            withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
+                selectedLine = match
+            }
+            nav.pendingLineFocus = nil
         }
     }
 
@@ -259,6 +331,7 @@ struct SignalementsView: View {
 
     @MainActor
     private func loadStibiContext() async {
+        guard session.isSignedIn else { return }
         guard AppConfig.isBackendEnabled else { return }
         do {
             let context = try await AssistantService.context()
@@ -273,13 +346,13 @@ struct SignalementsView: View {
             Spacer()
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 44, weight: .light))
-                .foregroundStyle(Color(hex: "#6CE8C8"))
+                .foregroundStyle(AppTheme.Palette.success)
             Text("Tout roule")
-                .font(.custom("DelaGothicOne-Regular", size: 22))
-                .foregroundStyle(.white)
+                .font(AppTheme.Fonts.clash(22))
+                .foregroundStyle(AppTheme.Palette.textPrimary)
             Text("Aucun incident signalé sur le réseau STIB pour le moment.")
-                .font(.custom("Montserrat-Regular", size: 13))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Spacer()
@@ -292,10 +365,10 @@ struct SignalementsView: View {
             Spacer()
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(AppTheme.Palette.textMuted)
             Text("Aucun résultat pour « \(query) »")
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Spacer()
@@ -330,74 +403,83 @@ private struct LineOverviewView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
+        ZStack {
+            LinearGradient(
+                colors: [AppTheme.Palette.screen, AppTheme.Palette.screenElevated, AppTheme.Palette.screen],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            routeSummary
-                .padding(.horizontal, 21)
-                .padding(.top, 22)
+            Circle()
+                .fill(AppTheme.Palette.glowInfo.opacity(0.14))
+                .frame(width: 220, height: 220)
+                .blur(radius: 34)
+                .offset(x: 140, y: -220)
 
-            if let transportLine {
-                TransportLineSnapshotCard(
-                    line: transportLine,
-                    alternatives: lineAlternatives
-                )
-                .padding(.horizontal, 21)
-                .padding(.top, 18)
-            }
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.horizontal, 21)
+                    .padding(.top, 12)
 
-            Divider()
-                .overlay(Color.white.opacity(0.84))
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+                routeSummary
+                    .padding(.horizontal, 21)
+                    .padding(.top, 18)
 
-            ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 14) {
-                    if isLoadingStops {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
-                    } else if hasLoadedStops && stops.isEmpty {
-                        Text("Aucun arrêt disponible")
-                            .font(.custom("Montserrat-Regular", size: 14))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
-                    } else {
-                        ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
-                            Button {
-                                Task { await loadStopDetail(for: stop) }
-                            } label: {
-                                LineOverviewStopRow(
-                                    stop: stop,
-                                    isFirst: index == 0,
-                                    isLast: index == stops.count - 1
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-
-                    if !lineIncidents.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Confirmations terrain")
-                                .font(.custom("DelaGothicOne-Regular", size: 15))
-                                .foregroundStyle(.white)
-
-                            ForEach(lineIncidents.prefix(3)) { incident in
-                                TransportIncidentCommunityCard(incident: incident)
-                            }
-                        }
-                        .padding(.top, 10)
-                    }
+                if let transportLine {
+                    TransportLineSnapshotCard(
+                        line: transportLine,
+                        alternatives: lineAlternatives
+                    )
+                    .padding(.horizontal, 21)
+                    .padding(.top, 16)
                 }
-                .padding(.leading, 24)
-                .padding(.trailing, 28)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
+
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 14) {
+                        if isLoadingStops {
+                            ProgressView()
+                                .tint(AppTheme.Palette.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
+                        } else if hasLoadedStops && stops.isEmpty {
+                            Text("Aucun arrêt disponible")
+                                .font(AppTheme.Fonts.body)
+                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
+                        } else {
+                            ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                                Button {
+                                    Task { await loadStopDetail(for: stop) }
+                                } label: {
+                                    LineOverviewStopRow(
+                                        stop: stop,
+                                        isFirst: index == 0,
+                                        isLast: index == stops.count - 1
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        if !lineIncidents.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Confirmations terrain")
+                                    .font(AppTheme.Fonts.clash(16))
+                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+
+                                ForEach(lineIncidents.prefix(3)) { incident in
+                                    TransportIncidentCommunityCard(incident: incident)
+                                }
+                            }
+                            .padding(.top, 8)
+                        }
+                    }
+                    .padding(.horizontal, 21)
+                    .padding(.top, 18)
+                    .padding(.bottom, 28)
+                }
             }
         }
         .overlay {
@@ -425,12 +507,12 @@ private struct LineOverviewView: View {
                         .font(.system(size: 18, weight: .semibold))
 
                     Text("Lignes")
-                        .font(.custom("Montserrat-SemiBold", size: 14))
+                        .font(AppTheme.Fonts.bodyStrong)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
                 .padding(.horizontal, 16)
                 .frame(height: 42)
-                .background(Color(hex: "#2A3043"))
+                .background(AppTheme.Palette.surfaceElevated)
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -440,61 +522,96 @@ private struct LineOverviewView: View {
             HStack(spacing: 18) {
                 Image(systemName: "bell")
                     .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
 
                 Image(systemName: "heart")
                     .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
             }
         }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             topBar
 
-            HStack(spacing: 16) {
-                Text(line.line)
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(line.lineTextColor)
-                    .frame(width: 40, height: 44)
-                    .background(line.lineColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Desk ligne")
+                    .font(AppTheme.Fonts.captionStrong)
+                    .textCase(.uppercase)
+                    .tracking(0.9)
+                    .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
 
-                HStack(spacing: 0) {
-                    routePill(text: line.origin, isLeading: true)
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [line.lineColor, line.lineColor.opacity(0.82)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
 
-                    Rectangle()
-                        .fill(Color.white.opacity(0.8))
-                        .frame(width: 14, height: 1)
+                        Text(line.line)
+                            .font(AppTheme.Fonts.bodyStrong)
+                            .foregroundStyle(line.lineTextColor)
+                    }
+                    .frame(width: 42, height: 46)
 
-                    routePill(text: line.destination, isLeading: false)
+                    HStack(spacing: 0) {
+                        routePill(text: line.origin, isLeading: true)
+
+                        Rectangle()
+                            .fill(AppTheme.Palette.borderStrong.opacity(0.9))
+                            .frame(width: 14, height: 1)
+
+                        routePill(text: line.destination, isLeading: false)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
     }
 
     private func routePill(text: String, isLeading: Bool) -> some View {
         Text(text)
-            .font(.custom("Montserrat-Regular", size: 14))
-            .foregroundStyle(.white)
+            .font(AppTheme.Fonts.body)
+            .foregroundStyle(AppTheme.Palette.textPrimary)
             .lineLimit(2)
             .multilineTextAlignment(isLeading ? .leading : .center)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 50, alignment: isLeading ? .leading : .center)
-            .background(Color.clear)
+            .background(AppTheme.Palette.surface.opacity(0.72))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.white, lineWidth: 1)
+                    .stroke(AppTheme.Palette.border, lineWidth: 1)
             )
     }
 
     private var routeSummary: some View {
-        HStack(spacing: 22) {
-            Label("\(stops.count) arrêts", systemImage: "mappin.and.ellipse")
-                .labelStyle(LineOverviewMetricLabelStyle())
+        HStack(spacing: 10) {
+            overviewMetric(text: "\(stops.count) arrêts", icon: "mappin.and.ellipse")
+            overviewMetric(text: "\(line.reportsCount) reports", icon: "exclamationmark.bubble")
         }
+    }
+
+    private func overviewMetric(text: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(text)
+                .font(AppTheme.Fonts.captionStrong)
+        }
+        .foregroundStyle(AppTheme.Palette.textPrimary)
+        .padding(.horizontal, 12)
+        .frame(height: 34)
+        .background(AppTheme.Palette.surfaceElevated)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
     }
 
     @MainActor
@@ -681,37 +798,46 @@ private struct LineStatusCard: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(line.line)
-                .font(.custom("Montserrat-SemiBold", size: 16))
-                .foregroundStyle(line.lineTextColor)
-                .frame(width: 32, height: 32)
-                .background(line.lineColor)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [line.lineColor, line.lineColor.opacity(0.82)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                Text(line.line)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(line.lineTextColor)
+            }
+            .frame(width: 34, height: 36)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(line.direction)
-                    .font(.custom("Montserrat-Regular", size: 16))
-                    .foregroundStyle(.black)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.turn.down.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(AppTheme.Palette.textMuted)
 
                     Circle()
                         .fill(statusColor)
                         .frame(width: 12, height: 12)
 
                     Text("\(line.status.label) – \(line.reportsCount) signalements")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black.opacity(0.78))
+                        .font(AppTheme.Fonts.caption)
+                        .foregroundStyle(AppTheme.Palette.textSecondary)
                 }
 
                 if let confidenceText = line.confidenceText {
                     Text(confidenceText)
-                        .font(.custom("Montserrat-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.62))
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textMuted)
                 }
             }
 
@@ -719,16 +845,23 @@ private struct LineStatusCard: View {
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.black.opacity(0.75))
+                .foregroundStyle(AppTheme.Palette.textMuted)
         }
         .padding(.horizontal, 15)
-        .frame(height: 64)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(borderColor, lineWidth: 1.5)
+        .frame(height: 72)
+        .background(
+            LinearGradient(
+                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(borderColor.opacity(0.45), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 10)
     }
 }
 

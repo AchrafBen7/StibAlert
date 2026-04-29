@@ -34,6 +34,42 @@ private struct StaticTransitCatalog: Codable {
     let lines: [String: StaticTransitLine]
 }
 
+private struct MergedTransitCatalog: Decodable {
+    let generatedAt: Date?
+    let stops: [MergedTransitStop]
+    let lines: [String: MergedTransitLine]
+}
+
+private struct MergedTransitStop: Decodable {
+    let id: Int
+    let nameFr: String
+    let nameNl: String?
+    let latitude: Double
+    let longitude: Double
+    let lines: [String]
+    let physicalStopIds: [String]?
+}
+
+private struct MergedTransitLine: Decodable {
+    let lineId: String
+    let direction: String?
+    let destinationFr: String?
+    let destinationNl: String?
+    let colorHex: String?
+    let typeTransport: String?
+    let stops: [MergedTransitLineStop]
+}
+
+private struct MergedTransitLineStop: Decodable {
+    let mergedStopId: Int
+    let physicalStopId: String?
+    let order: Int
+    let nameFr: String
+    let nameNl: String?
+    let latitude: Double
+    let longitude: Double
+}
+
 private struct StaticTransitStop: Codable {
     let id: String
     let stopId: String?
@@ -62,10 +98,11 @@ private struct StaticLineDTO: Decodable {
 
 private enum StaticTransitCatalogStore {
     private static let fileName = "stib-static-catalog.json"
+    private static let bundledSeedFileName = "stib-static-catalog-merged"
     private static let maxAge: TimeInterval = 14 * 24 * 60 * 60
 
     static func loadOrRefresh() async throws -> StaticTransitCatalog? {
-        let cached = loadFromDisk()
+        let cached = loadFromDisk() ?? loadBundledSeed()
         let shouldRefresh = cached == nil || isExpired(cached)
 
         if shouldRefresh, AppConfig.isBackendEnabled {
@@ -147,6 +184,26 @@ private enum StaticTransitCatalogStore {
         return try? decoder.decode(StaticTransitCatalog.self, from: data)
     }
 
+    private static func loadBundledSeed() -> StaticTransitCatalog? {
+        guard let url = Bundle.main.url(forResource: bundledSeedFileName, withExtension: "json"),
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        if let direct = try? decoder.decode(StaticTransitCatalog.self, from: data) {
+            return direct
+        }
+
+        guard let merged = try? decoder.decode(MergedTransitCatalog.self, from: data) else {
+            return nil
+        }
+
+        return normalizeMergedCatalog(merged)
+    }
+
     private static func saveToDisk(_ catalog: StaticTransitCatalog) {
         guard let url = fileURL() else { return }
         let encoder = JSONEncoder()
@@ -170,6 +227,50 @@ private enum StaticTransitCatalogStore {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("StibAlert", isDirectory: true)
             .appendingPathComponent(fileName)
+    }
+
+    private static func normalizeMergedCatalog(_ merged: MergedTransitCatalog) -> StaticTransitCatalog {
+        var stopVariants: [Int: [String]] = [:]
+        for (variantKey, line) in merged.lines {
+            for stop in line.stops {
+                stopVariants[stop.mergedStopId, default: []].append(
+                    variantKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            }
+        }
+
+        let stops = merged.stops.map { stop in
+            StaticTransitStop(
+                id: String(stop.id),
+                stopId: stop.physicalStopIds?.first,
+                name: stop.nameFr,
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+                lines: (stopVariants[stop.id] ?? stop.lines)
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            )
+        }
+
+        let lines = Dictionary(uniqueKeysWithValues: merged.lines.map { key, line in
+            let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (
+                normalizedKey,
+                StaticTransitLine(
+                    lineId: line.lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                    colorHex: line.colorHex,
+                    direction: line.direction,
+                    destinationFr: line.destinationFr ?? line.destinationNl,
+                    typeTransport: line.typeTransport
+                )
+            )
+        })
+
+        return StaticTransitCatalog(
+            generatedAt: merged.generatedAt ?? Date(),
+            stops: stops,
+            lines: lines
+        )
     }
 }
 
@@ -204,17 +305,12 @@ enum NearbyStopService {
             .sorted { $0.distance < $1.distance }
             .prefix(10)
             .map { entry in
-                let issueLines = entry.stop.lines.map { lineId in
-                    toNearbyIssueLine(
-                        lineId: lineId,
-                        metadata: catalog.lines[lineId]
-                    )
-                }
+                let issueLines = issueLines(for: entry.stop, in: catalog)
 
                 return NearbyStop(
                     backendId: entry.stop.id,
                     name: entry.stop.name,
-                    lines: issueLines.map { StopLine(number: $0.number, color: $0.color) },
+                    lines: uniqueStopLines(from: issueLines),
                     distanceMeters: Int(entry.distance.rounded()),
                     issueLines: issueLines,
                     coordinate: entry.coordinate
@@ -261,6 +357,46 @@ enum NearbyStopService {
 
     private static func normalizedLineId(_ lineId: String) -> String {
         lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    private static func metadata(for lineId: String, in catalog: StaticTransitCatalog) -> StaticTransitLine? {
+        let normalized = normalizedLineId(lineId)
+        if let exact = catalog.lines[normalized] {
+            return exact
+        }
+
+        return catalog.lines.first(where: { _, value in
+            value.lineId == normalized
+        })?.value
+    }
+
+    private static func issueLines(for stop: StaticTransitStop, in catalog: StaticTransitCatalog) -> [NearbyIssueLine] {
+        var seen = Set<String>()
+
+        return stop.lines.compactMap { key in
+            let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            let issueLine = toNearbyIssueLine(
+                lineId: normalizedKey,
+                metadata: catalog.lines[normalizedKey] ?? metadata(for: normalizedKey, in: catalog)
+            )
+            let dedupeKey = "\(issueLine.number)|\(issueLine.direction)"
+            guard seen.insert(dedupeKey).inserted else { return nil }
+            return issueLine
+        }
+        .sorted {
+            if $0.number == $1.number {
+                return $0.direction.localizedCaseInsensitiveCompare($1.direction) == .orderedAscending
+            }
+            return $0.number.localizedStandardCompare($1.number) == .orderedAscending
+        }
+    }
+
+    private static func uniqueStopLines(from issueLines: [NearbyIssueLine]) -> [StopLine] {
+        var seen = Set<String>()
+        return issueLines.compactMap { line in
+            guard seen.insert(line.number).inserted else { return nil }
+            return StopLine(number: line.number, color: line.color)
+        }
     }
 
     private static func normalizedColor(from hex: String?) -> Color {

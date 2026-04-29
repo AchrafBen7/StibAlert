@@ -25,6 +25,7 @@ struct QuickReportSheetView: View {
     @State private var showConfetti: Bool = false
     @State private var nearbyStops: [NearbyStop] = []
     @State private var isLoadingStops = false
+    @State private var stopSearchQuery = ""
 
     private let screen = UIScreen.main.bounds.height
 
@@ -63,6 +64,16 @@ struct QuickReportSheetView: View {
 
     private var canSubmit: Bool {
         selectedStop != nil && selectedLine != nil && selectedProblem != nil && !isSubmitting && !submitSuccess
+    }
+
+    private var filteredNearbyStops: [NearbyStop] {
+        let trimmed = stopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nearbyStops }
+        return nearbyStops.filter { stop in
+            stop.name.localizedCaseInsensitiveContains(trimmed)
+            || stop.issueLines.contains(where: { $0.number.localizedCaseInsensitiveContains(trimmed) })
+            || stop.issueLines.contains(where: { $0.direction.localizedCaseInsensitiveContains(trimmed) })
+        }
     }
 
     var body: some View {
@@ -239,33 +250,79 @@ struct QuickReportSheetView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        ForEach(nearbyStops) { stop in
-                            Button {
-                                selectedStop = stop
-                                selectedLine = nil
-                                showStopPicker = false
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(stop.name)
-                                            .font(AppTheme.Fonts.bodyStrong)
-                                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                                        Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
-                                            .font(AppTheme.Fonts.caption)
-                                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                                    }
-                                    Spacer()
-                                    if selectedStop?.id == stop.id {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(AppTheme.Palette.success)
+                    VStack(spacing: 0) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(AppTheme.Palette.textMuted)
+
+                            TextField(
+                                "",
+                                text: $stopSearchQuery,
+                                prompt: Text("Rechercher un arrêt ou une ligne")
+                                    .foregroundStyle(AppTheme.Palette.textMuted)
+                            )
+                            .font(AppTheme.Fonts.body)
+                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .background(AppTheme.Palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+
+                        List {
+                            ForEach(filteredNearbyStops) { stop in
+                                Button {
+                                    selectedStop = stop
+                                    selectedLine = stop.issueLines.first
+                                    showStopPicker = false
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            Text(stop.name)
+                                                .font(AppTheme.Fonts.bodyStrong)
+                                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                            Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
+                                                .font(AppTheme.Fonts.caption)
+                                                .foregroundStyle(AppTheme.Palette.textSecondary)
+
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack(spacing: 6) {
+                                                    ForEach(Array(stop.lines.prefix(4))) { line in
+                                                        Text(line.number)
+                                                            .font(AppTheme.Fonts.captionStrong)
+                                                            .foregroundStyle(AppTheme.Palette.textOnBrand)
+                                                            .frame(width: 28, height: 22)
+                                                            .background(line.color)
+                                                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+                                                    }
+                                                }
+                                            }
+
+                                            if let primaryDirection = stop.issueLines.first?.direction {
+                                                Text(primaryDirection)
+                                                    .font(AppTheme.Fonts.caption)
+                                                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                                                    .lineLimit(2)
+                                            }
+                                        }
+                                        Spacer()
+                                        if selectedStop?.id == stop.id {
+                                            Image(systemName: "checkmark")
+                                                .foregroundStyle(AppTheme.Palette.success)
+                                        }
                                     }
                                 }
+                                .listRowBackground(AppTheme.Palette.screen)
                             }
-                            .listRowBackground(AppTheme.Palette.screen)
                         }
+                        .listStyle(.plain)
                     }
-                    .listStyle(.plain)
                 }
             }
             .background(AppTheme.Palette.screen)
@@ -606,8 +663,12 @@ struct QuickReportSheetView: View {
                 selectedStop = NearestStopFinder.nearest(
                     to: userCoordinate,
                     in: stops,
-                    maxMeters: 80
+                    maxMeters: 120
+                ) ?? NearestStopFinder.closest(
+                    to: userCoordinate,
+                    in: stops
                 ) ?? stops.first
+                selectedLine = selectedStop?.issueLines.first
             } catch {
                 print("NearbyStopService failed: \(error.localizedDescription)")
             }

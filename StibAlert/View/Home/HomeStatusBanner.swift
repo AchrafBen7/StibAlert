@@ -70,12 +70,12 @@ struct HomeStatusBanner: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
                     Image(systemName: level.icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.black)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 26, height: 26)
                         .background(level.color)
                         .clipShape(Circle())
 
@@ -103,16 +103,16 @@ struct HomeStatusBanner: View {
                 if showsOfficialNotice, let officialNotice {
                     HStack(spacing: 8) {
                         Image(systemName: "antenna.radiowaves.left.and.right.slash")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(AppTheme.Palette.warning)
                         Text(officialNotice)
-                            .font(AppTheme.Fonts.caption)
+                            .font(.custom("Montserrat-Regular", size: 11))
                             .foregroundStyle(AppTheme.Palette.textSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 7)
                     .background(AppTheme.Palette.warning.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
@@ -121,8 +121,8 @@ struct HomeStatusBanner: View {
                     )
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
                     .fill(AppTheme.Palette.surface)

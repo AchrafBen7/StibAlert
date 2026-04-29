@@ -20,6 +20,7 @@ enum SheetLevel: Int, CaseIterable {
 // MARK: - Report sheet (overlaid on HomeView's map)
 
 struct ReportSheetView: View {
+    @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
     @Binding var isShowing: Bool
     var userLatitude: Double? = nil
@@ -38,6 +39,7 @@ struct ReportSheetView: View {
     @State private var nearbyStops: [NearbyStop] = []
     @State private var isLoadingStops = false
     @State private var stopsLoadError: String? = nil
+    @State private var stopSearchQuery = ""
 
     private let screen = UIScreen.main.bounds.height
     private let snapSpring = Animation.spring(response: 0.36, dampingFraction: 0.78)
@@ -52,6 +54,16 @@ struct ReportSheetView: View {
 
     private var selectedIssueLineItem: NearbyIssueLine? {
         availableIssueLines.first(where: { $0.id == selectedIssueLine })
+    }
+
+    private var filteredNearbyStops: [NearbyStop] {
+        let trimmed = stopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nearbyStops }
+        return nearbyStops.filter { stop in
+            stop.name.localizedCaseInsensitiveContains(trimmed)
+            || stop.issueLines.contains(where: { $0.number.localizedCaseInsensitiveContains(trimmed) })
+            || stop.issueLines.contains(where: { $0.direction.localizedCaseInsensitiveContains(trimmed) })
+        }
     }
 
     // Leaves the status bar / dynamic island area uncovered
@@ -159,7 +171,10 @@ struct ReportSheetView: View {
                                     .padding(.horizontal, 20)
                                     .padding(.top, 12)
                             }
-                            StopCardsGrid(stops: nearbyStops, isLoading: isLoadingStops, selectedStop: $selectedStop)
+                            reportStopSearchField
+                                .padding(.horizontal, 18)
+                                .padding(.bottom, 12)
+                            StopCardsGrid(stops: filteredNearbyStops, isLoading: isLoadingStops, selectedStop: $selectedStop)
                                 .padding(.horizontal, 14)
                         } else if currentStep == .line {
                             IssueLineCardsGrid(
@@ -280,6 +295,29 @@ struct ReportSheetView: View {
         }
     }
 
+    private var reportStopSearchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(AppTheme.Palette.textMuted)
+
+            TextField(
+                "",
+                text: $stopSearchQuery,
+                prompt: Text("Rechercher un arrêt ou une ligne")
+                    .foregroundStyle(AppTheme.Palette.textMuted)
+            )
+            .font(AppTheme.Fonts.body)
+            .foregroundStyle(AppTheme.Palette.textPrimary)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(AppTheme.Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+    }
+
     private func handleContinue() {
         switch currentStep {
         case .stop:
@@ -361,6 +399,33 @@ struct ReportSheetView: View {
             nearbyStops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
             if nearbyStops.isEmpty {
                 stopsLoadError = "Aucun arrêt trouvé à proximité."
+            } else {
+                let nearest = NearestStopFinder.nearest(
+                    to: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                    in: nearbyStops,
+                    maxMeters: 120
+                ) ?? NearestStopFinder.closest(
+                    to: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                    in: nearbyStops
+                )
+
+                if let pendingBackendId = nav.pendingReportStopBackendId,
+                   let pendingStop = nearbyStops.first(where: { $0.backendId == pendingBackendId }) {
+                    selectedStop = pendingStop.id
+                    nav.pendingReportStopBackendId = nil
+                } else if selectedStop == nil {
+                    selectedStop = nearest?.id
+                }
+
+                if selectedStop == nil {
+                    selectedStop = nearest?.id
+                }
+
+                if selectedIssueLine == nil,
+                   let stop = selectedStopItem,
+                   let firstLine = stop.issueLines.first {
+                    selectedIssueLine = firstLine.id
+                }
             }
         } catch {
             stopsLoadError = "Impossible de charger les arrêts. Vérifie ta connexion."
@@ -672,10 +737,23 @@ private struct NearbyStopCard: View {
                     .padding(.top, 3)
             }
             WrappingLineBadges(lines: stop.lines)
+            if let firstDirection = stop.issueLines.first?.direction {
+                Text(firstDirection)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.72))
+                    .lineLimit(2)
+            }
             Spacer(minLength: 0)
-            Text("\(stop.distanceMeters)m de votre position")
-                .font(DesignSystem.Typography.caption)
-                .foregroundStyle(AppTheme.Palette.textOnBrand)
+            HStack(spacing: 6) {
+                Text("\(stop.distanceMeters)m")
+                    .font(DesignSystem.Typography.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand)
+                Text("·")
+                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.6))
+                Text("\(stop.issueLines.count) ligne\(stop.issueLines.count > 1 ? "s" : "")")
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.86))
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
@@ -953,4 +1031,3 @@ extension Comparable {
         max(range.lowerBound, min(range.upperBound, self))
     }
 }
-

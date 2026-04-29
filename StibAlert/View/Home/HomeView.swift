@@ -44,6 +44,14 @@ struct HomeView: View {
     @State private var isLoadingTransportOverview = false
     @State private var stibiBrief: AssistantBriefDTO?
     @State private var isLoadingStibiBrief = false
+    @State private var selectedAlternativeDetail: TransportAlternativeDTO?
+    @State private var selectedMapStopSummary: TransportStopSummaryDTO?
+    @State private var selectedMapStopDetail: TransportStopDTO?
+    @State private var isLoadingMapStopDetail = false
+    @State private var eventImpacts: [TransportEventImpactDTO] = []
+    @State private var selectedEventImpact: TransportEventImpactDTO?
+    @State private var showVilloStations = true
+    @State private var selectedVilloStation: VilloStation?
     @State private var problemFilter: ReportProblemType? = nil
     @State private var cameraLatitudeDelta: Double = 0.04
     @State private var showReportAuthGate = false
@@ -52,6 +60,9 @@ struct HomeView: View {
     @State private var homeRefreshTask: Task<Void, Never>? = nil
     @State private var lastHomeRefreshAt: Date? = nil
     @State private var lastRefreshCoordinate: CLLocationCoordinate2D? = nil
+    @State private var hasAutoCenteredOnUser = false
+    @State private var isFollowingUser = true
+    @State private var suppressNextCameraInteraction = false
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
@@ -108,6 +119,25 @@ struct HomeView: View {
         return vehicleTracker.vehicles.filter { $0.latitude != nil && $0.longitude != nil }
     }
 
+    private var mapStops: [TransportStopSummaryDTO] {
+        guard cameraLatitudeDelta <= 0.045 else { return [] }
+        return (transportOverview?.stops ?? []).filter { $0.latitude != nil && $0.longitude != nil }
+    }
+
+    private var mapVilloStations: [VilloStation] {
+        guard showVilloStations, cameraLatitudeDelta <= 0.06 else { return [] }
+        return VilloStationService.nearbyStations(
+            around: locationManager.displayCoordinate,
+            radiusMeters: 2200,
+            limit: 80
+        ).map(\.station)
+    }
+
+    private var mapEventImpacts: [TransportEventImpactDTO] {
+        guard cameraLatitudeDelta <= 0.1 else { return [] }
+        return eventImpacts.filter { $0.latitude != nil && $0.longitude != nil }
+    }
+
     private var transitionSpring: Animation {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
@@ -141,16 +171,33 @@ struct HomeView: View {
                         } else {
                             stibi.openConversation()
                         }
+                    },
+                    onOpenLine: { line in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.pendingLineFocus = line
+                            nav.currentPage = .signalements
+                        }
+                    },
+                    onOpenAlert: { reportId in
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.pendingReportFocus = reportId
+                            nav.currentPage = .reports
+                        }
+                    },
+                    onOpenAlternative: {
+                        if let alternative = homeDashboardData.recommendedAlternativeDetail {
+                            selectedAlternativeDetail = alternative
+                        }
                     }
                 )
                 .padding(.horizontal, 20)
-                .padding(.bottom, 210)
+                .padding(.bottom, 174)
                 .zIndex(4)
             }
         }
         .overlay(alignment: .top) {
             if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !showSearch {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     HomeStatusBanner(
                         favoriteAffected: favoriteAffectedCount,
                         totalActive: totalActiveSignalementsCount,
@@ -162,7 +209,7 @@ struct HomeView: View {
                             }
                         }
                     )
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 18)
 
                     if let signalementLoadError {
                         HStack(spacing: 8) {
@@ -187,12 +234,12 @@ struct HomeView: View {
                         .padding(.vertical, 8)
                         .background(.ultraThinMaterial)
                         .clipShape(Capsule())
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 18)
                     }
 
-                    HomeMapFilterBar(selected: $problemFilter)
+                    HomeMapFilterBar(selected: $problemFilter, showVillo: $showVilloStations)
                 }
-                .padding(.top, 76)
+                .padding(.top, 68)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
             }
@@ -211,7 +258,7 @@ struct HomeView: View {
                         }
                     }
                 )
-                .padding(.bottom, 108)
+                .padding(.bottom, 92)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
@@ -265,6 +312,38 @@ struct HomeView: View {
             onSignIn: { nav.showAuthFlow = true },
             onSignUp: { nav.showAuthFlow = true }
         )
+        .sheet(item: $selectedAlternativeDetail) { alternative in
+            HomeAlternativeDetailsSheet(
+                alternative: alternative,
+                onFocusStep: { step in
+                    focusMap(on: step)
+                }
+            )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedVilloStation) { station in
+            HomeVilloStationSheet(station: station)
+                .presentationDetents([.height(260), .medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedEventImpact) { event in
+            HomeEventImpactSheet(
+                event: event,
+                onOpenLine: { line in
+                    selectedEventImpact = nil
+                    nav.pendingLineFocus = line
+                    nav.currentPage = .signalements
+                },
+                onOpenStop: { stopId in
+                    selectedEventImpact = nil
+                    nav.pendingMapStopFocusBackendId = stopId
+                    nav.currentPage = .home
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
@@ -283,6 +362,7 @@ struct HomeView: View {
             syncFavoritesToWidget(newLines)
         }
         .task { await loadRemoteSignalements() }
+        .task { await loadEventImpacts() }
         .task { lineShapesLoader.loadIfNeeded() }
         .task {
             guard !hasBootstrappedHomeData else { return }
@@ -309,13 +389,24 @@ struct HomeView: View {
             case .profile:     stibi.setCurrentScreen("profile")
             case .profileMain: stibi.setCurrentScreen("profile_main")
             }
+            if newValue == .home, nav.pendingMapStopFocusBackendId != nil {
+                Task { await applyPendingMapStopFocusIfPossible() }
+            }
+        }
+        .onChange(of: nav.pendingMapStopFocusBackendId) { _, newValue in
+            guard nav.currentPage == .home, newValue != nil else { return }
+            Task { await applyPendingMapStopFocusIfPossible() }
         }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }) { coord in
-            withAnimation(.easeInOut(duration: 0.8)) {
-                mapPosition = .region(MKCoordinateRegion(
-                    center: coord,
-                    span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
-                ))
+            if !hasAutoCenteredOnUser || isFollowingUser {
+                suppressNextCameraInteraction = true
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    mapPosition = .region(MKCoordinateRegion(
+                        center: coord,
+                        span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
+                    ))
+                }
+                hasAutoCenteredOnUser = true
             }
             Task { await refreshHomeSurfaceForLocation(coord) }
         }
@@ -390,6 +481,40 @@ struct HomeView: View {
                     }
                 }
             }
+            ForEach(mapStops) { stop in
+                if let latitude = stop.latitude, let longitude = stop.longitude {
+                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
+                        Button {
+                            openStopDetail(for: stop)
+                        } label: {
+                            HomeStopMarker(stop: stop)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            ForEach(mapVilloStations) { station in
+                Annotation("", coordinate: station.coordinate, anchor: .bottom) {
+                    Button {
+                        selectedVilloStation = station
+                    } label: {
+                        VilloMapMarker(station: station)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            ForEach(mapEventImpacts) { event in
+                if let latitude = event.latitude, let longitude = event.longitude {
+                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
+                        Button {
+                            selectedEventImpact = event
+                        } label: {
+                            EventMapMarker(event: event)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
         .mapStyle(.standard(elevation: .realistic))
         .environment(\.colorScheme, .dark)
@@ -397,6 +522,11 @@ struct HomeView: View {
         .allowsHitTesting(!(showSearch && !searchSuggestions.isEmpty))
         .onMapCameraChange(frequency: .onEnd) { ctx in
             cameraLatitudeDelta = ctx.region.span.latitudeDelta
+            if suppressNextCameraInteraction {
+                suppressNextCameraInteraction = false
+            } else {
+                isFollowingUser = false
+            }
         }
     }
 
@@ -474,7 +604,7 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 172)
+                .padding(.bottom, 146)
             }
             .zIndex(2)
     }
@@ -490,6 +620,25 @@ struct HomeView: View {
             }
             .transition(.opacity)
             .zIndex(9)
+        }
+
+        if let stop = selectedMapStopSummary {
+            HomeStopDetailOverlay(
+                stopSummary: stop,
+                stopDetail: selectedMapStopDetail,
+                isLoading: isLoadingMapStopDetail,
+                nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
+                onDismiss: {
+                    selectedMapStopSummary = nil
+                    selectedMapStopDetail = nil
+                    isLoadingMapStopDetail = false
+                },
+                onReport: {
+                    openReportSheet(for: stop)
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .zIndex(10)
         }
 
         if !routeOptions.isEmpty {
@@ -589,13 +738,76 @@ struct HomeView: View {
         }
     }
 
+    @MainActor
+    private func loadEventImpacts() async {
+        guard AppConfig.isBackendEnabled else { return }
+        do {
+            let response = try await TransportService.events(activeOnly: true, limit: 40)
+            eventImpacts = response.events
+        } catch {
+            print("Home event impacts failed: \(error.localizedDescription)")
+        }
+    }
+
     private func recenterOnUser() {
         let coord = locationManager.displayCoordinate
+        isFollowingUser = true
+        hasAutoCenteredOnUser = true
+        suppressNextCameraInteraction = true
         withAnimation(.easeInOut(duration: 0.6)) {
             mapPosition = .region(
                 MKCoordinateRegion(
                     center: coord,
                     span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
+                )
+            )
+        }
+    }
+
+    private func focusMap(on step: TransportRouteStepDTO) {
+        selectedAlternativeDetail = nil
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+
+        if let path = step.path, path.count >= 2 {
+            let coords = path.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+            var rect = MKMapRect.null
+            for coordinate in coords {
+                let point = MKMapPoint(coordinate)
+                let pointRect = MKMapRect(x: point.x, y: point.y, width: 0, height: 0)
+                rect = rect.isNull ? pointRect : rect.union(pointRect)
+            }
+            withAnimation(.easeInOut(duration: 0.7)) {
+                mapPosition = .rect(rect.insetBy(dx: -max(rect.width * 0.22, 250), dy: -max(rect.height * 0.22, 250)))
+            }
+            return
+        }
+
+        let startLat = step.startLatitude ?? step.targetLatitude
+        let startLng = step.startLongitude ?? step.targetLongitude
+        let endLat = step.targetLatitude ?? step.startLatitude
+        let endLng = step.targetLongitude ?? step.startLongitude
+
+        guard let firstLat = startLat, let firstLng = startLng else { return }
+
+        let first = CLLocationCoordinate2D(latitude: firstLat, longitude: firstLng)
+        let second = (endLat != nil && endLng != nil)
+            ? CLLocationCoordinate2D(latitude: endLat!, longitude: endLng!)
+            : first
+
+        let center = CLLocationCoordinate2D(
+            latitude: (first.latitude + second.latitude) / 2,
+            longitude: (first.longitude + second.longitude) / 2
+        )
+
+        let latitudeDelta = max(abs(first.latitude - second.latitude) * 1.8, 0.008)
+        let longitudeDelta = max(abs(first.longitude - second.longitude) * 1.8, 0.008)
+
+        withAnimation(.easeInOut(duration: 0.7)) {
+            mapPosition = .region(
+                MKCoordinateRegion(
+                    center: center,
+                    span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)
                 )
             )
         }
@@ -664,6 +876,103 @@ struct HomeView: View {
             return arret.nom
         }
         return nil
+    }
+
+    @MainActor
+    private func openStopDetail(for stop: TransportStopSummaryDTO) {
+        selectedMapStopSummary = stop
+        selectedMapStopDetail = nil
+        isLoadingMapStopDetail = true
+
+        Task {
+            do {
+                let detail = try await TransportService.stop(id: stop.id)
+                await MainActor.run {
+                    if selectedMapStopSummary?.id == stop.id {
+                        selectedMapStopDetail = detail
+                    }
+                }
+            } catch {
+                print("Transport stop detail failed: \(error.localizedDescription)")
+            }
+
+            await MainActor.run {
+                if selectedMapStopSummary?.id == stop.id {
+                    isLoadingMapStopDetail = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func focusMap(on stop: TransportStopSummaryDTO) {
+        guard let latitude = stop.latitude, let longitude = stop.longitude else { return }
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+        withAnimation(.easeInOut(duration: 0.6)) {
+            mapPosition = .region(
+                MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                )
+            )
+        }
+    }
+
+    @MainActor
+    private func applyPendingMapStopFocusIfPossible() async {
+        guard let stopId = nav.pendingMapStopFocusBackendId else { return }
+
+        if let summary = (transportOverview?.stops ?? []).first(where: { $0.id == stopId }) {
+            focusMap(on: summary)
+            openStopDetail(for: summary)
+            nav.pendingMapStopFocusBackendId = nil
+            return
+        }
+
+        do {
+            let detail = try await TransportService.stop(id: stopId)
+            let summary = detail.stop
+            focusMap(on: summary)
+            selectedMapStopSummary = summary
+            selectedMapStopDetail = detail
+            isLoadingMapStopDetail = false
+            nav.pendingMapStopFocusBackendId = nil
+        } catch {
+            print("Pending map stop focus failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func openReportSheet(for stop: TransportStopSummaryDTO) {
+        selectedMapStopSummary = nil
+        selectedMapStopDetail = nil
+        isLoadingMapStopDetail = false
+
+        guard !session.isGuest else {
+            guestGateReason = .report
+            showReportAuthGate = true
+            return
+        }
+
+        nav.pendingReportStopBackendId = stop.id
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            nav.showReportSheet = true
+        }
+    }
+
+    private func stopVilloStations(
+        for stop: TransportStopSummaryDTO,
+        detail: TransportStopDTO?
+    ) -> [(station: VilloStation, distanceMeters: Int)] {
+        let latitude = detail?.stop.latitude ?? stop.latitude
+        let longitude = detail?.stop.longitude ?? stop.longitude
+        guard let latitude, let longitude else { return [] }
+        return VilloStationService.nearbyStations(
+            around: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            radiusMeters: 300,
+            limit: 3
+        )
     }
 
     private func reportStillBlocked(id: String) async {
@@ -1349,16 +1658,664 @@ private struct OfficialSignalMarker: View {
     }
 }
 
+private struct HomeStopMarker: View {
+    let stop: TransportStopSummaryDTO
+
+    private var badgeText: String {
+        let labels = stop.lines.prefix(2)
+        return labels.isEmpty ? "STOP" : labels.joined(separator: " · ")
+    }
+
+    private var accentColor: Color {
+        stop.lines.first.map { line in
+            switch line {
+            case "1", "2", "5", "6":
+                return Color(hex: "#4D8DFF")
+            default:
+                return Color(hex: "#F8E2B3")
+            }
+        } ?? Color(hex: "#F8E2B3")
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(badgeText)
+                .font(.custom("Montserrat-SemiBold", size: 10))
+                .foregroundStyle(.black.opacity(0.85))
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(accentColor)
+                .clipShape(Capsule())
+
+            Image(systemName: "tram.fill")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color(hex: "#182131"))
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(accentColor.opacity(0.95), lineWidth: 2)
+                )
+                .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Arrêt \(stop.name)")
+        .accessibilityHint("Ouvre les détails et prochains passages")
+    }
+}
+
+private struct VilloMapMarker: View {
+    let station: VilloStation
+
+    private var fill: Color {
+        switch visualState {
+        case .closed:
+            return Color.white.opacity(0.32)
+        case .empty:
+            return Color(hex: "#FF7A7A")
+        case .low:
+            return Color(hex: "#FFB15A")
+        case .full:
+            return Color(hex: "#7DB6FF")
+        case .healthy:
+            return Color(hex: "#57E3B6")
+        }
+    }
+
+    private var stroke: Color {
+        switch visualState {
+        case .closed:
+            return Color.white.opacity(0.55)
+        case .empty:
+            return Color(hex: "#FFD1D1")
+        case .low:
+            return Color(hex: "#FFE1BA")
+        case .full:
+            return Color(hex: "#D5E7FF")
+        case .healthy:
+            return Color(hex: "#CCF8EA")
+        }
+    }
+
+    private var bikeBadgeText: String {
+        "\(station.availableBikes)"
+    }
+
+    private var docksBadgeText: String {
+        "+\(station.availableBikeStands)"
+    }
+
+    private var visualState: VilloVisualState {
+        if !station.isOperational { return .closed }
+        if station.availableBikes == 0 { return .empty }
+        if station.availableBikeStands == 0 { return .full }
+        if station.availableBikes <= 3 { return .low }
+        return .healthy
+    }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(fill)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Circle().stroke(stroke, lineWidth: 2)
+                    )
+
+                Image(systemName: "bicycle")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.black)
+
+                Text(bikeBadgeText)
+                    .font(.custom("Montserrat-SemiBold", size: 9))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 5)
+                    .frame(height: 16)
+                    .background(Color.white)
+                    .clipShape(Capsule())
+                    .offset(x: 8, y: -6)
+            }
+
+            Text(docksBadgeText)
+                .font(.custom("Montserrat-SemiBold", size: 9))
+                .foregroundStyle(.white.opacity(0.92))
+                .padding(.horizontal, 6)
+                .frame(height: 16)
+                .background(Color.black.opacity(0.45))
+                .clipShape(Capsule())
+        }
+        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+        .accessibilityElement()
+        .accessibilityLabel("Station Villo! \(station.displayName)")
+        .accessibilityHint("Ouvre l’état de la station vélo")
+    }
+
+    private enum VilloVisualState {
+        case closed
+        case empty
+        case low
+        case full
+        case healthy
+    }
+}
+
+private struct EventMapMarker: View {
+    let event: TransportEventImpactDTO
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(backgroundTint)
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                    )
+
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
+            }
+
+            Text(compactLabel)
+                .font(.custom("Montserrat-SemiBold", size: 10))
+                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(AppTheme.Palette.screenElevated.opacity(0.96))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(AppTheme.Palette.border, lineWidth: 1)
+                )
+        }
+        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 8)
+        .accessibilityLabel("Événement \(event.title)")
+    }
+
+    private var compactLabel: String {
+        if let first = event.impactedLines.first, !first.isEmpty {
+            return "Ligne \(first)"
+        }
+        return event.phaseLabel ?? "Event"
+    }
+
+    private var backgroundTint: Color {
+        switch event.impactLevel?.lowercased() {
+        case "high":
+            return Color(hex: "#FF8E6A")
+        case "moderate":
+            return Color(hex: "#F3C15D")
+        default:
+            return Color(hex: "#B8E28A")
+        }
+    }
+}
+
+private struct HomeVilloStationSheet: View {
+    let station: VilloStation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(station.displayName)
+                        .font(.custom("DelaGothicOne-Regular", size: 20))
+                        .foregroundStyle(.white)
+
+                    Text(station.address)
+                        .font(.custom("Montserrat-Regular", size: 12))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(station.occupancyStateLabel)
+                        .font(.custom("Montserrat-SemiBold", size: 12))
+                        .foregroundStyle(statusAccent)
+                }
+
+                Spacer()
+
+                Text(station.statusLabel)
+                    .font(.custom("Montserrat-SemiBold", size: 11))
+                    .foregroundStyle(station.isOperational ? Color.black : .white)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background(statusAccent)
+                    .clipShape(Capsule())
+            }
+
+            HStack(spacing: 10) {
+                villoMetricPill(title: "Vélos", value: "\(station.availableBikes)")
+                villoMetricPill(title: "Places", value: "\(station.availableBikeStands)")
+                villoMetricPill(title: "Bornes", value: "\(station.bikeStands)")
+            }
+
+            if let lastUpdate = station.lastUpdate {
+                let date = Date(timeIntervalSince1970: TimeInterval(lastUpdate) / 1000)
+                Text("Mis à jour \(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))")
+                    .font(.custom("Montserrat-Regular", size: 12))
+                    .foregroundStyle(.white.opacity(0.62))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(20)
+        .presentationBackground(Color(hex: "#111827"))
+    }
+
+    private var statusAccent: Color {
+        if !station.isOperational { return Color.white.opacity(0.12) }
+        if station.availableBikes == 0 { return Color(hex: "#FF7A7A") }
+        if station.availableBikeStands == 0 { return Color(hex: "#7DB6FF") }
+        if station.availableBikes <= 3 { return Color(hex: "#FFB15A") }
+        return Color(hex: "#57E3B6")
+    }
+
+    private func villoMetricPill(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.custom("Montserrat-SemiBold", size: 10))
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.52))
+            Text(value)
+                .font(.custom("DelaGothicOne-Regular", size: 16))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct HomeEventImpactSheet: View {
+    let event: TransportEventImpactDTO
+    let onOpenLine: (String) -> Void
+    let onOpenStop: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Capsule()
+                .fill(AppTheme.Palette.borderStrong)
+                .frame(width: 42, height: 5)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(event.title)
+                    .font(AppTheme.Fonts.clash(22))
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
+
+                Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
+                    .font(AppTheme.Fonts.body)
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
+
+                HStack(spacing: 8) {
+                    badge(event.phaseLabel ?? "À venir", tint: phaseTint)
+                    if let impact = event.impactLevel {
+                        badge(impactLabel(impact), tint: impactTint(impact))
+                    }
+                }
+            }
+
+            if let notes = event.notesFr, !notes.isEmpty {
+                Text(notes)
+                    .font(AppTheme.Fonts.body)
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
+            }
+
+            if !event.impactedLines.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Lignes potentiellement affectées")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textMuted)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
+                        ForEach(event.impactedLines, id: \.self) { line in
+                            Button {
+                                onOpenLine(line)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text("Ligne \(line)")
+                                        .font(AppTheme.Fonts.captionStrong)
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .padding(.horizontal, 10)
+                                .frame(height: 32)
+                                .frame(maxWidth: .infinity)
+                                .background(AppTheme.Palette.surfaceElevated)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
+            if let impactedStops = event.impactedStopDetails, !impactedStops.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Arrêts / zones")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textMuted)
+
+                    ForEach(impactedStops) { stop in
+                        if let stopId = stop.id {
+                            Button {
+                                onOpenStop(stopId)
+                            } label: {
+                                HStack {
+                                    Text(stop.name)
+                                        .font(AppTheme.Fonts.bodyStrong)
+                                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                                    Spacer()
+                                    Image(systemName: "location.viewfinder")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(AppTheme.Palette.textMuted)
+                                }
+                                .padding(12)
+                                .background(AppTheme.Palette.surfaceElevated)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(stop.name)
+                                .font(AppTheme.Fonts.body)
+                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                        }
+                    }
+                }
+            } else if !event.impactedStops.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Arrêts / zones")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.textMuted)
+
+                    Text(event.impactedStops.joined(separator: " • "))
+                        .font(AppTheme.Fonts.body)
+                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.Palette.screen)
+    }
+
+    private func badge(_ title: String, tint: Color) -> some View {
+        Text(title)
+            .font(AppTheme.Fonts.captionStrong)
+            .foregroundStyle(AppTheme.Palette.textPrimary)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(tint)
+            .clipShape(Capsule())
+    }
+
+    private var phaseTint: Color {
+        switch event.phase {
+        case "live":
+            return Color(hex: "#FFB89A")
+        case "upcoming":
+            return Color(hex: "#F4D6A0")
+        default:
+            return AppTheme.Palette.surfaceElevated
+        }
+    }
+
+    private func impactLabel(_ value: String) -> String {
+        switch value.lowercased() {
+        case "high":
+            return "Affluence forte"
+        case "moderate":
+            return "Affluence probable"
+        default:
+            return "Affluence légère"
+        }
+    }
+
+    private func impactTint(_ value: String) -> Color {
+        switch value.lowercased() {
+        case "high":
+            return Color(hex: "#FF9A7A")
+        case "moderate":
+            return Color(hex: "#F1C46C")
+        default:
+            return Color(hex: "#B8E28A")
+        }
+    }
+}
+
+private struct HomeStopDetailSheet: View {
+    let stopSummary: TransportStopSummaryDTO
+    let stopDetail: TransportStopDTO?
+    let isLoading: Bool
+    let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
+    let onReport: () -> Void
+
+    private var effectiveStop: TransportStopSummaryDTO {
+        stopDetail?.stop ?? stopSummary
+    }
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(effectiveStop.name)
+                            .font(.custom("DelaGothicOne-Regular", size: 20))
+                            .foregroundStyle(.white)
+
+                        Text(TransportViewAdapters.localizedSeverityLabel(
+                            severity: stopDetail?.severity ?? "minor",
+                            fallback: stopDetail?.label?.fr ?? "Arrêt surveillé"
+                        ))
+                        .font(.custom("Montserrat-SemiBold", size: 12))
+                        .foregroundStyle(Color(hex: "#B5CFF8"))
+                    }
+
+                    Spacer()
+
+                    Button(action: onReport) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.black)
+                            .frame(width: 44, height: 44)
+                            .background(Color(hex: "#F8E2B3"))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Signaler à cet arrêt")
+                }
+
+                if isLoading {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Chargement des prochains passages…")
+                            .font(.custom("Montserrat-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                }
+
+                if !effectiveStop.lines.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Lignes")
+                            .font(.custom("Montserrat-SemiBold", size: 12))
+                            .foregroundStyle(Color.white.opacity(0.72))
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(effectiveStop.lines, id: \.self) { line in
+                                    Text(line)
+                                        .font(.custom("Montserrat-SemiBold", size: 12))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .frame(height: 30)
+                                        .background(Color.white.opacity(0.08))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Prochains passages")
+                        .font(.custom("DelaGothicOne-Regular", size: 15))
+                        .foregroundStyle(.white)
+
+                    if let stopDetail, !stopDetail.nextDepartures.isEmpty {
+                        ForEach(stopDetail.nextDepartures.prefix(4)) { departure in
+                            HStack(spacing: 10) {
+                                Text(departure.line)
+                                    .font(.custom("Montserrat-SemiBold", size: 13))
+                                    .foregroundStyle(.black)
+                                    .frame(minWidth: 36, minHeight: 28)
+                                    .background(Color(hex: "#B5CFF8"))
+                                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(departure.destination ?? "Direction en cours")
+                                        .font(.custom("Montserrat-SemiBold", size: 12))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(2)
+                                    Text("Dans \(departure.minutes) min")
+                                        .font(.custom("Montserrat-Regular", size: 12))
+                                        .foregroundStyle(.white.opacity(0.72))
+                                }
+
+                                Spacer()
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                    } else if !isLoading {
+                        Text("Aucun prochain passage fiable pour le moment.")
+                            .font(.custom("Montserrat-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.72))
+                    }
+                }
+
+                if !nearbyVilloStations.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Villo! à proximité")
+                            .font(.custom("DelaGothicOne-Regular", size: 15))
+                            .foregroundStyle(.white)
+
+                        ForEach(Array(nearbyVilloStations.prefix(3)), id: \.station.id) { item in
+                            HStack(spacing: 10) {
+                                Image(systemName: "bicycle")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(.black)
+                                    .frame(width: 34, height: 34)
+                                    .background(Color(hex: "#57E3B6"))
+                                    .clipShape(Circle())
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.station.displayName)
+                                        .font(.custom("Montserrat-SemiBold", size: 12))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(2)
+                                    Text("\(item.station.availableBikes) vélos • \(item.station.availableBikeStands) places • \(item.distanceMeters)m")
+                                        .font(.custom("Montserrat-Regular", size: 12))
+                                        .foregroundStyle(.white.opacity(0.72))
+                                }
+
+                                Spacer()
+
+                                Text(item.station.statusLabel)
+                                    .font(.custom("Montserrat-SemiBold", size: 11))
+                                    .foregroundStyle(item.station.isOperational ? Color.black : .white)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: 24)
+                                    .background(item.station.isOperational ? Color(hex: "#57E3B6") : Color.white.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
+                            .padding(12)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                    }
+                }
+            }
+            .padding(20)
+        }
+        .presentationBackground(Color(hex: "#111827"))
+    }
+}
+
+private struct HomeStopDetailOverlay: View {
+    let stopSummary: TransportStopSummaryDTO
+    let stopDetail: TransportStopDTO?
+    let isLoading: Bool
+    let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
+    let onDismiss: () -> Void
+    let onReport: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.52)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack {
+                Spacer()
+
+                VStack(spacing: 0) {
+                    Capsule()
+                        .fill(AppTheme.Palette.borderStrong)
+                        .frame(width: 42, height: 5)
+                        .padding(.top, 10)
+                        .padding(.bottom, 12)
+
+                    HomeStopDetailSheet(
+                        stopSummary: stopSummary,
+                        stopDetail: stopDetail,
+                        isLoading: isLoading,
+                        nearbyVilloStations: nearbyVilloStations,
+                        onReport: onReport
+                    )
+                    .frame(maxHeight: 520)
+                }
+                .background(AppTheme.Palette.screen)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(AppTheme.Palette.border, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 94)
+        }
+    }
+}
+
 struct HomeDecisionCard: View {
     let data: TransportHomeDecisionData
     let isLoading: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
-                Text(data.title)
-                    .font(AppTheme.Fonts.title3)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Recommandation")
+                        .font(.custom("Montserrat-SemiBold", size: 10))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.white.opacity(0.48))
+
+                    Text(data.title)
+                        .font(AppTheme.Fonts.title3)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                }
 
                 Spacer()
 
@@ -1382,18 +2339,268 @@ struct HomeDecisionCard: View {
                 .foregroundStyle(AppTheme.Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(data.nextDepartureSummary)
-                .font(AppTheme.Fonts.bodyStrong)
-                .foregroundStyle(AppTheme.Palette.info)
+            HStack(spacing: 10) {
+                Text(data.nextDepartureSummary)
+                    .font(AppTheme.Fonts.bodyStrong)
+                    .foregroundStyle(AppTheme.Palette.info)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.screenElevated.opacity(0.96))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "#141C2A"), AppTheme.Palette.screenElevated.opacity(0.98)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: "#B5CFF8").opacity(0.14), lineWidth: 1)
+        )
+    }
+}
+
+private struct HomeAlternativeDetailsSheet: View {
+    let alternative: TransportAlternativeDTO
+    let onFocusStep: (TransportRouteStepDTO) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private var linesSummary: String {
+        let trimmed = alternative.lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !trimmed.isEmpty else { return "Aucune ligne précise" }
+        return trimmed.joined(separator: " • ")
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(alternative.label)
+                            .font(.custom("DelaGothicOne-Regular", size: 22))
+                            .foregroundStyle(.white)
+
+                        Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                            .font(.custom("Montserrat-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.76))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack(spacing: 10) {
+                        metricPill(title: "Durée", value: "\(alternative.totalDurationMinutes) min")
+                        metricPill(title: "Marche", value: "\(alternative.walkingMinutes) min")
+                        metricPill(title: "Transferts", value: "\(alternative.transfers)")
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Lignes impliquées")
+                            .font(.custom("Montserrat-SemiBold", size: 12))
+                            .textCase(.uppercase)
+                            .foregroundStyle(.white.opacity(0.58))
+
+                        Text(linesSummary)
+                            .font(.custom("Montserrat-SemiBold", size: 14))
+                            .foregroundStyle(Color(hex: "#B5CFF8"))
+                    }
+
+                    if let reasons = alternative.reasons, !reasons.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Pourquoi cette alternative")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .textCase(.uppercase)
+                                .foregroundStyle(.white.opacity(0.58))
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(reasons, id: \.self) { reason in
+                                    bulletRow(reason)
+                                }
+                            }
+                        }
+                    }
+
+                    if let categories = alternative.explanationDetails?.categories, !categories.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Lecture du choix")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .textCase(.uppercase)
+                                .foregroundStyle(.white.opacity(0.58))
+
+                            ForEach(categories) { category in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(category.title)
+                                        .font(.custom("Montserrat-SemiBold", size: 13))
+                                        .foregroundStyle(.white)
+                                    Text(category.detail)
+                                        .font(.custom("Montserrat-Regular", size: 12))
+                                        .foregroundStyle(.white.opacity(0.72))
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.white.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
+
+                    if let steps = alternative.steps, !steps.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Étapes")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .textCase(.uppercase)
+                                .foregroundStyle(.white.opacity(0.58))
+
+                            ForEach(steps) { step in
+                                Button {
+                                    dismiss()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        onFocusStep(step)
+                                    }
+                                } label: {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Text("\(step.order)")
+                                            .font(.custom("Montserrat-SemiBold", size: 12))
+                                            .foregroundStyle(.black)
+                                            .frame(width: 28, height: 28)
+                                            .background(Color(hex: "#B5CFF8"))
+                                            .clipShape(Circle())
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(step.instruction)
+                                                .font(.custom("Montserrat-SemiBold", size: 13))
+                                                .foregroundStyle(.white)
+
+                                            Text(stepMeta(step))
+                                                .font(.custom("Montserrat-Regular", size: 12))
+                                                .foregroundStyle(.white.opacity(0.7))
+                                                .fixedSize(horizontal: false, vertical: true)
+
+                                            Text("Voir sur la carte")
+                                                .font(.custom("Montserrat-SemiBold", size: 11))
+                                                .foregroundStyle(Color(hex: "#B5CFF8"))
+                                                .padding(.top, 4)
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "location.viewfinder")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.white.opacity(0.42))
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.white.opacity(0.04))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    let villoSuggestions = VilloStationService.routeSuggestions(for: alternative.steps)
+                    if !villoSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Villo! disponible")
+                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .textCase(.uppercase)
+                                .foregroundStyle(.white.opacity(0.58))
+
+                            ForEach(Array(villoSuggestions.enumerated()), id: \.offset) { _, suggestion in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "bicycle")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundStyle(.black)
+                                        .frame(width: 32, height: 32)
+                                        .background(Color(hex: "#57E3B6"))
+                                        .clipShape(Circle())
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\(suggestion.contextLabel) • \(suggestion.station.displayName)")
+                                            .font(.custom("Montserrat-SemiBold", size: 12))
+                                            .foregroundStyle(.white)
+                                        Text("\(suggestion.station.availableBikes) vélos • \(suggestion.station.availableBikeStands) places • \(suggestion.distanceMeters)m")
+                                            .font(.custom("Montserrat-Regular", size: 12))
+                                            .foregroundStyle(.white.opacity(0.72))
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.white.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color(hex: "#12161F").ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Alternative")
+                        .font(.custom("Montserrat-SemiBold", size: 13))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fermer") { dismiss() }
+                        .font(.custom("Montserrat-SemiBold", size: 13))
+                        .foregroundStyle(Color(hex: "#B5CFF8"))
+                }
+            }
+        }
+    }
+
+    private func metricPill(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.custom("Montserrat-SemiBold", size: 10))
+                .textCase(.uppercase)
+                .foregroundStyle(.white.opacity(0.5))
+            Text(value)
+                .font(.custom("Montserrat-SemiBold", size: 13))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func bulletRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(Color(hex: "#B5CFF8"))
+                .frame(width: 7, height: 7)
+                .padding(.top, 5)
+            Text(text)
+                .font(.custom("Montserrat-Regular", size: 12))
+                .foregroundStyle(.white.opacity(0.76))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func stepMeta(_ step: TransportRouteStepDTO) -> String {
+        var parts: [String] = []
+        parts.append(step.mode.capitalized)
+        parts.append("\(step.durationMinutes) min")
+        if let line = step.line, !line.isEmpty {
+            parts.append("Ligne \(line)")
+        }
+        if let destination = step.destination, !destination.isEmpty {
+            parts.append("vers \(destination)")
+        }
+        return parts.joined(separator: " • ")
     }
 }
 
@@ -1407,7 +2614,7 @@ struct MorningCommuteStatusCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Circle()
                     .fill(glowColor.opacity(0.2))
@@ -1447,9 +2654,18 @@ struct MorningCommuteStatusCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let departureTime = brief.supporting?.departureTime, !departureTime.isEmpty {
-                Text("Départ habituel \(departureTime)")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.info)
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(AppTheme.Palette.info)
+                    Text("Départ habituel \(departureTime)")
+                        .font(AppTheme.Fonts.captionStrong)
+                        .foregroundStyle(AppTheme.Palette.info)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             HStack(spacing: 10) {
@@ -1476,13 +2692,19 @@ struct MorningCommuteStatusCard: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(16)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.screenElevated.opacity(0.96))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: [glowColor.opacity(0.14), AppTheme.Palette.screenElevated.opacity(0.98)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(glowColor.opacity(0.22), lineWidth: 1)
         )
     }
 
@@ -1500,15 +2722,6 @@ struct MorningCommuteStatusCard: View {
 private struct MapLegendOverlay: View {
     let onDismiss: () -> Void
 
-    private let items: [(Color, String)] = [
-        (AppTheme.Palette.alert, "Perturbation critique"),
-        (AppTheme.Palette.warning, "Perturbation légère"),
-        (AppTheme.Palette.success, "Trafic normal"),
-        (AppTheme.Palette.info, "Vos arrêts favoris"),
-        (AppTheme.Palette.brandStrong, "Lieu partenaire"),
-        (AppTheme.Palette.brand, "Info spéciale")
-    ]
-
     var body: some View {
         ZStack {
             Color.black.opacity(0.6)
@@ -1524,19 +2737,25 @@ private struct MapLegendOverlay: View {
                     .padding(.bottom, 28)
 
                 VStack(alignment: .leading, spacing: 18) {
-                    ForEach(items.indices, id: \.self) { index in
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(items[index].0)
-                                .frame(width: 30, height: 30)
+                    legendSectionTitle("Signalements & réseau")
+                    legendRow(marker: AnyView(LiveSignalMarker(problemType: "Accident")), text: "Signalement critique confirmé")
+                    legendRow(marker: AnyView(LiveSignalMarker(problemType: "Retard")), text: "Signalement léger ou retard")
+                    legendRow(marker: AnyView(OfficialSignalMarker(problemType: "Information STIB")), text: "Alerte officielle STIB")
+                    legendRow(marker: AnyView(HomeStopMarker(stop: demoStop)), text: "Arrêt STIB tapable avec détails")
 
-                            Text(items[index].1)
-                                .font(AppTheme.Fonts.body)
-                                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.88))
+                    Divider()
+                        .overlay(Color.white.opacity(0.12))
 
-                            Spacer()
-                        }
-                    }
+                    legendSectionTitle("Villo!")
+                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloHealthy)), text: "Station disponible")
+                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloLow)), text: "Peu de vélos disponibles")
+                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloEmpty)), text: "Aucun vélo disponible")
+                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloFull)), text: "Plus de places libres")
+                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloClosed)), text: "Station fermée")
+
+                    legendSectionTitle("Événements")
+                    legendRow(marker: AnyView(EventMapMarker(event: demoEventHigh)), text: "Événement à forte affluence probable")
+                    legendRow(marker: AnyView(EventMapMarker(event: demoEventModerate)), text: "Événement à affluence modérée")
                 }
                 .padding(.horizontal, 28)
 
@@ -1555,6 +2774,166 @@ private struct MapLegendOverlay: View {
             .background(AppTheme.Palette.brand)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
         }
+    }
+
+    private func legendSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.custom("Montserrat-SemiBold", size: 11))
+            .textCase(.uppercase)
+            .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.55))
+    }
+
+    private func legendRow(marker: AnyView, text: String) -> some View {
+        HStack(spacing: 12) {
+            marker
+                .frame(width: 34, height: 34)
+
+            Text(text)
+                .font(AppTheme.Fonts.body)
+                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.88))
+
+            Spacer()
+        }
+    }
+
+    private var demoStop: TransportStopSummaryDTO {
+        TransportStopSummaryDTO(
+            id: "legend-stop",
+            stopId: nil,
+            name: "Arrêt démo",
+            latitude: nil,
+            longitude: nil,
+            lines: ["3", "7"]
+        )
+    }
+
+    private var demoVilloHealthy: VilloStation {
+        VilloStation(
+            number: 1,
+            name: "001 - DEMO",
+            address: "Bruxelles",
+            position: .init(lat: 50.85, lng: 4.35),
+            status: "OPEN",
+            bikeStands: 24,
+            availableBikes: 11,
+            availableBikeStands: 13,
+            banking: false,
+            lastUpdate: nil
+        )
+    }
+
+    private var demoVilloLow: VilloStation {
+        VilloStation(
+            number: 2,
+            name: "002 - DEMO",
+            address: "Bruxelles",
+            position: .init(lat: 50.85, lng: 4.35),
+            status: "OPEN",
+            bikeStands: 24,
+            availableBikes: 2,
+            availableBikeStands: 14,
+            banking: false,
+            lastUpdate: nil
+        )
+    }
+
+    private var demoVilloEmpty: VilloStation {
+        VilloStation(
+            number: 3,
+            name: "003 - DEMO",
+            address: "Bruxelles",
+            position: .init(lat: 50.85, lng: 4.35),
+            status: "OPEN",
+            bikeStands: 24,
+            availableBikes: 0,
+            availableBikeStands: 19,
+            banking: false,
+            lastUpdate: nil
+        )
+    }
+
+    private var demoVilloFull: VilloStation {
+        VilloStation(
+            number: 4,
+            name: "004 - DEMO",
+            address: "Bruxelles",
+            position: .init(lat: 50.85, lng: 4.35),
+            status: "OPEN",
+            bikeStands: 24,
+            availableBikes: 9,
+            availableBikeStands: 0,
+            banking: false,
+            lastUpdate: nil
+        )
+    }
+
+    private var demoVilloClosed: VilloStation {
+        VilloStation(
+            number: 5,
+            name: "005 - DEMO",
+            address: "Bruxelles",
+            position: .init(lat: 50.85, lng: 4.35),
+            status: "CLOSED",
+            bikeStands: 24,
+            availableBikes: 0,
+            availableBikeStands: 0,
+            banking: false,
+            lastUpdate: nil
+        )
+    }
+
+    private var demoEventHigh: TransportEventImpactDTO {
+        .init(
+            id: "demo-event-high",
+            source: "events-bruxelles",
+            title: "Concert ING Arena",
+            category: "concert",
+            venue: "ING Arena",
+            zoneLabel: "Heysel",
+            address: nil,
+            latitude: 50.8987,
+            longitude: 4.3403,
+            startsAt: nil,
+            endsAt: nil,
+            phase: "upcoming",
+            phaseLabel: "À venir",
+            expectedAttendance: 12000,
+            impactLevel: "high",
+            notesFr: nil,
+            impactedLines: ["6", "7", "51"],
+            impactedStops: ["Heysel", "Roi Baudouin"],
+            impactedStopDetails: nil,
+            confidence: 0.84,
+            soldOut: true,
+            url: nil
+        )
+    }
+
+    private var demoEventModerate: TransportEventImpactDTO {
+        .init(
+            id: "demo-event-moderate",
+            source: "events-bruxelles",
+            title: "Bozar",
+            category: "expo",
+            venue: "Bozar",
+            zoneLabel: "Gare Centrale",
+            address: nil,
+            latitude: 50.8424,
+            longitude: 4.3573,
+            startsAt: nil,
+            endsAt: nil,
+            phase: "live",
+            phaseLabel: "En cours",
+            expectedAttendance: 2200,
+            impactLevel: "moderate",
+            notesFr: nil,
+            impactedLines: ["1", "5", "92"],
+            impactedStops: ["Gare Centrale", "Parc"],
+            impactedStopDetails: nil,
+            confidence: 0.62,
+            soldOut: false,
+            url: nil
+        )
     }
 }
 

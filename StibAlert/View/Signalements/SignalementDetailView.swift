@@ -80,13 +80,33 @@ struct SignalementDetailView: View {
                 }
                 .padding(20)
             }
-            .background(AppTheme.Palette.screen.ignoresSafeArea())
+            .background(
+                ZStack {
+                    LinearGradient(
+                        colors: [AppTheme.Palette.screen, AppTheme.Palette.screenElevated],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+
+                    Circle()
+                        .fill(AppTheme.Palette.glowInfo.opacity(0.12))
+                        .frame(width: 220, height: 220)
+                        .blur(radius: 34)
+                        .offset(x: 140, y: -240)
+                }
+            )
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: onDismiss) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                        Circle()
+                            .fill(AppTheme.Palette.surfaceElevated)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                            )
                     }
                 }
                 if onOpenOnMap != nil {
@@ -94,9 +114,14 @@ struct SignalementDetailView: View {
                         Button {
                             onOpenOnMap?()
                         } label: {
-                            Image(systemName: "map")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                            Circle()
+                                .fill(AppTheme.Palette.surfaceElevated)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Image(systemName: "map")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                                )
                         }
                     }
                 }
@@ -123,52 +148,112 @@ struct SignalementDetailView: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 40)
-        .background(statusColor.opacity(0.12))
+        .background(AppTheme.Palette.surface.opacity(0.92))
         .clipShape(Capsule())
         .overlay(
-            Capsule().stroke(statusColor.opacity(0.5), lineWidth: 1)
+            Capsule().stroke(statusColor.opacity(0.42), lineWidth: 1)
         )
     }
 
     private var headerSection: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Text(latest.ligne)
-                .font(AppTheme.Fonts.title2)
-                .foregroundStyle(.black)
-                .frame(width: 46, height: 46)
-                .background(accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [accentColor, accentColor.opacity(0.82)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(latest.typeProbleme)
-                    .font(AppTheme.Fonts.title2)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                if let arretName {
-                    Text(arretName)
-                        .font(AppTheme.Fonts.caption)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                    Text(latest.ligne)
+                        .font(AppTheme.Fonts.title2)
+                        .foregroundStyle(accentColor.isDark ? .white : .black)
                 }
+                .frame(width: 52, height: 54)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(latest.typeProbleme)
+                        .font(AppTheme.Fonts.title2)
+                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                    if let arretName {
+                        Text(arretName)
+                            .font(AppTheme.Fonts.body)
+                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                    }
+                }
+                Spacer()
             }
-            Spacer()
+
+            let source = latest.sourceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            HStack(spacing: 8) {
+                if !source.isEmpty {
+                    detailBadge(title: source, tint: AppTheme.Palette.surfaceElevated, foreground: AppTheme.Palette.textPrimary)
+                }
+                detailBadge(title: latest.freshnessLabel, tint: AppTheme.Palette.surface, foreground: AppTheme.Palette.textSecondary)
+            }
         }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [AppTheme.Palette.surfaceElevated.opacity(0.98), AppTheme.Palette.surface.opacity(0.98)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 10)
+    }
+
+    private func detailBadge(title: String, tint: Color, foreground: Color) -> some View {
+        Text(title)
+            .font(AppTheme.Fonts.captionStrong)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(tint)
+            .clipShape(Capsule())
+    }
+
+    private func cardSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                .stroke(AppTheme.Palette.border, lineWidth: 1)
+        )
     }
 
     private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        cardSurface {
             sectionTitle("Description")
             Text(latest.description)
                 .font(AppTheme.Fonts.body)
                 .foregroundStyle(AppTheme.Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
     }
 
     private var communitySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        cardSurface {
             sectionTitle("Contributions")
             HStack(spacing: 10) {
                 contributorPill(icon: "checkmark.seal.fill", value: confirmations, label: "confirmé·e·s", color: AppTheme.Palette.success)
@@ -207,7 +292,7 @@ struct SignalementDetailView: View {
     }
 
     private func confidenceSection(label: String, explanation: String?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        cardSurface {
             sectionTitle("Confiance")
             HStack(spacing: 8) {
                 Image(systemName: "shield.lefthalf.filled")
@@ -224,21 +309,20 @@ struct SignalementDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
     }
 
     private var sourceSection: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "dot.radiowaves.left.and.right")
-                .font(.system(size: 11, weight: .semibold))
-            Text(latest.sourceLabel)
-                .font(AppTheme.Fonts.caption)
-            Spacer()
+        cardSurface {
+            sectionTitle("Source")
+            HStack(spacing: 8) {
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(latest.sourceLabel)
+                    .font(AppTheme.Fonts.bodyStrong)
+                Spacer()
+            }
+            .foregroundStyle(AppTheme.Palette.textSecondary)
         }
-        .foregroundStyle(AppTheme.Palette.textMuted)
     }
 
     private var actionsRow: some View {

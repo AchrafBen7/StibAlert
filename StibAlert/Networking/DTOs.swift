@@ -426,12 +426,89 @@ struct TransportOverviewDTO: Codable, Equatable {
     let realtimeStatus: String
     let officialDataStatus: String?
     let officialDataMessage: String?
+    let perturbationSummary: TransportPerturbationSummaryDTO?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
     let stops: [TransportStopSummaryDTO]
     let nextDepartures: [TransportDepartureDTO]
     let recommendedAlternatives: [TransportAlternativeDTO]
+}
+
+struct TransportEventsResponseDTO: Codable, Equatable {
+    struct Meta: Codable, Equatable {
+        let line: String?
+        let query: String?
+        let activeOnly: Bool
+        let total: Int
+    }
+
+    let events: [TransportEventImpactDTO]
+    let meta: Meta?
+}
+
+struct TransportEventImpactDTO: Codable, Equatable, Identifiable {
+    let id: String
+    let source: String?
+    let title: String
+    let category: String?
+    let venue: String?
+    let zoneLabel: String?
+    let address: String?
+    let latitude: Double?
+    let longitude: Double?
+    let startsAt: Date?
+    let endsAt: Date?
+    let phase: String?
+    let phaseLabel: String?
+    let expectedAttendance: Int?
+    let impactLevel: String?
+    let notesFr: String?
+    let impactedLines: [String]
+    let impactedStops: [String]
+    let impactedStopDetails: [TransportEventImpactedStopDTO]?
+    let confidence: Double?
+    let soldOut: Bool?
+    let url: String?
+}
+
+struct TransportEventImpactedStopDTO: Codable, Equatable, Identifiable {
+    let id: String?
+    let stopId: String?
+    let name: String
+}
+
+struct TransportPerturbationSummaryDTO: Codable, Equatable {
+    let title: String
+    let shortText: String
+    let longText: String
+    let bullets: [String]
+    let affectedLines: [String]
+    let affectedStops: [String]
+    let incidentTypes: [String]?
+    let sourceLabel: String?
+    let sourceBreakdown: TransportPerturbationSourceBreakdownDTO?
+    let crowdingRisk: TransportCrowdingRiskDTO?
+    let source: String?
+}
+
+struct TransportPerturbationSourceBreakdownDTO: Codable, Equatable {
+    let official: Int?
+    let community: Int?
+    let mixed: Int?
+}
+
+struct TransportCrowdingRiskDTO: Codable, Equatable {
+    let level: String
+    let title: String
+    let shortText: String
+    let longText: String
+    let eventNames: [String]
+    let zoneLabel: String?
+    let impactedLines: [String]
+    let impactedStops: [String]
+    let confidence: Double?
+    let source: String?
 }
 
 struct TransportStopDTO: Codable, Equatable {
@@ -441,6 +518,7 @@ struct TransportStopDTO: Codable, Equatable {
     let realtimeStatus: String
     let officialDataStatus: String?
     let officialDataMessage: String?
+    let perturbationSummary: TransportPerturbationSummaryDTO?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -455,6 +533,7 @@ struct TransportLineDTO: Codable, Equatable {
     let realtimeStatus: String
     let officialDataStatus: String?
     let officialDataMessage: String?
+    let perturbationSummary: TransportPerturbationSummaryDTO?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -487,6 +566,7 @@ struct TransportRecommendationDTO: Codable, Equatable {
     let realtimeStatus: String
     let officialDataStatus: String?
     let officialDataMessage: String?
+    let perturbationSummary: TransportPerturbationSummaryDTO?
     let label: TransportLabelDTO?
     let color: String?
     let activeIncidents: [TransportIncidentDTO]
@@ -547,6 +627,7 @@ struct AssistantContextTransportDTO: Codable, Equatable {
     let realtimeStatus: String
     let nextDepartures: [TransportDepartureDTO]
     let activeIncidentsCount: Int
+    let perturbationSummary: TransportPerturbationSummaryDTO?
 }
 
 struct AssistantContextDTO: Codable, Equatable {
@@ -560,6 +641,7 @@ struct AssistantSupportingDTO: Codable, Equatable {
     let realtimeStatus: String?
     let nextDepartures: [TransportDepartureDTO]?
     let activeIncidentsCount: Int?
+    let perturbationSummary: TransportPerturbationSummaryDTO?
     let recommendedAlternatives: [TransportAlternativeDTO]?
     let commuteDecision: String?
     let briefingStage: String?
