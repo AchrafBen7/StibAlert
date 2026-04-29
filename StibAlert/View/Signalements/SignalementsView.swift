@@ -370,7 +370,9 @@ struct SignalementsView: View {
             statesByBase[base] = current
         }
 
-        let allBaseIds = Set(catalogByBase.keys).union(statesByBase.keys)
+        let allBaseIds = catalogByBase.isEmpty
+            ? Set(statesByBase.keys)
+            : Set(catalogByBase.keys)
         return allBaseIds.map { base in
             let catalogEntry = catalogByBase[base]
             let stateEntry = statesByBase[base]
