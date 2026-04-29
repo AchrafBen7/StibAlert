@@ -85,7 +85,11 @@ struct LoginView: View {
             do {
                 try await session.connexion(email: email.trimmingCharacters(in: .whitespaces), motDePasse: motDePasse)
             } catch {
-                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                if case let APIError.server(status, message) = error, status == 401 {
+                    errorMessage = message ?? "Email ou mot de passe incorrect."
+                } else {
+                    errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                }
             }
             isLoading = false
         }

@@ -109,8 +109,10 @@ struct APIClient {
             }
             if requiresAuth, accessToken != nil {
                 NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                throw APIError.unauthorized
             }
-            throw APIError.unauthorized
+            let msg = (try? decoder.decode(ServerError.self, from: data))?.message
+            throw APIError.server(status: http.statusCode, message: msg)
         }
 
         guard (200..<300).contains(http.statusCode) else {
@@ -201,8 +203,10 @@ struct APIClient {
             }
             if requiresAuth, accessToken != nil {
                 NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                throw APIError.unauthorized
             }
-            throw APIError.unauthorized
+            let msg = (try? decoder.decode(ServerError.self, from: data))?.message
+            throw APIError.server(status: http.statusCode, message: msg)
         }
         guard (200..<300).contains(http.statusCode) else {
             let msg = (try? decoder.decode(ServerError.self, from: data))?.message
