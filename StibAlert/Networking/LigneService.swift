@@ -17,6 +17,16 @@ struct LigneEtatDTO: Decodable, Identifiable {
     }
 }
 
+struct LigneCatalogDTO: Decodable, Identifiable {
+    var id: String { lineid }
+    let lineid: String
+    let nomComplet: String?
+    let nomCompletRetour: String?
+    let typeTransport: String?
+    let couleur: String?
+    let direction: String?
+}
+
 struct LigneDestinationDTO: Decodable, Equatable {
     let fr: String?
     let nl: String?
@@ -25,5 +35,9 @@ struct LigneDestinationDTO: Decodable, Equatable {
 enum LigneService {
     static func etatLignes() async throws -> [LigneEtatDTO] {
         try await APIClient.shared.request("/api/lignes/etat-lignes")
+    }
+
+    static func toutesLesLignes() async throws -> [LigneCatalogDTO] {
+        try await APIClient.shared.request("/api/lignes")
     }
 }

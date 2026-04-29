@@ -34,74 +34,10 @@ struct HomeDecisionDashboard: View {
     let onOpenAlert: (String) -> Void
     let onOpenAlternative: () -> Void
 
-    private var hasHeroCard: Bool {
-        data.commuteBrief != nil || data.decision != nil
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Etat global")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .textCase(.uppercase)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
-
-                    Text("Décision maintenant")
-                        .font(AppTheme.Fonts.clash(18))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                    Text("Stibi priorise le départ, la fiabilité et les alertes confirmées.")
-                        .font(AppTheme.Fonts.caption)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-                }
-
-                Spacer()
-
-                Button(action: onOpenStibi) {
-                    Text("Stibi")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 32)
-                        .background(AppTheme.Palette.info)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-
+        VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                if let commuteBrief = data.commuteBrief {
-                    HomeSectionEyebrow(title: "Hero")
-                    MorningCommuteStatusCard(
-                        brief: commuteBrief,
-                        onOpenStibi: onOpenStibi,
-                        onPrimaryAction: onPrimaryCommuteAction
-                    )
-                }
-
-                if let decision = data.decision {
-                    if data.commuteBrief == nil {
-                        HomeSectionEyebrow(title: "Hero")
-                    } else {
-                        HomeSectionEyebrow(title: "Lecture réseau")
-                    }
-                    HomeDecisionCard(data: decision, isLoading: isLoadingDecision)
-                }
-
-                if let recommendedAlternative = data.recommendedAlternative {
-                    HomeSectionEyebrow(title: "Action")
-                    HomeDecisionSectionCard(title: "Action recommandée") {
-                        HomeRecommendedAlternativeCard(
-                            item: recommendedAlternative,
-                            isInteractive: data.recommendedAlternativeDetail != nil,
-                            onTap: onOpenAlternative
-                        )
-                    }
-                }
-
                 if !data.monitoredLines.isEmpty {
-                    HomeSectionEyebrow(title: "Détails")
                     HomeDecisionSectionCard(title: "Mes lignes surveillées") {
                         VStack(spacing: 10) {
                             ForEach(Array(data.monitoredLines.prefix(3))) { line in
@@ -146,19 +82,6 @@ struct HomeDecisionDashboard: View {
                     .stroke(AppTheme.Palette.border, lineWidth: 1)
             )
         }
-    }
-}
-
-private struct HomeSectionEyebrow: View {
-    let title: String
-
-    var body: some View {
-        Text(title)
-            .font(AppTheme.Fonts.captionStrong)
-            .textCase(.uppercase)
-            .tracking(0.8)
-            .foregroundStyle(AppTheme.Palette.textMuted)
-            .padding(.leading, 2)
     }
 }
 

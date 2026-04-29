@@ -231,11 +231,15 @@ struct ReportsView: View {
         }
         .task {
             stibi.setCurrentScreen("reports")
+            applyPendingScopeIfPossible()
             await loadData()
             applyPendingReportFocusIfPossible()
         }
         .onChange(of: reports.count) { _, _ in
             applyPendingReportFocusIfPossible()
+        }
+        .onChange(of: nav.pendingReportsScopeRawValue) { _, _ in
+            applyPendingScopeIfPossible()
         }
         .onChange(of: selectedLineFilter) { _, _ in
             Task { await loadSummary(force: true) }
@@ -305,9 +309,9 @@ struct ReportsView: View {
                     .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
 
                 HStack(alignment: .center) {
-                    Text("Signalements")
-                        .font(AppTheme.Fonts.clash(28))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                Text(selectedScope == .events ? "Événements réseau" : "Signalements")
+                    .font(AppTheme.Fonts.clash(28))
+                    .foregroundStyle(AppTheme.Palette.textPrimary)
 
                     Spacer()
 
@@ -339,11 +343,15 @@ struct ReportsView: View {
                     .disabled(currentSummary == nil && !isLoadingSummary)
                 }
 
-                Text("Les derniers reports communautaires, filtrables par ligne et recherchables par arrêt.")
+                Text(selectedScope == .events
+                     ? "Les événements suivis à Bruxelles, avec lignes et arrêts potentiellement affectés."
+                     : "Les derniers reports communautaires, filtrables par ligne et recherchables par arrêt.")
                     .font(AppTheme.Fonts.body)
                     .foregroundStyle(AppTheme.Palette.textSecondary)
 
-                Text("Lecture réseau, signaux terrain, événements et synthèse rapide dans une seule vue.")
+                Text(selectedScope == .events
+                     ? "Affluence probable, zones sensibles et accès direct vers les lignes ou arrêts touchés."
+                     : "Lecture réseau, signaux terrain, événements et synthèse rapide dans une seule vue.")
                     .font(AppTheme.Fonts.caption)
                     .foregroundStyle(AppTheme.Palette.textMuted)
             }
@@ -449,6 +457,15 @@ struct ReportsView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(AppTheme.Palette.border, lineWidth: 1)
         )
+    }
+
+    @MainActor
+    private func applyPendingScopeIfPossible() {
+        guard let rawValue = nav.pendingReportsScopeRawValue else { return }
+        if let scope = ContentScope(rawValue: rawValue) {
+            selectedScope = scope
+        }
+        nav.pendingReportsScopeRawValue = nil
     }
 
     private func emptyState(icon: String, title: String, message: String) -> some View {

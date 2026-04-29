@@ -18,4 +18,5 @@ final class AppNavigation: ObservableObject {
     @Published var pendingReportFocus: String?
     @Published var pendingReportStopBackendId: String?
     @Published var pendingMapStopFocusBackendId: String?
+    @Published var pendingReportsScopeRawValue: String?
 }

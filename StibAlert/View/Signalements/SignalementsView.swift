@@ -234,11 +234,13 @@ struct SignalementsView: View {
         }
 
         async let etatTask: [LigneEtatDTO] = LigneService.etatLignes()
+        async let catalogTask: [LigneCatalogDTO] = LigneService.toutesLesLignes()
         async let signalementsTask: SignalementsListResponse = SignalementService.liste(page: 1, limit: 100)
 
         do {
-            let (etats, signalementsResponse) = try await (etatTask, signalementsTask)
-            remoteLines = buildLineStatusItems(from: etats, signalements: signalementsResponse.signalements)
+            let (etats, catalog, signalementsResponse) = try await (etatTask, catalogTask, signalementsTask)
+            let mergedStates = buildMergedLineStates(from: etats, catalog: catalog)
+            remoteLines = buildLineStatusItems(from: mergedStates, signalements: signalementsResponse.signalements)
         } catch {
             print("SignalementsView remote load failed: \(error.localizedDescription)")
         }
@@ -312,6 +314,95 @@ struct SignalementsView: View {
                 return $0.line.compare($1.line, options: .numeric) == .orderedAscending
             }
             return $0.reportsCount > $1.reportsCount
+        }
+    }
+
+    private func buildMergedLineStates(from etats: [LigneEtatDTO], catalog: [LigneCatalogDTO]) -> [LigneEtatDTO] {
+        struct CatalogAccumulator {
+            var lineid: String
+            var nom: String?
+            var nomRetour: String?
+            var typeTransport: String?
+            var couleur: String?
+        }
+
+        struct StateAccumulator {
+            var incidents: Int = 0
+            var statut: String = "Normal"
+            var destination: LigneDestinationDTO?
+        }
+
+        var catalogByBase: [String: CatalogAccumulator] = [:]
+        for line in catalog {
+            let base = baseLineId(line.lineid)
+            var current = catalogByBase[base] ?? CatalogAccumulator(
+                lineid: base,
+                nom: nil,
+                nomRetour: nil,
+                typeTransport: line.typeTransport,
+                couleur: line.couleur
+            )
+
+            if current.nom == nil { current.nom = line.nomComplet }
+            if current.nomRetour == nil { current.nomRetour = line.nomCompletRetour }
+            if current.typeTransport == nil { current.typeTransport = line.typeTransport }
+            if current.couleur == nil { current.couleur = line.couleur }
+
+            if line.lineid == base {
+                current.nom = line.nomComplet ?? current.nom
+                current.nomRetour = line.nomCompletRetour ?? current.nomRetour
+                current.typeTransport = line.typeTransport ?? current.typeTransport
+                current.couleur = line.couleur ?? current.couleur
+            }
+
+            catalogByBase[base] = current
+        }
+
+        var statesByBase: [String: StateAccumulator] = [:]
+        for state in etats {
+            let base = baseLineId(state.lineid)
+            var current = statesByBase[base] ?? StateAccumulator()
+            current.incidents += state.incidents
+            if lineStatusRank(state.statut) > lineStatusRank(current.statut) {
+                current.statut = state.statut
+            }
+            current.destination = current.destination ?? state.destination
+            statesByBase[base] = current
+        }
+
+        let allBaseIds = Set(catalogByBase.keys).union(statesByBase.keys)
+        return allBaseIds.map { base in
+            let catalogEntry = catalogByBase[base]
+            let stateEntry = statesByBase[base]
+            return LigneEtatDTO(
+                lineid: base,
+                nom: catalogEntry?.nom,
+                nomRetour: catalogEntry?.nomRetour,
+                typeTransport: catalogEntry?.typeTransport,
+                couleur: catalogEntry?.couleur,
+                direction: nil,
+                destination: stateEntry?.destination,
+                incidents: stateEntry?.incidents ?? 0,
+                statut: stateEntry?.statut ?? "Normal"
+            )
+        }
+        .sorted {
+            $0.lineid.compare($1.lineid, options: .numeric) == .orderedAscending
+        }
+    }
+
+    private func baseLineId(_ rawValue: String) -> String {
+        rawValue.split(separator: ":").first.map(String.init) ?? rawValue
+    }
+
+    private func lineStatusRank(_ status: String) -> Int {
+        switch status {
+        case "Bloqué":
+            return 3
+        case "Perturbé":
+            return 2
+        default:
+            return 1
         }
     }
 

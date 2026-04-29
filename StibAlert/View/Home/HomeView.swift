@@ -51,6 +51,7 @@ struct HomeView: View {
     @State private var eventImpacts: [TransportEventImpactDTO] = []
     @State private var selectedEventImpact: TransportEventImpactDTO?
     @State private var showVilloStations = true
+    @State private var showEventImpacts = true
     @State private var selectedVilloStation: VilloStation?
     @State private var problemFilter: ReportProblemType? = nil
     @State private var cameraLatitudeDelta: Double = 0.04
@@ -134,8 +135,14 @@ struct HomeView: View {
     }
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
-        guard cameraLatitudeDelta <= 0.1 else { return [] }
-        return eventImpacts.filter { $0.latitude != nil && $0.longitude != nil }
+        guard showEventImpacts, cameraLatitudeDelta <= 0.18 else { return [] }
+        return eventImpacts
+            .filter(isRelevantMapEvent(_:))
+            .filter { $0.latitude != nil && $0.longitude != nil }
+    }
+
+    private var highlightedEventCount: Int {
+        eventImpacts.filter(isRelevantMapEvent(_:)).count
     }
 
     private var transitionSpring: Animation {
@@ -237,7 +244,16 @@ struct HomeView: View {
                         .padding(.horizontal, 18)
                     }
 
-                    HomeMapFilterBar(selected: $problemFilter, showVillo: $showVilloStations)
+                    HomeMapFilterBar(
+                        selected: $problemFilter,
+                        showVillo: $showVilloStations,
+                        showEvents: $showEventImpacts
+                    )
+
+                    if highlightedEventCount > 0 {
+                        eventAgendaStrip
+                            .padding(.horizontal, 18)
+                    }
                 }
                 .padding(.top, 68)
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -738,14 +754,117 @@ struct HomeView: View {
         }
     }
 
+    private var eventAgendaStrip: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color(hex: "#FFB15D"))
+
+            Text("\(highlightedEventCount) événement\(highlightedEventCount == 1 ? "" : "s") à surveiller")
+                .font(AppTheme.Fonts.captionStrong)
+                .foregroundStyle(AppTheme.Palette.textPrimary)
+
+            Spacer()
+
+            Button {
+                focusMapOnEvents()
+            } label: {
+                Text("Sur la carte")
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.textSecondary)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                    nav.pendingReportsScopeRawValue = "events"
+                    nav.currentPage = .reports
+                }
+            } label: {
+                Text("Voir l'agenda")
+                    .font(AppTheme.Fonts.captionStrong)
+                    .foregroundStyle(AppTheme.Palette.info)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(AppTheme.Palette.surfaceElevated.opacity(0.94))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+        )
+    }
+
     @MainActor
     private func loadEventImpacts() async {
         guard AppConfig.isBackendEnabled else { return }
         do {
-            let response = try await TransportService.events(activeOnly: true, limit: 40)
+            let response = try await TransportService.events(activeOnly: false, limit: 80)
             eventImpacts = response.events
         } catch {
             print("Home event impacts failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func isRelevantMapEvent(_ event: TransportEventImpactDTO) -> Bool {
+        let now = Date()
+
+        if let endsAt = event.endsAt, endsAt < now.addingTimeInterval(-2 * 3600) {
+            return false
+        }
+
+        if let startsAt = event.startsAt, startsAt > now.addingTimeInterval(24 * 3600) {
+            return false
+        }
+
+        if let phase = event.phase?.lowercased(), phase.contains("past") || phase.contains("ended") {
+            return false
+        }
+
+        return true
+    }
+
+    private func focusMapOnEvents() {
+        let coordinates = eventImpacts
+            .filter(isRelevantMapEvent(_:))
+            .compactMap { event -> CLLocationCoordinate2D? in
+                guard let latitude = event.latitude, let longitude = event.longitude else { return nil }
+                return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            }
+
+        guard !coordinates.isEmpty else { return }
+
+        let latitudes = coordinates.map(\.latitude)
+        let longitudes = coordinates.map(\.longitude)
+
+        guard
+            let minLat = latitudes.min(),
+            let maxLat = latitudes.max(),
+            let minLng = longitudes.min(),
+            let maxLng = longitudes.max()
+        else {
+            return
+        }
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2
+        )
+
+        let latDelta = max((maxLat - minLat) * 1.45, 0.06)
+        let lngDelta = max((maxLng - minLng) * 1.45, 0.06)
+
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+        withAnimation(.easeInOut(duration: 0.65)) {
+            mapPosition = .region(
+                MKCoordinateRegion(
+                    center: center,
+                    span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
+                )
+            )
         }
     }
 

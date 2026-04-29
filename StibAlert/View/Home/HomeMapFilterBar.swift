@@ -4,6 +4,7 @@ import UIKit
 struct HomeMapFilterBar: View {
     @Binding var selected: ReportProblemType?
     @Binding var showVillo: Bool
+    @Binding var showEvents: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -37,6 +38,18 @@ struct HomeMapFilterBar: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
                         showVillo.toggle()
+                    }
+                }
+
+                chip(
+                    title: "Événements",
+                    icon: "calendar.badge.exclamationmark",
+                    accent: Color(hex: "#FF9B3F"),
+                    isActive: showEvents
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        showEvents.toggle()
                     }
                 }
             }
