@@ -1,89 +1,158 @@
 import SwiftUI
 
+enum AuthEditorialMode: String {
+    case signin
+    case signup
+}
+
 struct LoginView: View {
     @EnvironmentObject private var session: AuthSession
     let onGoToSignUp: () -> Void
 
-    @State private var email: String = ""
-    @State private var motDePasse: String = ""
+    @State private var email = ""
+    @State private var motDePasse = ""
+    @State private var showPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case email
+        case password
+    }
 
     var body: some View {
-        ZStack {
-            AppTheme.Colors.onboardingBackground.ignoresSafeArea()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 0) {
-                            Text("Stib").foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
-                            Text("Alert").foregroundStyle(AppTheme.Colors.onboardingTitleSand)
-                        }
-                        .font(AppTheme.Fonts.display)
-
-                        Text("Connectez-vous pour signaler et suivre le réseau STIB.")
-                            .font(AppTheme.Fonts.body(14))
-                            .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
-                    }
-                    .padding(.top, 40)
-
-                    VStack(spacing: AppTheme.Spacing.md) {
-                        AuthField(title: "Email", text: $email, isSecure: false, keyboard: .emailAddress)
-                        AuthField(title: "Mot de passe", text: $motDePasse, isSecure: true)
-                    }
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(AppTheme.Fonts.body(13))
-                            .foregroundStyle(AppTheme.Colors.danger)
-                    }
-
-                    Button(action: submit) {
-                        HStack {
-                            if isLoading { ProgressView().tint(.black) } else { Text("Se connecter") }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: AppTheme.ButtonHeight.primary)
-                        .background(AppTheme.Colors.onboardingTitleSand)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
-                        .font(AppTheme.Fonts.body(15, weight: .semibold))
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg))
-                    }
-                    .disabled(isLoading || email.isEmpty || motDePasse.isEmpty)
-                    .opacity(email.isEmpty || motDePasse.isEmpty ? 0.6 : 1)
-                    .accessibilityLabel("Se connecter")
-                    .accessibilityHint("Envoie vos identifiants pour ouvrir la session.")
-
-                    HStack {
-                        Spacer()
-                        Button(action: onGoToSignUp) {
-                            (Text("Pas encore de compte ? ")
-                                .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
-                             + Text("Créer un compte")
-                                .foregroundStyle(AppTheme.Colors.onboardingTitleBlue))
-                            .font(AppTheme.Fonts.body(13))
-                        }
-                        .accessibilityLabel("Créer un compte")
-                        .accessibilityHint("Ouvre l'écran d'inscription pour recevoir un code d'activation.")
-                        Spacer()
-                    }
-                    .padding(.top, 4)
-
-                    Spacer(minLength: 40)
-                }
-                .padding(.horizontal, 28)
-            }
+        AuthEditorialScaffold(mode: .signin) {
+            hero
+            modeSwitch
+            socialSection
+            AuthDivider()
+            formSection
         }
-        .navigationBarBackButtonHidden(true)
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            (
+                Text("Reprenez votre ")
+                    .foregroundColor(DS.Color.ink)
+                + Text("trajet")
+                    .font(.system(size: 36, weight: .bold, design: .serif))
+                    .italic()
+                    .foregroundColor(DS.Color.primary)
+                + Text(".")
+                    .foregroundColor(DS.Color.ink)
+            )
+            .font(.system(size: 36, weight: .bold))
+            .tracking(-1.2)
+
+            Text("Vos lignes favorites, alertes et trajets — reconnectés en un instant.")
+                .font(.system(size: 13.5))
+                .foregroundColor(DS.Color.inkSoft)
+                .frame(maxWidth: 280, alignment: .leading)
+                .padding(.top, 6)
+        }
+    }
+
+    private var modeSwitch: some View {
+        AuthModeSwitch(mode: .signin, onSelectSignIn: {}, onSelectSignUp: onGoToSignUp)
+    }
+
+    private var socialSection: some View {
+        VStack(spacing: 10) {
+            AuthSocialButton(label: "Continuer avec Apple", icon: AnyView(Image(systemName: "applelogo").font(.system(size: 16))), primary: true) {}
+            AuthSocialButton(label: "Continuer avec Google", icon: AnyView(AuthGoogleIcon()), primary: false) {}
+        }
+    }
+
+    private var formSection: some View {
+        VStack(spacing: 14) {
+            AuthField(
+                label: "EMAIL",
+                icon: "envelope",
+                text: $email,
+                isSecure: false,
+                keyboard: .emailAddress
+            )
+            .focused($focusedField, equals: .email)
+
+            AuthField(
+                label: "MOT DE PASSE",
+                icon: "lock",
+                text: $motDePasse,
+                isSecure: !showPassword,
+                keyboard: .default,
+                trailing: AnyView(
+                    Button { showPassword.toggle() } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .font(.system(size: 14))
+                            .foregroundColor(DS.Color.inkMute)
+                    }
+                    .buttonStyle(.plain)
+                )
+            )
+            .focused($focusedField, equals: .password)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 12))
+                    .foregroundColor(DS.Color.statusMajor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                Spacer()
+                Button {} label: {
+                    Text("Mot de passe oublié ?")
+                        .font(DS.Font.mono.weight(.bold))
+                        .foregroundColor(DS.Color.ink)
+                        .underline()
+                        .tracking(1)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 4)
+
+            Button(action: submit) {
+                HStack(spacing: 8) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(DS.Color.primaryForeground)
+                    } else {
+                        Text("Se connecter")
+                            .font(.system(size: 14, weight: .bold))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .foregroundColor(DS.Color.primaryForeground)
+                .background(DS.Color.primary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.primary, lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .shadow(color: DS.Color.ink.opacity(0.15), radius: 8, y: 4)
+                .opacity(isLoading ? 0.6 : 1)
+            }
+            .disabled(isLoading || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || motDePasse.isEmpty)
+            .buttonStyle(PressableScaleStyle())
+        }
     }
 
     private func submit() {
+        focusedField = nil
         isLoading = true
         errorMessage = nil
+
         Task {
             do {
-                try await session.connexion(email: email.trimmingCharacters(in: .whitespaces), motDePasse: motDePasse)
+                try await session.connexion(
+                    email: email.trimmingCharacters(in: .whitespaces),
+                    motDePasse: motDePasse
+                )
             } catch {
                 if case let APIError.server(status, message) = error, status == 401 {
                     errorMessage = message ?? "Email ou mot de passe incorrect."
@@ -96,37 +165,184 @@ struct LoginView: View {
     }
 }
 
+struct AuthEditorialScaffold<Content: View>: View {
+    let mode: AuthEditorialMode
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                PageHeader(
+                    title: "",
+                    eyebrow: mode == .signin ? "BON RETOUR" : "BIENVENUE",
+                    large: false
+                )
+
+                VStack(alignment: .leading, spacing: 0) {
+                    content()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+        }
+        .background(DS.Color.paper.ignoresSafeArea())
+        .modifier(PaperGrainBackground())
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+struct AuthModeSwitch: View {
+    let mode: AuthEditorialMode
+    let onSelectSignIn: () -> Void
+    let onSelectSignUp: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+                    .background(Capsule().fill(DS.Color.paper2.opacity(0.6)))
+
+                Capsule()
+                    .fill(DS.Color.ink)
+                    .frame(width: width / 2 - 8, height: 32)
+                    .padding(.leading, 4)
+                    .offset(x: mode == .signup ? width / 2 : 0)
+                    .shadow(color: DS.Color.ink.opacity(0.1), radius: 2, y: 1)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: mode)
+
+                HStack(spacing: 0) {
+                    modeButton("SE CONNECTER", active: mode == .signin, action: onSelectSignIn)
+                    modeButton("S'INSCRIRE", active: mode == .signup, action: onSelectSignUp)
+                }
+            }
+        }
+        .frame(height: 40)
+        .padding(.bottom, 20)
+    }
+
+    private func modeButton(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(DS.Font.mono.weight(.bold))
+                .tracking(1.2)
+                .foregroundColor(active ? DS.Color.paper : DS.Color.inkMute)
+                .frame(maxWidth: .infinity, minHeight: 36)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct AuthSocialButton: View {
+    let label: String
+    let icon: AnyView
+    let primary: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                icon
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .foregroundColor(primary ? DS.Color.paper : DS.Color.ink)
+            .background(primary ? DS.Color.ink : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .stroke(primary ? DS.Color.ink : DS.Color.ink.opacity(0.2), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        }
+        .buttonStyle(PressableScaleStyle())
+        .padding(.bottom, label == "Continuer avec Google" ? 20 : 0)
+    }
+}
+
+struct AuthDivider: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            DS.Rule().frame(maxWidth: .infinity)
+            Text("OU AVEC VOTRE EMAIL")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+            DS.Rule().frame(maxWidth: .infinity)
+        }
+        .padding(.bottom, 20)
+    }
+}
+
 struct AuthField: View {
-    let title: String
+    let label: String
+    let icon: String
     @Binding var text: String
     let isSecure: Bool
     var keyboard: UIKeyboardType = .default
+    var trailing: AnyView? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(AppTheme.Fonts.body(12, weight: .semibold))
-                .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
-            Group {
-                if isSecure {
-                    SecureField("", text: $text)
-                } else {
-                    TextField("", text: $text)
-                        .keyboardType(keyboard)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
+            Text(label)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+                .padding(.horizontal, 2)
+
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(DS.Color.inkMute)
+
+                Group {
+                    if isSecure {
+                        SecureField("", text: $text)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } else {
+                        TextField("", text: $text)
+                            .keyboardType(keyboard)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                }
+                .font(.system(size: 14))
+                .foregroundColor(DS.Color.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let trailing {
+                    trailing
                 }
             }
-            .foregroundStyle(.white)
-            .font(AppTheme.Fonts.body)
-            .padding(.horizontal, 14)
-            .frame(height: AppTheme.ButtonHeight.primary)
-            .background(AppTheme.Palette.surfaceMuted)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md))
+            .padding(.horizontal, 12)
+            .frame(height: 48)
+            .background(DS.Color.paper)
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.md)
-                    .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         }
+    }
+}
+
+struct AuthGoogleIcon: View {
+    var body: some View {
+        Image(systemName: "g.circle.fill")
+            .font(.system(size: 16))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.26, green: 0.52, blue: 0.96),
+                        Color(red: 0.92, green: 0.26, blue: 0.21)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 16, height: 16)
     }
 }

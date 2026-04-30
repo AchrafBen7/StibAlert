@@ -1,7 +1,6 @@
 import SwiftUI
 import CoreLocation
 import UIKit
-import PhotosUI
 
 struct QuickReportSheetView: View {
     @Binding var isShowing: Bool
@@ -14,8 +13,6 @@ struct QuickReportSheetView: View {
     @State private var selectedProblem: ReportProblemType? = nil
     @State private var detailsExpanded: Bool = false
     @State private var description: String = ""
-    @State private var pickerItem: PhotosPickerItem? = nil
-    @State private var photo: UIImage? = nil
     @State private var isSubmitting: Bool = false
     @State private var submitError: String? = nil
     @State private var submitSuccess: Bool = false
@@ -78,15 +75,15 @@ struct QuickReportSheetView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.Palette.overlay
+            DS.Color.ink.opacity(0.42)
                 .ignoresSafeArea()
                 .onTapGesture(perform: handleClose)
 
             sheetContent
                 .frame(maxWidth: .infinity)
                 .background(
-                    AppTheme.Palette.screenElevated
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+                    DS.Color.paper
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .ignoresSafeArea(edges: .bottom)
@@ -98,15 +95,6 @@ struct QuickReportSheetView: View {
             }
         }
         .onAppear(perform: bootstrap)
-        .onChange(of: pickerItem) { _, newValue in
-            guard let newValue else { return }
-            Task {
-                if let data = try? await newValue.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data) {
-                    photo = img
-                }
-            }
-        }
         .sheet(isPresented: $showStopPicker) {
             stopPickerSheet
                 .presentationDetents([.medium, .large])
@@ -127,10 +115,14 @@ struct QuickReportSheetView: View {
                     lineSection
                     problemSection
                     detailsAccordion
+                    Text("Le signalement sera publié sans photo.")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .padding(.horizontal, 18)
                     if let submitError {
                         Text(submitError)
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.alert)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.statusMajor)
                             .padding(.horizontal, 18)
                     }
                     Spacer(minLength: 12)
@@ -150,7 +142,7 @@ struct QuickReportSheetView: View {
         HStack {
             Spacer()
             Capsule()
-                .fill(Color.white.opacity(0.55))
+                .fill(DS.Color.ink.opacity(0.35))
                 .frame(width: 44, height: 5)
             Spacer()
         }
@@ -158,10 +150,11 @@ struct QuickReportSheetView: View {
             Button(action: handleClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .foregroundStyle(DS.Color.ink)
                     .frame(width: 30, height: 30)
-                    .background(AppTheme.Palette.surfaceMuted)
+                    .background(DS.Color.secondary)
                     .clipShape(Circle())
+                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
                     .padding(.trailing, 14)
             }
             .buttonStyle(.plain)
@@ -176,7 +169,7 @@ struct QuickReportSheetView: View {
 
     private var stopSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "mappin.and.ellipse", text: "Arrêt")
+            sectionTitle(icon: "mappin.and.ellipse", text: "1 · Arrêt")
 
             Button {
                 showStopPicker = true
@@ -184,9 +177,9 @@ struct QuickReportSheetView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "location.fill")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
+                        .foregroundStyle(autoDetectedStop ? DS.Color.primaryForeground : DS.Color.ink)
                         .frame(width: 30, height: 30)
-                        .background(autoDetectedStop ? AppTheme.Palette.success : AppTheme.Palette.surfaceMuted)
+                        .background(autoDetectedStop ? DS.Color.statusOK : DS.Color.secondary)
                         .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -195,32 +188,32 @@ struct QuickReportSheetView: View {
                                 ProgressView().scaleEffect(0.7)
                                 Text("Recherche...")
                                     .font(AppTheme.Fonts.title3)
-                                    .foregroundStyle(AppTheme.Palette.textMuted)
+                                    .foregroundStyle(DS.Color.inkMute)
                             }
                         } else {
                             Text(selectedStop?.name ?? "Choisir un arrêt")
-                                .font(AppTheme.Fonts.title3)
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .font(DS.Font.displayH3)
+                                .foregroundStyle(DS.Color.ink)
                                 .lineLimit(1)
                         }
                         Text(autoDetectedStop ? "Détecté à proximité" : (isLoadingStops ? "" : "Toucher pour changer"))
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
                 .padding(.horizontal, 14)
-                .frame(height: AppTheme.ButtonHeight.primary)
-                .background(AppTheme.Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                .frame(height: 48)
+                .background(DS.Color.paper)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                        .stroke(autoDetectedStop ? AppTheme.Palette.success.opacity(0.45) : AppTheme.Palette.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(autoDetectedStop ? DS.Color.statusOK.opacity(0.45) : DS.Color.border, lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -336,7 +329,7 @@ struct QuickReportSheetView: View {
 
     private var lineSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "tram.fill", text: "Ligne")
+            sectionTitle(icon: "tram.fill", text: "2 · Ligne")
 
             if let stop = selectedStop, !stop.issueLines.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -391,7 +384,7 @@ struct QuickReportSheetView: View {
 
     private var problemSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "exclamationmark.triangle.fill", text: "Type de problème")
+            sectionTitle(icon: "exclamationmark.triangle.fill", text: "3 · Type de problème")
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(ReportProblemType.allCases) { type in
@@ -524,21 +517,26 @@ struct QuickReportSheetView: View {
                 HStack {
                     Image(systemName: "text.badge.plus")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Ajouter des détails (optionnel)")
-                        .font(AppTheme.Fonts.captionStrong)
+                    Text("4 · Description (optionnel)")
+                        .font(DS.Font.eyebrow)
+                        .tracking(1.1)
                     Spacer()
                     Image(systemName: detailsExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                 }
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .foregroundStyle(DS.Color.ink)
                 .padding(.horizontal, 14)
-                .frame(height: AppTheme.ButtonHeight.secondary)
-                .background(AppTheme.Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                .frame(height: 40)
+                .background(DS.Color.paper)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.border, lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
             .accessibilityLabel(detailsExpanded ? "Masquer les détails optionnels" : "Afficher les détails optionnels")
-            .accessibilityHint("Permet d'ajouter une description ou une photo au signalement.")
+            .accessibilityHint("Permet d'ajouter une description au signalement.")
 
             if detailsExpanded {
                 VStack(spacing: 10) {
@@ -547,58 +545,22 @@ struct QuickReportSheetView: View {
                             .scrollContentBackground(.hidden)
                             .frame(minHeight: 90)
                             .padding(10)
-                            .background(AppTheme.Palette.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .font(AppTheme.Fonts.body)
+                            .background(DS.Color.paper)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                            .foregroundStyle(DS.Color.ink)
+                            .font(DS.Font.body)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                    .stroke(DS.Color.border, lineWidth: 1)
+                            )
                         if description.isEmpty {
                             Text("Ex : Tram bloqué depuis 5 min au feu.")
-                                .font(AppTheme.Fonts.body)
-                                .foregroundStyle(AppTheme.Palette.textMuted)
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.inkMute)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 18)
                                 .allowsHitTesting(false)
                         }
-                    }
-
-                    HStack(spacing: 10) {
-                        PhotosPicker(selection: $pickerItem, matching: .images) {
-                            HStack(spacing: 6) {
-                                Image(systemName: photo == nil ? "camera.fill" : "photo.fill")
-                                    .font(.system(size: 12, weight: .semibold))
-                                Text(photo == nil ? "Ajouter une photo" : "Changer de photo")
-                                    .font(AppTheme.Fonts.captionStrong)
-                            }
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .padding(.horizontal, 12)
-                            .frame(height: 38)
-                            .background(AppTheme.Palette.surfaceMuted)
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                        }
-                        .accessibilityLabel(photo == nil ? "Ajouter une photo" : "Changer la photo")
-                        .accessibilityHint("Ajoute une photo au signalement pour donner plus de contexte.")
-
-                        if let photo {
-                            Image(uiImage: photo)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 38, height: 38)
-                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                                        .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
-                                )
-                            Button(action: { self.photo = nil; self.pickerItem = nil }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(AppTheme.Palette.textSecondary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Supprimer la photo")
-                            .accessibilityHint("Retire la photo sélectionnée du signalement.")
-                        }
-
-                        Spacer()
                     }
                 }
             }
@@ -612,7 +574,7 @@ struct QuickReportSheetView: View {
         Button(action: submit) {
             HStack(spacing: 10) {
                 if isSubmitting {
-                    ProgressView().tint(.black)
+                    ProgressView().tint(DS.Color.primaryForeground)
                 } else if submitSuccess {
                     Image(systemName: "checkmark").font(.system(size: 18, weight: .bold))
                     Text("Envoyé")
@@ -621,12 +583,16 @@ struct QuickReportSheetView: View {
                     Text("Envoyer signalement")
                 }
             }
-            .font(AppTheme.Fonts.bodyStrong)
-            .foregroundStyle(canSubmit || submitSuccess ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textOnBrand.opacity(0.4))
+            .font(DS.Font.bodyBold)
+            .foregroundStyle(canSubmit || submitSuccess ? DS.Color.primaryForeground : DS.Color.primaryForeground.opacity(0.4))
             .frame(maxWidth: .infinity)
-            .frame(height: AppTheme.ButtonHeight.primary)
-            .background(canSubmit || submitSuccess ? AppTheme.Palette.brand : AppTheme.Palette.brand.opacity(0.4))
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            .frame(height: 48)
+            .background(canSubmit || submitSuccess ? DS.Color.primary : DS.Color.primary.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
         }
         .buttonStyle(.plain)
         .disabled(!canSubmit)
@@ -643,10 +609,10 @@ struct QuickReportSheetView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppTheme.Palette.textMuted)
-            Text(text.uppercased())
-                .font(AppTheme.Fonts.captionStrong)
-                .foregroundStyle(AppTheme.Palette.textMuted)
+                .foregroundStyle(DS.Color.inkMute)
+            Text(text)
+                .font(DS.Font.sectionTitle)
+                .foregroundStyle(DS.Color.ink)
                 .kerning(1.2)
         }
         .padding(.horizontal, 18)
@@ -712,7 +678,7 @@ struct QuickReportSheetView: View {
                     description: finalDescription,
                     latitude: userLatitude,
                     longitude: userLongitude,
-                    photo: photo
+                    photo: nil
                 )
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 withAnimation(.easeOut(duration: 0.25)) {

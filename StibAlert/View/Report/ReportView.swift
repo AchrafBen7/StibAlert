@@ -778,9 +778,13 @@ private struct IssueLineCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 8) {
                 Text(line.number)
-                    .font(DesignSystem.Typography.title2)
+                    .font(AppTheme.Fonts.clash(24))
                     .foregroundStyle(line.lineTextColor)
-                    .frame(width: 32, height: 31)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 48)
+                    .frame(height: 34)
                     .background(line.color)
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
@@ -796,9 +800,16 @@ private struct IssueLineCard: View {
             }
             .padding(.bottom, 12)
 
-            Text(line.direction)
+            Text("Ligne \(line.number)")
                 .font(DesignSystem.Typography.bodySemibold)
                 .foregroundStyle(AppTheme.Palette.textOnBrand)
+                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, 4)
+
+            Text(line.direction)
+                .font(DesignSystem.Typography.caption)
+                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.78))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 12)

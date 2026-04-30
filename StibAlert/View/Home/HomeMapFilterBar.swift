@@ -8,11 +8,11 @@ struct HomeMapFilterBar: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 chip(
                     title: "Tout",
                     icon: "dot.radiowaves.left.and.right",
-                    accent: AppTheme.Palette.brand,
+                    accent: DS.Color.primary,
                     isActive: selected == nil
                 ) {
                     tap(nil)
@@ -32,7 +32,7 @@ struct HomeMapFilterBar: View {
                 chip(
                     title: "Villo!",
                     icon: "bicycle",
-                    accent: Color(hex: "#57E3B6"),
+                    accent: DS.Color.villo,
                     isActive: showVillo
                 ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -44,7 +44,7 @@ struct HomeMapFilterBar: View {
                 chip(
                     title: "Événements",
                     icon: "calendar.badge.exclamationmark",
-                    accent: Color(hex: "#FF9B3F"),
+                    accent: DS.Color.event,
                     isActive: showEvents
                 ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -53,7 +53,7 @@ struct HomeMapFilterBar: View {
                     }
                 }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 18)
             .padding(.vertical, 2)
         }
     }
@@ -77,21 +77,23 @@ struct HomeMapFilterBar: View {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
                 Text(title)
-                    .font(AppTheme.Fonts.captionStrong)
+                    .font(DS.Font.caption)
+                    .tracking(0.8)
             }
-            .foregroundStyle(isActive ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(height: 31)
+            .foregroundStyle(isActive ? DS.Color.paper : DS.Color.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 34)
             .background(
-                Capsule(style: .continuous)
-                    .fill(isActive ? accent : AppTheme.Palette.screenElevated.opacity(0.9))
+                RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
+                    .fill(isActive ? accent : DS.Color.paper.opacity(0.94))
             )
             .overlay(
-                Capsule(style: .continuous)
-                    .stroke(isActive ? accent : AppTheme.Palette.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
+                    .stroke(isActive ? accent.opacity(0.85) : DS.Color.ink.opacity(0.18), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
+        .shadow(DS.Shadow.raised)
     }
 
     private func icon(for type: ReportProblemType) -> String {

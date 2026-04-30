@@ -303,7 +303,7 @@ enum NearbyStopService {
             }
             .filter { $0.distance <= radius }
             .sorted { $0.distance < $1.distance }
-            .prefix(10)
+            .prefix(24)
             .map { entry in
                 let issueLines = issueLines(for: entry.stop, in: catalog)
 
@@ -356,7 +356,8 @@ enum NearbyStopService {
     }
 
     private static func normalizedLineId(_ lineId: String) -> String {
-        lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let normalized = lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return normalized.split(separator: ":").first.map(String.init) ?? normalized
     }
 
     private static func metadata(for lineId: String, in catalog: StaticTransitCatalog) -> StaticTransitLine? {

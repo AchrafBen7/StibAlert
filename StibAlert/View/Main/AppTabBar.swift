@@ -64,16 +64,16 @@ struct AppTabBar: View {
             }
         }
         .padding(6)
-        .frame(height: 68)
+        .frame(height: 70)
         .background(
-            Capsule(style: .continuous)
-                .fill(AppTheme.Palette.screenElevated.opacity(0.96))
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(DS.Color.paper.opacity(0.97))
         )
         .overlay(
-            Capsule(style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.35), radius: 18, x: 0, y: 10)
+        .shadow(DS.Shadow.overlay)
         .padding(.horizontal, 18)
     }
 
@@ -88,18 +88,18 @@ struct AppTabBar: View {
         } label: {
             ZStack {
                 if isActive {
-                    Capsule(style: .continuous)
-                        .fill(AppTheme.Palette.surface)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(DS.Color.paper2)
                         .matchedGeometryEffect(id: "activeTab", in: indicator)
                 }
 
                 VStack(spacing: 3) {
                     Image(systemName: tab.icon)
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(isActive ? AppTheme.Palette.brand : AppTheme.Palette.textMuted)
+                        .foregroundStyle(isActive ? DS.Color.primary : DS.Color.inkMute)
                     Text(tab.title)
-                        .font(AppTheme.Fonts.caption)
-                        .foregroundStyle(isActive ? AppTheme.Palette.textPrimary : AppTheme.Palette.textMuted)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(isActive ? DS.Color.ink : DS.Color.inkMute)
                 }
                 .padding(.vertical, 6)
             }

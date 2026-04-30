@@ -64,6 +64,9 @@ struct HomeView: View {
     @State private var hasAutoCenteredOnUser = false
     @State private var isFollowingUser = true
     @State private var suppressNextCameraInteraction = false
+    @State private var cameraCenterCoordinate = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
+    @State private var catalogMapStops: [NearbyStop] = []
+    @State private var mapStopsTask: Task<Void, Never>? = nil
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
@@ -121,8 +124,42 @@ struct HomeView: View {
     }
 
     private var mapStops: [TransportStopSummaryDTO] {
-        guard cameraLatitudeDelta <= 0.045 else { return [] }
-        return (transportOverview?.stops ?? []).filter { $0.latitude != nil && $0.longitude != nil }
+        guard cameraLatitudeDelta <= 0.12 else { return [] }
+
+        let catalogStops = catalogMapStops.compactMap { stop -> TransportStopSummaryDTO? in
+            guard let coordinate = stop.coordinate else { return nil }
+            guard let backendId = stop.backendId else { return nil }
+            return TransportStopSummaryDTO(
+                id: backendId,
+                stopId: nil,
+                name: stop.name,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                lines: stop.lines.map(\.number)
+            )
+        }
+
+        let fallbackStops = (transportOverview?.stops ?? []).filter { $0.latitude != nil && $0.longitude != nil }
+        if catalogStops.isEmpty {
+            return fallbackStops
+        }
+
+        let fallbackById = Dictionary(uniqueKeysWithValues: fallbackStops.map { ($0.id, $0) })
+        var merged: [TransportStopSummaryDTO] = []
+        var seen = Set<String>()
+
+        for stop in catalogStops {
+            let enriched = fallbackById[stop.id] ?? stop
+            if seen.insert(enriched.id).inserted {
+                merged.append(enriched)
+            }
+        }
+
+        for stop in fallbackStops where seen.insert(stop.id).inserted {
+            merged.append(stop)
+        }
+
+        return merged
     }
 
     private var mapVilloStations: [VilloStation] {
@@ -167,116 +204,87 @@ struct HomeView: View {
                 )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
-            } else if nav.currentPage == .home, !nav.showSideMenu, routeOptions.isEmpty {
-                HomeDecisionDashboard(
-                    data: homeDashboardData,
-                    isLoadingDecision: isLoadingTransportOverview,
-                    onOpenStibi: { stibi.openConversation() },
-                    onPrimaryCommuteAction: {
-                        if let action = currentCommuteBrief?.actions.first {
-                            Task { await stibi.performTargetedAction(id: action.id) }
-                        } else {
-                            stibi.openConversation()
-                        }
-                    },
-                    onOpenLine: { line in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.pendingLineFocus = line
-                            nav.currentPage = .signalements
-                        }
-                    },
-                    onOpenAlert: { reportId in
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.pendingReportFocus = reportId
-                            nav.currentPage = .reports
-                        }
-                    },
-                    onOpenAlternative: {
-                        if let alternative = homeDashboardData.recommendedAlternativeDetail {
-                            selectedAlternativeDetail = alternative
-                        }
-                    }
-                )
-                .padding(.horizontal, 20)
-                .padding(.bottom, 174)
-                .zIndex(4)
             }
         }
         .overlay(alignment: .top) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !showSearch {
-                VStack(spacing: 8) {
-                    HomeStatusBanner(
-                        favoriteAffected: favoriteAffectedCount,
-                        totalActive: totalActiveSignalementsCount,
-                        lastUpdated: lastFetchedAt,
-                        officialNotice: transportOverview?.officialDataStatus == "available" ? nil : transportOverview?.officialDataMessage,
-                        onTap: {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                nav.currentPage = .reports
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu {
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        HomeEditorialSearchField(query: $searchQuery)
+
+                        Button {
+                            withAnimation(transitionSpring) {
+                                showLegend = true
                             }
+                        } label: {
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .fill(DS.Color.paper.opacity(0.96))
+                                .frame(width: 48, height: 48)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                                )
+                                .overlay(
+                                    Image(systemName: "square.3.layers.3d")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundStyle(DS.Color.ink)
+                                )
+                                .shadow(DS.Shadow.floating)
                         }
-                    )
+                        .buttonStyle(.plain)
+                    }
                     .padding(.horizontal, 18)
 
-                    if let signalementLoadError {
-                        HStack(spacing: 8) {
-                            Image(systemName: "wifi.slash")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(AppTheme.Palette.alert)
-                            Text(signalementLoadError)
-                                .font(AppTheme.Fonts.caption)
-                                .foregroundStyle(.white.opacity(0.85))
-                            Spacer()
-                            Button {
-                                self.signalementLoadError = nil
-                                Task { await loadRemoteSignalements() }
-                            } label: {
-                                Text("Réessayer")
-                                    .font(AppTheme.Fonts.captionStrong)
-                                    .foregroundStyle(AppTheme.Palette.info)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            HomeEditorialActionChip(
+                                icon: "location.viewfinder",
+                                title: "Autour de moi",
+                                count: nil,
+                                isActive: locationManager.userCoordinate != nil
+                            ) {
+                                aroundMe()
                             }
-                            .buttonStyle(.plain)
+
+                            HomeEditorialActionChip(
+                                icon: "star",
+                                title: "Favoris",
+                                count: favoriteLineCount,
+                                isActive: favoriteLineCount > 0
+                            ) {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                    nav.currentPage = .favorites
+                                }
+                            }
+
+                            HomeEditorialActionChip(
+                                icon: "exclamationmark.triangle",
+                                title: "Perturbations",
+                                count: totalActiveSignalementsCount,
+                                isActive: totalActiveSignalementsCount > 0
+                            ) {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                    nav.currentPage = .reports
+                                }
+                            }
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
                         .padding(.horizontal, 18)
                     }
 
-                    HomeMapFilterBar(
-                        selected: $problemFilter,
-                        showVillo: $showVilloStations,
-                        showEvents: $showEventImpacts
-                    )
-
-                    if highlightedEventCount > 0 {
-                        eventAgendaStrip
-                            .padding(.horizontal, 18)
+                    if !searchSuggestions.isEmpty {
+                        SearchSuggestionsDropdown(
+                            suggestions: searchSuggestions,
+                            isRouting: isRouting,
+                            onSelect: { item in
+                                Task { await buildRoute(to: item) }
+                            }
+                        )
+                        .padding(.horizontal, 18)
                     }
                 }
                 .padding(.top, 68)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
-                HomeFloatingActions(
-                    onReport: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.showReportSheet = true
-                        }
-                    },
-                    onRoute: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            showSearch = true
-                        }
-                    }
-                )
-                .padding(.bottom, 92)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(6)
             }
         }
         .overlay(alignment: .bottom) {
@@ -302,9 +310,26 @@ struct HomeView: View {
                     }
                 )
                 .padding(.horizontal, 18)
-                .padding(.bottom, 190)
+                .padding(.bottom, 154)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(7)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
+                HomePulseBar(
+                    totalActive: totalActiveSignalementsCount,
+                    eventCount: highlightedEventCount,
+                    onOpenReports: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.currentPage = .reports
+                        }
+                    }
+                )
+                .padding(.horizontal, 14)
+                .padding(.bottom, 92)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(6)
             }
         }
         .overlay(alignment: .bottom) {
@@ -380,6 +405,7 @@ struct HomeView: View {
         .task { await loadRemoteSignalements() }
         .task { await loadEventImpacts() }
         .task { lineShapesLoader.loadIfNeeded() }
+        .task { await refreshCatalogMapStops(force: true) }
         .task {
             guard !hasBootstrappedHomeData else { return }
             hasBootstrappedHomeData = true
@@ -424,12 +450,14 @@ struct HomeView: View {
                 }
                 hasAutoCenteredOnUser = true
             }
+            cameraCenterCoordinate = coord
+            Task { await refreshCatalogMapStops(force: true) }
             Task { await refreshHomeSurfaceForLocation(coord) }
         }
         .onChange(of: searchQuery) { _, newValue in
             searchTask?.cancel()
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard showSearch, !trimmed.isEmpty else {
+            guard !trimmed.isEmpty else {
                 searchSuggestions = []
                 return
             }
@@ -535,14 +563,16 @@ struct HomeView: View {
         .mapStyle(.standard(elevation: .realistic))
         .environment(\.colorScheme, .dark)
         .ignoresSafeArea()
-        .allowsHitTesting(!(showSearch && !searchSuggestions.isEmpty))
+        .allowsHitTesting(searchSuggestions.isEmpty)
         .onMapCameraChange(frequency: .onEnd) { ctx in
             cameraLatitudeDelta = ctx.region.span.latitudeDelta
+            cameraCenterCoordinate = ctx.region.center
             if suppressNextCameraInteraction {
                 suppressNextCameraInteraction = false
             } else {
                 isFollowingUser = false
             }
+            scheduleCatalogMapStopsRefresh()
         }
     }
 
@@ -550,7 +580,7 @@ struct HomeView: View {
 
     private var mapGradient: some View {
         LinearGradient(
-            colors: [Color.clear, Color.black.opacity(0.10), Color.black.opacity(0.46), Color.black.opacity(0.72)],
+            colors: [Color.clear, DS.Color.background.opacity(0.08), DS.Color.background.opacity(0.24), DS.Color.background.opacity(0.68)],
             startPoint: .top, endPoint: .bottom
         )
         .ignoresSafeArea()
@@ -561,68 +591,27 @@ struct HomeView: View {
 
     @ViewBuilder private var controlsLayer: some View {
         VStack {
+            Spacer()
+
             HStack {
                 Spacer()
 
-                if showSearch {
-                    HomeSearchBar(
-                        query: $searchQuery,
-                        onClose: {
-                            withAnimation(transitionSpring) {
-                                showSearch = false
-                                searchQuery = ""
-                                searchSuggestions = []
-                            }
+                VStack(spacing: 12) {
+                    HelpFloatingButton {
+                        withAnimation(transitionSpring) {
+                            showLegend = true
                         }
-                    )
-                    .frame(width: 291)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                } else {
-                    SearchCircleButton(action: {
-                        withAnimation(transitionSpring) { showSearch = true }
-                    })
-                    .transition(.scale.combined(with: .opacity))
+                    }
+
+                    LocationFloatingButton {
+                        recenterOnUser()
+                    }
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .animation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.28, dampingFraction: 0.88), value: showSearch)
-
-            if showSearch, !searchSuggestions.isEmpty {
-                SearchSuggestionsDropdown(
-                        suggestions: searchSuggestions,
-                        isRouting: isRouting,
-                        onSelect: { item in
-                            Task { await buildRoute(to: item) }
-                        }
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .zIndex(30)
-                }
-
-                Spacer()
-
-                HStack {
-                    Spacer()
-
-                    VStack(spacing: 12) {
-                        HelpFloatingButton {
-                            withAnimation(transitionSpring) {
-                                showLegend = true
-                            }
-                        }
-
-                        LocationFloatingButton {
-                            recenterOnUser()
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 146)
-            }
+            .padding(.bottom, 150)
             .zIndex(2)
+        }
     }
 
     // MARK: - ZStack overlays (legend, sheets, AR, page)
@@ -639,15 +628,26 @@ struct HomeView: View {
         }
 
         if let stop = selectedMapStopSummary {
-            HomeStopDetailOverlay(
+            ArretDetailPage(
                 stopSummary: stop,
                 stopDetail: selectedMapStopDetail,
                 isLoading: isLoadingMapStopDetail,
+                nearbyStops: nearbyStops(for: stop, detail: selectedMapStopDetail),
                 nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
                 onDismiss: {
                     selectedMapStopSummary = nil
                     selectedMapStopDetail = nil
                     isLoadingMapStopDetail = false
+                },
+                onOpenLine: { line in
+                    selectedMapStopSummary = nil
+                    selectedMapStopDetail = nil
+                    isLoadingMapStopDetail = false
+                    nav.pendingLineFocus = line
+                    nav.currentPage = .signalements
+                },
+                onOpenStop: { summary in
+                    openStopDetail(for: summary)
                 },
                 onReport: {
                     openReportSheet(for: stop)
@@ -959,6 +959,10 @@ struct HomeView: View {
         remoteSignalements.filter { $0.status != "resolved" }.count
     }
 
+    private var favoriteLineCount: Int {
+        session.currentUser?.favoriteLines?.count ?? 0
+    }
+
     private var favoriteAffectedCount: Int {
         guard let favoriteLines = session.currentUser?.favoriteLines, !favoriteLines.isEmpty else { return 0 }
         let lines = Set(favoriteLines)
@@ -995,6 +999,14 @@ struct HomeView: View {
             return arret.nom
         }
         return nil
+    }
+
+    private func aroundMe() {
+        if locationManager.userCoordinate != nil {
+            recenterOnUser()
+        } else {
+            locationManager.start()
+        }
     }
 
     @MainActor
@@ -1049,6 +1061,22 @@ struct HomeView: View {
             return
         }
 
+        if let nearby = catalogMapStops.first(where: { $0.backendId == stopId }),
+           let coordinate = nearby.coordinate {
+            let summary = TransportStopSummaryDTO(
+                id: stopId,
+                stopId: nil,
+                name: nearby.name,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                lines: nearby.lines.map(\.number)
+            )
+            focusMap(on: summary)
+            openStopDetail(for: summary)
+            nav.pendingMapStopFocusBackendId = nil
+            return
+        }
+
         do {
             let detail = try await TransportService.stop(id: stopId)
             let summary = detail.stop
@@ -1094,6 +1122,35 @@ struct HomeView: View {
         )
     }
 
+    private func nearbyStops(
+        for stop: TransportStopSummaryDTO,
+        detail: TransportStopDTO?
+    ) -> [TransportStopSummaryDTO] {
+        let latitude = detail?.stop.latitude ?? stop.latitude
+        let longitude = detail?.stop.longitude ?? stop.longitude
+        guard let latitude, let longitude else { return [] }
+
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+
+        return mapStops
+            .filter { $0.id != stop.id }
+            .filter { summary in
+                guard let lat = summary.latitude, let lng = summary.longitude else { return false }
+                let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                    .distance(from: CLLocation(latitude: lat, longitude: lng))
+                return distance <= 350
+            }
+            .sorted { lhs, rhs in
+                let left = CLLocation(latitude: lhs.latitude ?? 0, longitude: lhs.longitude ?? 0)
+                    .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+                let right = CLLocation(latitude: rhs.latitude ?? 0, longitude: rhs.longitude ?? 0)
+                    .distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+                return left < right
+            }
+            .prefix(6)
+            .map { $0 }
+    }
+
     private func reportStillBlocked(id: String) async {
         guard !session.isGuest else {
             guestGateReason = .confirm
@@ -1106,6 +1163,65 @@ struct HomeView: View {
         } catch {
             signalementLoadError = "Impossible d'envoyer ton vote. Réessaie."
         }
+    }
+
+    private func scheduleCatalogMapStopsRefresh() {
+        guard cameraLatitudeDelta <= 0.18 else {
+            mapStopsTask?.cancel()
+            catalogMapStops = []
+            return
+        }
+
+        mapStopsTask?.cancel()
+        mapStopsTask = Task {
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            await refreshCatalogMapStops(force: false)
+        }
+    }
+
+    @MainActor
+    private func refreshCatalogMapStops(force: Bool) async {
+        guard cameraLatitudeDelta <= 0.18 else {
+            catalogMapStops = []
+            return
+        }
+
+        let radius: Double
+        switch cameraLatitudeDelta {
+        case ..<0.02:
+            radius = 550
+        case ..<0.05:
+            radius = 900
+        case ..<0.10:
+            radius = 1400
+        default:
+            radius = 2200
+        }
+
+        if !force,
+           !catalogMapStops.isEmpty,
+           lastRefreshCoordinate.flatMap({ centerDistanceMeters(from: $0, to: cameraCenterCoordinate) < max(220, radius * 0.22) }) == true {
+            return
+        }
+
+        do {
+            let nearby = try await NearbyStopService.fetchNearby(
+                lat: cameraCenterCoordinate.latitude,
+                lng: cameraCenterCoordinate.longitude,
+                radius: radius
+            )
+            catalogMapStops = nearby
+            lastRefreshCoordinate = cameraCenterCoordinate
+        } catch {
+            print("Home map nearby stops failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func centerDistanceMeters(from lhs: CLLocationCoordinate2D, to rhs: CLLocationCoordinate2D) -> Double {
+        let start = CLLocation(latitude: lhs.latitude, longitude: lhs.longitude)
+        let end = CLLocation(latitude: rhs.latitude, longitude: rhs.longitude)
+        return start.distance(from: end)
     }
 
     private func reportResolved(id: String) async {
@@ -1582,21 +1698,147 @@ private struct HamburgerButton: View {
     }
 }
 
+private struct HomeEditorialSearchField: View {
+    @Binding var query: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.Color.inkSoft)
+
+            TextField("", text: $query, prompt: Text("Où vas-tu ?").foregroundStyle(DS.Color.inkMute))
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .background(DS.Color.paper.opacity(0.96))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        .shadow(DS.Shadow.floating)
+    }
+}
+
+private struct HomeEditorialActionChip: View {
+    let icon: String
+    let title: String
+    let count: Int?
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        }) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(title)
+                    .font(DS.Font.bodyBold)
+                    .tracking(1.0)
+                    .textCase(.uppercase)
+                if let count {
+                    Text("\(count)")
+                        .font(DS.Font.mono)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                .fill((isActive ? DS.Color.ink : DS.Color.paper2).opacity(0.14))
+                        )
+                }
+            }
+            .foregroundStyle(isActive ? DS.Color.ink : DS.Color.inkSoft)
+            .padding(.horizontal, 14)
+            .frame(height: 42)
+            .background(DS.Color.paper.opacity(0.96))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .shadow(DS.Shadow.raised)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct HomePulseBar: View {
+    let totalActive: Int
+    let eventCount: Int
+    let onOpenReports: () -> Void
+
+    var body: some View {
+        Button(action: onOpenReports) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(totalActive > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
+                    .frame(width: 12, height: 12)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                    Text("\(eventCount) événements ce soir")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 60)
+            .background(DS.Color.paper.opacity(0.98))
+            .overlay(alignment: .topLeading) {
+                Rectangle()
+                    .fill(DS.Color.ink)
+                    .frame(width: 64, height: 3)
+                    .padding(.leading, 18)
+                    .padding(.top, 8)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(DS.Shadow.overlay)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct SearchCircleButton: View {
     @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 48
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Circle()
-                .fill(AppTheme.Palette.screen)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .fill(DS.Color.paper.opacity(0.96))
                 .frame(width: buttonSize, height: buttonSize)
                 .overlay(
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 20, weight: .regular))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+                .overlay(
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                )
+                .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Rechercher un trajet")
@@ -1612,26 +1854,30 @@ private struct HomeSearchBar: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .foregroundStyle(DS.Color.ink)
 
-            TextField("", text: $query, prompt: Text("Ou voulez-vous aller ?").foregroundStyle(AppTheme.Palette.textSecondary))
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+            TextField("", text: $query, prompt: Text("Où vas-tu ?").foregroundStyle(DS.Color.inkMute))
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                    .foregroundStyle(DS.Color.inkMute)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
-        .frame(height: AppTheme.ButtonHeight.secondary)
-        .background(AppTheme.Palette.surface)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+        .frame(height: 46)
+        .background(DS.Color.paper.opacity(0.96))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous))
+        .shadow(DS.Shadow.floating)
     }
 }
 
@@ -1649,15 +1895,15 @@ private struct SearchSuggestionsDropdown: View {
                     HStack(spacing: 12) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 18))
-                            .foregroundStyle(AppTheme.Palette.info)
+                            .foregroundStyle(DS.Color.primary)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name ?? "Lieu")
-                                .font(AppTheme.Fonts.bodyStrong)
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .font(DS.Font.bodyBold)
+                                .foregroundStyle(DS.Color.ink)
                             Text(item.placemark.title ?? "")
-                                .font(AppTheme.Fonts.caption)
-                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .font(DS.Font.caption)
+                                .foregroundStyle(DS.Color.inkMute)
                                 .lineLimit(1)
                         }
 
@@ -1665,7 +1911,7 @@ private struct SearchSuggestionsDropdown: View {
 
                         if isRouting {
                             ProgressView()
-                                .tint(AppTheme.Palette.textPrimary)
+                                .tint(DS.Color.ink)
                                 .scaleEffect(0.85)
                         }
                     }
@@ -1675,13 +1921,17 @@ private struct SearchSuggestionsDropdown: View {
                 .buttonStyle(.plain)
 
                 if item != suggestions.last {
-                    Divider().overlay(Color.white.opacity(0.08))
+                    Divider().overlay(DS.Color.ink.opacity(0.08))
                 }
             }
         }
-        .background(AppTheme.Palette.screenElevated)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
-        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 4)
+        .background(DS.Color.paper.opacity(0.98))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+        .shadow(DS.Shadow.floating)
     }
 }
 
@@ -1690,16 +1940,20 @@ private struct LocationFloatingButton: View {
 
     var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                .fill(AppTheme.Palette.screen)
-                .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .fill(DS.Color.paper.opacity(0.96))
+                .frame(width: 42, height: 44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
                 .overlay(
                     Image(systemName: "location.north.fill")
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .foregroundStyle(DS.Color.ink)
                         .rotationEffect(.degrees(18))
                 )
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+                .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Recentrer la carte")
@@ -1712,15 +1966,19 @@ private struct HelpFloatingButton: View {
 
     var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                .fill(AppTheme.Palette.screen)
-                .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .fill(DS.Color.paper.opacity(0.96))
+                .frame(width: 42, height: 44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
                 .overlay(
                     Image(systemName: "questionmark")
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .foregroundStyle(DS.Color.ink)
                 )
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
+                .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Aide de la carte")

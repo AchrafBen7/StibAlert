@@ -32,6 +32,25 @@ struct FavoritesView: View {
         }
     }
 
+    private var followedLines: [String] {
+        let remote = session.currentUser?.favoriteLines ?? []
+        if !remote.isEmpty {
+            return remote.sorted(by: sortLine)
+        }
+
+        let derived = Set(displayItems.flatMap { item in
+            item.detailLines.map(\.code)
+        })
+        return Array(derived).sorted(by: sortLine)
+    }
+
+    private var disruptedLines: Set<String> {
+        Set(displayItems.flatMap { item -> [String] in
+            guard item.severity != .normal else { return [] }
+            return item.detailLines.map(\.code)
+        })
+    }
+
     var body: some View {
         if session.isGuest {
             GuestTabPlaceholder(
@@ -40,151 +59,126 @@ struct FavoritesView: View {
                 onSignUp: { nav.showAuthFlow = true }
             )
         } else {
-        ZStack {
-            AppTheme.Palette.screen.ignoresSafeArea()
+            ZStack {
+                DS.Color.paper.ignoresSafeArea()
 
-            if let selectedItem {
-                FavoriteStopDetailView(
-                    item: selectedItem,
-                    onBack: { self.selectedItem = nil },
-                    onClose: { self.selectedItem = nil }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    topBar
-                        .padding(.horizontal, 21)
-                        .padding(.top, 12)
+                if let selectedItem {
+                    FavoriteStopDetailView(
+                        item: selectedItem,
+                        onBack: { self.selectedItem = nil },
+                        onClose: { self.selectedItem = nil }
+                    )
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            header
+                            searchRow
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
 
-                    filtersRow
-                        .padding(.horizontal, 21)
-                        .padding(.top, 24)
+                            filtersRow
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
 
-                    if isLoadingRemote && !hasLoadedFavorites {
-                        Spacer()
-                        ProgressView()
-                            .tint(AppTheme.Palette.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 60)
-                        Spacer()
-                    } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
-                        favoritesEmptyState
-                    } else if filteredItems.isEmpty {
-                        searchEmptyState
-                    } else {
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 18) {
-                                ForEach(filteredItems) { item in
-                                    Button {
-                                        selectedItem = item
-                                    } label: {
-                                        FavoriteTransitCard(item: item) {
-                                            Task { await removeFavori(item) }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
+                            if isLoadingRemote && !hasLoadedFavorites {
+                                ProgressView()
+                                    .tint(DS.Color.inkMute)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 80)
+                            } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
+                                favoritesEmptyState
+                            } else if filteredItems.isEmpty {
+                                searchEmptyState
+                            } else {
+                                VStack(alignment: .leading, spacing: 28) {
+                                    pinnedStopsSection
+                                    followedLinesSection
+                                    smartBriefsSection
                                 }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 20)
+                                .padding(.bottom, 96)
                             }
-                            .padding(.horizontal, 21)
-                            .padding(.top, 18)
-                            .padding(.bottom, 120)
                         }
                     }
                 }
             }
-        }
-        .toolbar(.hidden, for: .navigationBar)
-        .task {
-            stibi.setCurrentScreen("favorites")
-            await loadFavoris()
-            await loadStibiContext()
-        }
-        .sheet(isPresented: $showAddSheet, onDismiss: {
-            Task { await loadFavoris() }
-        }) {
-            AddFavoriteSheet(
-                existingIds: Set(remoteItems.compactMap(\.stopBackendId)),
-                onClose: { showAddSheet = false }
-            )
-            .environmentObject(session)
-        }
+            .modifier(PaperGrainBackground())
+            .toolbar(.hidden, for: .navigationBar)
+            .task {
+                stibi.setCurrentScreen("favorites")
+                await loadFavoris()
+                await loadStibiContext()
+            }
+            .sheet(isPresented: $showAddSheet, onDismiss: {
+                Task { await loadFavoris() }
+            }) {
+                AddFavoriteSheet(
+                    existingIds: Set(remoteItems.compactMap(\.stopBackendId)),
+                    onClose: { showAddSheet = false }
+                )
+                .environmentObject(session)
+            }
         } // end else (guest check)
     }
 
-    private var topBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                    nav.showSideMenu = true
-                }
-            } label: {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 42, height: 40)
-                    .overlay(
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(Color.black.opacity(0.8))
-                    )
-            }
-            .buttonStyle(.plain)
-
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.black)
-
-                TextField("", text: $query, prompt: Text("Rechercher une ligne ou un arrêt").foregroundStyle(Color.black.opacity(0.55)))
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundStyle(.black)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 40)
-            .background(Color.white)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(Color.black, lineWidth: 1)
-            )
-
+    private var header: some View {
+        HStack(alignment: .top, spacing: 12) {
+            PageHeader(title: "Favoris", eyebrow: "Ton réseau personnel", large: true)
+            Spacer(minLength: 12)
             Button {
                 showAddSheet = true
             } label: {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 42, height: 40)
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
                     .overlay(
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.8))
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableScaleStyle())
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+    }
+
+    private var searchRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+
+            TextField("Rechercher une ligne ou un arrêt", text: $query)
+                .font(.system(size: 13.5))
+                .foregroundStyle(DS.Color.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var filtersRow: some View {
-        HStack(spacing: 16) {
-            ForEach(FavoriteTransportFilter.allCases) { filter in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        selectedFilter = filter
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(FavoriteTransportFilter.allCases) { filter in
+                    Chip(label: filter.label, active: selectedFilter == filter, icon: {
+                        Image(systemName: filter.iconName)
+                    }) {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            selectedFilter = filter
+                        }
                     }
-                } label: {
-                    Text(filter.label)
-                        .font(.custom("Montserrat-Regular", size: 15))
-                        .foregroundStyle(selectedFilter == filter ? .black : .white)
-                        .frame(width: filter == .metro ? 78 : 76, height: 35)
-                        .background(selectedFilter == filter ? Color.white : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white, lineWidth: 1)
-                        )
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -234,38 +228,305 @@ struct FavoritesView: View {
     }
 
     private var favoritesEmptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "heart.slash")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+        VStack(spacing: 14) {
+            Image(systemName: "star.slash")
+                .font(.system(size: 30, weight: .light))
+                .foregroundStyle(DS.Color.inkMute)
             Text("Pas encore de favoris")
-                .font(AppTheme.Fonts.title3)
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .font(DS.Font.displayH2)
+                .foregroundStyle(DS.Color.ink)
             Text("Ajoutez vos arrêts depuis la carte pour les retrouver ici.")
-                .font(AppTheme.Fonts.caption)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(.system(size: 13))
+                .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
+                .padding(.horizontal, 28)
+            Button("Ajouter un arrêt") {
+                showAddSheet = true
+            }
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(DS.Color.primaryForeground)
+            .frame(height: 44)
+            .frame(maxWidth: .infinity)
+            .background(DS.Color.primary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .buttonStyle(PressableScaleStyle())
         }
+        .padding(20)
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.top, 40)
     }
 
     private var searchEmptyState: some View {
         VStack(spacing: 12) {
-            Spacer()
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .foregroundStyle(DS.Color.inkMute)
             Text("Aucun résultat pour « \(query) »")
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
-            Spacer()
         }
         .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+    }
+
+    private var pinnedStopsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            FavoriteSectionHeading(text: "Arrêts épinglés", systemImage: "star.fill")
+
+            VStack(spacing: 12) {
+                ForEach(filteredItems) { item in
+                    Button {
+                        selectedItem = item
+                    } label: {
+                        favoriteStopCard(item)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func favoriteStopCard(_ item: FavoriteTransitItem) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(item.title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .tracking(-0.2)
+                Text(item.code)
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer()
+                Button {
+                    Task { await removeFavori(item) }
+                } label: {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Color.primary)
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.12))
+                .frame(height: 1)
+                .padding(.horizontal, 16)
+
+            VStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    HStack(spacing: 4) {
+                        ForEach(item.detailLines.prefix(4)) { line in
+                            LineBadge(line: line.code, size: .sm)
+                        }
+                    }
+                    Spacer()
+                    severityMeta(for: item)
+                }
+
+                HStack(spacing: 8) {
+                    Text(item.cockpitHeadline)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(item.nextPassage)
+                        .font(DS.Font.monoLarge.weight(.bold))
+                        .foregroundStyle(DS.Color.ink)
+                }
+
+                HStack(spacing: 8) {
+                    Text("Affluence \(item.crowding)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(DS.Color.inkMute)
+                    Spacer()
+                    Text(item.lastUpdatedLabel)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func severityMeta(for item: FavoriteTransitItem) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(item.cockpitAccent)
+                .frame(width: 8, height: 8)
+            Text(item.problemLabel.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1)
+                .foregroundStyle(DS.Color.inkMute)
+        }
+    }
+
+    private var followedLinesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                FavoriteSectionHeading(text: "Lignes suivies")
+                Spacer()
+                Text("\(followedLines.count) lignes")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            let columns = [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ]
+
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(followedLines, id: \.self) { line in
+                    let disrupted = disruptedLines.contains(line)
+                    Button {
+                        nav.pendingLineFocus = line
+                        nav.currentPage = .reports
+                    } label: {
+                        HStack {
+                            LineBadge(line: line, size: .sm)
+                            Spacer(minLength: 4)
+                            StatusDot(level: disrupted ? .major : .ok, size: 8)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(DS.Color.paper)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                }
+            }
+        }
+    }
+
+    private var smartBriefsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            FavoriteSectionHeading(text: "Alertes intelligentes")
+
+            VStack(spacing: 8) {
+                favoriteInfoRow(
+                    icon: "bell.fill",
+                    title: "Notifications favorites",
+                    subtitle: (session.currentUser?.notifications ?? false) ? "Activées" : "Désactivées",
+                    active: session.currentUser?.notifications ?? false
+                )
+
+                favoriteInfoRow(
+                    icon: "newspaper.fill",
+                    title: "Digest hebdomadaire",
+                    subtitle: (session.currentUser?.weeklyDigestEnabled ?? false) ? "Chaque semaine" : "Non activé",
+                    active: session.currentUser?.weeklyDigestEnabled ?? false
+                )
+
+                if let routine = session.currentUser?.routine {
+                    Button {
+                        nav.currentPage = .profile
+                    } label: {
+                        favoriteRoutineRow(routine)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func favoriteInfoRow(icon: String, title: String, subtitle: String, active: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(DS.Color.ink)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(subtitle)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            Spacer()
+            FavoriteEditorialSwitch(isOn: active)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func favoriteRoutineRow(_ routine: CommuteRoutineDTO) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(DS.Color.paper2))
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(DS.Color.ink)
+            }
+            .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(routine.homeLabel)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
+                    Text(routine.workLabel)
+                }
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+
+                Text("Départ \(routine.departureTime) · trajet quotidien")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func sortLine(_ lhs: String, _ rhs: String) -> Bool {
+        if let a = Int(lhs), let b = Int(rhs) {
+            return a < b
+        }
+        return lhs < rhs
     }
 
     private func mapFavoriteItems(from stops: [FavoriDetailDTO], fallbackStops: [FavoriDetailDTO]) -> [FavoriteTransitItem] {
@@ -381,172 +642,205 @@ private struct FavoriteStopDetailView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.horizontal, 21)
-                    .padding(.top, 18)
+        ZStack {
+            DS.Color.paper.ignoresSafeArea()
 
-                servedLines
-                    .padding(.top, 18)
-
-                planBCard
-                    .padding(.horizontal, 15)
-                    .padding(.top, 36)
-
-                if let transportStop {
-                    FavoriteStopDecisionCard(stop: transportStop)
-                        .padding(.horizontal, 15)
-                        .padding(.top, 18)
-                }
-
-                if let stopLoadError {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color(hex: "#FF7A7A"))
-                        Text(stopLoadError)
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(.white.opacity(0.8))
-                        Spacer()
-                        Button {
-                            self.stopLoadError = nil
-                            Task { await loadTransportStop() }
-                        } label: {
-                            Text("Réessayer")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(Color(hex: "#7CB2FF"))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 21)
-                    .padding(.top, 18)
-                }
-
-                sectionHeader("Etat en temps réel", trailing: nil)
-                    .padding(.horizontal, 21)
-                    .padding(.top, 26)
-
-                if isLoadingTransportStop {
-                    ProgressView()
-                        .tint(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                } else if liveStatuses.isEmpty {
-                    Text("Aucune donnée disponible pour cet arrêt.")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 21)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .padding(.horizontal, 20)
                         .padding(.top, 12)
-                } else {
-                    VStack(spacing: 14) {
-                        ForEach(liveStatuses) { status in
-                            LiveStatusCard(status: status)
-                        }
+
+                    summaryCard
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+
+                    planBCard
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+
+                    if let transportStop {
+                        FavoriteStopDecisionCard(stop: transportStop)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
                     }
-                    .padding(.horizontal, 15)
-                    .padding(.top, 12)
-                }
 
-                sectionHeader("Situation actuelle", trailing: nil)
-                    .padding(.horizontal, 21)
-                    .padding(.top, 30)
+                    if let stopLoadError {
+                        errorBanner(stopLoadError)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                    }
 
-                if isLoadingTransportStop {
-                    EmptyView()
-                } else if incidents.isEmpty {
-                    Text("Aucun incident signalé sur cet arrêt.")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 21)
-                        .padding(.top, 12)
-                } else {
-                    VStack(spacing: 14) {
-                        ForEach(incidents) { incident in
-                            if let backendId = incident.backendId {
-                                FavoriteTransportIncidentCard(
-                                    incident: incident,
-                                    onConfirm: { await runCommunityAction(for: backendId, action: .confirm) },
-                                    onStillBlocked: { await runCommunityAction(for: backendId, action: .stillBlocked) },
-                                    onResolved: { await runCommunityAction(for: backendId, action: .resolved) }
-                                )
+                    detailSectionHeader("État en temps réel", icon: "dot.radiowaves.left.and.right")
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+
+                    if isLoadingTransportStop {
+                        ProgressView()
+                            .tint(DS.Color.inkMute)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                    } else if liveStatuses.isEmpty {
+                        detailEmptyState("Aucune donnée disponible pour cet arrêt.")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                    } else {
+                        VStack(spacing: 12) {
+                            ForEach(liveStatuses) { status in
+                                LiveStatusCard(status: status)
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                     }
-                    .padding(.horizontal, 15)
-                    .padding(.top, 12)
-                }
 
-                Button {
-                    onClose()
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        nav.currentPage = .reports
+                    detailSectionHeader("Situation actuelle", icon: "exclamationmark.triangle.fill")
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+
+                    if isLoadingTransportStop {
+                        EmptyView()
+                    } else if incidents.isEmpty {
+                        detailEmptyState("Aucun incident signalé sur cet arrêt.")
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                    } else {
+                        VStack(spacing: 12) {
+                            ForEach(incidents) { incident in
+                                if let backendId = incident.backendId {
+                                    FavoriteTransportIncidentCard(
+                                        incident: incident,
+                                        onConfirm: { await runCommunityAction(for: backendId, action: .confirm) },
+                                        onStillBlocked: { await runCommunityAction(for: backendId, action: .stillBlocked) },
+                                        onResolved: { await runCommunityAction(for: backendId, action: .resolved) }
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                     }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .medium))
-                        Text("Voir tous les signalements")
-                            .font(.custom("Montserrat-Regular", size: 12))
+
+                    Button {
+                        onClose()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.currentPage = .reports
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Voir tous les signalements")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(DS.Color.paper)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(DS.Color.ink, lineWidth: 1.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 49)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .buttonStyle(PressableScaleStyle())
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 32)
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 15)
-                .padding(.top, 18)
-                .padding(.bottom, 20)
             }
         }
-        .background(Color(hex: "#1B1B1B"))
+        .modifier(PaperGrainBackground())
         .task(id: item.stopBackendId) {
             await loadTransportStop()
         }
     }
 
     private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: onBack) {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
+                    )
+            }
+            .buttonStyle(.plain)
 
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Arrêt favori")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.3)
+                    .foregroundStyle(DS.Color.inkMute)
+                Text(item.title)
+                    .font(DS.Font.displayH2)
+                    .foregroundStyle(DS.Color.ink)
             }
 
-            Text(item.title)
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
+            Spacer()
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
+                    )
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    private var servedLines: some View {
-        HStack(spacing: 9) {
-            ForEach(item.detailLines) { line in
-                Text(line.code)
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(line.textColor)
-                    .frame(width: 32, height: 32)
-                    .background(line.color)
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                HStack(spacing: 4) {
+                    ForEach(item.detailLines) { line in
+                        LineBadge(line: line.code, size: .sm)
+                    }
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(item.cockpitAccent)
+                        .frame(width: 8, height: 8)
+                    Text(item.problemLabel.uppercased())
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
             }
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.12))
+                .frame(height: 1)
+                .padding(.vertical, 12)
+
+            HStack(spacing: 12) {
+                detailStat(label: "Prochain", value: item.nextPassage)
+                Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
+                detailStat(label: "Affluence", value: item.crowding)
+                Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
+                detailStat(label: "Signalements", value: "\(item.reportCount)")
+            }
+
+            Text(item.lastUpdatedLabel)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 12)
         }
-        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var planBCard: some View {
@@ -556,22 +850,25 @@ private struct FavoriteStopDetailView: View {
                 nav.currentPage = .home
             }
         } label: {
-            HStack {
-                Spacer()
+            HStack(spacing: 8) {
                 Text("Besoin d’un plan B ?")
-                    .font(.custom("DelaGothicOne-Regular", size: 12))
-                    .foregroundStyle(Color(hex: "#322944"))
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.78))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
             }
-            .frame(height: 63)
-            .padding(.horizontal, 18)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(height: 48)
+            .padding(.horizontal, 16)
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScaleStyle())
     }
 
     private func loadTransportStop() async {
@@ -673,37 +970,73 @@ private struct FavoriteStopDetailView: View {
         return confidenceLabel(for: community.confidence) ?? "Lecture communautaire active"
     }
 
-    private func sectionHeader(_ title: String, trailing: String?) -> some View {
-        HStack {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundStyle(.white)
-
-                if title == "Etat en temps réel" {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white)
-                } else {
-                    Image(systemName: "questionmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white)
-                }
-            }
-
-            Spacer()
-
-            if let trailing {
-                HStack(spacing: 6) {
-                    Text(trailing)
-                        .font(.custom("DelaGothicOne-Regular", size: 12))
-                        .foregroundStyle(.white)
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-            }
+    private func detailStat(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(1.1)
+                .foregroundStyle(DS.Color.inkMute)
+            Text(value)
+                .font(.system(size: 13.5, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
         }
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(DS.Color.statusMajor)
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(DS.Color.ink)
+            Spacer()
+            Button("Réessayer") {
+                stopLoadError = nil
+                Task { await loadTransportStop() }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(DS.Color.ink)
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.statusMajor.opacity(0.35), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func detailSectionHeader(_ title: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.ink)
+            }
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 1.5)
+        }
+    }
+
+    private func detailEmptyState(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12.5))
+            .foregroundStyle(DS.Color.inkMute)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -859,27 +1192,22 @@ private struct LiveStatusCard: View {
     let status: FavoriteLiveStatus
 
     private var scoreColor: Color {
-        status.score >= 80 ? Color(hex: "#10B981") : Color(hex: "#FF922A")
+        status.score >= 80 ? DS.Color.statusOK : DS.Color.statusMinor
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Text(status.lineCode)
-                    .font(.custom("Montserrat-SemiBold", size: 20))
-                    .foregroundStyle(status.lineTextColor)
-                    .frame(width: 42, height: 41)
-                    .background(status.lineColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                LineBadge(line: status.lineCode, size: .sm)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(status.title)
-                        .font(.custom("Montserrat-SemiBold", size: 18))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
 
                     Text(status.subtitle)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -887,28 +1215,30 @@ private struct LiveStatusCard: View {
 
                 VStack(alignment: .trailing, spacing: 8) {
                     Text("Prochain passage")
-                        .font(.custom("DelaGothicOne-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .tracking(1)
 
                     Text(status.nextPassage)
-                        .font(.custom("Montserrat-SemiBold", size: 20))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.ink)
                 }
             }
 
             HStack {
                 Label("Fiabilité du Service", systemImage: "chart.line.uptrend.xyaxis")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.ink)
 
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("Score")
-                        .font(.custom("DelaGothicOne-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .tracking(1)
                     Text("\(status.score)%")
-                        .font(.custom("Montserrat-SemiBold", size: 14))
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
                         .foregroundStyle(scoreColor)
                 }
             }
@@ -916,7 +1246,7 @@ private struct LiveStatusCard: View {
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color(hex: "#E6EAF0"))
+                    .fill(DS.Color.paper2)
                     .frame(height: 13)
 
                 Capsule()
@@ -932,19 +1262,17 @@ private struct LiveStatusCard: View {
                 Spacer()
                 Text("100%")
             }
-            .font(.custom("Montserrat-Regular", size: 12))
-            .foregroundStyle(Color(hex: "#969BA6"))
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(DS.Color.inkMute)
             .padding(.top, 4)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 17)
-        .padding(.bottom, 12)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(14)
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(status.borderColor, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(status.borderColor.opacity(0.7), lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -999,46 +1327,47 @@ private struct FavoriteStopDecisionCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Décision Stibi")
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
 
                 Spacer()
 
                 Text(TransportViewAdapters.localizedSeverityLabel(severity: stop.severity, fallback: stop.label?.fr))
-                    .font(.custom("DelaGothicOne-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(DS.Color.ink)
+                    .tracking(1)
                     .padding(.horizontal, 10)
                     .frame(height: 28)
-                    .background(Color(hex: "#D9E8FF"))
-                    .clipShape(Capsule())
+                    .background(DS.Color.paper2)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
             }
 
             if let alternative = stop.recommendedAlternatives.first {
                 Text(alternative.explanationDetails?.summary ?? alternative.explanation)
-                    .font(.custom("Montserrat-Regular", size: 13))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let firstHighlight = alternative.explanationDetails?.highlights.first {
                     Text(firstHighlight)
-                        .font(.custom("DelaGothicOne-Regular", size: 11))
-                        .foregroundStyle(Color(hex: "#9ED0FF"))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.primary)
                 }
             } else if let incident = stop.activeIncidents.first?.description {
                 Text(incident)
-                    .font(.custom("Montserrat-Regular", size: 13))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "#101725"))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -1053,27 +1382,22 @@ private struct FavoriteTransportIncidentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 10) {
-                Text(incident.lineCode)
-                    .font(.custom("Montserrat-SemiBold", size: 20))
-                    .foregroundStyle(incident.lineTextColor)
-                    .frame(width: 42, height: 41)
-                    .background(incident.lineColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                LineBadge(line: incident.lineCode, size: .sm)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(incident.title)
-                        .font(.custom("Montserrat-SemiBold", size: 18))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
 
                     Text(incident.body)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let confidenceText = incident.confidenceText {
                         Text(confidenceText)
-                            .font(.custom("DelaGothicOne-Regular", size: 11))
-                            .foregroundStyle(.black.opacity(0.78))
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(DS.Color.inkMute)
                     }
                 }
 
@@ -1090,11 +1414,13 @@ private struct FavoriteTransportIncidentCard: View {
                 communityButton("Résolu", action: onResolved)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 20)
-        .padding(.bottom, 12)
+        .padding(14)
         .background(incident.background)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func communityButton(_ title: String, action: @escaping () async -> Void) -> some View {
@@ -1109,14 +1435,18 @@ private struct FavoriteTransportIncidentCard: View {
             }
         } label: {
             Text(title)
-                .font(.custom("Montserrat-SemiBold", size: 11))
-                .foregroundStyle(.white)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
                 .padding(.horizontal, 10)
                 .frame(height: 30)
-                .background(Color.black.opacity(0.82))
-                .clipShape(Capsule())
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(DS.Color.ink.opacity(0.25), lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScaleStyle())
         .disabled(isSubmitting)
     }
 }
@@ -1141,6 +1471,15 @@ private enum FavoriteTransportFilter: CaseIterable, Identifiable {
         case .tram: return "Tram"
         case .bus: return "Bus"
         case .metro: return "Metro"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .all: return "square.grid.2x2"
+        case .tram: return "tram.fill"
+        case .bus: return "bus.fill"
+        case .metro: return "m.circle.fill"
         }
     }
 
@@ -1246,6 +1585,46 @@ private struct FavoriteLineChip: Identifiable {
     let code: String
     let color: Color
     let textColor: Color
+}
+
+private struct FavoriteSectionHeading: View {
+    let text: String
+    var systemImage: String? = nil
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+            }
+            Text(text.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1.4)
+                .foregroundStyle(DS.Color.ink)
+        }
+    }
+}
+
+private struct FavoriteEditorialSwitch: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack(alignment: isOn ? .trailing : .leading) {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isOn ? DS.Color.ink : DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+                .frame(width: 40, height: 24)
+            Circle()
+                .fill(isOn ? DS.Color.paper : DS.Color.ink)
+                .frame(width: 18, height: 18)
+                .padding(.horizontal, 2)
+        }
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isOn)
+    }
 }
 
 private struct FavoriteLiveStatus: Identifiable {

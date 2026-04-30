@@ -74,21 +74,22 @@ struct HomeStatusBanner: View {
                 HStack(spacing: 10) {
                     Image(systemName: level.icon)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(DS.Color.paper)
                         .frame(width: 26, height: 26)
                         .background(level.color)
                         .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(headline)
-                            .font(AppTheme.Fonts.captionStrong)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
                             .lineLimit(1)
 
                         if !subline.isEmpty {
                             Text(subline)
-                                .font(AppTheme.Fonts.caption)
-                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .font(DS.Font.monoSmall)
+                                .tracking(0.8)
+                                .foregroundStyle(DS.Color.inkMute)
                                 .lineLimit(1)
                         }
                     }
@@ -97,40 +98,39 @@ struct HomeStatusBanner: View {
 
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
 
                 if showsOfficialNotice, let officialNotice {
                     HStack(spacing: 8) {
                         Image(systemName: "antenna.radiowaves.left.and.right.slash")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(AppTheme.Palette.warning)
+                            .foregroundStyle(DS.Color.statusMinor)
                         Text(officialNotice)
-                            .font(.custom("Montserrat-Regular", size: 11))
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                            .font(DS.Font.caption)
+                            .foregroundStyle(DS.Color.inkSoft)
                             .multilineTextAlignment(.leading)
                             .lineLimit(2)
                     }
                     .padding(.horizontal, 9)
                     .padding(.vertical, 7)
-                    .background(AppTheme.Palette.warning.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(DS.Color.statusMinor.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AppTheme.Palette.warning.opacity(0.24), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .stroke(DS.Color.statusMinor.opacity(0.24), lineWidth: 1)
                     )
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                    .fill(AppTheme.Palette.surface)
-            )
+            .background(DS.Color.paper.opacity(0.96))
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
                     .stroke(level.color.opacity(0.45), lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .accessibilityLabel([headline, subline, officialNotice].compactMap { $0 }.joined(separator: ". "))

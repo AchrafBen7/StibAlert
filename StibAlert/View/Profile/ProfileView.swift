@@ -4,7 +4,6 @@ struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
     @EnvironmentObject private var stibi: StibiCenter
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
@@ -32,9 +31,13 @@ struct ProfileView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.Palette.screen.ignoresSafeArea()
-
-            if selectedSubpage == .languages {
+            if session.isGuest {
+                GuestTabPlaceholder(
+                    reason: .profile,
+                    onSignIn: { nav.showAuthFlow = true },
+                    onSignUp: { nav.showAuthFlow = true }
+                )
+            } else if selectedSubpage == .languages {
                 LanguageSettingsView(
                     selectedLanguage: $selectedLanguageCode,
                     onBack: { selectedSubpage = nil },
@@ -111,42 +114,77 @@ struct ProfileView: View {
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                VStack(spacing: 0) {
-                    header
-                        .padding(.horizontal, 21)
-                        .padding(.top, 12)
+                ZStack {
+                    DS.Color.paper.ignoresSafeArea()
 
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), spacing: 15),
-                            GridItem(.flexible(), spacing: 15)
-                        ],
-                        spacing: 17
-                    ) {
-                        ForEach(items) { item in
-                            SettingsTile(item: item) {
-                                selectedSubpage = item.subpage
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            profileHeader
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
+
+                            VStack(spacing: 20) {
+                                identityCard
+
+                                profileGroup(title: "Carte de transport") {
+                                    profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCard) {
+                                        selectedSubpage = .transitPass
+                                    }
+                                }
+
+                                profileGroup(title: "Préférences") {
+                                    profileRow(icon: "bell", label: "Notifications", value: pushNotificationsEnabled ? "Activées" : "Désactivées") {
+                                        selectedSubpage = .notifications
+                                    }
+                                    profileDivider
+                                    profileRow(icon: "calendar.badge.clock", label: "Digest hebdo", value: weeklyDigestEnabled ? "Actif" : "Inactif") {
+                                        selectedSubpage = .notifications
+                                    }
+                                    profileDivider
+                                    profileRow(icon: "globe", label: "Langue", value: profileLanguageLabel) {
+                                        selectedSubpage = .languages
+                                    }
+                                }
+
+                                profileGroup(title: "Compte") {
+                                    profileRow(icon: "person.crop.circle", label: "Mon compte", value: username.isEmpty ? nil : "@\(username)") {
+                                        selectedSubpage = .account
+                                    }
+                                    profileDivider
+                                    profileRow(icon: "tram.fill", label: "Lignes favorites", value: "\(favoriteLinesSelection.count)") {
+                                        selectedSubpage = .account
+                                    }
+                                }
+
+                                profileGroup(title: "Confidentialité") {
+                                    profileRow(icon: "lock", label: "Données & confidentialité") {
+                                        selectedSubpage = .privacy
+                                    }
+                                }
+
+                                profileGroup(title: "Support") {
+                                    profileRow(icon: "questionmark.circle", label: "Aide & FAQ") {
+                                        selectedSubpage = .support
+                                    }
+                                    profileDivider
+                                    profileRow(icon: "bubble.left", label: "Contacter l'équipe") {
+                                        if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
+                                            openURL(url)
+                                        }
+                                    }
+                                }
+
+                                Text("STIBALERT · V1.0.0 · BRUXELLES")
+                                    .font(DS.Font.monoSmall)
+                                    .tracking(2)
+                                    .foregroundStyle(DS.Color.inkMute)
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 96)
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
                         }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 43)
-
-                    feedbackButton
-                        .padding(.horizontal, 23)
-                        .padding(.top, 33)
-
-                    Text("Vos retours nous aident à améliorer l’app")
-                        .font(.custom("Montserrat-Regular", size: 11))
-                        .foregroundStyle(Color.white.opacity(0.18))
-                        .padding(.top, 6)
-
-                    Spacer()
-
-                    Text("Version 1.0.0")
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(.white)
-                        .padding(.bottom, 44)
                 }
             }
         }
@@ -170,66 +208,195 @@ struct ProfileView: View {
         }
     }
 
-    private var header: some View {
-        ZStack {
+    private var profileHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button {
-                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
-                        nav.showSideMenu = true
-                    }
-                } label: {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 42, height: 40)
-                        .overlay(
-                            Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 20, weight: .regular))
-                                .foregroundStyle(Color.black.opacity(0.8))
-                        )
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Compte StibAlert")
+                        .eyebrow()
+                    Text("Profil")
+                        .font(DS.Font.displayH1)
+                        .foregroundStyle(DS.Color.ink)
                 }
-                .buttonStyle(.plain)
 
                 Spacer()
 
                 Button {
-                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
-                        nav.currentPage = .home
-                    }
+                    selectedSubpage = .account
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                        .frame(width: 24, height: 24)
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(DS.Color.ink)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(DS.Color.ink.opacity(0.20), lineWidth: 1.5)
+                        )
                 }
                 .buttonStyle(.plain)
             }
-
-            Text("Paramètres")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
         }
     }
 
-    private var feedbackButton: some View {
-        Button {
-            if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
-                openURL(url)
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text("Votre avis compte")
-                    .font(.custom("Montserrat-Regular", size: 12))
-
-                Image(systemName: "star.fill")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundStyle(.black)
-            .frame(maxWidth: .infinity)
-            .frame(height: 49)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+    private var profileLanguageLabel: String {
+        switch selectedLanguageCode.uppercased() {
+        case "FR": return "Français"
+        case "GB", "EN": return "English"
+        case "BE", "NL": return "Nederlands"
+        case "MA", "AR": return "العربية"
+        case "ES": return "Español"
+        case "PT": return "Português"
+        default: return selectedLanguageCode.uppercased()
         }
-        .buttonStyle(.plain)
+    }
+
+    private var maskedTransitCard: String {
+        let raw = TransitPassStorage.load().cardNumber
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+        guard !raw.isEmpty else { return "Non liée" }
+        return "•••• \(raw.suffix(4))"
+    }
+
+    private var identityCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(DS.Color.ink)
+                    Text(profileInitial)
+                        .font(DS.Font.monoLarge.weight(.bold))
+                        .foregroundColor(DS.Color.paper)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayProfileName)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(DS.Color.ink)
+                    Text("COMPTE STIBALERT · \(profileLanguageLabel.uppercased())")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.2)
+                        .foregroundColor(DS.Color.inkMute)
+                }
+
+                Spacer()
+
+                Button {
+                    selectedSubpage = .account
+                } label: {
+                    Text("Modifier")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(DS.Color.ink)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 1.5)
+                .padding(.horizontal, 16)
+
+            HStack(spacing: 0) {
+                profileStatCell(icon: "star.fill", label: "Favoris", value: "\(session.currentUser?.favorisDetails?.count ?? 0)")
+                Divider().background(DS.Color.ink.opacity(0.15))
+                profileStatCell(icon: "tram.fill", label: "Lignes", value: "\(favoriteLinesSelection.count)")
+                Divider().background(DS.Color.ink.opacity(0.15))
+                profileStatCell(icon: "calendar.badge.clock", label: "Digest", value: weeklyDigestEnabled ? "ON" : "OFF")
+            }
+            .frame(height: 72)
+        }
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var displayProfileName: String {
+        session.currentUser?.nom ?? "Profil"
+    }
+
+    private var profileInitial: String {
+        String(displayProfileName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased()
+    }
+
+    @ViewBuilder
+    private func profileGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(DS.Font.monoSmall.weight(.semibold))
+                .tracking(1.5)
+                .foregroundColor(DS.Color.inkMute)
+                .padding(.leading, 4)
+
+            VStack(spacing: 0) { content() }
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    private func profileStatCell(icon: String, label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(DS.Color.inkMute)
+            Text(value)
+                .font(DS.Font.monoLarge.weight(.bold))
+                .foregroundColor(DS.Color.ink)
+            Text(label.uppercased())
+                .font(DS.Font.monoSmall.weight(.semibold))
+                .tracking(1.2)
+                .foregroundColor(DS.Color.inkMute)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func profileRow(icon: String, label: String, value: String? = nil, action: (() -> Void)? = nil) -> some View {
+        Button {
+            action?()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(DS.Color.ink)
+                    .frame(width: 18)
+
+                Text(label)
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundColor(DS.Color.ink)
+
+                Spacer()
+
+                if let value {
+                    Text(value)
+                        .font(DS.Font.mono)
+                        .foregroundColor(DS.Color.inkMute)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(DS.Color.inkMute.opacity(0.6))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ProfileRootRowPressableStyle())
+    }
+
+    private var profileDivider: some View {
+        Rectangle()
+            .fill(DS.Color.ink.opacity(0.12))
+            .frame(height: 1)
     }
 
     private func syncFromSession() {
@@ -332,6 +499,13 @@ struct ProfileView: View {
     }
 }
 
+private struct ProfileRootRowPressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? DS.Color.paper2 : DS.Color.paper)
+    }
+}
+
 private struct SettingsTile: View {
     let item: SettingsTileItem
     let action: () -> Void
@@ -408,6 +582,266 @@ private enum SettingsMockData {
     ]
 }
 
+private struct ProfileSubpageScaffold<Content: View>: View {
+    let eyebrow: String
+    let title: String
+    let onBack: () -> Void
+    let onClose: () -> Void
+    let content: () -> Content
+
+    init(
+        eyebrow: String,
+        title: String,
+        onBack: @escaping () -> Void,
+        onClose: @escaping () -> Void,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.eyebrow = eyebrow
+        self.title = title
+        self.onBack = onBack
+        self.onClose = onClose
+        self.content = content
+    }
+
+    var body: some View {
+        ZStack {
+            DS.Color.paper.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    HStack(alignment: .top) {
+                        Button(action: onBack) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(DS.Color.ink)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                                        .stroke(DS.Color.ink.opacity(0.2), lineWidth: DS.Stroke.thick)
+                                )
+                        }
+                        .buttonStyle(ProfileRootRowPressableStyle())
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(eyebrow)
+                                .eyebrow()
+                            Text(title)
+                                .font(DS.Font.displayH2)
+                                .foregroundStyle(DS.Color.ink)
+                        }
+
+                        Spacer()
+
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(DS.Color.ink)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                                        .stroke(DS.Color.ink.opacity(0.2), lineWidth: DS.Stroke.thick)
+                                )
+                        }
+                        .buttonStyle(ProfileRootRowPressableStyle())
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+
+                    VStack(alignment: .leading, spacing: 24) {
+                        content()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 96)
+                }
+            }
+        }
+        .modifier(PaperGrainBackground())
+    }
+}
+
+private struct ProfileSettingsSection<Content: View>: View {
+    let title: String
+    let content: () -> Content
+
+    init(title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(DS.Font.monoSmall.weight(.semibold))
+                .tracking(1.5)
+                .foregroundColor(DS.Color.inkMute)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .stroke(DS.Color.ink.opacity(0.15), lineWidth: DS.Stroke.thick)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        }
+    }
+}
+
+private struct ProfileSettingsDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(DS.Color.ink.opacity(0.12))
+            .frame(height: 1)
+    }
+}
+
+private struct ProfileSettingsSwitch: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack(alignment: isOn ? .trailing : .leading) {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isOn ? DS.Color.ink : DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
+                )
+                .frame(width: 40, height: 24)
+            Circle()
+                .fill(isOn ? DS.Color.paper : DS.Color.ink)
+                .frame(width: 18, height: 18)
+                .padding(.horizontal, 2)
+        }
+        .animation(.easeInOut(duration: 0.18), value: isOn)
+    }
+}
+
+private struct ProfileSettingsToggleRow: View {
+    let label: String
+    var description: String? = nil
+    @Binding var value: Bool
+    var disabled: Bool = false
+
+    var body: some View {
+        Button {
+            guard !disabled else { return }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                value.toggle()
+            }
+        } label: {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundColor(DS.Color.ink)
+                    if let description {
+                        Text(description)
+                            .font(.system(size: 11))
+                            .foregroundColor(DS.Color.inkMute)
+                    }
+                }
+                Spacer(minLength: 8)
+                ProfileSettingsSwitch(isOn: value)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .opacity(disabled ? 0.4 : 1)
+        }
+        .buttonStyle(ProfileRootRowPressableStyle())
+        .disabled(disabled)
+    }
+}
+
+private struct ProfileSettingsChoiceRow: View {
+    let label: String
+    let subtitle: String?
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundColor(DS.Color.ink)
+                    if let subtitle {
+                        Text(subtitle.uppercased())
+                            .font(DS.Font.mono)
+                            .tracking(1)
+                            .foregroundColor(DS.Color.inkMute)
+                    }
+                }
+                Spacer()
+                if selected {
+                    ZStack {
+                        Circle().fill(DS.Color.ink).frame(width: 24, height: 24)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundColor(DS.Color.paper)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ProfileRootRowPressableStyle())
+    }
+}
+
+private struct ProfileSettingsActionRow: View {
+    let label: String
+    var description: String? = nil
+    var value: String? = nil
+    var danger: Bool = false
+    var inert: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundColor(danger ? DS.Color.destructive : DS.Color.ink)
+                    if let description {
+                        Text(description)
+                            .font(.system(size: 11))
+                            .foregroundColor(DS.Color.inkMute)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer()
+                if let value {
+                    Text(value)
+                        .font(DS.Font.mono)
+                        .monospacedDigit()
+                        .foregroundColor(DS.Color.inkMute)
+                }
+                if !inert {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(DS.Color.inkMute.opacity(0.6))
+                        .padding(.top, 2)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ProfileRootRowPressableStyle())
+        .disabled(inert)
+    }
+}
+
 private struct LanguageSettingsView: View {
     @Binding var selectedLanguage: String
     let onBack: () -> Void
@@ -427,96 +861,52 @@ private struct LanguageSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
+        ProfileSubpageScaffold(
+            eyebrow: "Profil · Préférences",
+            title: "Langues",
+            onBack: onBack,
+            onClose: onClose
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DS.Color.inkMute)
+                    TextField("Rechercher une langue…", text: $query)
+                        .font(DS.Font.body)
+                        .foregroundColor(DS.Color.ink)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.ink.opacity(0.25), lineWidth: DS.Stroke.thick)
+                )
 
-            searchBar
-                .padding(.horizontal, 17)
-                .padding(.top, 30)
-
-            Text("Choisissez la langue souhaitée :")
-                .font(.custom("DelaGothicOne-Regular", size: 14))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 17)
-                .padding(.top, 32)
-
-            ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 11) {
-                    ForEach(languages) { language in
+                ProfileSettingsSection(title: "Choix de langue") {
+                    ForEach(Array(languages.enumerated()), id: \.element.id) { idx, language in
                         Button {
                             selectedLanguage = language.code
                         } label: {
                             LanguageRow(language: language, isSelected: selectedLanguage == language.code)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(ProfileRootRowPressableStyle())
+
+                        if idx < languages.count - 1 {
+                            ProfileSettingsDivider()
+                        }
                     }
                 }
-                .padding(.horizontal, 17)
-                .padding(.top, 18)
-                .padding(.bottom, 24)
+
+                Text("La langue sélectionnée s’applique à l’interface et aux contenus éditoriaux disponibles.")
+                    .font(.system(size: 11.5))
+                    .foregroundColor(DS.Color.inkSoft)
+                    .padding(.horizontal, 4)
             }
-
-            Button(action: onBack) {
-                Text("Continuer")
-                    .font(.custom("DelaGothicOne-Regular", size: 16))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 63)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 17)
-            .padding(.bottom, 18)
         }
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Text("Langues")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
-        }
-    }
-
-    private var searchBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
-
-            TextField("", text: $query)
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 49)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white, lineWidth: 1)
-        )
     }
 }
 
@@ -527,30 +917,35 @@ private struct LanguageRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(language.code)
-                .font(.custom("Montserrat-Regular", size: 16))
-                .foregroundStyle(.black.opacity(0.78))
+                .font(DS.Font.monoLarge)
+                .foregroundStyle(DS.Color.ink)
                 .frame(width: 38, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(language.title)
-                    .font(.custom("Montserrat-Regular", size: 16))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
 
                 Text(language.subtitle)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(Color(hex: "#A9AEB4"))
+                    .font(DS.Font.caption)
+                    .foregroundStyle(DS.Color.inkMute)
             }
 
             Spacer()
+
+            if isSelected {
+                ZStack {
+                    Circle().fill(DS.Color.ink).frame(width: 24, height: 24)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(DS.Color.paper)
+                }
+            }
         }
-        .padding(.horizontal, 21)
-        .frame(height: 63)
-        .background(isSelected ? Color(hex: "#BBDCFF") : .white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(isSelected ? Color(hex: "#4F8FFF") : Color(hex: "#E6E6E6"), lineWidth: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isSelected ? DS.Color.paper2.opacity(0.7) : DS.Color.paper)
     }
 }
 
@@ -582,70 +977,54 @@ private struct NotificationSettingsView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
+        ProfileSubpageScaffold(
+            eyebrow: "Profil · Préférences",
+            title: "Notifications",
+            onBack: onBack,
+            onClose: onClose
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Choisis comment recevoir les alertes liées à tes favoris, au réseau et aux résumés de service.")
+                    .font(.system(size: 12.5))
+                    .foregroundColor(DS.Color.inkSoft)
 
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Types de notifications")
-                    .font(.custom("Montserrat-SemiBold", size: 16))
-                    .foregroundStyle(.black)
-
-                Text("Recevez des alertes sur vos arrêts favoris et restez informé des dernières actualités.")
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundStyle(.black)
-                    .padding(.top, 22)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(spacing: 34) {
-                    NotificationToggleRow(icon: "bell.fill", title: "Push", isOn: $pushEnabled)
-                    NotificationToggleRow(icon: "calendar.badge.clock", title: "Digest hebdo", isOn: $weeklyDigestEnabled)
-                    NotificationToggleRow(icon: "envelope.fill", title: "Email", isOn: $emailEnabled)
-                    NotificationToggleRow(icon: "message.fill", title: "SMS", isOn: $smsEnabled)
+                ProfileSettingsSection(title: "Canaux") {
+                    NotificationToggleRow(
+                        icon: "bell.fill",
+                        title: "Push",
+                        description: "Alertes temps réel sur l’appareil",
+                        isOn: $pushEnabled
+                    )
+                    ProfileSettingsDivider()
+                    NotificationToggleRow(
+                        icon: "calendar.badge.clock",
+                        title: "Digest hebdo",
+                        description: "Résumé éditorial chaque semaine",
+                        isOn: $weeklyDigestEnabled
+                    )
+                    ProfileSettingsDivider()
+                    NotificationToggleRow(
+                        icon: "envelope.fill",
+                        title: "Email",
+                        description: "Récaps et confirmations longues",
+                        isOn: $emailEnabled
+                    )
+                    ProfileSettingsDivider()
+                    NotificationToggleRow(
+                        icon: "message.fill",
+                        title: "SMS",
+                        description: "Canal court pour alertes critiques",
+                        isOn: $smsEnabled
+                    )
                 }
-                .padding(.top, 32)
+
+                Text("STIBALERT · V1.0.0")
+                    .font(DS.Font.monoSmall)
+                    .tracking(2)
+                    .foregroundColor(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 4)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 23)
-            .frame(maxWidth: .infinity, minHeight: 359, alignment: .topLeading)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-            .padding(.horizontal, 11)
-            .padding(.top, 56)
-
-            Spacer()
-
-            Text("Version 1.0.0")
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white)
-                .padding(.bottom, 44)
-        }
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Text("Notifications")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
         }
     }
 }
@@ -653,25 +1032,38 @@ private struct NotificationSettingsView: View {
 private struct NotificationToggleRow: View {
     let icon: String
     let title: String
+    let description: String
     @Binding var isOn: Bool
 
     var body: some View {
-        HStack {
+        HStack(alignment: .center, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(DS.Color.ink)
+            }
+            .frame(width: 18)
 
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.inkMute)
             }
 
             Spacer()
 
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .tint(Color(hex: "#BBDCFF"))
+            ProfileSettingsSwitch(isOn: isOn)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isOn.toggle()
+            }
         }
     }
 }
@@ -695,164 +1087,132 @@ private struct AccountSettingsView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
-
+        ProfileSubpageScaffold(
+            eyebrow: "Profil · Compte",
+            title: "Mon compte",
+            onBack: onBack,
+            onClose: onClose
+        ) {
             avatarSection
-                .padding(.top, 18)
 
-            settingsSectionTitle("Infos personnelles")
-                .padding(.top, 23)
-
-            Divider()
-                .overlay(Color.white.opacity(0.7))
-                .padding(.top, 8)
-
-            VStack(spacing: 13) {
-                AccountTextRow(icon: "person", text: $firstName, highlighted: true)
-                AccountTextRow(icon: "person", text: $lastName, highlighted: true)
+            ProfileSettingsSection(title: "Infos personnelles") {
+                AccountTextRow(icon: "person", text: $firstName, placeholder: "Prénom")
+                ProfileSettingsDivider()
+                AccountTextRow(icon: "person.crop.circle", text: $lastName, placeholder: "Nom")
             }
-            .padding(.horizontal, 38)
-            .padding(.top, 16)
 
-            settingsSectionTitle("Infos de connexion")
-                .padding(.top, 29)
-
-            Divider()
-                .overlay(Color.white.opacity(0.7))
-                .padding(.top, 8)
-
-            VStack(spacing: 13) {
-                AccountTextRow(icon: "person", text: $email, highlighted: false)
-                AccountTextRow(icon: "person", text: $username, highlighted: false, fontSize: 14)
+            ProfileSettingsSection(title: "Connexion") {
+                AccountTextRow(icon: "envelope", text: $email, placeholder: "Email", keyboard: .emailAddress)
+                ProfileSettingsDivider()
+                AccountTextRow(icon: "at", text: $username, placeholder: "Pseudo")
+                ProfileSettingsDivider()
                 PasswordRow()
             }
-            .padding(.horizontal, 39)
-            .padding(.top, 16)
 
-            settingsSectionTitle("Routine quotidienne")
-                .padding(.top, 29)
-
-            Divider()
-                .overlay(Color.white.opacity(0.7))
-                .padding(.top, 8)
-
-            VStack(spacing: 13) {
-                ToggleRow(title: "Activer le mode trajet quotidien", isOn: $commuteEnabled)
-                AccountTextRow(icon: "house", text: $homeLabel, highlighted: true, placeholder: "Domicile")
-                AccountTextRow(icon: "clock", text: $departureTime, highlighted: false, fontSize: 15, placeholder: "08:15")
+            ProfileSettingsSection(title: "Routine quotidienne") {
+                ToggleRow(
+                    title: "Activer le mode trajet quotidien",
+                    subtitle: "Prépare le trajet domicile-travail et les alertes utiles",
+                    isOn: $commuteEnabled
+                )
+                ProfileSettingsDivider()
+                AccountTextRow(icon: "house", text: $homeLabel, placeholder: "Domicile")
+                ProfileSettingsDivider()
+                AccountTextRow(icon: "clock", text: $departureTime, placeholder: "08:15")
+                ProfileSettingsDivider()
                 FavoriteStopPickerRow(
                     title: "Arrêt domicile",
                     selection: $homeStopId,
                     options: favoriteStops
                 )
-                AccountTextRow(icon: "briefcase", text: $workLabel, highlighted: true, placeholder: "Travail")
+                ProfileSettingsDivider()
+                AccountTextRow(icon: "briefcase", text: $workLabel, placeholder: "Travail")
+                ProfileSettingsDivider()
                 FavoriteStopPickerRow(
                     title: "Arrêt travail",
                     selection: $workStopId,
                     options: favoriteStops
                 )
+                ProfileSettingsDivider()
                 FavoriteLinesSelector(
                     selection: $favoriteLinesSelection,
                     options: availableLines
                 )
             }
-            .padding(.horizontal, 39)
-            .padding(.top, 16)
 
             Button(action: onSave) {
                 Group {
                     if isSaving {
                         ProgressView()
-                            .tint(.black)
+                            .tint(DS.Color.primaryForeground)
                     } else {
                         Text("Enregistrer")
-                            .font(.custom("DelaGothicOne-Regular", size: 16))
-                            .foregroundStyle(.black)
+                            .font(.system(size: 14, weight: .bold))
+                            .tracking(0.6)
                     }
                 }
+                .foregroundStyle(DS.Color.primaryForeground)
                 .frame(maxWidth: .infinity)
-                .frame(height: 63)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .frame(height: 48)
+                .background(DS.Color.primary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .shadow(DS.Shadow.floating)
             }
             .buttonStyle(.plain)
             .disabled(isSaving)
-            .padding(.horizontal, 23)
-            .padding(.top, 25)
+            .opacity(isSaving ? 0.7 : 1)
 
-            Spacer()
-
-            Text("Version 1.0.0")
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white)
-                .padding(.bottom, 44)
-        }
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Text("Compte")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
+            Text("STIBALERT · V1.0.0 · BRUXELLES")
+                .font(DS.Font.monoSmall)
+                .tracking(2)
+                .foregroundColor(DS.Color.inkMute)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 4)
         }
     }
 
     private var avatarSection: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: "#F1D6BE"), Color(hex: "#F7A36B")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(DS.Color.ink)
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Text(profileInitial)
+                            .font(DS.Font.monoLarge.weight(.bold))
+                            .foregroundStyle(DS.Color.paper)
                     )
-                )
-                .frame(width: 78, height: 78)
-                .overlay(
-                    Text("A")
-                        .font(.custom("DelaGothicOne-Regular", size: 28))
-                        .foregroundStyle(Color(hex: "#5B2F1C"))
-                )
 
-            Circle()
-                .fill(Color.black.opacity(0.95))
-                .frame(width: 24, height: 24)
-                .overlay(
-                    Image(systemName: "pencil")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white)
-                )
+                Circle()
+                    .fill(DS.Color.primary)
+                    .frame(width: 22, height: 22)
+                    .overlay(
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(DS.Color.primaryForeground)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(DS.Color.ink, lineWidth: 1)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(handleText)
+                    .font(DS.Font.monoSmall)
+                    .tracking(1.2)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func settingsSectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.custom("DelaGothicOne-Regular", size: 14))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 17)
     }
 
     private var availableLines: [String] {
@@ -862,40 +1222,58 @@ private struct AccountSettingsView: View {
             .filter { !$0.isEmpty }
         return Array(Set(lines)).sorted()
     }
+
+    private var displayName: String {
+        let value = [firstName, lastName]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return value.isEmpty ? "Profil" : value
+    }
+
+    private var profileInitial: String {
+        String(displayName.prefix(1)).uppercased()
+    }
+
+    private var handleText: String {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "COMPTE STIBALERT" : "@\(trimmed.uppercased())"
+    }
 }
 
 private struct AccountTextRow: View {
     let icon: String
     @Binding var text: String
-    let highlighted: Bool
-    var fontSize: CGFloat = 16
     var placeholder: String = ""
+    var keyboard: UIKeyboardType = .default
 
     var body: some View {
         HStack(spacing: 13) {
             Image(systemName: icon)
-                .font(.system(size: 21, weight: .regular))
-                .foregroundStyle(.black)
-                .frame(width: 24)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 18)
 
             TextField(placeholder, text: $text)
-                .font(.custom("Montserrat-Regular", size: fontSize))
-                .foregroundStyle(.black)
+                .font(.system(size: 13.5))
+                .foregroundStyle(DS.Color.ink)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .keyboardType(keyboard)
 
-            Image(systemName: "xmark")
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(.black)
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .padding(.horizontal, 17)
-        .frame(height: 51)
-        .background(highlighted ? Color(hex: "#BBDCFF") : .white)
-        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .stroke(highlighted ? Color(hex: "#3E7BFE") : Color.black, lineWidth: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
@@ -908,18 +1286,22 @@ private struct FavoriteLinesSelector: View {
             HStack(spacing: 6) {
                 Image(systemName: "tram.fill")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(DS.Color.ink)
 
                 Text("Lignes favorites")
-                    .font(.custom("Montserrat-SemiBold", size: 14))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
 
             if options.isEmpty {
                 Text("Ajoute d’abord des arrêts favoris pour sélectionner des lignes utiles.")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black.opacity(0.7))
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
             } else {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 62), spacing: 8)],
@@ -937,15 +1319,15 @@ private struct FavoriteLinesSelector: View {
                             AppHaptics.soft()
                         } label: {
                             Text(line)
-                                .font(.custom("Montserrat-SemiBold", size: 13))
-                                .foregroundStyle(isSelected ? .black : .white)
+                                .font(DS.Font.mono)
+                                .foregroundStyle(isSelected ? DS.Color.ink : DS.Color.paper)
                                 .padding(.horizontal, 12)
                                 .frame(height: 34)
-                                .background(isSelected ? Color(hex: "#BBDCFF") : Color.white.opacity(0.14))
+                                .background(isSelected ? DS.Color.paper2 : DS.Color.ink)
                                 .clipShape(Capsule())
                                 .overlay(
                                     Capsule()
-                                        .stroke(isSelected ? Color(hex: "#81B7FF") : Color.white.opacity(0.2), lineWidth: 1)
+                                        .stroke(isSelected ? DS.Color.ink.opacity(0.2) : DS.Color.ink, lineWidth: 1)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -953,6 +1335,8 @@ private struct FavoriteLinesSelector: View {
                         .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -961,26 +1345,32 @@ private struct FavoriteLinesSelector: View {
 
 private struct ToggleRow: View {
     let title: String
+    let subtitle: String?
     @Binding var isOn: Bool
 
     var body: some View {
-        HStack {
-            Text(title)
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.black)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
             Spacer()
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .tint(Color(hex: "#3E7BFE"))
+            ProfileSettingsSwitch(isOn: isOn)
         }
-        .padding(.horizontal, 17)
-        .frame(height: 51)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .stroke(Color.black, lineWidth: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isOn.toggle()
+            }
+        }
     }
 }
 
@@ -1003,26 +1393,20 @@ private struct FavoriteStopPickerRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.custom("Montserrat-Regular", size: 11))
-                        .foregroundStyle(Color.black.opacity(0.55))
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(DS.Color.inkMute)
                     Text(selectedName)
-                        .font(.custom("Montserrat-Regular", size: 15))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(DS.Color.inkMute)
             }
-            .padding(.horizontal, 17)
-            .frame(height: 51)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(Color.black, lineWidth: 1)
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
     }
@@ -1032,28 +1416,22 @@ private struct PasswordRow: View {
     var body: some View {
         HStack(spacing: 13) {
             Image(systemName: "key")
-                .font(.system(size: 21, weight: .regular))
-                .foregroundStyle(.black)
-                .frame(width: 24)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 18)
 
             Text("Mots de passe")
-                .font(.custom("Montserrat-Regular", size: 16))
-                .foregroundStyle(.black)
+                .font(.system(size: 13.5, weight: .medium))
+                .foregroundStyle(DS.Color.ink)
 
             Spacer()
 
-            Image(systemName: "arrow.right")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.black)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute.opacity(0.6))
         }
-        .padding(.horizontal, 17)
-        .frame(height: 51)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .stroke(Color.black, lineWidth: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
@@ -1068,115 +1446,77 @@ private struct PrivacySettingsView: View {
     private let privacyPolicyURL = URL(string: "https://stib-alert-backend.onrender.com/privacy")!
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.horizontal, 21)
-                    .padding(.top, 12)
-
+        ProfileSubpageScaffold(
+            eyebrow: "Profil · Données",
+            title: "Confidentialité",
+            onBack: onBack,
+            onClose: onClose
+        ) {
+            ProfileSettingsSection(title: "Documents") {
                 Button {
                     openURL(privacyPolicyURL)
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 12) {
                         Image(systemName: "doc.text")
-                            .font(.system(size: 13))
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundColor(DS.Color.ink)
+                            .frame(width: 18)
                         Text("Lire la politique de confidentialité complète")
-                            .font(.custom("Montserrat-Regular", size: 13))
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundColor(DS.Color.ink)
                         Spacer()
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(DS.Color.inkMute)
                     }
-                    .foregroundStyle(Color(hex: "#3E7BFE"))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-
-                Text("Paramètres de confidentialité")
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 45)
-
-                VStack(spacing: 0) {
-                    PrivacyToggleRow(
-                        title: "Partage de données",
-                        description: "Aide à améliorer l’app en envoyant des données d’usage anonymes.",
-                        isOn: $dataSharingEnabled,
-                        activeTint: .black
-                    )
-
-                    PrivacyToggleRow(
-                        title: "Suivi de localisation",
-                        description: "Permet d’identifier les arrêts proches pour signaler plus vite.",
-                        isOn: $locationTrackingEnabled,
-                        activeTint: .black
-                    )
-
-                    PrivacyToggleRow(
-                        title: "Personnalisation des annonces",
-                        description: "Utilise vos données pour adapter les publicités.",
-                        isOn: $adsPersonalizationEnabled,
-                        activeTint: .black
-                    )
-                }
-                .padding(.horizontal, 13)
-                .padding(.top, 13)
-
-                Text("Gestion du compte")
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 34)
-
-                VStack(spacing: 0) {
-                    PrivacyActionRow(
-                        title: "Applications tierces",
-                        description: "Certaines fonctionnalités peuvent s’appuyer sur des services externes (OneSignal, Cloudinary, Anthropic).",
-                        actionLabel: "Apps",
-                        learnMoreURL: URL(string: "https://stib-alert-backend.onrender.com/privacy")
-                    )
-                    PrivacyActionRow(
-                        title: "Télécharger vos données",
-                        description: "Obtenez une copie de vos données personnelles enregistrées dans STIB Alert.",
-                        actionLabel: "Telecharger"
-                    )
-                    PrivacyActionRow(
-                        title: "Supprimer votre compte",
-                        description: "Effacez définitivement votre compte et toutes les données associées.",
-                        actionLabel: "Supprimer"
-                    )
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 9)
-                .padding(.bottom, 24)
-            }
-        }
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
+                .buttonStyle(ProfileRootRowPressableStyle())
             }
 
-            Text("Confidentialité")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
+            ProfileSettingsSection(title: "Paramètres") {
+                PrivacyToggleRow(
+                    title: "Partage de données",
+                    description: "Aide à améliorer l’app en envoyant des données d’usage anonymes.",
+                    isOn: $dataSharingEnabled
+                )
+                ProfileSettingsDivider()
+                PrivacyToggleRow(
+                    title: "Suivi de localisation",
+                    description: "Permet d’identifier les arrêts proches pour signaler plus vite.",
+                    isOn: $locationTrackingEnabled
+                )
+                ProfileSettingsDivider()
+                PrivacyToggleRow(
+                    title: "Personnalisation des annonces",
+                    description: "Utilise vos données pour adapter les publicités.",
+                    isOn: $adsPersonalizationEnabled
+                )
+            }
+
+            ProfileSettingsSection(title: "Gestion du compte") {
+                PrivacyActionRow(
+                    title: "Applications tierces",
+                    description: "Certaines fonctionnalités s’appuient sur des services externes.",
+                    actionLabel: "Voir",
+                    learnMoreURL: URL(string: "https://stib-alert-backend.onrender.com/privacy")
+                )
+                ProfileSettingsDivider()
+                PrivacyActionRow(
+                    title: "Télécharger vos données",
+                    description: "Obtenez une copie des données personnelles enregistrées.",
+                    actionLabel: "Exporter"
+                )
+                ProfileSettingsDivider()
+                PrivacyActionRow(
+                    title: "Supprimer votre compte",
+                    description: "Efface définitivement le compte et les données associées.",
+                    actionLabel: "Supprimer",
+                    danger: true
+                )
+            }
         }
     }
 }
@@ -1185,31 +1525,33 @@ private struct PrivacyToggleRow: View {
     let title: String
     let description: String
     @Binding var isOn: Bool
-    let activeTint: Color
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("Montserrat-SemiBold", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
 
                 Text(description)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 12)
 
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .tint(activeTint)
+            ProfileSettingsSwitch(isOn: isOn)
         }
-        .padding(.horizontal, 13)
-        .padding(.vertical, 20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isOn.toggle()
+            }
+        }
     }
 }
 
@@ -1218,25 +1560,26 @@ private struct PrivacyActionRow: View {
     let description: String
     let actionLabel: String
     var learnMoreURL: URL? = nil
+    var danger: Bool = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("Montserrat-SemiBold", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(danger ? DS.Color.destructive : DS.Color.ink)
 
                 Text(description)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let url = learnMoreURL {
                     Button("En savoir plus") { openURL(url) }
                         .buttonStyle(.plain)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(Color(hex: "#3E7BFE"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(DS.Color.primary)
                         .padding(.top, 2)
                 }
             }
@@ -1245,18 +1588,17 @@ private struct PrivacyActionRow: View {
 
             Button(actionLabel) {}
                 .buttonStyle(.plain)
-                .font(.custom("Montserrat-Regular", size: 12))
-                .foregroundStyle(.white)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(danger ? DS.Color.destructiveForeground : DS.Color.paper)
                 .padding(.horizontal, 12)
-                .frame(height: 22)
-                .background(Color.black)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .frame(height: 24)
+                .background(danger ? DS.Color.destructive : DS.Color.ink)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
         }
-        .padding(.horizontal, 13)
-        .padding(.top, 16)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
     }
 }
 
@@ -1266,51 +1608,26 @@ private struct SupportSettingsView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 21)
-                .padding(.top, 12)
-
-            VStack(spacing: 22) {
-                ForEach(items) { item in
+        ProfileSubpageScaffold(
+            eyebrow: "Profil · Assistance",
+            title: "Support",
+            onBack: onBack,
+            onClose: onClose
+        ) {
+            ProfileSettingsSection(title: "Aide & contact") {
+                ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                     SupportRow(item: item)
+
+                    if idx < items.count - 1 {
+                        ProfileSettingsDivider()
+                    }
                 }
             }
-            .padding(.horizontal, 37)
-            .padding(.top, 70)
 
-            Spacer()
-
-            Text("Version 1.0.0")
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white)
-                .padding(.bottom, 44)
-        }
-    }
-
-    private var header: some View {
-        ZStack {
-            HStack {
-                Button(action: onBack) {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Text("Support")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
+            Text("Réponse par email selon disponibilité de l’équipe StibAlert.")
+                .font(.system(size: 11.5))
+                .foregroundColor(DS.Color.inkSoft)
+                .padding(.horizontal, 4)
         }
     }
 }
@@ -1323,39 +1640,35 @@ private struct SupportRow: View {
         Button {
             if let url = item.url { openURL(url) }
         } label: {
-            HStack(spacing: 15) {
-                Image(systemName: "questionmark.bubble")
-                    .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(.black)
-                    .frame(width: 24)
+            HStack(spacing: 12) {
+                Image(systemName: item.highlighted ? "bubble.left.and.bubble.right.fill" : "questionmark.circle")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(item.highlighted ? DS.Color.primary : DS.Color.ink)
+                    .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
-                        .font(.custom("Montserrat-SemiBold", size: 16))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
 
                     Text(item.subtitle)
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(Color(hex: "#C0C5CC"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.inkMute)
                         .multilineTextAlignment(.leading)
                 }
 
                 Spacer()
 
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.8))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.6))
             }
-            .padding(.horizontal, 15)
-            .frame(height: 68)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .stroke(item.highlighted ? Color(hex: "#8A3A3A") : Color.black, lineWidth: 1)
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ProfileRootRowPressableStyle())
     }
 }
 

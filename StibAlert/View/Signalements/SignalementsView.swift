@@ -34,33 +34,39 @@ struct SignalementsView: View {
         displayLines.count
     }
 
+    private var disruptedLines: [LineStatusItem] {
+        filteredLines.filter { $0.status != .fluid }
+    }
+
+    private var healthyLines: [LineStatusItem] {
+        filteredLines.filter { $0.status == .fluid }
+    }
+
+    private var healthyByMode: [(filter: LineFilter, lines: [LineStatusItem])] {
+        let groups: [LineFilter] = [.metro, .tram, .bus]
+        return groups.compactMap { filter in
+            let lines = healthyLines.filter { $0.filter == filter }
+            return lines.isEmpty ? nil : (filter, lines)
+        }
+    }
+
+    private var healthRows: [(filter: LineFilter, ok: Int, ko: Int)] {
+        let groups: [LineFilter] = [.metro, .tram, .bus]
+        return groups.map { filter in
+            let matching = displayLines.filter { $0.filter == filter }
+            let ko = matching.filter { $0.status != .fluid }.count
+            let ok = max(matching.count - ko, 0)
+            return (filter, ok, ko)
+        }
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    AppTheme.Palette.screen,
-                    AppTheme.Palette.screenElevated,
-                    AppTheme.Palette.screen
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            Circle()
-                .fill(AppTheme.Palette.glowInfo.opacity(0.16))
-                .frame(width: 240, height: 240)
-                .blur(radius: 38)
-                .offset(x: 150, y: -260)
-
-            Circle()
-                .fill(AppTheme.Palette.glowBrand.opacity(0.1))
-                .frame(width: 220, height: 220)
-                .blur(radius: 42)
-                .offset(x: -120, y: -140)
+            DS.Color.paper
+                .ignoresSafeArea()
 
             if let selectedLine {
-                LineOverviewView(
+                LigneDetailPage(
                     line: selectedLine,
                     onBack: {
                         withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
@@ -70,61 +76,41 @@ struct SignalementsView: View {
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    topBar
-                        .padding(.horizontal, 21)
-                        .padding(.top, 12)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        topBar
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
 
-                    filtersRow
-                        .padding(.top, 18)
+                        VStack(alignment: .leading, spacing: 20) {
+                            healthMeterSection
+                            DS.Rule(thick: true)
+                            searchAndFiltersSection
 
-                    if isLoadingRemote && !hasLoadedLines {
-                        Spacer()
-                        ProgressView()
-                            .tint(Color.white.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 60)
-                        Spacer()
-                    } else if AppConfig.isBackendEnabled && displayLines.isEmpty {
-                        linesEmptyState
-                    } else if filteredLines.isEmpty {
-                        linesSearchEmptyState
-                    } else {
-                        HStack {
-                            Text("\(availableLinesCount) ligne\(availableLinesCount == 1 ? "" : "s") disponible\(availableLinesCount == 1 ? "" : "s")")
-                                .font(AppTheme.Fonts.captionStrong)
-                                .foregroundStyle(AppTheme.Palette.textSecondary)
-
-                            Spacer()
-
-                            Text(selectedFilter == .all ? "Vue réseau" : "Focus \(selectedFilter.label)")
-                                .font(AppTheme.Fonts.caption)
-                                .foregroundStyle(AppTheme.Palette.textMuted)
-                        }
-                        .padding(.horizontal, 21)
-                        .padding(.top, 18)
-
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 12) {
-                                ForEach(filteredLines) { line in
-                                    Button {
-                                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
-                                            selectedLine = line
-                                        }
-                                    } label: {
-                                        LineStatusCard(line: line)
-                                    }
-                                    .buttonStyle(.plain)
+                            if isLoadingRemote && !hasLoadedLines {
+                                ProgressView()
+                                    .tint(DS.Color.ink)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 48)
+                            } else if AppConfig.isBackendEnabled && displayLines.isEmpty {
+                                linesEmptyState
+                            } else if filteredLines.isEmpty {
+                                linesSearchEmptyState
+                            } else {
+                                if !disruptedLines.isEmpty {
+                                    disruptedSection
                                 }
+                                allLinesSection
                             }
-                            .padding(.horizontal, 21)
-                            .padding(.top, 14)
-                            .padding(.bottom, 120)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
+                        .padding(.bottom, 120)
                     }
                 }
             }
         }
+        .modifier(PaperGrainBackground())
         .toolbar(.hidden, for: .navigationBar)
         .task {
             stibi.setCurrentScreen("signalements")
@@ -145,81 +131,143 @@ struct SignalementsView: View {
                         nav.showSideMenu = true
                     }
                 } label: {
-                    Circle()
-                        .fill(AppTheme.Palette.surfaceElevated)
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(DS.Color.paper)
                         .frame(width: 42, height: 40)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                        )
                         .overlay(
                             Image(systemName: "line.3.horizontal")
                                 .font(.system(size: 20, weight: .regular))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .foregroundStyle(DS.Color.ink)
                         )
                 }
                 .buttonStyle(.plain)
+                .shadow(DS.Shadow.raised)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .foregroundStyle(DS.Color.inkSoft)
 
-                    TextField("", text: $query, prompt: Text("Rechercher une ligne ou direction").foregroundStyle(AppTheme.Palette.textMuted))
-                        .font(AppTheme.Fonts.body)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                    TextField("", text: $query, prompt: Text("Rechercher une ligne, une destination…").foregroundStyle(DS.Color.inkMute))
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.ink)
                         .textInputAutocapitalization(.words)
                         .autocorrectionDisabled()
                 }
                 .padding(.horizontal, 14)
                 .frame(height: 40)
-                .background(AppTheme.Palette.surfaceElevated)
-                .clipShape(Capsule())
+                .background(DS.Color.paper)
                 .overlay(
-                    Capsule()
-                        .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
                 )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous))
+                .shadow(DS.Shadow.raised)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Desk réseau")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .textCase(.uppercase)
-                    .tracking(0.9)
-                    .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
-
-                Text("Lignes")
-                    .font(AppTheme.Fonts.clash(28))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                Text("Etat du réseau STIB, lignes surveillées et confirmations terrain en direct.")
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                PageHeader(
+                    title: "Lignes",
+                    eyebrow: "Réseau STIB · Bruxelles",
+                    large: true
+                )
             }
+        }
+    }
+
+    private var healthMeterSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionTitle("État par mode")
+            VStack(spacing: 10) {
+                ForEach(healthRows, id: \.filter.id) { row in
+                    EditorialHealthRow(
+                        filter: row.filter,
+                        ok: row.ok,
+                        ko: row.ko,
+                        isSelected: selectedFilter == row.filter
+                    ) {
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            selectedFilter = selectedFilter == row.filter ? .all : row.filter
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var searchAndFiltersSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            filtersRow
         }
     }
 
     private var filtersRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(LineFilter.allCases) { filter in
-                    Button {
-                        withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
+                    Chip(
+                        label: filter.label,
+                        active: selectedFilter == filter,
+                        icon: {
+                            if filter != .all {
+                                Image(systemName: filter.iconName)
+                            }
+                        }
+                    ) {
+                        withAnimation(.easeOut(duration: 0.15)) {
                             selectedFilter = filter
                         }
-                    } label: {
-                        Text(filter.label)
-                            .font(AppTheme.Fonts.bodyStrong)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(selectedFilter == filter ? AppTheme.Palette.surfaceElevated : Color.clear)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(selectedFilter == filter ? AppTheme.Palette.borderStrong : AppTheme.Palette.border, lineWidth: 1)
-                            )
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 21)
+        }.padding(.horizontal, 0)
+    }
+
+    private var disruptedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(DS.Color.statusMajor)
+                SectionTitle("À surveiller · \(disruptedLines.count)")
+            }
+
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(DS.Color.ink)
+                    .frame(height: 2)
+                ForEach(disruptedLines) { line in
+                    DisruptedEditorialRow(
+                        line: line
+                    ) {
+                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
+                            selectedLine = line
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var allLinesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionTitle("Toutes les lignes")
+            VStack(alignment: .leading, spacing: 20) {
+                ForEach(healthyByMode, id: \.filter.id) { group in
+                    EditorialModeLineGroup(
+                        filter: group.filter,
+                        lines: group.lines
+                    ) { line in
+                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
+                            selectedLine = line
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -439,13 +487,13 @@ struct SignalementsView: View {
             Spacer()
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 44, weight: .light))
-                .foregroundStyle(AppTheme.Palette.success)
+                .foregroundStyle(DS.Color.statusOK)
             Text("Tout roule")
-                .font(AppTheme.Fonts.clash(22))
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .font(DS.Font.displayH2)
+                .foregroundStyle(DS.Color.ink)
             Text("Aucun incident signalé sur le réseau STIB pour le moment.")
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Spacer()
@@ -458,10 +506,10 @@ struct SignalementsView: View {
             Spacer()
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(AppTheme.Palette.textMuted)
+                .foregroundStyle(DS.Color.inkMute)
             Text("Aucun résultat pour « \(query) »")
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.inkSoft)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Spacer()
@@ -470,15 +518,204 @@ struct SignalementsView: View {
     }
 }
 
+private struct EditorialHealthRow: View {
+    let filter: LineFilter
+    let ok: Int
+    let ko: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var total: Int { ok + ko }
+    private var okPct: CGFloat {
+        guard total > 0 else { return 0 }
+        return CGFloat(ok) / CGFloat(total)
+    }
+    private var level: DS.StatusLevel {
+        guard total > 0 else { return .ok }
+        let ratio = Double(ko) / Double(total)
+        if ko == 0 { return .ok }
+        if ratio > 0.4 { return .critical }
+        if ratio > 0.2 { return .major }
+        return .minor
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(filter.label.uppercased())
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 54, alignment: .leading)
+
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(DS.Color.statusOK)
+                            .frame(width: geo.size.width * okPct)
+                        Rectangle()
+                            .fill(DS.Color.statusMajor)
+                    }
+                }
+                .frame(height: 6)
+                .background(DS.Color.paper2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 2)
+                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 2))
+
+                Text("\(ok)/\(total)")
+                    .font(DS.Font.mono)
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 52, alignment: .trailing)
+
+                StatusDot(level: level, size: 8)
+            }
+            .padding(.vertical, 2)
+            .opacity(isSelected ? 0.82 : 1)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct DisruptedEditorialRow: View {
+    let line: LineStatusItem
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                LineBadge(
+                    line: line.line,
+                    size: .lg,
+                    fill: line.lineColor,
+                    foreground: line.lineTextColor
+                )
+                .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(line.direction)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+
+                    Text(line.confidenceText ?? "\(line.reportsCount) signalements")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.statusMajor)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.top, 6)
+            }
+            .padding(.vertical, 12)
+            .overlay(
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.15))
+                    .frame(height: 1),
+                alignment: .bottom
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableRowStyle())
+    }
+}
+
+private struct EditorialModeLineGroup: View {
+    let filter: LineFilter
+    let lines: [LineStatusItem]
+    let onSelect: (LineStatusItem) -> Void
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 6)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(filter.label.uppercased())
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(DS.Color.ink)
+                Spacer()
+                Text("\(lines.count)")
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.bottom, 4)
+            .overlay(
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.15))
+                    .frame(height: 1),
+                alignment: .bottom
+            )
+
+            LazyVGrid(columns: columns, spacing: 6) {
+                ForEach(lines) { item in
+                    Button {
+                        onSelect(item)
+                    } label: {
+                        LineBadge(
+                            line: item.line,
+                            size: .lg,
+                            fill: item.lineColor,
+                            foreground: item.lineTextColor
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                }
+            }
+        }
+    }
+}
+
 private struct LineOverviewView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum DirectionVariant: String, CaseIterable, Identifiable {
+        case city = "City"
+        case suburb = "Suburb"
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .city: return "Aller"
+            case .suburb: return "Retour"
+            }
+        }
+    }
+
     let line: LineStatusItem
     let onBack: () -> Void
-    @State private var transportLine: TransportLineDTO?
+    @State private var cityLine: TransportLineDTO?
+    @State private var suburbLine: TransportLineDTO?
+    @State private var baseLineDetail: TransportLineDTO?
+    @State private var selectedVariant: DirectionVariant = .city
     @State private var remoteStops: [LineOverviewStop] = []
     @State private var selectedStopDetail: TransportStopDTO?
     @State private var isLoadingStops = false
     @State private var isLoadingStopDetail = false
     @State private var hasLoadedStops = false
+
+    private var transportLine: TransportLineDTO? {
+        switch selectedVariant {
+        case .city:
+            return cityLine ?? suburbLine ?? baseLineDetail
+        case .suburb:
+            return suburbLine ?? cityLine ?? baseLineDetail
+        }
+    }
+
+    private var availableVariants: [DirectionVariant] {
+        var values: [DirectionVariant] = []
+        if cityLine != nil { values.append(.city) }
+        if suburbLine != nil { values.append(.suburb) }
+        return values.isEmpty ? [.city] : values
+    }
 
     private var stops: [LineOverviewStop] {
         if let transportLine {
@@ -495,17 +732,27 @@ private struct LineOverviewView: View {
         Array((transportLine?.recommendedAlternatives ?? []).prefix(2))
     }
 
+    private var routeOriginText: String {
+        if let firstStop = transportLine?.line.stops.first?.name, !firstStop.isEmpty {
+            return firstStop
+        }
+        return line.origin
+    }
+
+    private var routeDestinationText: String {
+        if let lastStop = transportLine?.line.stops.last?.name, !lastStop.isEmpty {
+            return lastStop
+        }
+        return line.destination
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [AppTheme.Palette.screen, AppTheme.Palette.screenElevated, AppTheme.Palette.screen],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            DS.Color.paper
             .ignoresSafeArea()
 
             Circle()
-                .fill(AppTheme.Palette.glowInfo.opacity(0.14))
+                .fill(DS.Color.primary.opacity(0.08))
                 .frame(width: 220, height: 220)
                 .blur(radius: 34)
                 .offset(x: 140, y: -220)
@@ -532,13 +779,13 @@ private struct LineOverviewView: View {
                     LazyVStack(spacing: 14) {
                         if isLoadingStops {
                             ProgressView()
-                                .tint(AppTheme.Palette.textSecondary)
+                                .tint(DS.Color.inkMute)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
                         } else if hasLoadedStops && stops.isEmpty {
                             Text("Aucun arrêt disponible")
-                                .font(AppTheme.Fonts.body)
-                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.inkMute)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
                         } else {
@@ -559,8 +806,8 @@ private struct LineOverviewView: View {
                         if !lineIncidents.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Confirmations terrain")
-                                    .font(AppTheme.Fonts.clash(16))
-                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                                    .font(DS.Font.displayH3)
+                                    .foregroundStyle(DS.Color.ink)
 
                                 ForEach(lineIncidents.prefix(3)) { incident in
                                     TransportIncidentCommunityCard(incident: incident)
@@ -575,6 +822,7 @@ private struct LineOverviewView: View {
                 }
             }
         }
+        .modifier(PaperGrainBackground())
         .overlay {
             if let selectedStopDetail {
                 TransportStopDetailOverlay(
@@ -600,26 +848,31 @@ private struct LineOverviewView: View {
                         .font(.system(size: 18, weight: .semibold))
 
                     Text("Lignes")
-                        .font(AppTheme.Fonts.bodyStrong)
+                        .font(DS.Font.bodyBold)
                 }
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .foregroundStyle(DS.Color.ink)
                 .padding(.horizontal, 16)
                 .frame(height: 42)
-                .background(AppTheme.Palette.surfaceElevated)
+                .background(DS.Color.paper)
                 .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
+            .shadow(DS.Shadow.raised)
 
             Spacer()
 
             HStack(spacing: 18) {
                 Image(systemName: "bell")
                     .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .foregroundStyle(DS.Color.ink)
 
                 Image(systemName: "heart")
                     .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .foregroundStyle(DS.Color.ink)
             }
         }
     }
@@ -630,38 +883,55 @@ private struct LineOverviewView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Desk ligne")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .textCase(.uppercase)
-                    .tracking(0.9)
-                    .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
+                    .eyebrow()
 
                 HStack(spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [line.lineColor, line.lineColor.opacity(0.82)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-
-                        Text(line.line)
-                            .font(AppTheme.Fonts.bodyStrong)
-                            .foregroundStyle(line.lineTextColor)
-                    }
-                    .frame(width: 42, height: 46)
+                    LineBadge(
+                        line: line.line,
+                        size: .lg,
+                        fill: line.lineColor,
+                        foreground: line.lineTextColor
+                    )
+                    .frame(width: 54, height: 46)
 
                     HStack(spacing: 0) {
-                        routePill(text: line.origin, isLeading: true)
+                        routePill(text: routeOriginText, isLeading: true)
 
                         Rectangle()
-                            .fill(AppTheme.Palette.borderStrong.opacity(0.9))
+                            .fill(DS.Color.ink.opacity(0.35))
                             .frame(width: 14, height: 1)
 
-                        routePill(text: line.destination, isLeading: false)
+                        routePill(text: routeDestinationText, isLeading: false)
                     }
                     .frame(maxWidth: .infinity)
+                }
+
+                if availableVariants.count > 1 {
+                    HStack(spacing: 10) {
+                        ForEach(availableVariants) { variant in
+                            Button {
+                                withAnimation(DS.Motion.easeIOS) {
+                                    selectedVariant = variant
+                                }
+                            } label: {
+                                Text(variant.label)
+                                    .font(DS.Font.eyebrow)
+                                    .tracking(1.2)
+                                    .foregroundStyle(DS.Color.ink)
+                                    .padding(.horizontal, 14)
+                                    .frame(height: 34)
+                                    .background(selectedVariant == variant ? DS.Color.secondary : Color.clear)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(selectedVariant == variant ? DS.Color.ink.opacity(0.28) : DS.Color.border, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        Spacer()
+                    }
                 }
             }
         }
@@ -669,16 +939,16 @@ private struct LineOverviewView: View {
 
     private func routePill(text: String, isLeading: Bool) -> some View {
         Text(text)
-            .font(AppTheme.Fonts.body)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
+            .font(DS.Font.body)
+            .foregroundStyle(DS.Color.ink)
             .lineLimit(2)
             .multilineTextAlignment(isLeading ? .leading : .center)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 50, alignment: isLeading ? .leading : .center)
-            .background(AppTheme.Palette.surface.opacity(0.72))
+            .background(DS.Color.paper)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppTheme.Palette.border, lineWidth: 1)
+                    .stroke(DS.Color.border, lineWidth: 1)
             )
     }
 
@@ -686,6 +956,9 @@ private struct LineOverviewView: View {
         HStack(spacing: 10) {
             overviewMetric(text: "\(stops.count) arrêts", icon: "mappin.and.ellipse")
             overviewMetric(text: "\(line.reportsCount) reports", icon: "exclamationmark.bubble")
+            if availableVariants.count > 1 {
+                overviewMetric(text: selectedVariant.label, icon: "arrow.left.arrow.right")
+            }
         }
     }
 
@@ -694,16 +967,17 @@ private struct LineOverviewView: View {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
             Text(text)
-                .font(AppTheme.Fonts.captionStrong)
+                .font(DS.Font.eyebrow)
+                .tracking(1.0)
         }
-        .foregroundStyle(AppTheme.Palette.textPrimary)
+        .foregroundStyle(DS.Color.ink)
         .padding(.horizontal, 12)
         .frame(height: 34)
-        .background(AppTheme.Palette.surfaceElevated)
+        .background(DS.Color.secondary)
         .clipShape(Capsule())
         .overlay(
             Capsule()
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+                .stroke(DS.Color.border, lineWidth: 1)
         )
     }
 
@@ -767,10 +1041,26 @@ private struct LineOverviewView: View {
         isLoadingStops = true
         defer { isLoadingStops = false; hasLoadedStops = true }
 
-        do {
-            transportLine = try await TransportService.line(id: line.line)
-        } catch {
-            print("Transport line detail failed: \(error.localizedDescription)")
+        async let cityTask: TransportLineDTO? = try? await TransportService.line(id: "\(line.line):City")
+        async let suburbTask: TransportLineDTO? = try? await TransportService.line(id: "\(line.line):Suburb")
+        async let baseTask: TransportLineDTO? = try? await TransportService.line(id: line.line)
+
+        let city = await cityTask
+        let suburb = await suburbTask
+        let base = await baseTask
+
+        cityLine = city
+        suburbLine = suburb
+        baseLineDetail = base
+
+        if city != nil {
+            selectedVariant = .city
+        } else if suburb != nil {
+            selectedVariant = .suburb
+        }
+
+        if city == nil && suburb == nil && base == nil {
+            print("Transport line detail failed: no line variant available")
         }
     }
 
@@ -870,94 +1160,6 @@ private struct LineOverviewView: View {
     }
 }
 
-private struct LineStatusCard: View {
-    let line: LineStatusItem
-
-    private var statusColor: Color {
-        switch line.status {
-        case .fluid: return Color(hex: "#6CE8C8")
-        case .disrupted: return Color(hex: "#FF9B3F")
-        case .critical: return Color(hex: "#FF7A7A")
-        }
-    }
-
-    private var borderColor: Color {
-        switch line.status {
-        case .fluid: return Color(hex: "#7EF1D1")
-        case .disrupted: return Color(hex: "#FF9B3F")
-        case .critical: return Color(hex: "#FF8A8A")
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [line.lineColor, line.lineColor.opacity(0.82)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                Text(line.line)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(line.lineTextColor)
-            }
-            .frame(width: 34, height: 36)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(line.direction)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                    .lineLimit(1)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.turn.down.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textMuted)
-
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 12, height: 12)
-
-                    Text("\(line.status.label) – \(line.reportsCount) signalements")
-                        .font(AppTheme.Fonts.caption)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-                }
-
-                if let confidenceText = line.confidenceText {
-                    Text(confidenceText)
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
-                }
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppTheme.Palette.textMuted)
-        }
-        .padding(.horizontal, 15)
-        .frame(height: 72)
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(borderColor.opacity(0.45), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.12), radius: 18, x: 0, y: 10)
-    }
-}
-
 private struct LineOverviewStopRow: View {
     let stop: LineOverviewStop
     let isFirst: Bool
@@ -968,21 +1170,21 @@ private struct LineOverviewStopRow: View {
             ZStack {
                 VStack(spacing: 0) {
                     Rectangle()
-                        .fill(Color.white.opacity(0.78))
+                        .fill(DS.Color.ink.opacity(0.18))
                         .frame(width: 2)
                         .opacity(isFirst ? 0 : 1)
 
                     Rectangle()
-                        .fill(Color.white.opacity(0.78))
+                        .fill(DS.Color.ink.opacity(0.18))
                         .frame(width: 2)
                         .opacity(isLast ? 0 : 1)
                 }
 
                 Circle()
-                    .fill(isFirst ? Color.white : Color(hex: "#1B1B1B"))
+                    .fill(isFirst ? DS.Color.paper : DS.Color.ink)
                     .overlay(
                         Circle()
-                            .stroke(Color.white, lineWidth: 3)
+                            .stroke(DS.Color.paper, lineWidth: 3)
                     )
                     .frame(width: 18, height: 18)
             }
@@ -998,68 +1200,67 @@ private struct LineOverviewStopCard: View {
 
     private var statusColor: Color {
         switch stop.status {
-        case .fluid: return Color(hex: "#6CE8C8")
-        case .disrupted: return Color(hex: "#FF9B3F")
-        case .critical: return Color(hex: "#FF7A7A")
+        case .fluid: return DS.Color.statusOK
+        case .disrupted: return DS.Color.statusMajor
+        case .critical: return DS.Color.statusCritical
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                Text(stop.name)
-                    .font(.custom("DelaGothicOne-Regular", size: 16))
-                    .foregroundStyle(.black)
+        DS.PaperCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    Text(stop.name)
+                        .font(DS.Font.displayH3)
+                        .foregroundStyle(DS.Color.ink)
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Prochain passage")
-                        .font(.custom("DelaGothicOne-Regular", size: 10))
-                        .foregroundStyle(.black.opacity(0.92))
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Prochain passage")
+                            .eyebrow()
 
-                    Text(stop.nextPassages)
-                        .font(.custom("Montserrat-SemiBold", size: 12))
-                        .foregroundStyle(.black)
+                        Text(stop.nextPassages)
+                            .font(DS.Font.mono)
+                            .foregroundStyle(DS.Color.ink)
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
-            }
 
-            FlowLayout(horizontalSpacing: 4, verticalSpacing: 4) {
-                ForEach(stop.connections) { connection in
-                    Text(connection.label)
-                        .font(.custom("Montserrat-SemiBold", size: connection.fontSize))
-                        .foregroundStyle(connection.textColor)
-                        .frame(width: 20, height: 20)
-                        .background(connection.color)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                FlowLayout(horizontalSpacing: 4, verticalSpacing: 4) {
+                    ForEach(stop.connections) { connection in
+                        Text(connection.label)
+                            .font(.system(size: connection.fontSize, weight: .bold, design: .monospaced))
+                            .foregroundStyle(connection.textColor)
+                            .frame(minWidth: 20, minHeight: 20)
+                            .padding(.horizontal, 4)
+                            .background(connection.color)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                    }
                 }
-            }
 
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.turn.down.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.black)
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
 
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 12, height: 12)
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 12, height: 12)
 
-                Text("\(stop.status.label) – \(stop.reportsCount) signalements")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.black.opacity(0.8))
-            }
+                    Text("\(stop.status.label) – \(stop.reportsCount) signalements")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkSoft)
+                }
 
-            if let confidenceText = stop.confidenceText {
-                Text(confidenceText)
-                    .font(.custom("Montserrat-SemiBold", size: 11))
-                    .foregroundStyle(.black.opacity(0.65))
+                if let confidenceText = stop.confidenceText {
+                    Text(confidenceText)
+                        .font(DS.Font.eyebrow)
+                        .tracking(1.0)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -1077,48 +1278,39 @@ private struct TransportLineSnapshotCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(TransportViewAdapters.localizedSeverityLabel(severity: line.severity, fallback: line.label?.fr))
-                    .font(.custom("DelaGothicOne-Regular", size: 15))
-                    .foregroundStyle(.white)
+        DS.PaperCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Synthèse temps réel")
+                            .eyebrow()
+                        Text(TransportViewAdapters.localizedSeverityLabel(severity: line.severity, fallback: line.label?.fr))
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.ink)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                Text(confidenceText)
-                    .font(.custom("Montserrat-SemiBold", size: 11))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 6)
-                    .background(Color(hex: "#B5CFF8"))
-                    .clipShape(Capsule())
-            }
+                    DS.StatusPill(confidenceText, level: .ok)
+                }
 
-            Text("\(line.activeIncidents.count) incidents actifs • \(line.nextDepartures.prefix(2).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))")
-                .font(.custom("Montserrat-Regular", size: 12))
-                .foregroundStyle(Color.white.opacity(0.78))
+                Text("\(line.activeIncidents.count) incidents actifs • \(line.nextDepartures.prefix(2).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
 
-            if let alternative = alternatives.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Alternative immédiate")
-                        .font(.custom("Montserrat-SemiBold", size: 12))
-                        .foregroundStyle(Color(hex: "#B5CFF8"))
+                if let alternative = alternatives.first {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Alternative immédiate")
+                            .sectionTitle()
 
-                    Text(alternative.explanationDetails?.summary ?? alternative.explanation)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.white.opacity(0.86))
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "#10151F"))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
     }
 }
 
@@ -1129,75 +1321,76 @@ private struct TransportStopDetailOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.55)
+            DS.Color.ink.opacity(0.42)
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
 
             VStack {
                 Spacer()
 
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(stopDetail.stop.name)
-                                .font(.custom("DelaGothicOne-Regular", size: 18))
-                                .foregroundStyle(.white)
+                DS.PaperCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Arrêt")
+                                    .eyebrow()
+                                Text(stopDetail.stop.name)
+                                    .font(DS.Font.displayH3)
+                                    .foregroundStyle(DS.Color.ink)
 
-                            Text(TransportViewAdapters.localizedSeverityLabel(severity: stopDetail.severity, fallback: stopDetail.label?.fr))
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(Color(hex: "#B5CFF8"))
+                                Text(TransportViewAdapters.localizedSeverityLabel(severity: stopDetail.severity, fallback: stopDetail.label?.fr))
+                                    .font(DS.Font.bodySmall)
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+
+                            Spacer()
+
+                            Button(action: onDismiss) {
+                                Image(systemName: "xmark")
+                                    .foregroundStyle(DS.Color.ink)
+                                    .frame(width: 30, height: 30)
+                                    .background(DS.Color.secondary)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
 
-                        Spacer()
-
-                        Button(action: onDismiss) {
-                            Image(systemName: "xmark")
-                                .foregroundStyle(.white)
-                                .frame(width: 30, height: 30)
-                                .background(Color.white.opacity(0.08))
-                                .clipShape(Circle())
+                        if isLoading {
+                            ProgressView()
+                                .tint(DS.Color.ink)
                         }
-                        .buttonStyle(.plain)
-                    }
 
-                    if isLoading {
-                        ProgressView()
-                            .tint(.white)
-                    }
-
-                    if !stopDetail.nextDepartures.isEmpty {
-                        Text(stopDetail.nextDepartures.prefix(3).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))
-                            .font(.custom("Montserrat-SemiBold", size: 13))
-                            .foregroundStyle(.white)
-                    }
-
-                    if !stopDetail.recommendedAlternatives.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Alternative recommandée")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(Color(hex: "#B5CFF8"))
-                            Text(stopDetail.recommendedAlternatives[0].explanationDetails?.summary ?? stopDetail.recommendedAlternatives[0].explanation)
-                                .font(.custom("Montserrat-Regular", size: 12))
-                                .foregroundStyle(Color.white.opacity(0.8))
-                                .fixedSize(horizontal: false, vertical: true)
+                        if !stopDetail.nextDepartures.isEmpty {
+                            Text(stopDetail.nextDepartures.prefix(3).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))
+                                .font(DS.Font.monoLarge)
+                                .foregroundStyle(DS.Color.ink)
                         }
-                    }
 
-                    if !stopDetail.activeIncidents.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Confirmations terrain")
-                                .font(.custom("DelaGothicOne-Regular", size: 15))
-                                .foregroundStyle(.white)
+                        if !stopDetail.recommendedAlternatives.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Alternative recommandée")
+                                    .sectionTitle()
+                                Text(stopDetail.recommendedAlternatives[0].explanationDetails?.summary ?? stopDetail.recommendedAlternatives[0].explanation)
+                                    .font(DS.Font.bodySmall)
+                                    .foregroundStyle(DS.Color.inkSoft)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
 
-                            ForEach(stopDetail.activeIncidents.prefix(3)) { incident in
-                                TransportIncidentCommunityCard(incident: incident)
+                        if !stopDetail.activeIncidents.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Confirmations terrain")
+                                    .font(DS.Font.displayH3)
+                                    .foregroundStyle(DS.Color.ink)
+
+                                ForEach(stopDetail.activeIncidents.prefix(3)) { incident in
+                                    TransportIncidentCommunityCard(incident: incident)
+                                }
                             }
                         }
                     }
                 }
-                .padding(18)
-                .background(Color(hex: "#1B1B1B"))
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .shadow(DS.Shadow.overlay)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 18)
@@ -1228,76 +1421,75 @@ private struct TransportIncidentCommunityCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                Text(incident.line ?? "STIB")
-                    .font(.custom("Montserrat-SemiBold", size: 13))
-                    .foregroundStyle(.black)
-                    .frame(minWidth: 34, minHeight: 28)
-                    .background(Color(hex: "#B5CFF8"))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        DS.PaperCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(incident.line ?? "STIB")
+                        .font(DS.Font.mono)
+                        .foregroundStyle(DS.Color.primaryForeground)
+                        .frame(minWidth: 34, minHeight: 28)
+                        .background(DS.Color.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(incident.type ?? "Signalement")
-                        .font(.custom("DelaGothicOne-Regular", size: 14))
-                        .foregroundStyle(.black)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(incident.type ?? "Signalement")
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.ink)
 
-                    Text(incident.description ?? "Incident actif sur cette ligne.")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black.opacity(0.84))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            HStack(spacing: 8) {
-                communityBadge(incident.sourceLabel, fill: incident.sourceLabel.contains("STIB") ? "#B5CFF8" : "#0B111E", textColor: incident.sourceLabel.contains("STIB") ? .black : .white)
-                if let freshnessLabel {
-                    communityBadge(freshnessLabel, fill: "#EEF1F7", textColor: .black)
-                }
-                if isStale {
-                    communityBadge("Plus récent ?", fill: "#D5D7DC", textColor: .black)
-                }
-            }
-
-            if let community = effectiveCommunity {
-                HStack(spacing: 8) {
-                    communityBadge("\(community.confirmations ?? 0) confirm.", fill: "#0B111E")
-                    communityBadge("\(community.stillBlocked ?? 0) bloqué", fill: "#FF9B3F")
-                    communityBadge("\(community.resolved ?? 0) résolu", fill: "#57E3B6", textColor: .black)
-                    if let confirmationsSummary {
-                        communityBadge(confirmationsSummary, fill: "#EEF1F7", textColor: .black)
+                        Text(incident.description ?? "Incident actif sur cette ligne.")
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                if let confidenceLabel = incident.confidenceLabel {
-                    Button {
-                        showConfidenceExplanation = true
-                    } label: {
-                        HStack(spacing: 5) {
-                            Text(confidenceLabel)
-                            Image(systemName: "questionmark.circle")
-                                .font(.system(size: 10, weight: .semibold))
+                HStack(spacing: 8) {
+                    communityBadge(incident.sourceLabel, fill: incident.sourceLabel.contains("STIB") ? DS.Color.accent : DS.Color.ink, textColor: incident.sourceLabel.contains("STIB") ? DS.Color.primaryForeground : DS.Color.primaryForeground)
+                    if let freshnessLabel {
+                        communityBadge(freshnessLabel, fill: DS.Color.secondary, textColor: DS.Color.ink)
+                    }
+                    if isStale {
+                        communityBadge("Plus récent ?", fill: DS.Color.paper2, textColor: DS.Color.ink)
+                    }
+                }
+
+                if let community = effectiveCommunity {
+                    HStack(spacing: 8) {
+                        communityBadge("\(community.confirmations ?? 0) confirm.", fill: DS.Color.ink)
+                        communityBadge("\(community.stillBlocked ?? 0) bloqué", fill: DS.Color.statusMajor)
+                        communityBadge("\(community.resolved ?? 0) résolu", fill: DS.Color.statusOK, textColor: DS.Color.primaryForeground)
+                        if let confirmationsSummary {
+                            communityBadge(confirmationsSummary, fill: DS.Color.secondary, textColor: DS.Color.ink)
                         }
-                        .font(.custom("Montserrat-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.7))
                     }
-                    .buttonStyle(.plain)
-                }
-            }
 
-            if incident.id != "unknown" {
-                HStack(spacing: 8) {
-                    actionButton("Je confirme", action: { await apply(.confirm) })
-                    actionButton("Toujours bloqué", fill: "#FF9B3F", action: { await apply(.stillBlocked) })
-                    actionButton("C'est résolu", fill: "#57E3B6", textColor: .black, action: { await apply(.resolved) })
+                    if let confidenceLabel = incident.confidenceLabel {
+                        Button {
+                            showConfidenceExplanation = true
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(confidenceLabel)
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .font(DS.Font.bodySmall.weight(.semibold))
+                            .foregroundStyle(DS.Color.inkMute)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .opacity(isSubmitting ? 0.6 : 1)
+
+                if incident.id != "unknown" {
+                    HStack(spacing: 8) {
+                        actionButton("Je confirme", action: { await apply(.confirm) })
+                        actionButton("Toujours bloqué", fill: DS.Color.statusMajor, action: { await apply(.stillBlocked) })
+                        actionButton("C'est résolu", fill: DS.Color.statusOK, textColor: DS.Color.primaryForeground, action: { await apply(.resolved) })
+                    }
+                    .opacity(isSubmitting ? 0.6 : 1)
+                }
             }
         }
-        .padding(12)
-        .background(Color.white)
         .opacity(isStale ? 0.72 : 1)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .alert("Pourquoi cette confiance ?", isPresented: $showConfidenceExplanation) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -1306,19 +1498,19 @@ private struct TransportIncidentCommunityCard: View {
         .task { community = incident.community }
     }
 
-    private func communityBadge(_ text: String, fill: String, textColor: Color = .white) -> some View {
+    private func communityBadge(_ text: String, fill: Color, textColor: Color = .white) -> some View {
         Text(text)
-            .font(.custom("Montserrat-SemiBold", size: 11))
+            .font(DS.Font.bodySmall.weight(.semibold))
             .foregroundStyle(textColor)
             .padding(.horizontal, 8)
             .frame(height: 24)
-            .background(Color(hex: fill))
+            .background(fill)
             .clipShape(Capsule())
     }
 
     private func actionButton(
         _ title: String,
-        fill: String = "#0B111E",
+        fill: Color = DS.Color.ink,
         textColor: Color = .white,
         action: @escaping @Sendable () async -> Void
     ) -> some View {
@@ -1326,11 +1518,11 @@ private struct TransportIncidentCommunityCard: View {
             Task { await action() }
         } label: {
             Text(title)
-                .font(.custom("Montserrat-SemiBold", size: 11))
+                .font(DS.Font.bodySmall.weight(.semibold))
                 .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
-                .background(Color(hex: fill))
+                .background(fill)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -1434,10 +1626,19 @@ enum LineFilter: CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all: return "Tous"
+        case .all: return "Toutes"
         case .tram: return "Tram"
         case .bus: return "Bus"
-        case .metro: return "Metro"
+        case .metro: return "Métro"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .all: return "square.grid.2x2"
+        case .tram: return "tram.fill"
+        case .bus: return "bus.fill"
+        case .metro: return "tram.fill.tunnel"
         }
     }
 

@@ -1,6 +1,53 @@
 import SwiftUI
 import UIKit
 
+private enum ReportSegment: String, CaseIterable, Identifiable {
+    case all, official, community, events
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .all: return "Tout"
+        case .official: return "Officiel"
+        case .community: return "Communauté"
+        case .events: return "Événements"
+        }
+    }
+    var iconSystemName: String? {
+        switch self {
+        case .all: return nil
+        case .official: return "shield.fill"
+        case .community: return "person.2.fill"
+        case .events: return "ticket.fill"
+        }
+    }
+}
+
+private enum EditorialFeedItemType {
+    case official, community, mixed, event
+}
+
+private struct EditorialNowItem: Identifiable {
+    let id: String
+    let line: String
+    let reason: String
+}
+
+private struct EditorialFeedItem: Identifiable {
+    let id: String
+    let type: EditorialFeedItemType
+    let title: String
+    let body: String?
+    let timeLabel: String
+    let lines: [String]
+    let location: String?
+    let upvotes: Int?
+    let url: URL?
+    let attendance: Int?
+    let venueCapacity: Int?
+    let report: SignalementDTO?
+    let event: TransportEventImpactDTO?
+}
+
 struct ReportsView: View {
     private enum ContentScope: String, CaseIterable, Identifiable {
         case reports
@@ -21,6 +68,7 @@ struct ReportsView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedScope: ContentScope = .reports
+    @State private var selectedSegment: ReportSegment = .all
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
     @State private var isLoading = false
@@ -76,134 +124,150 @@ struct ReportsView: View {
         }
     }
 
+    private var nowItems: [EditorialNowItem] {
+        if let summary = currentSummary, !summary.affectedLines.isEmpty {
+            return Array(summary.affectedLines.prefix(8)).map {
+                EditorialNowItem(id: "summary-\($0)", line: $0, reason: summary.shortText)
+            }
+        }
+
+        var seen = Set<String>()
+        return reports.compactMap { report in
+            let type = feedType(for: report)
+            guard type == .official || type == .mixed else { return nil }
+            guard !seen.contains(report.ligne) else { return nil }
+            seen.insert(report.ligne)
+            return EditorialNowItem(id: report.id, line: report.ligne, reason: report.description)
+        }
+    }
+
+    private var feedItems: [EditorialFeedItem] {
+        let reportItems = reports.compactMap { report -> EditorialFeedItem? in
+            guard selectedLineFilter == "Tout" || report.ligne == selectedLineFilter else { return nil }
+            return EditorialFeedItem(
+                id: "report-\(report.id)",
+                type: feedType(for: report),
+                title: "Ligne \(report.ligne) — \(report.typeProbleme)",
+                body: report.description,
+                timeLabel: relativeTimeLabel(from: report.dateSignalement),
+                lines: [report.ligne],
+                location: arretName(for: report),
+                upvotes: report.votesPositifs,
+                url: nil,
+                attendance: nil,
+                venueCapacity: nil,
+                report: report,
+                event: nil
+            )
+        }
+
+        let eventItems = events.compactMap { event -> EditorialFeedItem? in
+            guard selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter) else { return nil }
+            return EditorialFeedItem(
+                id: "event-\(event.id)",
+                type: .event,
+                title: event.title,
+                body: event.notesFr ?? event.venue ?? event.zoneLabel,
+                timeLabel: eventTimeLabel(for: event),
+                lines: event.impactedLines,
+                location: event.address ?? event.venue ?? event.zoneLabel,
+                upvotes: nil,
+                url: event.url.flatMap(URL.init(string:)),
+                attendance: event.expectedAttendance,
+                venueCapacity: nil,
+                report: nil,
+                event: event
+            )
+        }
+
+        return (reportItems + eventItems)
+            .filter { item in
+                switch selectedSegment {
+                case .all: return true
+                case .official: return item.type == .official || item.type == .mixed
+                case .community: return item.type == .community || item.type == .mixed
+                case .events: return item.type == .event
+                }
+            }
+            .filter { item in
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return true }
+                let haystack = [
+                    item.title,
+                    item.body ?? "",
+                    item.location ?? "",
+                    item.lines.joined(separator: " ")
+                ].joined(separator: " ")
+                return haystack.localizedCaseInsensitiveContains(trimmed)
+            }
+            .sorted { lhs, rhs in
+                switch (lhs.event?.startsAt, rhs.event?.startsAt, lhs.report?.dateSignalement, rhs.report?.dateSignalement) {
+                case let (l?, r?, _, _):
+                    return l > r
+                case let (_, _, l?, r?):
+                    return l > r
+                default:
+                    return lhs.title < rhs.title
+                }
+            }
+    }
+
+    private var segmentCounts: [ReportSegment: Int] {
+        [
+            .all: feedItems.count,
+            .official: feedItems.filter { $0.type == .official || $0.type == .mixed }.count,
+            .community: feedItems.filter { $0.type == .community || $0.type == .mixed }.count,
+            .events: feedItems.filter { $0.type == .event }.count
+        ]
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    AppTheme.Palette.screen,
-                    AppTheme.Palette.screenElevated,
-                    AppTheme.Palette.screen
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DS.Color.paper
+                .ignoresSafeArea()
 
-            Circle()
-                .fill(AppTheme.Palette.glowInfo.opacity(0.16))
-                .frame(width: 240, height: 240)
-                .blur(radius: 38)
-                .offset(x: 140, y: -260)
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    editorialHeader
+                        .padding(.horizontal, DS.Spacing.xl)
+                        .padding(.top, DS.Spacing.md)
 
-            Circle()
-                .fill(AppTheme.Palette.glowBrand.opacity(0.1))
-                .frame(width: 220, height: 220)
-                .blur(radius: 42)
-                .offset(x: -120, y: -120)
+                    editorialLineFilters
+                        .padding(.top, DS.Spacing.lg)
 
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.horizontal, 21)
-                    .padding(.top, 12)
-
-                lineFilters
-                    .padding(.top, 18)
-
-                scopeSwitcher
-                    .padding(.horizontal, 21)
-                    .padding(.top, 14)
-
-                if let summary = currentSummary {
-                    summaryPreview(summary)
-                        .padding(.horizontal, 21)
-                        .padding(.top, 18)
-                }
-
-                if let loadError {
-                    errorBanner(loadError)
-                        .padding(.horizontal, 21)
-                        .padding(.top, 18)
-                }
-
-                if isLoading && !hasLoaded {
-                    Spacer()
-                    ProgressView()
-                        .tint(.white.opacity(0.7))
-                        .frame(maxWidth: .infinity)
-                    Spacer()
-                } else if selectedScope == .reports && hasLoaded && reports.isEmpty {
-                    emptyState(
-                        icon: "tray.fill",
-                        title: "Aucun signalement récent",
-                        message: "Les derniers reports STIB apparaîtront ici dès qu'ils sont publiés."
-                    )
-                } else if selectedScope == .events && hasLoaded && events.isEmpty {
-                    emptyState(
-                        icon: "calendar",
-                        title: "Aucun événement exploitable",
-                        message: "Les événements suivis à Bruxelles apparaîtront ici dès qu'ils sont chargés."
-                    )
-                } else if hasLoaded && selectedScope == .reports && filteredReports.isEmpty {
-                    emptyState(
-                        icon: "magnifyingglass",
-                        title: "Aucun résultat",
-                        message: "Essaie une autre ligne ou recherche un autre arrêt."
-                    )
-                } else if hasLoaded && selectedScope == .events && filteredEvents.isEmpty {
-                    emptyState(
-                        icon: "calendar.badge.exclamationmark",
-                        title: "Aucun événement pour ce filtre",
-                        message: "Essaie une autre ligne, un autre arrêt ou une autre recherche."
-                    )
-                } else {
-                    HStack {
-                        Text(resultCountLabel)
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-
-                        Spacer()
-
-                        Text(scopeMetaLabel)
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textMuted)
+                    if let summary = currentSummary {
+                        summaryPreview(summary)
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
                     }
-                    .padding(.horizontal, 21)
-                    .padding(.top, 18)
 
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 12) {
-                            if selectedScope == .reports {
-                                ForEach(filteredReports) { report in
-                                    Button {
-                                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.32, dampingFraction: 0.86)) {
-                                            selectedReport = report
-                                        }
-                                    } label: {
-                                        ReportFeedCard(
-                                            report: report,
-                                            stopName: arretName(for: report)
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            } else {
-                                ForEach(filteredEvents) { event in
-                                    Button {
-                                        selectedEvent = event
-                                    } label: {
-                                        EventImpactCard(event: event)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 21)
-                        .padding(.top, 14)
-                        .padding(.bottom, 120)
+                    if let loadError {
+                        errorBanner(loadError)
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
                     }
+
+                    editorialNowSection
+                        .padding(.top, DS.Spacing.lg)
+
+                    Section(header: editorialStickySegments) {
+                        editorialFeedSection
+                    }
+                }
+                .padding(.bottom, 140)
+            }
+
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    editorialFAB
+                        .padding(.trailing, DS.Spacing.xl)
+                        .padding(.bottom, 104)
                 }
             }
         }
+        .modifier(PaperGrainBackground())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $selectedReport) { report in
             SignalementDetailView(
@@ -214,7 +278,10 @@ struct ReportsView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedEvent) { event in
-            EventImpactDetailSheet(event: event)
+            EventImpactDetailSheet(
+                event: event,
+                relatedEvents: relatedEvents(for: event)
+            )
                 .environmentObject(nav)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -249,6 +316,32 @@ struct ReportsView: View {
         }
     }
 
+    private func relatedEvents(for event: TransportEventImpactDTO) -> [TransportEventImpactDTO] {
+        let venueKey = (event.venue ?? event.zoneLabel ?? event.title)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        return events
+            .filter {
+                let key = ($0.venue ?? $0.zoneLabel ?? $0.title)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+                return key == venueKey
+            }
+            .sorted { lhs, rhs in
+                switch (lhs.startsAt, rhs.startsAt) {
+                case let (l?, r?):
+                    return l < r
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                }
+            }
+    }
+
     private var currentSummary: TransportPerturbationSummaryDTO? {
         if selectedLineFilter == "Tout" {
             return transportOverview?.perturbationSummary
@@ -256,7 +349,7 @@ struct ReportsView: View {
         return selectedLineSummary
     }
 
-    private var header: some View {
+    private var editorialHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 19) {
                 Button {
@@ -264,199 +357,266 @@ struct ReportsView: View {
                         nav.showSideMenu = true
                     }
                 } label: {
-                    Circle()
-                        .fill(AppTheme.Palette.surfaceElevated)
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(DS.Color.paper)
                         .frame(width: 42, height: 40)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                        )
                         .overlay(
                             Image(systemName: "line.3.horizontal")
                                 .font(.system(size: 20, weight: .regular))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .foregroundStyle(DS.Color.ink)
                         )
                 }
                 .buttonStyle(.plain)
+                .shadow(DS.Shadow.raised)
 
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                        .foregroundStyle(DS.Color.ink)
 
                     TextField(
                         "",
                         text: $query,
                         prompt: Text("Rechercher une ligne, un arrêt ou un problème")
-                            .foregroundStyle(AppTheme.Palette.textMuted)
+                            .foregroundStyle(DS.Color.inkMute)
                     )
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.ink)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
                 }
                 .padding(.horizontal, 14)
                 .frame(height: 40)
-                .background(AppTheme.Palette.surfaceElevated)
+                .background(DS.Color.paper)
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
                 )
+                .shadow(DS.Shadow.raised)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Desk communautaire")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .textCase(.uppercase)
-                    .tracking(0.9)
-                    .foregroundStyle(AppTheme.Palette.brand.opacity(0.9))
-
-                HStack(alignment: .center) {
-                Text(selectedScope == .events ? "Événements réseau" : "Signalements")
-                    .font(AppTheme.Fonts.clash(28))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                    Spacer()
-
-                    Button {
-                        guard currentSummary != nil else { return }
-                        isShowingSummary = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isLoadingSummary {
-                                ProgressView()
-                                    .tint(.black.opacity(0.78))
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "text.alignleft")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-
-                            Text("Résumé")
-                                .font(AppTheme.Fonts.captionStrong)
-                        }
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .padding(.horizontal, 12)
-                        .frame(height: 34)
-                        .background(AppTheme.Palette.brand)
-                        .clipShape(Capsule())
-                        .opacity(currentSummary == nil && !isLoadingSummary ? 0.55 : 1)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(currentSummary == nil && !isLoadingSummary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    PageHeader(
+                        title: "Reports",
+                        eyebrow: "Bruxelles · temps réel",
+                        large: true
+                    )
+                    Text("Flux temps réel mêlant perturbations officielles STIB, signalements communautaires et événements bruxellois.")
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.inkSoft)
                 }
 
-                Text(selectedScope == .events
-                     ? "Les événements suivis à Bruxelles, avec lignes et arrêts potentiellement affectés."
-                     : "Les derniers reports communautaires, filtrables par ligne et recherchables par arrêt.")
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                Spacer()
 
-                Text(selectedScope == .events
-                     ? "Affluence probable, zones sensibles et accès direct vers les lignes ou arrêts touchés."
-                     : "Lecture réseau, signaux terrain, événements et synthèse rapide dans une seule vue.")
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textMuted)
-            }
-        }
-    }
+                Button {} label: {
+                    ZStack(alignment: .topTrailing) {
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .fill(DS.Color.paper)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                            )
+                            .overlay(
+                                Image(systemName: "bell")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                            )
 
-    private var scopeSwitcher: some View {
-        HStack(spacing: 10) {
-            ForEach(ContentScope.allCases) { scope in
-                Button {
-                    withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
-                        selectedScope = scope
+                        Circle()
+                            .fill(DS.Color.primary)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 2, y: -2)
                     }
-                } label: {
-                    Text(scope.title)
-                        .font(AppTheme.Fonts.bodyStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .padding(.horizontal, 14)
-                        .frame(height: 36)
-                        .background(selectedScope == scope ? AppTheme.Palette.surfaceElevated : Color.clear)
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(selectedScope == scope ? AppTheme.Palette.borderStrong : AppTheme.Palette.border, lineWidth: 1)
-                        )
                 }
                 .buttonStyle(.plain)
             }
-
-            Spacer()
         }
     }
 
-    private var resultCountLabel: String {
-        if selectedScope == .events {
-            return "\(filteredEvents.count) événement\(filteredEvents.count == 1 ? "" : "s")"
-        }
-        return "\(filteredReports.count) signalement\(filteredReports.count == 1 ? "" : "s")"
-    }
-
-    private var scopeMetaLabel: String {
-        let focus = selectedLineFilter == "Tout" ? "Vue réseau" : "Focus ligne \(selectedLineFilter)"
-        return selectedScope == .events ? "\(focus) • affluence" : focus
-    }
-
-    private var lineFilters: some View {
+    private var editorialLineFilters: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(availableLineFilters, id: \.self) { line in
+                    Chip(label: line == "Tout" ? "Tout" : "Ligne \(line)", active: selectedLineFilter == line, icon: { EmptyView() }) {
+                        selectedLineFilter = line
+                    }
+                }
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+        }
+    }
+
+    private var editorialNowSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                EditorialPingDot(color: DS.Color.statusMajor)
+                Text("État réseau · maintenant")
+                    .font(DS.Font.monoSmall)
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.ink)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+
+            if nowItems.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Tout roule sur le réseau STIB")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                    Text("Aucune perturbation officielle.")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+                )
+                .padding(.horizontal, DS.Spacing.xl)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(nowItems) { item in
+                            Button {
+                                if let match = reports.first(where: { $0.ligne == item.line }) {
+                                    selectedReport = match
+                                }
+                            } label: {
+                                EditorialNowCard(item: item)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.xl)
+                }
+            }
+        }
+    }
+
+    private var editorialStickySegments: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            DS.Rule(thick: true)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.top, DS.Spacing.lg)
+                .padding(.bottom, DS.Spacing.md)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(ReportSegment.allCases) { segment in
+                        Chip(
+                            label: segment.label + (segmentCounts[segment].map { " \($0)" } ?? ""),
+                            active: selectedSegment == segment,
+                            icon: {
+                                if let name = segment.iconSystemName {
+                                    Image(systemName: name)
+                                }
+                            }
+                        ) {
+                            selectedSegment = segment
+                        }
+                    }
+                }
+                .padding(.horizontal, DS.Spacing.xl)
+            }
+            .padding(.bottom, DS.Spacing.sm)
+        }
+        .background(DS.Color.paper)
+    }
+
+    @ViewBuilder
+    private var editorialFeedSection: some View {
+        if isLoading && !hasLoaded {
+            ProgressView()
+                .tint(DS.Color.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 56)
+        } else if feedItems.isEmpty {
+            Text("Rien à signaler dans cette catégorie.")
+                .font(DS.Font.body)
+                .italic()
+                .foregroundStyle(DS.Color.inkMute)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 64)
+        } else {
+            LazyVStack(spacing: 10) {
+                ForEach(feedItems) { item in
                     Button {
-                        withAnimation(AppMotion.quick(reduceMotion: reduceMotion)) {
-                            selectedLineFilter = line
+                        if let report = item.report {
+                            selectedReport = report
+                        } else if let event = item.event {
+                            selectedEvent = event
                         }
                     } label: {
-                        Text(line == "Tout" ? "Tout" : "Ligne \(line)")
-                            .font(AppTheme.Fonts.bodyStrong)
-                            .foregroundStyle(selectedLineFilter == line ? AppTheme.Palette.textPrimary : AppTheme.Palette.textPrimary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 36)
-                            .background(selectedLineFilter == line ? AppTheme.Palette.surfaceElevated : Color.clear)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(selectedLineFilter == line ? AppTheme.Palette.borderStrong : AppTheme.Palette.border, lineWidth: 1)
-                            )
+                        EditorialFeedCard(item: item)
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 21)
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, 4)
         }
+    }
+
+    private var editorialFAB: some View {
+        Button {
+            nav.showReportSheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .heavy))
+                Text("Signaler")
+                    .font(DS.Font.bodyBold)
+            }
+            .foregroundStyle(DS.Color.primaryForeground)
+            .padding(.horizontal, 16)
+            .frame(height: 48)
+            .background(DS.Color.primary)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            .shadow(DS.Shadow.floating)
+        }
+        .buttonStyle(.plain)
     }
 
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppTheme.Palette.alert)
+                .foregroundStyle(DS.Color.statusMajor)
             Text(message)
-                .font(AppTheme.Fonts.caption)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkSoft)
             Spacer()
             Button {
                 Task { await loadReports(force: true) }
             } label: {
                 Text("Réessayer")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.info)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundStyle(DS.Color.primary)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Color.border, lineWidth: DS.Stroke.hairline)
         )
+        .shadow(DS.Shadow.raised)
     }
 
     @MainActor
@@ -465,26 +625,8 @@ struct ReportsView: View {
         if let scope = ContentScope(rawValue: rawValue) {
             selectedScope = scope
         }
+        selectedSegment = rawValue == "events" ? .events : .all
         nav.pendingReportsScopeRawValue = nil
-    }
-
-    private func emptyState(icon: String, title: String, message: String) -> some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: icon)
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(AppTheme.Palette.textMuted)
-            Text(title)
-                .font(AppTheme.Fonts.clash(22))
-                .foregroundStyle(AppTheme.Palette.textPrimary)
-            Text(message)
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 38)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 
     @MainActor
@@ -589,6 +731,38 @@ struct ReportsView: View {
         return nil
     }
 
+    private func feedType(for report: SignalementDTO) -> EditorialFeedItemType {
+        let label = report.sourceLabel.lowercased()
+        if label.contains("stib +") {
+            return .mixed
+        }
+        if label.contains("stib") || label.contains("officiel") {
+            return .official
+        }
+        return .community
+    }
+
+    private func relativeTimeLabel(from date: Date?) -> String {
+        guard let date else { return "il y a quelques min" }
+        let minutes = max(0, Int(Date().timeIntervalSince(date) / 60))
+        if minutes < 1 { return "à l’instant" }
+        if minutes < 60 { return "il y a \(minutes) min" }
+        return "il y a \(minutes / 60) h"
+    }
+
+    private func eventTimeLabel(for event: TransportEventImpactDTO) -> String {
+        if let phase = event.phaseLabel, !phase.isEmpty {
+            return phase
+        }
+        if let startsAt = event.startsAt {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "fr_BE")
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: startsAt)
+        }
+        return "—"
+    }
+
     private func summaryPreview(_ summary: TransportPerturbationSummaryDTO) -> some View {
         Button {
             isShowingSummary = true
@@ -597,43 +771,43 @@ struct ReportsView: View {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Lecture rapide")
-                            .font(AppTheme.Fonts.captionStrong)
-                            .textCase(.uppercase)
-                            .foregroundStyle(AppTheme.Palette.textPrimary.opacity(0.56))
+                            .font(DS.Font.eyebrow)
+                            .tracking(1.4)
+                            .foregroundStyle(DS.Color.inkMute)
 
                         Text(summary.title)
-                            .font(AppTheme.Fonts.clash(18))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.ink)
                     }
 
                     Spacer()
 
                     Image(systemName: "arrow.up.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
 
                 Text(summary.shortText)
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.inkSoft)
                     .lineLimit(3)
 
                 HStack(spacing: 8) {
-                    SummaryPreviewBadge(
-                        text: sourcePreviewTitle(for: summary),
-                        tint: sourcePreviewTint(for: summary)
-                    )
+                        ReportsMetaBadge(
+                            title: sourcePreviewTitle(for: summary),
+                            tint: sourcePreviewTint(for: summary)
+                        )
 
                     if let line = summary.affectedLines.first {
-                        SummaryPreviewBadge(
-                            text: "Ligne \(line)",
-                            tint: Color.black.opacity(0.08)
+                        ReportsMetaBadge(
+                            title: "Ligne \(line)",
+                            tint: DS.Color.secondary
                         )
                     }
 
                     if let crowding = summary.crowdingRisk, crowding.level != "none" {
-                        SummaryPreviewBadge(
-                            text: crowdingBadgeTitle(for: crowding),
+                        ReportsMetaBadge(
+                            title: crowdingBadgeTitle(for: crowding),
                             tint: crowdingBadgeTint(for: crowding)
                         )
                     }
@@ -641,25 +815,20 @@ struct ReportsView: View {
                     Spacer()
 
                     Text("Ouvrir")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundStyle(DS.Color.inkMute)
                 }
             }
-            .padding(18)
+            .padding(DS.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [AppTheme.Palette.brand, AppTheme.Palette.brand.opacity(0.9)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(DS.Color.primary)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
             )
-            .shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 14)
+            .foregroundStyle(DS.Color.primaryForeground)
+            .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
     }
@@ -678,11 +847,11 @@ struct ReportsView: View {
     private func sourcePreviewTint(for summary: TransportPerturbationSummaryDTO) -> Color {
         switch summary.sourceLabel?.lowercased() {
         case "officiel":
-            return Color(hex: "#B5CFF8")
+            return DS.Color.paper.opacity(0.9)
         case "communauté":
-            return Color(hex: "#BFE7D0")
+            return DS.Color.community.opacity(0.18)
         default:
-            return Color.white.opacity(0.72)
+            return DS.Color.paper.opacity(0.75)
         }
     }
 
@@ -700,470 +869,705 @@ struct ReportsView: View {
     private func crowdingBadgeTint(for risk: TransportCrowdingRiskDTO) -> Color {
         switch risk.level {
         case "high":
-            return Color(hex: "#FFB3A6")
+            return DS.Color.statusCritical.opacity(0.18)
         case "moderate":
-            return Color(hex: "#F4D6A0")
+            return DS.Color.statusMinor.opacity(0.25)
         default:
-            return Color(hex: "#C8E3B0")
+            return DS.Color.statusOK.opacity(0.18)
         }
     }
 }
 
-private struct EventImpactCard: View {
-    let event: TransportEventImpactDTO
+private struct EditorialPingDot: View {
+    let color: Color
+    @State private var animate = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(event.title)
-                        .font(AppTheme.Fonts.title3)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .multilineTextAlignment(.leading)
-
-                    Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
-                        .font(AppTheme.Fonts.body)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-                }
-
-                Spacer()
-
-                phaseBadge
-            }
-
-            if let notes = event.notesFr, !notes.isEmpty {
-                Text(notes)
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack(spacing: 8) {
-                if let impact = event.impactLevel {
-                    miniBadge(text: impactLabel(impact), tint: impactTint(impact))
-                }
-                if let attendance = event.expectedAttendance {
-                    miniBadge(text: "\(attendance.formatted()) pers.", tint: AppTheme.Palette.surfaceElevated)
-                }
-                if event.soldOut == true {
-                    miniBadge(text: "Complet", tint: Color(hex: "#FFB89A"))
-                }
-            }
-
-            if !event.impactedLines.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Lignes potentiellement affectées")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], spacing: 8) {
-                        ForEach(event.impactedLines, id: \.self) { line in
-                            Text("Ligne \(line)")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
-                                .padding(.horizontal, 10)
-                                .frame(height: 30)
-                                .background(AppTheme.Palette.surfaceElevated)
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-            }
-
-            if !event.impactedStops.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Arrêts / zones à surveiller")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
-                        ForEach(Array(event.impactedStops.prefix(4)), id: \.self) { stop in
-                            Text(stop)
-                                .font(AppTheme.Fonts.captionStrong)
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
-                                .padding(.horizontal, 10)
-                                .frame(height: 28)
-                                .background(AppTheme.Palette.surface)
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-            }
-
-            HStack {
-                Spacer()
-                Text("Voir le détail")
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.textMuted)
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textMuted)
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.75))
+                .frame(width: 8, height: 8)
+                .scaleEffect(animate ? 2.2 : 1)
+                .opacity(animate ? 0 : 0.75)
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
+                animate = true
             }
         }
-        .padding(18)
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+private struct EditorialNowCard: View {
+    let item: EditorialNowItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            LineBadge(line: item.line, size: .lg)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Officiel STIB")
+                    .font(DS.Font.monoSmall)
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.statusMajor)
+                Text(item.reason)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(width: 260, alignment: .topLeading)
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+}
+
+private struct EditorialFeedCard: View {
+    let item: EditorialFeedItem
+
+    private var meta: EditorialTypeMeta { .for(item.type) }
+
+    private var affluence: Double? {
+        guard item.type == .event,
+              let attendance = item.attendance,
+              let capacity = item.venueCapacity,
+              capacity > 0 else { return nil }
+        return min(1.0, Double(attendance) / Double(capacity))
     }
 
-    private var phaseBadge: some View {
-        Text(event.phaseLabel ?? "À venir")
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            .background(phaseTint)
-            .clipShape(Capsule())
-    }
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(meta.stripe)
+                .frame(width: meta.stripeWidth)
 
-    private var phaseTint: Color {
-        switch event.phase {
-        case "live":
-            return Color(hex: "#FFB89A")
-        case "upcoming":
-            return Color(hex: "#F4D6A0")
-        default:
-            return AppTheme.Palette.surfaceElevated
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: meta.iconSystemName)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(meta.accent)
+                    Text(meta.label)
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.4)
+                        .foregroundStyle(meta.accent)
+                    Text("·")
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.6))
+                    Text(item.timeLabel)
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    if let up = item.upvotes {
+                        Spacer()
+                        HStack(spacing: 2) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("\(up)")
+                                .font(DS.Font.monoSmall.weight(.bold))
+                        }
+                        .foregroundStyle(DS.Color.ink)
+                    }
+                }
+
+                Text(item.title)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .multilineTextAlignment(.leading)
+
+                if let body = item.body {
+                    Text(body)
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkSoft)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                if !item.lines.isEmpty || item.location != nil || item.url != nil {
+                    HStack(spacing: 8) {
+                        ForEach(Array(item.lines.prefix(5)), id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                        if let location = item.location {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin")
+                                    .font(.system(size: 10))
+                                Text(location)
+                                    .lineLimit(1)
+                            }
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                        }
+                        if let url = item.url {
+                            Spacer()
+                            Link(destination: url) {
+                                HStack(spacing: 4) {
+                                    Text("Billetterie")
+                                        .font(DS.Font.bodySmall.weight(.semibold))
+                                        .underline()
+                                    Image(systemName: "arrow.up.right.square")
+                                        .font(.system(size: 10))
+                                }
+                                .foregroundStyle(DS.Color.ink)
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+
+                if let affluence {
+                    HStack(spacing: 8) {
+                        Text("Affluence prévue")
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.4)
+                            .foregroundStyle(DS.Color.inkMute)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(DS.Color.paper2)
+                                    .overlay(Rectangle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+                                Rectangle()
+                                    .fill(DS.Color.event)
+                                    .frame(width: geo.size.width * affluence)
+                            }
+                        }
+                        .frame(height: 4)
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 14)
+            .padding(.vertical, 14)
         }
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        .shadow(DS.Shadow.raised)
     }
+}
 
-    private func miniBadge(text: String, tint: Color) -> some View {
-        Text(text)
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(tint)
-            .clipShape(Capsule())
-    }
+private struct EditorialTypeMeta {
+    let label: String
+    let iconSystemName: String
+    let stripe: AnyShapeStyle
+    let stripeWidth: CGFloat
+    let accent: Color
 
-    private func impactLabel(_ value: String) -> String {
-        switch value.lowercased() {
-        case "high":
-            return "Affluence forte"
-        case "moderate":
-            return "Affluence probable"
-        default:
-            return "Affluence légère"
-        }
-    }
-
-    private func impactTint(_ value: String) -> Color {
-        switch value.lowercased() {
-        case "high":
-            return Color(hex: "#FF9A7A")
-        case "moderate":
-            return Color(hex: "#F1C46C")
-        default:
-            return Color(hex: "#B8E28A")
+    static func `for`(_ type: EditorialFeedItemType) -> EditorialTypeMeta {
+        switch type {
+        case .official:
+            return .init(label: "Officiel STIB", iconSystemName: "shield.fill", stripe: AnyShapeStyle(DS.Color.statusMajor), stripeWidth: 4, accent: DS.Color.statusMajor)
+        case .community:
+            return .init(label: "Communauté", iconSystemName: "person.2.fill", stripe: AnyShapeStyle(DS.Color.community), stripeWidth: 4, accent: DS.Color.community)
+        case .mixed:
+            return .init(label: "Officiel + confirmé", iconSystemName: "exclamationmark.triangle.fill", stripe: AnyShapeStyle(LinearGradient(colors: [DS.Color.statusMajor, DS.Color.community], startPoint: .top, endPoint: .bottom)), stripeWidth: 6, accent: DS.Color.statusMajor)
+        case .event:
+            return .init(label: "Événement Bruxelles", iconSystemName: "ticket.fill", stripe: AnyShapeStyle(DS.Color.event), stripeWidth: 4, accent: DS.Color.event)
         }
     }
 }
 
 private struct EventImpactDetailSheet: View {
     let event: TransportEventImpactDTO
+    let relatedEvents: [TransportEventImpactDTO]
 
     @EnvironmentObject private var nav: AppNavigation
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    @State private var nearbyStops: [NearbyStop] = []
+    @State private var isLoadingNearbyStops = false
+
+    private var venueTitle: String {
+        event.venue ?? event.zoneLabel ?? "Lieu à Bruxelles"
+    }
+
+    private var addressLine: String {
+        event.address ?? event.zoneLabel ?? "Bruxelles"
+    }
+
+    private var displayedEvents: [TransportEventImpactDTO] {
+        relatedEvents.isEmpty ? [event] : relatedEvents
+    }
+
+    private var canonicalStopRows: [EventStopRow] {
+        let local = (event.impactedStopDetails ?? []).map {
+            EventStopRow(id: $0.id ?? $0.stopId, name: $0.name, distanceMeters: nil)
+        }
+        let fetched = nearbyStops.map {
+            EventStopRow(id: $0.backendId, name: $0.name, distanceMeters: $0.distanceMeters)
+        }
+
+        var rows: [EventStopRow] = []
+        var seen = Set<String>()
+        for item in local + fetched {
+            let key = (item.id ?? item.name).lowercased()
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            rows.append(item)
+        }
+        return rows
+    }
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [AppTheme.Palette.screen, AppTheme.Palette.screenElevated],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DS.Color.paper.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(event.title)
-                            .font(AppTheme.Fonts.clash(28))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                        Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
-                            .font(AppTheme.Fonts.body)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
-
-                        HStack(spacing: 8) {
-                            detailBadge(event.phaseLabel ?? "À venir", tint: phaseTint)
-                            if let impact = event.impactLevel {
-                                detailBadge(impactLabel(impact), tint: impactTint(impact))
-                            }
-                            if event.soldOut == true {
-                                detailBadge("Complet", tint: Color(hex: "#FFB89A"))
-                            }
-                        }
-                    }
-
-                    detailSection(title: "Résumé") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            if let notes = event.notesFr, !notes.isEmpty {
-                                Text(notes)
-                                    .font(AppTheme.Fonts.body)
-                                    .foregroundStyle(AppTheme.Palette.textSecondary)
-                            }
-                            if let startsAt = event.startsAt {
-                                Text(scheduleLabel(from: startsAt, to: event.endsAt))
-                                    .font(AppTheme.Fonts.captionStrong)
-                                    .foregroundStyle(AppTheme.Palette.textMuted)
-                            }
-                            if let address = event.address, !address.isEmpty {
-                                Text(address)
-                                    .font(AppTheme.Fonts.body)
-                                    .foregroundStyle(AppTheme.Palette.textSecondary)
-                            }
-                        }
-                    }
-
-                    if !event.impactedLines.isEmpty {
-                        detailSection(title: "Lignes concernées") {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
-                                ForEach(event.impactedLines, id: \.self) { line in
-                                    Button {
-                                        nav.pendingLineFocus = line
-                                        nav.currentPage = .signalements
-                                        dismiss()
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Text("Ligne \(line)")
-                                                .font(AppTheme.Fonts.captionStrong)
-                                            Image(systemName: "arrow.right")
-                                                .font(.system(size: 10, weight: .bold))
-                                        }
-                                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 34)
-                                        .frame(maxWidth: .infinity)
-                                        .background(AppTheme.Palette.surfaceElevated)
-                                        .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-
-                    if let impactedStops = event.impactedStopDetails, !impactedStops.isEmpty {
-                        detailSection(title: "Arrêts / zones concernés") {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(impactedStops) { stop in
-                                    Button {
-                                        openStop(stop)
-                                    } label: {
-                                        HStack(spacing: 10) {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(stop.name)
-                                                    .font(AppTheme.Fonts.bodyStrong)
-                                                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                                                Text(stop.id == nil ? "Zone repérée, détail STIB indisponible" : "Ouvrir le détail arrêt")
-                                                    .font(AppTheme.Fonts.caption)
-                                                    .foregroundStyle(AppTheme.Palette.textMuted)
-                                            }
-                                            Spacer()
-                                            if stop.id != nil {
-                                                Image(systemName: "arrow.up.right")
-                                                    .font(.system(size: 12, weight: .semibold))
-                                                    .foregroundStyle(AppTheme.Palette.textMuted)
-                                            }
-                                        }
-                                        .padding(14)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(AppTheme.Palette.surfaceElevated)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(stop.id == nil)
-                                }
-                            }
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 20) {
+                    heroCard
+                    actions
+                    if !event.impactedLines.isEmpty { linesSection }
+                    nearbyStopsSection
+                    programmingSection
                 }
-                .padding(.horizontal, 21)
-                .padding(.top, 28)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
                 .padding(.bottom, 36)
+            }
+        }
+        .modifier(PaperGrainBackground())
+        .task {
+            await loadNearbyStops()
+        }
+    }
+
+    private var heroCard: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("LIEU")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundColor(DS.Color.inkMute)
+                Text(venueTitle)
+                    .font(DS.Font.displayH2)
+                    .foregroundColor(DS.Color.ink)
+
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 11))
+                        .foregroundColor(DS.Color.inkSoft)
+                        .padding(.top, 2)
+                    Text(addressLine)
+                        .font(DS.Font.bodySmall)
+                        .foregroundColor(DS.Color.inkSoft)
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.15))
+                .frame(height: 1.5)
+                .padding(.horizontal, 16)
+
+            HStack(spacing: 0) {
+                heroStat(icon: "person.2.fill", label: "CAPACITÉ", value: formatNumber(event.expectedAttendance ?? 0))
+                Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1)
+                heroStat(icon: "calendar", label: "À VENIR", value: "\(displayedEvents.count)")
+                Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1)
+                heroStat(icon: "map", label: "ARRÊTS", value: "\(canonicalStopRows.count)")
+            }
+
+            if let note = event.notesFr, !note.isEmpty {
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
+
+                Text("« \(note) »")
+                    .font(.system(size: 12).italic())
+                    .foregroundColor(DS.Color.inkSoft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+        }
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private func heroStat(icon: String, label: String, value: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(DS.Color.inkMute)
+            Text(value)
+                .font(DS.Font.monoLarge.weight(.bold))
+                .foregroundColor(DS.Color.ink)
+            Text(label)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button(action: openDirections) {
+                HStack(spacing: 6) {
+                    Image(systemName: "location.fill").font(.system(size: 13))
+                    Text("Itinéraire").font(.system(size: 12.5, weight: .bold))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundColor(DS.Color.ink)
+                .background(DS.Color.paper)
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink, lineWidth: 1.5))
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            }
+            .buttonStyle(PressableScaleStyle())
+
+            if let raw = event.url, let url = URL(string: raw) {
+                Link(destination: url) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.right.square").font(.system(size: 13))
+                        Text("Site officiel").font(.system(size: 12.5, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundColor(DS.Color.ink)
+                    .background(DS.Color.paper)
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.25), lineWidth: 1.5))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                }
             }
         }
     }
 
-    private func openStop(_ stop: TransportEventImpactedStopDTO) {
+    private var linesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("LIGNES DESSERVANT LE LIEU")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+                .padding(.horizontal, 4)
+
+            ReportsFlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                ForEach(event.impactedLines, id: \.self) { line in
+                    Button {
+                        nav.pendingLineFocus = line
+                        nav.currentPage = .signalements
+                        dismiss()
+                    } label: {
+                        LineBadge(line: line, size: .lg)
+                    }
+                    .buttonStyle(PressableScaleStyle())
+                }
+            }
+            .padding(12)
+            .background(DS.Color.paper)
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        }
+    }
+
+    private var nearbyStopsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ARRÊTS À PROXIMITÉ")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+                .padding(.horizontal, 4)
+
+            if isLoadingNearbyStops && canonicalStopRows.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                    .background(DS.Color.paper)
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            } else if canonicalStopRows.isEmpty {
+                Text("Aucun arrêt STIB dans le rayon défini.")
+                    .font(DS.Font.bodySmall)
+                    .foregroundColor(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                    .background(DS.Color.paper)
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(canonicalStopRows.enumerated()), id: \.element.name) { idx, stop in
+                        if idx > 0 {
+                            Rectangle().fill(DS.Color.ink.opacity(0.12)).frame(height: 1)
+                        }
+                        Button {
+                            openStop(stop)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(stop.distanceMeters.map(formatDistance) ?? "—")
+                                    .font(DS.Font.monoSmall.weight(.bold))
+                                    .foregroundColor(DS.Color.inkMute)
+                                    .monospacedDigit()
+                                    .frame(width: 48, alignment: .leading)
+                                Text(stop.name)
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundColor(DS.Color.ink)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack(spacing: 4) {
+                                    ForEach(linesForStop(stop).prefix(4), id: \.self) { line in
+                                        LineBadge(line: line, size: .sm)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PressableRowStyle())
+                        .disabled(stop.id == nil)
+                    }
+                }
+                .background(DS.Color.paper)
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            }
+        }
+    }
+
+    private var programmingSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("PROGRAMMATION")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundColor(DS.Color.inkMute)
+                .tracking(1)
+                .padding(.horizontal, 4)
+
+            if displayedEvents.isEmpty {
+                Text("Aucun événement annoncé.")
+                    .font(DS.Font.bodySmall)
+                    .foregroundColor(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                    .background(DS.Color.paper)
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(displayedEvents.enumerated()), id: \.element.id) { idx, item in
+                        if idx > 0 {
+                            Rectangle().fill(DS.Color.ink.opacity(0.12)).frame(height: 1)
+                        }
+                        programmingRow(item)
+                    }
+                }
+                .background(DS.Color.paper)
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            }
+        }
+    }
+
+    private func programmingRow(_ item: TransportEventImpactDTO) -> some View {
+        let date = item.startsAt ?? Date()
+        let day = Calendar.current.component(.day, from: date)
+        let monthFormatter = DateFormatter()
+        monthFormatter.locale = Locale(identifier: "fr_BE")
+        monthFormatter.dateFormat = "MMM"
+        let month = monthFormatter.string(from: date).replacingOccurrences(of: ".", with: "").uppercased()
+
+        let content = HStack(spacing: 12) {
+            VStack(spacing: 4) {
+                Text("\(day)")
+                    .font(DS.Font.monoLarge.weight(.bold))
+                    .foregroundColor(DS.Color.ink)
+                Text(month)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundColor(DS.Color.inkMute)
+                    .tracking(1)
+            }
+            .frame(width: 48)
+
+            Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text((item.category ?? "event").uppercased())
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundColor(DS.Color.primaryForeground)
+                        .tracking(1)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(categoryColor(item.category))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                    if let startsAt = item.startsAt {
+                        Text(timeLabel(for: startsAt))
+                            .font(DS.Font.mono)
+                            .foregroundColor(DS.Color.inkMute)
+                    }
+                    if item.soldOut == true {
+                        Text("COMPLET")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundColor(DS.Color.destructive)
+                    }
+                    if item.phase == "cancelled" {
+                        Text("ANNULÉ")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundColor(DS.Color.inkMute)
+                            .strikethrough()
+                    }
+                }
+                Text(item.title)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundColor(DS.Color.ink)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if item.url != nil {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 11))
+                    .foregroundColor(DS.Color.inkMute)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+
+        return Group {
+            if let raw = item.url, let url = URL(string: raw) {
+                Link(destination: url) { content }
+            } else {
+                content
+            }
+        }
+    }
+
+    private func linesForStop(_ stop: EventStopRow) -> [String] {
+        if let fetched = nearbyStops.first(where: { ($0.backendId ?? "").lowercased() == (stop.id ?? "").lowercased() }) {
+            return fetched.lines.map(\.number)
+        }
+        return event.impactedLines
+    }
+
+    private func loadNearbyStops() async {
+        guard let latitude = event.latitude, let longitude = event.longitude else { return }
+        isLoadingNearbyStops = true
+        defer { isLoadingNearbyStops = false }
+        do {
+            nearbyStops = try await NearbyStopService.fetchNearby(lat: latitude, lng: longitude, radius: 800)
+        } catch {
+            nearbyStops = []
+        }
+    }
+
+    private func openDirections() {
+        guard let latitude = event.latitude, let longitude = event.longitude else { return }
+        if let url = URL(string: "http://maps.apple.com/?daddr=\(latitude),\(longitude)") {
+            openURL(url)
+        }
+    }
+
+    private func openStop(_ stop: EventStopRow) {
         guard let stopId = stop.id else { return }
         nav.pendingMapStopFocusBackendId = stopId
         nav.currentPage = .home
         dismiss()
     }
 
-    private func detailSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(AppTheme.Fonts.clash(16))
-                .foregroundStyle(AppTheme.Palette.textPrimary)
-
-            content()
-        }
-        .padding(18)
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
-        )
-    }
-
-    private func detailBadge(_ text: String, tint: Color) -> some View {
-        Text(text)
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(height: 30)
-            .background(tint)
-            .clipShape(Capsule())
-    }
-
-    private var phaseTint: Color {
-        switch event.phase {
-        case "live":
-            return Color(hex: "#FFB89A")
-        case "upcoming":
-            return Color(hex: "#F4D6A0")
+    private func categoryColor(_ value: String?) -> Color {
+        switch value?.lowercased() {
+        case "concert":
+            return DS.Color.event
+        case "sport":
+            return DS.Color.statusMajor
+        case "spectacle":
+            return DS.Color.noctis
+        case "festival":
+            return DS.Color.primary
+        case "expo":
+            return DS.Color.accent
+        case "conference":
+            return DS.Color.community
         default:
-            return AppTheme.Palette.surfaceElevated
+            return DS.Color.accent
         }
     }
 
-    private func impactLabel(_ value: String) -> String {
-        switch value.lowercased() {
-        case "high":
-            return "Affluence forte"
-        case "moderate":
-            return "Affluence probable"
-        default:
-            return "Affluence légère"
-        }
-    }
-
-    private func impactTint(_ value: String) -> Color {
-        switch value.lowercased() {
-        case "high":
-            return Color(hex: "#FF9A7A")
-        case "moderate":
-            return Color(hex: "#F1C46C")
-        default:
-            return Color(hex: "#B8E28A")
-        }
-    }
-
-    private func scheduleLabel(from start: Date, to end: Date?) -> String {
+    private func timeLabel(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "fr_BE")
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        if let end {
-            return "\(formatter.string(from: start)) → \(formatter.string(from: end))"
-        }
-        return formatter.string(from: start)
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private func formatDistance(_ meters: Int) -> String {
+        meters < 1000 ? "\(meters) m" : String(format: "%.1f km", Double(meters) / 1000)
+    }
+
+    private func formatNumber(_ n: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }
 }
 
-private struct EventStopDetailOverlay: View {
-    let stopDetail: TransportStopDTO
-    let isLoading: Bool
-    let onDismiss: () -> Void
+private struct EventStopRow: Hashable {
+    let id: String?
+    let name: String
+    let distanceMeters: Int?
+}
 
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.55)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
+private struct ReportsFlowLayout: Layout {
+    var horizontalSpacing: CGFloat = 0
+    var verticalSpacing: CGFloat = 0
 
-            VStack {
-                Spacer()
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var rowHeight: CGFloat = 0
 
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(stopDetail.stop.name)
-                                .font(AppTheme.Fonts.clash(18))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                            Text(TransportViewAdapters.localizedSeverityLabel(severity: stopDetail.severity, fallback: stopDetail.label?.fr))
-                                .font(AppTheme.Fonts.captionStrong)
-                                .foregroundStyle(Color(hex: "#B5CFF8"))
-                        }
-
-                        Spacer()
-
-                        Button(action: onDismiss) {
-                            Image(systemName: "xmark")
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
-                                .frame(width: 30, height: 30)
-                                .background(AppTheme.Palette.surfaceElevated)
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if isLoading {
-                        ProgressView()
-                            .tint(AppTheme.Palette.textPrimary)
-                    }
-
-                    if !stopDetail.nextDepartures.isEmpty {
-                        Text(stopDetail.nextDepartures.prefix(3).map { "\($0.line) \($0.minutes) min" }.joined(separator: " • "))
-                            .font(AppTheme.Fonts.captionStrong)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                    }
-
-                    if !stopDetail.activeIncidents.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Confirmations terrain")
-                                .font(AppTheme.Fonts.clash(15))
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                            ForEach(stopDetail.activeIncidents.prefix(3)) { incident in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(incident.type ?? "Signalement")
-                                        .font(AppTheme.Fonts.bodyStrong)
-                                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                                    if let description = incident.description, !description.isEmpty {
-                                        Text(description)
-                                            .font(AppTheme.Fonts.body)
-                                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                }
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(AppTheme.Palette.surfaceElevated)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            }
-                        }
-                    }
-                }
-                .padding(18)
-                .background(AppTheme.Palette.screenElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(AppTheme.Palette.border, lineWidth: 1)
-                )
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if currentX + size.width > maxWidth, currentX > 0 {
+                currentX = 0
+                currentY += rowHeight + verticalSpacing
+                rowHeight = 0
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 18)
+
+            rowHeight = max(rowHeight, size.height)
+            currentX += size.width + horizontalSpacing
+        }
+
+        return CGSize(width: maxWidth.isFinite ? maxWidth : currentX, height: currentY + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var point = CGPoint(x: bounds.minX, y: bounds.minY)
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if point.x + size.width > bounds.maxX, point.x > bounds.minX {
+                point.x = bounds.minX
+                point.y += rowHeight + verticalSpacing
+                rowHeight = 0
+            }
+
+            subview.place(at: point, proposal: ProposedViewSize(size))
+            point.x += size.width + horizontalSpacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }
@@ -1177,37 +1581,26 @@ private struct ReportsSummarySheet: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [AppTheme.Palette.screen, AppTheme.Palette.screenElevated],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            Circle()
-                .fill(AppTheme.Palette.glowInfo.opacity(0.12))
-                .frame(width: 230, height: 230)
-                .blur(radius: 34)
-                .offset(x: 120, y: -220)
+            DS.Color.background
+                .ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(lineLabel.map { "Résumé ligne \($0)" } ?? "Résumé perturbations")
-                            .font(AppTheme.Fonts.clash(28))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
+                            .displayH2()
 
                         HStack(alignment: .center, spacing: 10) {
                             HStack(spacing: 8) {
-                                SummaryBadge(
+                                ReportsMetaBadge(
                                     title: sourceBadgeTitle,
                                     tint: sourceBadgeTint
                                 )
 
                                 if let source = summary.source, !source.isEmpty {
-                                    SummaryBadge(
+                                    ReportsMetaBadge(
                                         title: source.uppercased(),
-                                        tint: Color.white.opacity(0.22)
+                                        tint: DS.Color.secondary
                                     )
                                 }
                             }
@@ -1222,13 +1615,14 @@ private struct ReportsSummarySheet: View {
                                         Image(systemName: speech.isSpeaking ? "speaker.slash.fill" : "speaker.wave.2.fill")
                                             .font(.system(size: 12, weight: .semibold))
                                         Text(speech.isSpeaking ? "Stop" : "Lire")
-                                            .font(AppTheme.Fonts.captionStrong)
+                                            .font(DS.Font.monoSmall.weight(.bold))
                                     }
-                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                                    .foregroundStyle(DS.Color.ink)
                                     .padding(.horizontal, 10)
                                     .frame(height: 30)
-                                    .background(AppTheme.Palette.info)
+                                    .background(DS.Color.secondary)
                                     .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(DS.Color.border, lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
 
@@ -1239,13 +1633,14 @@ private struct ReportsSummarySheet: View {
                                         Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                                             .font(.system(size: 11, weight: .semibold))
                                         Text(didCopy ? "Copié" : "Copier")
-                                            .font(AppTheme.Fonts.captionStrong)
+                                            .font(DS.Font.monoSmall.weight(.bold))
                                     }
-                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                                    .foregroundStyle(DS.Color.ink)
                                     .padding(.horizontal, 10)
                                     .frame(height: 30)
-                                    .background(AppTheme.Palette.surfaceElevated)
+                                    .background(DS.Color.paper)
                                     .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(DS.Color.border, lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1254,39 +1649,28 @@ private struct ReportsSummarySheet: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text(summary.title)
-                            .font(AppTheme.Fonts.title2)
-                            .foregroundStyle(AppTheme.Palette.brand)
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.primary)
 
                         Text(summary.longText)
-                            .font(AppTheme.Fonts.body)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.inkSoft)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(20)
-                    .background(
-                        LinearGradient(
-                            colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .padding(DS.Spacing.xl)
+                    .background(DS.Color.paper)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(AppTheme.Palette.border, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                            .stroke(DS.Color.border, lineWidth: DS.Stroke.hairline)
                     )
+                    .shadow(DS.Shadow.raised)
 
                     if !summary.affectedLines.isEmpty {
                         summarySection(title: "Lignes les plus touchées") {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
                                 ForEach(summary.affectedLines, id: \.self) { line in
-                                    Text("Ligne \(line)")
-                                        .font(.custom("Montserrat-SemiBold", size: 12))
-                                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 32)
-                                        .background(AppTheme.Palette.surfaceElevated)
-                                        .clipShape(Capsule())
+                                    LineBadge(line: line, size: .sm)
                                 }
                             }
                         }
@@ -1297,8 +1681,8 @@ private struct ReportsSummarySheet: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(summary.affectedStops, id: \.self) { stop in
                                     Text(stop)
-                                        .font(AppTheme.Fonts.body)
-                                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                                        .font(DS.Font.body)
+                                        .foregroundStyle(DS.Color.inkSoft)
                                 }
                             }
                         }
@@ -1308,14 +1692,7 @@ private struct ReportsSummarySheet: View {
                         summarySection(title: "Types dominants") {
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
                                 ForEach(incidentTypes, id: \.self) { type in
-                                    Text(type)
-                                        .font(AppTheme.Fonts.captionStrong)
-                                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 34)
-                                        .frame(maxWidth: .infinity)
-                                        .background(AppTheme.Palette.surface)
-                                        .clipShape(Capsule())
+                                    ReportsMetaBadge(title: type, tint: DS.Color.secondary)
                                 }
                             }
                         }
@@ -1324,10 +1701,10 @@ private struct ReportsSummarySheet: View {
                     if let sourceBreakdown = summary.sourceBreakdown {
                         summarySection(title: "Origine des signaux") {
                             VStack(alignment: .leading, spacing: 10) {
-                                SourceBreakdownRow(label: "Officiel STIB", value: sourceBreakdown.official ?? 0, tint: Color(hex: "#89B7FF"))
-                                SourceBreakdownRow(label: "Communauté", value: sourceBreakdown.community ?? 0, tint: Color(hex: "#57E3B6"))
+                                SourceBreakdownRow(label: "Officiel STIB", value: sourceBreakdown.official ?? 0, tint: DS.Color.statusMajor)
+                                SourceBreakdownRow(label: "Communauté", value: sourceBreakdown.community ?? 0, tint: DS.Color.community)
                                 if (sourceBreakdown.mixed ?? 0) > 0 {
-                                    SourceBreakdownRow(label: "Sources mixtes", value: sourceBreakdown.mixed ?? 0, tint: Color(hex: "#F2E6C9"))
+                                    SourceBreakdownRow(label: "Sources mixtes", value: sourceBreakdown.mixed ?? 0, tint: DS.Color.statusMinor)
                                 }
                             }
                         }
@@ -1337,33 +1714,33 @@ private struct ReportsSummarySheet: View {
                         summarySection(title: "Affluence probable") {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 8) {
-                                    SummaryBadge(
+                                    ReportsMetaBadge(
                                         title: crowdingRiskBadgeTitle(crowdingRisk),
                                         tint: crowdingRiskBadgeTint(crowdingRisk)
                                     )
 
                                     if let zoneLabel = crowdingRisk.zoneLabel, !zoneLabel.isEmpty {
-                                        SummaryBadge(
+                                        ReportsMetaBadge(
                                             title: zoneLabel,
-                                            tint: AppTheme.Palette.surfaceElevated
+                                            tint: DS.Color.secondary
                                         )
                                     }
                                 }
 
                                 Text(crowdingRisk.longText)
-                                    .font(AppTheme.Fonts.body)
-                                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                                    .font(DS.Font.body)
+                                    .foregroundStyle(DS.Color.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 if !crowdingRisk.eventNames.isEmpty {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Événements suivis")
-                                            .font(AppTheme.Fonts.captionStrong)
-                                            .foregroundStyle(AppTheme.Palette.textMuted)
+                                            .font(DS.Font.eyebrow)
+                                            .foregroundStyle(DS.Color.inkMute)
                                         ForEach(crowdingRisk.eventNames, id: \.self) { event in
                                             Text(event)
-                                                .font(AppTheme.Fonts.body)
-                                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                                .font(DS.Font.body)
+                                                .foregroundStyle(DS.Color.inkSoft)
                                         }
                                     }
                                 }
@@ -1371,13 +1748,7 @@ private struct ReportsSummarySheet: View {
                                 if !crowdingRisk.impactedLines.isEmpty {
                                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
                                         ForEach(crowdingRisk.impactedLines.prefix(6), id: \.self) { line in
-                                            Text("Ligne \(line)")
-                                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                                .foregroundStyle(AppTheme.Palette.textPrimary)
-                                                .padding(.horizontal, 12)
-                                                .frame(height: 32)
-                                                .background(AppTheme.Palette.surfaceElevated)
-                                                .clipShape(Capsule())
+                                            LineBadge(line: line, size: .sm)
                                         }
                                     }
                                 }
@@ -1391,12 +1762,12 @@ private struct ReportsSummarySheet: View {
                                 ForEach(summary.bullets, id: \.self) { bullet in
                                     HStack(alignment: .top, spacing: 10) {
                                         Circle()
-                                            .fill(AppTheme.Palette.info)
+                                            .fill(DS.Color.primary)
                                             .frame(width: 7, height: 7)
                                             .padding(.top, 6)
                                         Text(bullet)
-                                            .font(AppTheme.Fonts.body)
-                                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                                            .font(DS.Font.body)
+                                            .foregroundStyle(DS.Color.inkSoft)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
@@ -1409,6 +1780,7 @@ private struct ReportsSummarySheet: View {
                 .padding(.bottom, 36)
             }
         }
+        .modifier(PaperGrainBackground())
         .onDisappear {
             speech.stop()
         }
@@ -1428,11 +1800,11 @@ private struct ReportsSummarySheet: View {
     private var sourceBadgeTint: Color {
         switch summary.sourceLabel?.lowercased() {
         case "officiel":
-            return Color(hex: "#89B7FF")
+            return DS.Color.statusMajor.opacity(0.18)
         case "communauté":
-            return Color(hex: "#57E3B6")
+            return DS.Color.community.opacity(0.18)
         default:
-            return Color(hex: "#F2E6C9")
+            return DS.Color.statusMinor.opacity(0.22)
         }
     }
 
@@ -1450,11 +1822,11 @@ private struct ReportsSummarySheet: View {
     private func crowdingRiskBadgeTint(_ risk: TransportCrowdingRiskDTO) -> Color {
         switch risk.level {
         case "high":
-            return Color(hex: "#FF9A7A")
+            return DS.Color.statusCritical.opacity(0.18)
         case "moderate":
-            return Color(hex: "#F1C46C")
+            return DS.Color.statusMinor.opacity(0.25)
         default:
-            return Color(hex: "#B8E28A")
+            return DS.Color.statusOK.opacity(0.18)
         }
     }
 
@@ -1517,41 +1889,35 @@ private struct ReportsSummarySheet: View {
     private func summarySection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(AppTheme.Fonts.captionStrong)
-                .textCase(.uppercase)
-                .foregroundStyle(AppTheme.Palette.textMuted)
+                .font(DS.Font.eyebrow)
+                .tracking(1.4)
+                .foregroundStyle(DS.Color.inkMute)
 
             content()
         }
+        .padding(DS.Spacing.lg)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Color.border, lineWidth: DS.Stroke.hairline)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+        .shadow(DS.Shadow.raised)
     }
 }
 
-private struct SummaryBadge: View {
+private struct ReportsMetaBadge: View {
     let title: String
     let tint: Color
 
     var body: some View {
         Text(title)
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
+            .font(DS.Font.monoSmall.weight(.bold))
+            .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 10)
             .frame(height: 28)
             .background(tint)
-            .clipShape(Capsule())
-    }
-}
-
-private struct SummaryPreviewBadge: View {
-    let text: String
-    let tint: Color
-
-    var body: some View {
-        Text(text)
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(tint)
+            .overlay(Capsule().stroke(DS.Color.ink.opacity(0.08), lineWidth: 1))
             .clipShape(Capsule())
     }
 }
@@ -1568,115 +1934,14 @@ private struct SourceBreakdownRow: View {
                 .frame(width: 9, height: 9)
 
             Text(label)
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.inkSoft)
 
             Spacer()
 
             Text("\(value)")
-                .font(AppTheme.Fonts.bodyStrong)
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
         }
-    }
-}
-
-private struct ReportFeedCard: View {
-    let report: SignalementDTO
-    let stopName: String?
-
-    private var lineColor: Color {
-        switch report.typeProbleme.lowercased() {
-        case "accident":
-            return Color(hex: "#EF4444")
-        case "panne":
-            return Color(hex: "#F97316")
-        case "retard":
-            return Color(hex: "#3B82F6")
-        default:
-            return Color(hex: "#8B5CF6")
-        }
-    }
-
-    private var statusText: String {
-        if report.status == "resolved" {
-            return "Résolu"
-        }
-        return report.typeProbleme
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [lineColor, lineColor.opacity(0.8)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    Text(report.ligne)
-                        .font(.custom("DelaGothicOne-Regular", size: 16))
-                        .foregroundStyle(lineColor.isDark ? .white : .black)
-                }
-                .frame(width: 50, height: 52)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(alignment: .center, spacing: 8) {
-                        Text(stopName ?? "Arrêt STIB")
-                            .font(AppTheme.Fonts.bodyStrong)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-
-                        Text(statusText)
-                            .font(AppTheme.Fonts.captionStrong)
-                            .foregroundStyle(lineColor)
-                            .padding(.horizontal, 8)
-                            .frame(height: 22)
-                            .background(lineColor.opacity(0.14))
-                            .clipShape(Capsule())
-                    }
-
-                    Text(report.description)
-                        .font(AppTheme.Fonts.body)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-                        .lineLimit(3)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textMuted)
-            }
-
-            HStack(spacing: 10) {
-                Label(report.freshnessLabel, systemImage: "clock")
-                    .labelStyle(.titleAndIcon)
-
-                if let confidence = report.confirmationsSummaryLabel {
-                    Label(confidence, systemImage: "checkmark.seal")
-                        .labelStyle(.titleAndIcon)
-                }
-            }
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textMuted)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [AppTheme.Palette.surfaceElevated.opacity(0.96), AppTheme.Palette.surface.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.14), radius: 20, x: 0, y: 10)
     }
 }
