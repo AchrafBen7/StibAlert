@@ -1,6 +1,15 @@
 {
-  "originHash" : "50dc98200fd32a1481c81c79cbe87063ab54ee64b9839f089e1b7466fa9b9afc",
+  "originHash" : "f7920791150c078033ec8cab8ad38ee1bdaea352a29e74fabb00d3b5a3b9cdbd",
   "pins" : [
+    {
+      "identity" : "dotlottie-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LottieFiles/dotlottie-ios",
+      "state" : {
+        "revision" : "0ac253fb9d2d4981c780848b6ce1f824bc8946a1",
+        "version" : "0.15.3"
+      }
+    },
     {
       "identity" : "ios-maps-3d-sdk",
       "kind" : "remoteSourceControl",

@@ -21,6 +21,7 @@ final class StibiCenter: ObservableObject {
     @Published private(set) var currentScreen = "home"
     @Published private(set) var lastIntent: String?
     @Published private(set) var lastActionId: String?
+    @Published private(set) var voiceInputRequestID = 0
     @Published var isExpanded = false
     @Published var isConversationPresented = false
     @Published var isSendingCommand = false
@@ -79,6 +80,11 @@ final class StibiCenter: ObservableObject {
         }
         isExpanded = true
         isConversationPresented = true
+    }
+
+    func openConversationAndListen() {
+        openConversation()
+        voiceInputRequestID += 1
     }
 
     func closeConversation() {

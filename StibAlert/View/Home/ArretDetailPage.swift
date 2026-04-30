@@ -16,10 +16,84 @@ private struct GroupedStopPassage: Identifiable {
     let departures: [TransportDepartureDTO]
 }
 
+private struct StopDetailCatalogRoute: Decodable {
+    let lineId: String
+    let destinationFr: String?
+    let destinationNl: String?
+    let stops: [StopDetailCatalogRouteStop]
+}
+
+private struct StopDetailCatalogRouteStop: Decodable {
+    let mergedStopId: Int
+    let physicalStopId: String?
+}
+
+private struct StopDetailMergedCatalog: Decodable {
+    let lines: [String: StopDetailCatalogRoute]
+}
+
+private enum StopDetailCatalogStore {
+    private static var cached: StopDetailMergedCatalog?
+
+    static func destinations(stopBackendId: String, stopId: String?, lineIds: [String]) -> [GroupedStopPassage] {
+        guard let catalog = loadCatalog() else { return [] }
+
+        let normalizedLines = Set(lineIds.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() })
+        guard !normalizedLines.isEmpty else { return [] }
+
+        let rows = catalog.lines.values.compactMap { route -> GroupedStopPassage? in
+            let normalizedLine = route.lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard normalizedLines.contains(normalizedLine) else { return nil }
+
+            let servesStop = route.stops.contains { stop in
+                String(stop.mergedStopId) == stopBackendId || (stopId != nil && stop.physicalStopId == stopId)
+            }
+            guard servesStop else { return nil }
+
+            let destination = [route.destinationFr, route.destinationNl]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first(where: { !$0.isEmpty }) ?? "Destination à confirmer"
+
+            return GroupedStopPassage(line: normalizedLine, destination: destination, departures: [])
+        }
+
+        return rows
+            .uniqued(by: \.id)
+            .sorted { lhs, rhs in
+                if lhs.line == rhs.line {
+                    return lhs.destination.localizedStandardCompare(rhs.destination) == .orderedAscending
+                }
+                if let left = Int(lhs.line), let right = Int(rhs.line) {
+                    return left < right
+                }
+                return lhs.line.localizedStandardCompare(rhs.line) == .orderedAscending
+            }
+    }
+
+    private static func loadCatalog() -> StopDetailMergedCatalog? {
+        if let cached { return cached }
+        guard let url = Bundle.main.url(forResource: "stib-static-catalog-merged", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode(StopDetailMergedCatalog.self, from: data) else {
+            return nil
+        }
+        cached = decoded
+        return decoded
+    }
+}
+
+private extension Array {
+    func uniqued<Key: Hashable>(by keyPath: KeyPath<Element, Key>) -> [Element] {
+        var seen = Set<Key>()
+        return filter { seen.insert($0[keyPath: keyPath]).inserted }
+    }
+}
+
 struct ArretDetailPage: View {
     let stopSummary: TransportStopSummaryDTO
     let stopDetail: TransportStopDTO?
     let isLoading: Bool
+    let userCoordinate: CLLocationCoordinate2D?
     let nearbyStops: [TransportStopSummaryDTO]
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
     let onDismiss: () -> Void
@@ -95,6 +169,15 @@ struct ArretDetailPage: View {
     private var lineDestinations: [GroupedStopPassage] {
         if !groupedPassages.isEmpty {
             return groupedPassages
+        }
+
+        let catalogDestinations = StopDetailCatalogStore.destinations(
+            stopBackendId: effectiveStop.id,
+            stopId: effectiveStop.stopId,
+            lineIds: effectiveStop.lines
+        )
+        if !catalogDestinations.isEmpty {
+            return catalogDestinations
         }
 
         return effectiveStop.lines.map {
@@ -727,7 +810,13 @@ struct ArretDetailPage: View {
 
     private func openDirections() {
         guard let coordinate = stopCoordinate else { return }
-        let urlString = "http://maps.apple.com/?daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=r"
+        let originQuery: String
+        if let userCoordinate {
+            originQuery = "saddr=\(userCoordinate.latitude),\(userCoordinate.longitude)&"
+        } else {
+            originQuery = "saddr=Current+Location&"
+        }
+        let urlString = "http://maps.apple.com/?\(originQuery)daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=r"
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
     }

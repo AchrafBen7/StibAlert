@@ -82,11 +82,19 @@ final class LigneDetailViewModel: ObservableObject {
 
     var orderedStops: [StopSnapshot] {
         if let activeLine {
-            let byStopId = Dictionary(uniqueKeysWithValues: stopCatalog.compactMap { dto in
-                dto.stopId.map { ($0, dto) }
-            })
-            let byBackendId = Dictionary(uniqueKeysWithValues: stopCatalog.map { ($0.id, $0) })
-            let byName = Dictionary(uniqueKeysWithValues: stopCatalog.map { ($0.nom.normalizedStopKey, $0) })
+            let byStopId = stopCatalog.reduce(into: [String: ArretDTO]()) { result, dto in
+                guard let stopId = dto.stopId, result[stopId] == nil else { return }
+                result[stopId] = dto
+            }
+            let byBackendId = stopCatalog.reduce(into: [String: ArretDTO]()) { result, dto in
+                guard result[dto.id] == nil else { return }
+                result[dto.id] = dto
+            }
+            let byName = stopCatalog.reduce(into: [String: ArretDTO]()) { result, dto in
+                let key = dto.nom.normalizedStopKey
+                guard result[key] == nil else { return }
+                result[key] = dto
+            }
 
             return activeLine.line.stops.map { stop in
                 let catalog = stop.stopId.flatMap { byStopId[$0] }

@@ -45,6 +45,7 @@ struct HomeView: View {
     @State private var stibiBrief: AssistantBriefDTO?
     @State private var isLoadingStibiBrief = false
     @State private var selectedAlternativeDetail: TransportAlternativeDTO?
+    @State private var selectedMapStopPreview: TransportStopSummaryDTO?
     @State private var selectedMapStopSummary: TransportStopSummaryDTO?
     @State private var selectedMapStopDetail: TransportStopDTO?
     @State private var isLoadingMapStopDetail = false
@@ -287,7 +288,7 @@ struct HomeView: View {
                         .padding(.horizontal, 18)
                     }
                 }
-                .padding(.top, 68)
+                .padding(.top, 52)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
             }
@@ -322,7 +323,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented, routeOptions.isEmpty, selectedSignalementPreview == nil {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented, selectedMapStopPreview == nil, routeOptions.isEmpty, selectedSignalementPreview == nil {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
@@ -332,7 +333,8 @@ struct HomeView: View {
                         }
                     }
                 )
-                .padding(.horizontal, 14)
+                .padding(.trailing, 14)
+                .padding(.leading, stibi.brief == nil ? 14 : 92)
                 .padding(.bottom, 92)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
@@ -535,9 +537,12 @@ struct HomeView: View {
                 if let latitude = stop.latitude, let longitude = stop.longitude {
                     Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
                         Button {
-                            openStopDetail(for: stop)
+                            openStopPreview(for: stop)
                         } label: {
-                            HomeStopMarker(stop: stop)
+                            HomeStopMarker(
+                                stop: stop,
+                                isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -616,7 +621,7 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 150)
+                .padding(.bottom, 166)
                 .zIndex(2)
             }
         }
@@ -635,19 +640,42 @@ struct HomeView: View {
             .zIndex(9)
         }
 
+        if let stop = selectedMapStopPreview, selectedMapStopSummary == nil {
+            HomeStopPreviewCard(
+                stopSummary: stop,
+                stopDetail: selectedMapStopDetail,
+                isLoading: isLoadingMapStopDetail,
+                nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
+                onDismiss: {
+                    selectedMapStopPreview = nil
+                    selectedMapStopDetail = nil
+                    isLoadingMapStopDetail = false
+                },
+                onOpenDetail: {
+                    selectedMapStopPreview = nil
+                    selectedMapStopSummary = stop
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(7)
+        }
+
         if let stop = selectedMapStopSummary {
             ArretDetailPage(
                 stopSummary: stop,
                 stopDetail: selectedMapStopDetail,
                 isLoading: isLoadingMapStopDetail,
+                userCoordinate: locationManager.userCoordinate,
                 nearbyStops: nearbyStops(for: stop, detail: selectedMapStopDetail),
                 nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
                 onDismiss: {
+                    selectedMapStopPreview = nil
                     selectedMapStopSummary = nil
                     selectedMapStopDetail = nil
                     isLoadingMapStopDetail = false
                 },
                 onOpenLine: { line in
+                    selectedMapStopPreview = nil
                     selectedMapStopSummary = nil
                     selectedMapStopDetail = nil
                     isLoadingMapStopDetail = false
@@ -1018,8 +1046,7 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func openStopDetail(for stop: TransportStopSummaryDTO) {
-        selectedMapStopSummary = stop
+    private func loadStopDetail(for stop: TransportStopSummaryDTO) {
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = true
 
@@ -1027,7 +1054,9 @@ struct HomeView: View {
             do {
                 let detail = try await TransportService.stop(id: stop.id)
                 await MainActor.run {
-                    if selectedMapStopSummary?.id == stop.id {
+                    let matchesPreview = selectedMapStopPreview?.id == stop.id
+                    let matchesDetail = selectedMapStopSummary?.id == stop.id
+                    if matchesPreview || matchesDetail {
                         selectedMapStopDetail = detail
                     }
                 }
@@ -1036,11 +1065,27 @@ struct HomeView: View {
             }
 
             await MainActor.run {
-                if selectedMapStopSummary?.id == stop.id {
+                let matchesPreview = selectedMapStopPreview?.id == stop.id
+                let matchesDetail = selectedMapStopSummary?.id == stop.id
+                if matchesPreview || matchesDetail {
                     isLoadingMapStopDetail = false
                 }
             }
         }
+    }
+
+    @MainActor
+    private func openStopPreview(for stop: TransportStopSummaryDTO) {
+        selectedMapStopSummary = nil
+        selectedMapStopPreview = stop
+        loadStopDetail(for: stop)
+    }
+
+    @MainActor
+    private func openStopDetail(for stop: TransportStopSummaryDTO) {
+        selectedMapStopPreview = nil
+        selectedMapStopSummary = stop
+        loadStopDetail(for: stop)
     }
 
     @MainActor
@@ -1090,6 +1135,7 @@ struct HomeView: View {
             let summary = detail.stop
             focusMap(on: summary)
             selectedMapStopSummary = summary
+            selectedMapStopPreview = nil
             selectedMapStopDetail = detail
             isLoadingMapStopDetail = false
             nav.pendingMapStopFocusBackendId = nil
@@ -1100,6 +1146,7 @@ struct HomeView: View {
 
     @MainActor
     private func openReportSheet(for stop: TransportStopSummaryDTO) {
+        selectedMapStopPreview = nil
         selectedMapStopSummary = nil
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = false
@@ -1445,7 +1492,7 @@ struct HomeView: View {
     @ViewBuilder
     private var pageOverlay: some View {
         ZStack {
-            Color((nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile || nav.currentPage == .profileMain) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
+            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile || nav.currentPage == .profileMain) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
 
             if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .favorites && nav.currentPage != .profile && nav.currentPage != .profileMain {
                 VStack {
@@ -1785,10 +1832,10 @@ private struct HomePulseBar: View {
 
     var body: some View {
         Button(action: onOpenReports) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(totalActive > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
-                    .frame(width: 12, height: 12)
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(totalActive > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
+                        .frame(width: 12, height: 12)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
@@ -1810,13 +1857,6 @@ private struct HomePulseBar: View {
             .padding(.horizontal, 16)
             .frame(height: 60)
             .background(DS.Color.paper.opacity(0.98))
-            .overlay(alignment: .topLeading) {
-                Rectangle()
-                    .fill(DS.Color.ink)
-                    .frame(width: 64, height: 3)
-                    .padding(.leading, 18)
-                    .padding(.top, 8)
-            }
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
@@ -2045,44 +2085,65 @@ private struct OfficialSignalMarker: View {
 
 private struct HomeStopMarker: View {
     let stop: TransportStopSummaryDTO
+    let isSelected: Bool
 
-    private var badgeText: String {
-        let labels = stop.lines.prefix(2)
-        return labels.isEmpty ? "STOP" : labels.joined(separator: " · ")
+    private var primaryLine: String? {
+        stop.lines.first
     }
 
-    private var accentColor: Color {
-        stop.lines.first.map { line in
-            switch line {
-            case "1", "2", "5", "6":
-                return Color(hex: "#4D8DFF")
-            default:
-                return Color(hex: "#F8E2B3")
-            }
-        } ?? Color(hex: "#F8E2B3")
+    private var fill: Color {
+        if isSelected { return DS.Color.ink }
+        guard let primaryLine else { return DS.Color.paper }
+        return TransitLinePalette.fill(for: primaryLine)
+    }
+
+    private var foreground: Color {
+        if isSelected { return DS.Color.paper }
+        guard let primaryLine else { return DS.Color.ink }
+        return TransitLinePalette.foreground(for: primaryLine)
+    }
+
+    private var extraCount: Int {
+        max(stop.lines.count - 1, 0)
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(badgeText)
-                .font(.custom("Montserrat-SemiBold", size: 10))
-                .foregroundStyle(.black.opacity(0.85))
-                .padding(.horizontal, 8)
-                .frame(height: 22)
-                .background(accentColor)
-                .clipShape(Capsule())
+        ZStack(alignment: .topTrailing) {
+            ZStack {
+                Circle()
+                    .fill(fill)
+                    .frame(width: isSelected ? 34 : 32, height: isSelected ? 34 : 32)
+                    .overlay(
+                        Circle()
+                            .stroke(DS.Color.paper, lineWidth: 3)
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(DS.Color.ink.opacity(isSelected ? 0.9 : 0.22), lineWidth: isSelected ? 1.5 : 1)
+                    )
 
-            Image(systemName: "tram.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(Color(hex: "#182131"))
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(accentColor.opacity(0.95), lineWidth: 2)
-                )
-                .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+                Text(primaryLine ?? "•")
+                    .font(.system(size: primaryLine?.count ?? 1 > 2 ? 12 : 14, weight: .heavy, design: .rounded))
+                    .foregroundStyle(foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            .shadow(color: .black.opacity(0.16), radius: 5, x: 0, y: 3)
+
+            if extraCount > 0 {
+                Text("+\(extraCount)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(.horizontal, 6)
+                    .frame(height: 18)
+                    .background(DS.Color.paper)
+                    .overlay(
+                        Capsule()
+                            .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+                    .offset(x: 8, y: -6)
+            }
         }
         .accessibilityElement()
         .accessibilityLabel("Arrêt \(stop.name)")
@@ -2372,6 +2433,165 @@ private struct HomeVilloStationSheet: View {
                 .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct HomeStopPreviewCard: View {
+    let stopSummary: TransportStopSummaryDTO
+    let stopDetail: TransportStopDTO?
+    let isLoading: Bool
+    let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
+    let onDismiss: () -> Void
+    let onOpenDetail: () -> Void
+
+    private var effectiveStop: TransportStopSummaryDTO {
+        stopDetail?.stop ?? stopSummary
+    }
+
+    private var departures: [TransportDepartureDTO] {
+        Array((stopDetail?.nextDepartures ?? []).prefix(2))
+    }
+
+    private var villoSummary: String? {
+        guard !nearbyVilloStations.isEmpty else { return nil }
+        let bikes = nearbyVilloStations.reduce(0) { $0 + $1.station.availableBikes }
+        let label = nearbyVilloStations.count == 1 ? "1 Villo! à proximité" : "\(nearbyVilloStations.count) Villo! à proximité"
+        return "\(label) · \(bikes) vélos"
+    }
+
+    var body: some View {
+        VStack {
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ARRÊT · \(effectiveStop.id)")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .tracking(2)
+                            .foregroundStyle(DS.Color.inkMute)
+
+                        Text(effectiveStop.name)
+                            .font(DS.Font.displayH2)
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(2)
+
+                        if let latitude = effectiveStop.latitude, let longitude = effectiveStop.longitude {
+                            Label("\(latitude.formatted(.number.precision(.fractionLength(4)))), \(longitude.formatted(.number.precision(.fractionLength(4))))", systemImage: "mappin")
+                                .font(DS.Font.mono)
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+
+                        if !effectiveStop.lines.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(effectiveStop.lines.prefix(4), id: \.self) { line in
+                                    LineBadge(line: line, size: .sm)
+                                }
+                            }
+                            .padding(.top, 2)
+                        }
+                    }
+
+                    Spacer(minLength: 12)
+
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 44, height: 44)
+                            .background(DS.Color.paper)
+                            .overlay(
+                                Circle()
+                                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 18)
+                .padding(.bottom, 18)
+
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(DS.Color.inkMute)
+                        Text("PROCHAINS PASSAGES")
+                            .font(DS.Font.mono.weight(.bold))
+                            .tracking(2)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+
+                    if isLoading {
+                        Text("Chargement des prochains passages…")
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.inkMute)
+                    } else if departures.isEmpty {
+                        Text("Aucun passage fiable pour le moment.")
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.inkMute)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(departures) { departure in
+                                HStack(spacing: 12) {
+                                    LineBadge(line: departure.line, size: .sm)
+                                    Text("→ \(departure.destination ?? "Direction en cours")")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(DS.Color.ink)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .lineLimit(1)
+
+                                    Text(departure.minutes <= 0 ? "Imminent" : "\(departure.minutes) min")
+                                        .font(DS.Font.displayH3)
+                                        .foregroundStyle(DS.Color.ink)
+                                }
+                            }
+                        }
+                    }
+
+                    if let villoSummary {
+                        Rectangle()
+                            .fill(DS.Color.ink.opacity(0.12))
+                            .frame(height: 1)
+
+                        Label(villoSummary, systemImage: "bicycle")
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.inkSoft)
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+
+                Button(action: onOpenDetail) {
+                    HStack {
+                        Text("VOIR L'ARRÊT EN DÉTAIL")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(DS.Font.mono.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(DS.Color.primaryForeground)
+                    .padding(.horizontal, 18)
+                    .frame(height: 60)
+                    .frame(maxWidth: .infinity)
+                    .background(DS.Color.primary)
+                }
+                .buttonStyle(.plain)
+            }
+            .background(DS.Color.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: DS.Color.ink.opacity(0.16), radius: 18, y: 10)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 130)
+        }
     }
 }
 
@@ -3167,217 +3387,102 @@ private struct MapLegendOverlay: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.6)
+        ZStack(alignment: .topTrailing) {
+            Color.black.opacity(0.12)
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Que signifient les icônes ?")
-                    .font(AppTheme.Fonts.title2)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 20)
-                    .padding(.bottom, 28)
+                legendHeader(left: "RÉSEAU", right: "AUCUN")
 
-                VStack(alignment: .leading, spacing: 18) {
-                    legendSectionTitle("Signalements & réseau")
-                    legendRow(marker: AnyView(LiveSignalMarker(problemType: "Accident")), text: "Signalement critique confirmé")
-                    legendRow(marker: AnyView(LiveSignalMarker(problemType: "Retard")), text: "Signalement léger ou retard")
-                    legendRow(marker: AnyView(OfficialSignalMarker(problemType: "Information STIB")), text: "Alerte officielle STIB")
-                    legendRow(marker: AnyView(HomeStopMarker(stop: demoStop)), text: "Arrêt STIB tapable avec détails")
-
-                    Divider()
-                        .overlay(Color.white.opacity(0.12))
-
-                    legendSectionTitle("Villo!")
-                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloHealthy)), text: "Station disponible")
-                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloLow)), text: "Peu de vélos disponibles")
-                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloEmpty)), text: "Aucun vélo disponible")
-                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloFull)), text: "Plus de places libres")
-                    legendRow(marker: AnyView(VilloMapMarker(station: demoVilloClosed)), text: "Station fermée")
-
-                    legendSectionTitle("Événements")
-                    legendRow(marker: AnyView(EventMapMarker(event: demoEventHigh)), text: "Événement à forte affluence probable")
-                    legendRow(marker: AnyView(EventMapMarker(event: demoEventModerate)), text: "Événement à affluence modérée")
+                VStack(spacing: 0) {
+                    legendSimpleRow(letter: "M", fill: Color(hex: "#F05A22"), title: "Métro")
+                    legendSimpleRow(letter: "T", fill: Color(hex: "#FFC20E"), title: "Tram", textColor: .black)
+                    legendSimpleRow(letter: "B", fill: Color(hex: "#243F73"), title: "Bus")
+                    legendSimpleRow(letter: "N", fill: Color(hex: "#6F3BA8"), title: "Noctis")
                 }
-                .padding(.horizontal, 28)
 
-                Button("Je comprends", action: onDismiss)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: AppTheme.ButtonHeight.primary)
-                    .background(AppTheme.Palette.screen)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
-                    .padding(.horizontal, 18)
-                    .padding(.top, 30)
-                    .padding(.bottom, 20)
+                legendSubheader("AUTRES")
+
+                VStack(spacing: 0) {
+                    legendSimpleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!")
+                    legendSimpleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: "Évènements")
+                }
             }
-            .frame(width: 357)
-            .background(AppTheme.Palette.brand)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            .frame(width: 248, alignment: .leading)
+            .background(DS.Color.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
+            )
+            .shadow(color: DS.Color.ink.opacity(0.16), radius: 18, y: 10)
+            .padding(.top, 122)
+            .padding(.trailing, 18)
         }
     }
 
-    private func legendSectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.custom("Montserrat-SemiBold", size: 11))
-            .textCase(.uppercase)
-            .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.55))
+    private func legendHeader(left: String, right: String) -> some View {
+        HStack {
+            Text(left)
+            Spacer()
+            Text(right)
+        }
+        .font(DS.Font.mono.weight(.bold))
+        .tracking(2)
+        .foregroundStyle(DS.Color.paper)
+        .padding(.horizontal, 12)
+        .frame(height: 42)
+        .background(DS.Color.ink)
     }
 
-    private func legendRow(marker: AnyView, text: String) -> some View {
-        HStack(spacing: 12) {
-            marker
-                .frame(width: 34, height: 34)
-
-            Text(text)
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.88))
-
+    private func legendSubheader(_ title: String) -> some View {
+        HStack {
+            Text(title)
             Spacer()
         }
+        .font(DS.Font.mono.weight(.bold))
+        .tracking(2)
+        .foregroundStyle(DS.Color.inkMute)
+        .padding(.horizontal, 12)
+        .frame(height: 38)
+        .background(DS.Color.paper2.opacity(0.65))
     }
 
-    private var demoStop: TransportStopSummaryDTO {
-        TransportStopSummaryDTO(
-            id: "legend-stop",
-            stopId: nil,
-            name: "Arrêt démo",
-            latitude: nil,
-            longitude: nil,
-            lines: ["3", "7"]
-        )
-    }
+    private func legendSimpleRow(letter: String, fill: Color, title: String, textColor: Color = .white) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(fill)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Circle()
+                            .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                    )
+                Text(letter)
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundStyle(textColor)
+            }
 
-    private var demoVilloHealthy: VilloStation {
-        VilloStation(
-            number: 1,
-            name: "001 - DEMO",
-            address: "Bruxelles",
-            position: .init(lat: 50.85, lng: 4.35),
-            status: "OPEN",
-            bikeStands: 24,
-            availableBikes: 11,
-            availableBikeStands: 13,
-            banking: false,
-            lastUpdate: nil
-        )
-    }
+            Text(title)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
 
-    private var demoVilloLow: VilloStation {
-        VilloStation(
-            number: 2,
-            name: "002 - DEMO",
-            address: "Bruxelles",
-            position: .init(lat: 50.85, lng: 4.35),
-            status: "OPEN",
-            bikeStands: 24,
-            availableBikes: 2,
-            availableBikeStands: 14,
-            banking: false,
-            lastUpdate: nil
-        )
-    }
+            Spacer()
 
-    private var demoVilloEmpty: VilloStation {
-        VilloStation(
-            number: 3,
-            name: "003 - DEMO",
-            address: "Bruxelles",
-            position: .init(lat: 50.85, lng: 4.35),
-            status: "OPEN",
-            bikeStands: 24,
-            availableBikes: 0,
-            availableBikeStands: 19,
-            banking: false,
-            lastUpdate: nil
-        )
-    }
-
-    private var demoVilloFull: VilloStation {
-        VilloStation(
-            number: 4,
-            name: "004 - DEMO",
-            address: "Bruxelles",
-            position: .init(lat: 50.85, lng: 4.35),
-            status: "OPEN",
-            bikeStands: 24,
-            availableBikes: 9,
-            availableBikeStands: 0,
-            banking: false,
-            lastUpdate: nil
-        )
-    }
-
-    private var demoVilloClosed: VilloStation {
-        VilloStation(
-            number: 5,
-            name: "005 - DEMO",
-            address: "Bruxelles",
-            position: .init(lat: 50.85, lng: 4.35),
-            status: "CLOSED",
-            bikeStands: 24,
-            availableBikes: 0,
-            availableBikeStands: 0,
-            banking: false,
-            lastUpdate: nil
-        )
-    }
-
-    private var demoEventHigh: TransportEventImpactDTO {
-        .init(
-            id: "demo-event-high",
-            source: "events-bruxelles",
-            title: "Concert ING Arena",
-            category: "concert",
-            venue: "ING Arena",
-            zoneLabel: "Heysel",
-            address: nil,
-            latitude: 50.8987,
-            longitude: 4.3403,
-            startsAt: nil,
-            endsAt: nil,
-            phase: "upcoming",
-            phaseLabel: "À venir",
-            expectedAttendance: 12000,
-            impactLevel: "high",
-            notesFr: nil,
-            impactedLines: ["6", "7", "51"],
-            impactedStops: ["Heysel", "Roi Baudouin"],
-            impactedStopDetails: nil,
-            confidence: 0.84,
-            soldOut: true,
-            url: nil
-        )
-    }
-
-    private var demoEventModerate: TransportEventImpactDTO {
-        .init(
-            id: "demo-event-moderate",
-            source: "events-bruxelles",
-            title: "Bozar",
-            category: "expo",
-            venue: "Bozar",
-            zoneLabel: "Gare Centrale",
-            address: nil,
-            latitude: 50.8424,
-            longitude: 4.3573,
-            startsAt: nil,
-            endsAt: nil,
-            phase: "live",
-            phaseLabel: "En cours",
-            expectedAttendance: 2200,
-            impactLevel: "moderate",
-            notesFr: nil,
-            impactedLines: ["1", "5", "92"],
-            impactedStops: ["Gare Centrale", "Parc"],
-            impactedStopDetails: nil,
-            confidence: 0.62,
-            soldOut: false,
-            url: nil
-        )
+            Image(systemName: "checkmark")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(DS.Color.paper)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.08))
+                .frame(height: 1)
+                .padding(.leading, 66)
+        }
     }
 }
 

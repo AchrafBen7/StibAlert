@@ -8,7 +8,7 @@ import SwiftUI
 
 struct SplashView: View {
     @State private var isActive = false
-    @State private var animateLights = false
+    @State private var reveal = false
 
     var body: some View {
         NavigationStack {
@@ -29,68 +29,112 @@ struct SplashView: View {
     }
 
     private var splashArtwork: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            let titleLeading: CGFloat = 30
-            let titleTop = size.height * 0.66
+        ZStack {
+            DS.Color.paper.ignoresSafeArea()
 
-            ZStack {
-                AppTheme.Palette.screen
-                    .ignoresSafeArea()
-
-                Ellipse()
-                    .fill(AppTheme.Colors.onboardingGlowWhite)
-                    .frame(width: 665, height: 289)
-                    .blur(radius: 79.5)
-                    .offset(x: -54, y: -size.height * 0.43)
-                    .scaleEffect(animateLights ? 1.03 : 0.98)
-
-                Ellipse()
-                    .fill(AppTheme.Colors.onboardingGlowBlue)
-                    .frame(width: 587.54, height: 507)
-                    .blur(radius: 132.3)
-                    .offset(x: 18, y: -size.height * 0.25)
-                    .opacity(animateLights ? 0.95 : 0.82)
-                    .scaleEffect(animateLights ? 1.05 : 0.98)
-
-                Circle()
-                    .fill(AppTheme.Colors.onboardingIndicatorBlue.opacity(0.34))
-                    .frame(width: 72, height: 72)
-                    .blur(radius: 40)
-                    .offset(x: size.width * 0.45, y: size.height * 0.02)
-                    .opacity(animateLights ? 0.78 : 0.52)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 0) {
-                        Text("Stib")
-                            .foregroundStyle(AppTheme.Colors.onboardingTitleBlue)
-                        Text("Alert")
-                            .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
-                    }
-                    .font(AppTheme.Fonts.clash(32))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .padding(.bottom, 14)
-
-                    Text(L10n.Splash.subtitle)
-                        .font(AppTheme.Fonts.body(16))
-                        .foregroundStyle(AppTheme.Colors.textInverse)
-                        .frame(width: 300, alignment: .leading)
-                        .lineSpacing(1)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("BRUXELLES · STIB-MIVB · 2026")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Color.inkMute)
+                    Spacer()
+                    Text("ÉDITION D'OUVERTURE")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.5)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.leading, titleLeading)
-                .padding(.top, titleTop)
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+                DS.Rule(thick: true)
+                    .padding(.horizontal, 20)
+
+                Spacer(minLength: 36)
+
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("№ 000 · LECTURE DU RÉSEAU")
+                        .font(DS.Font.mono.weight(.bold))
+                        .tracking(2)
+                        .foregroundStyle(DS.Color.primary)
+
+                    (
+                        Text("Bruxelles,\n")
+                            .foregroundStyle(DS.Color.ink)
+                        + Text("en route.")
+                            .font(.system(size: 42, weight: .bold, design: .serif))
+                            .italic()
+                            .foregroundStyle(DS.Color.primary)
+                    )
+                    .font(.system(size: 42, weight: .bold))
+                    .tracking(-1.4)
+                    .lineSpacing(-2)
+
+                    Text("Temps réel, lignes utiles et lecture claire du réseau, dès l’ouverture.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(DS.Color.inkSoft)
+                        .frame(maxWidth: 290, alignment: .leading)
+
+                    HStack(spacing: 14) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(DS.Color.paper)
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
+
+                            StibiMascotView(visualState: "speaking")
+                                .frame(width: 58, height: 58)
+                        }
+                        .frame(width: 88, height: 88)
+                        .shadow(color: DS.Color.ink.opacity(0.08), radius: 10, y: 5)
+                        .scaleEffect(reveal ? 1 : 0.9)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("StibAlert")
+                                .font(DS.Font.displayH3)
+                                .foregroundStyle(DS.Color.ink)
+                            Text("Le réseau en clair, pour de vrai.")
+                                .font(DS.Font.bodySmall)
+                                .foregroundStyle(DS.Color.inkMute)
+                            Text("Chargement en cours")
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .tracking(1.4)
+                                .foregroundStyle(DS.Color.primary)
+                        }
+                    }
+                    .padding(14)
+                    .background(DS.Color.paper.opacity(0.96))
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
+                    )
+                }
+                .padding(.horizontal, 20)
+
+                Spacer()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    DS.Rule()
+                    Text(L10n.Splash.subtitle)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(DS.Color.inkSoft)
+                        .frame(maxWidth: 320, alignment: .leading)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 34)
+                .opacity(reveal ? 1 : 0.7)
             }
-            .compositingGroup()
         }
+        .modifier(PaperGrainBackground())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(L10n.Splash.accessibilityLogo)
     }
 
     private func startupTasks() {
-        withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
-            animateLights = true
+        withAnimation(.easeInOut(duration: 0.6)) {
+            reveal = true
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

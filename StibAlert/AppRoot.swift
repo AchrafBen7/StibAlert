@@ -9,7 +9,7 @@ struct AppRoot: View {
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .bottomLeading) {
             content
 
             if case .signedIn = session.state, let brief = stibi.brief {
@@ -20,13 +20,13 @@ struct AppRoot: View {
                     isExpanded: $stibi.isExpanded,
                     isConversationPresented: stibi.isConversationPresented,
                     onTap: { stibi.toggleExpanded() },
-                    onOpenConversation: { stibi.openConversation() },
+                    onOpenConversation: { stibi.openConversationAndListen() },
                     onDismiss: { stibi.dismiss() },
                     onAction: handleStibiAction
                 )
-                .padding(.trailing, 18)
-                .padding(.bottom, 26)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .padding(.leading, 18)
+                .padding(.bottom, 92)
+                .transition(.move(edge: .leading).combined(with: .opacity))
                 .zIndex(20)
             }
 
@@ -45,6 +45,7 @@ struct AppRoot: View {
                     brief: stibi.brief,
                     history: stibi.history,
                     currentScreen: stibi.currentScreen,
+                    autoStartVoiceRequestID: stibi.voiceInputRequestID,
                     suggestions: AssistantViewAdapters.suggestedPrompts(
                         for: stibi.currentScreen,
                         context: stibi.context
@@ -174,7 +175,10 @@ struct AppRoot: View {
                         nav.currentPage = .home
                         nav.showReportSheet = true
                         stibi.closeConversation()
-                    case "open_home", "open_search", "view_map", "view_route", "compare_routes":
+                    case "view_map":
+                        nav.currentPage = .home
+                        stibi.dismiss()
+                    case "open_home", "open_search", "view_route", "compare_routes":
                         nav.currentPage = .home
                         stibi.closeConversation()
                     default:
@@ -305,11 +309,11 @@ private struct StibiOverlay: View {
 
     private var compactOverlay: some View {
         AnimatedStibiOrb(visualState: effectiveVisualState)
-            .padding(10)
+            .frame(width: 56, height: 56)
             .background(DS.Color.paper.opacity(0.98))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
             )
             .shadow(DS.Shadow.floating)
@@ -418,15 +422,15 @@ private struct AnimatedStibiOrb: View {
 
     private var outerSize: CGFloat {
         switch visualState {
-        case "alert": return 58
-        case "guiding": return 56
-        case "speaking": return 60
-        default: return 52
+        case "alert": return 50
+        case "guiding": return 48
+        case "speaking": return 52
+        default: return 44
         }
     }
 
     private var innerSize: CGFloat {
-        visualState == "speaking" ? 20 : 18
+        visualState == "speaking" ? 24 : 22
     }
 
     private var pulseScale: CGFloat {
@@ -441,35 +445,15 @@ private struct AnimatedStibiOrb: View {
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(glowColor.opacity(0.18))
-                .frame(width: outerSize, height: outerSize)
-                .blur(radius: 9)
-                .scaleEffect(isAnimating ? pulseScale : 0.9)
+            if visualState != "idle" {
+                Circle()
+                    .fill(glowColor.opacity(0.16))
+                    .frame(width: outerSize, height: outerSize)
+                    .blur(radius: 9)
+                    .scaleEffect(isAnimating ? pulseScale : 0.92)
+            }
 
-            Circle()
-                .stroke(glowColor.opacity(0.35), lineWidth: visualState == "alert" ? 2 : 1)
-                .frame(width: outerSize - 10, height: outerSize - 10)
-                .scaleEffect(isAnimating ? pulseScale - 0.04 : 0.92)
-                .opacity(visualState == "idle" ? 0.45 : 0.9)
-
-            Circle()
-                .fill(DS.Color.ink)
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Circle()
-                        .stroke(DS.Color.paper.opacity(0.14), lineWidth: 1)
-                )
-
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [glowColor, glowColor.opacity(0.32)],
-                        center: .center,
-                        startRadius: 2,
-                        endRadius: 14
-                    )
-                )
+            StibiMascotView(visualState: visualState)
                 .frame(width: innerSize, height: innerSize)
         }
         .onAppear { isAnimating = true }
@@ -485,6 +469,7 @@ private struct StibiConversationPanel: View {
     let brief: AssistantBriefDTO?
     let history: [StibiConversationEntry]
     let currentScreen: String
+    let autoStartVoiceRequestID: Int
     let suggestions: [String]
     let isSending: Bool
     let onClose: () -> Void
@@ -496,6 +481,7 @@ private struct StibiConversationPanel: View {
 
     @State private var input = ""
     @StateObject private var voiceManager = StibiVoiceCommandManager()
+    @State private var showVoiceSentConfirmation = false
 
     private var hasInlineActions: Bool {
         !(brief?.actions.isEmpty ?? true)
@@ -624,10 +610,13 @@ private struct StibiConversationPanel: View {
                     } else if voiceManager.isListening || !voiceManager.transcript.isEmpty {
                         sectionHeader("DICTÉE")
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(voiceManager.isListening ? "STIBI ÉCOUTE" : "COMMANDE VOCALE")
-                                .font(DS.Font.eyebrow)
-                                .foregroundStyle(Color(hex: "#73F0D2"))
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                ListeningPill(isListening: voiceManager.isListening)
+                                Text(voiceManager.isListening ? "Stibi écoute…" : "Commande vocale prête")
+                                    .font(DS.Font.eyebrow)
+                                    .foregroundStyle(voiceManager.isListening ? Color(hex: "#1B8F73") : DS.Color.inkMute)
+                            }
                             Text(voiceManager.transcript.isEmpty ? "Parle maintenant." : voiceManager.transcript)
                                 .font(DS.Font.body)
                                 .foregroundStyle(DS.Color.ink)
@@ -655,18 +644,27 @@ private struct StibiConversationPanel: View {
                     Task {
                         await voiceManager.toggleListening { finalText in
                             onSend(finalText)
+                            showVoiceSentFeedback()
                             voiceManager.reset()
                         }
                     }
                 } label: {
-                    Image(systemName: voiceManager.isListening ? "waveform" : "mic.fill")
-                        .font(.system(size: 13, weight: .bold))
+                    ZStack {
+                        if voiceManager.isListening {
+                            Circle()
+                                .fill(Color(hex: "#73F0D2").opacity(0.18))
+                                .scaleEffect(1.22)
+                        }
+                        Image(systemName: voiceManager.isListening ? "waveform" : "mic.fill")
+                            .font(.system(size: 13, weight: .bold))
+                    }
                 }
-                .foregroundStyle(DS.Color.ink)
+                .foregroundStyle(voiceManager.isListening ? Color(hex: "#1B8F73") : DS.Color.ink)
                 .frame(width: 38, height: 38)
-                .background(DS.Color.paper2)
+                .background(voiceManager.isListening ? Color(hex: "#73F0D2").opacity(0.16) : DS.Color.paper2)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: voiceManager.isListening)
                 .buttonStyle(.plain)
 
                 Button {
@@ -693,6 +691,19 @@ private struct StibiConversationPanel: View {
             .padding(.top, 12)
             .padding(.bottom, 16)
             .background(DS.Color.paper.opacity(0.7))
+
+            if showVoiceSentConfirmation {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Question envoyée")
+                        .font(DS.Font.eyebrow)
+                }
+                .foregroundStyle(Color(hex: "#1B8F73"))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .background(DS.Color.paper.opacity(0.985))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -703,6 +714,16 @@ private struct StibiConversationPanel: View {
         .shadow(DS.Shadow.overlay)
         .frame(maxWidth: .infinity)
         .frame(maxHeight: 540, alignment: .bottom)
+        .onChange(of: autoStartVoiceRequestID) { _, newValue in
+            guard newValue > 0 else { return }
+            Task {
+                await voiceManager.beginListening {
+                    onSend($0)
+                    showVoiceSentFeedback()
+                    voiceManager.reset()
+                }
+            }
+        }
     }
 
     private var headerSubtitle: String {
@@ -726,6 +747,47 @@ private struct StibiConversationPanel: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 4)
+    }
+
+    private func showVoiceSentFeedback() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showVoiceSentConfirmation = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showVoiceSentConfirmation = false
+            }
+        }
+    }
+}
+
+private struct ListeningPill: View {
+    let isListening: Bool
+    @State private var pulse = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "#73F0D2").opacity(isListening ? 0.22 : 0.10))
+                    .frame(width: 16, height: 16)
+                    .scaleEffect(isListening && pulse ? 1.22 : 1)
+                Circle()
+                    .fill(Color(hex: "#1B8F73"))
+                    .frame(width: 7, height: 7)
+            }
+
+            Text(isListening ? "LIVE" : "PRÊT")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.2)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color(hex: "#73F0D2").opacity(0.12))
+        .clipShape(Capsule())
+        .onAppear { pulse = true }
+        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
     }
 }
 

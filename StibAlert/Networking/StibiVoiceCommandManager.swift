@@ -12,40 +12,64 @@ final class StibiVoiceCommandManager: NSObject, ObservableObject {
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "fr-BE"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioSession = AVAudioSession.sharedInstance()
+    private var finalTextHandler: ((String) -> Void)?
 
     func toggleListening(onFinalText: @escaping (String) -> Void) async {
         if isListening {
-            stopListening(onFinalText: onFinalText)
+            finalTextHandler = onFinalText
+            stopListening()
         } else {
-            await startListening()
+            await beginListening(onFinalText: onFinalText)
         }
+    }
+
+    func beginListening(onFinalText: @escaping (String) -> Void) async {
+        guard !isListening else { return }
+        finalTextHandler = onFinalText
+        await startListening()
     }
 
     func reset() {
         transcript = ""
         authorizationDenied = false
+        finalTextHandler = nil
     }
 
     private func startListening() async {
         let speechStatus = await requestSpeechAuthorization()
         let micGranted = await requestMicrophoneAuthorization()
 
-        guard speechStatus == .authorized, micGranted else {
+        guard speechStatus == .authorized, micGranted, recognizer != nil else {
             authorizationDenied = true
             return
         }
 
         authorizationDenied = false
         transcript = ""
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        tearDownRecognition()
+
+        do {
+            try configureAudioSession()
+        } catch {
+            print("Stibi voice audio session setup failed: \(error.localizedDescription)")
+            authorizationDenied = true
+            return
+        }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = false
         recognitionRequest = request
 
         let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        let recordingFormat = bestRecordingFormat(for: inputNode)
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            print("Stibi voice invalid input format: \(recordingFormat)")
+            authorizationDenied = true
+            return
+        }
+
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
             self?.recognitionRequest?.append(buffer)
@@ -56,6 +80,8 @@ final class StibiVoiceCommandManager: NSObject, ObservableObject {
             try audioEngine.start()
             isListening = true
         } catch {
+            inputNode.removeTap(onBus: 0)
+            tearDownRecognition()
             authorizationDenied = true
             return
         }
@@ -66,30 +92,61 @@ final class StibiVoiceCommandManager: NSObject, ObservableObject {
                 if let result {
                     self.transcript = result.bestTranscription.formattedString
                     if result.isFinal {
-                        self.stopListening(onFinalText: { _ in })
+                        self.stopListening()
                     }
                 }
 
                 if error != nil {
-                    self.stopListening(onFinalText: { _ in })
+                    self.stopListening()
                 }
             }
         }
     }
 
-    private func stopListening(onFinalText: @escaping (String) -> Void) {
+    private func stopListening() {
         let finalText = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         isListening = false
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
+        tearDownRecognition()
+        try? audioSession.setActive(false, options: [.notifyOthersOnDeactivation])
+
+        if !finalText.isEmpty {
+            finalTextHandler?(finalText)
+        }
+        finalTextHandler = nil
+    }
+
+    private func configureAudioSession() throws {
+        try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
+        try audioSession.setPreferredSampleRate(44_100)
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+    }
+
+    private func bestRecordingFormat(for inputNode: AVAudioInputNode) -> AVAudioFormat {
+        let preferred = inputNode.inputFormat(forBus: 0)
+        if preferred.sampleRate > 0, preferred.channelCount > 0 {
+            return preferred
+        }
+
+        let fallback = inputNode.outputFormat(forBus: 0)
+        if fallback.sampleRate > 0, fallback.channelCount > 0 {
+            return fallback
+        }
+
+        return AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 44_100,
+            channels: 1,
+            interleaved: false
+        ) ?? fallback
+    }
+
+    private func tearDownRecognition() {
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
-
-        if !finalText.isEmpty {
-            onFinalText(finalText)
-        }
     }
 
     private func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {

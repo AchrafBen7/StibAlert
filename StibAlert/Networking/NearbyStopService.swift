@@ -276,6 +276,24 @@ private enum StaticTransitCatalogStore {
 
 enum NearbyStopService {
     static func fetchNearby(lat: Double, lng: Double, radius: Double = 600) async throws -> [NearbyStop] {
+        if AppConfig.isBackendEnabled {
+            do {
+                let dtos: [ArretNearbyDTO] = try await APIClient.shared.request(
+                    "/api/arrets/nearby?lat=\(lat)&lng=\(lng)&radius=\(Int(radius))"
+                )
+                if !dtos.isEmpty {
+                    let mapped = dtos.map { toNearbyStop($0) }
+                    if let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
+                       !catalog.stops.isEmpty {
+                        return enrichNearbyStops(mapped, using: catalog)
+                    }
+                    return mapped
+                }
+            } catch {
+                print("NearbyStopService backend nearby failed: \(error.localizedDescription)")
+            }
+        }
+
         if let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
            !catalog.stops.isEmpty {
             return nearbyStops(from: catalog, lat: lat, lng: lng, radius: radius)
@@ -319,7 +337,9 @@ enum NearbyStopService {
     }
 
     private static func toNearbyStop(_ dto: ArretNearbyDTO) -> NearbyStop {
-        let stopLines = dto.lignes.map { StopLine(number: $0.lineid, color: normalizedColor(from: $0.couleur)) }
+        let stopLines = dto.lignes.map {
+            StopLine(number: normalizedLineId($0.lineid), color: normalizedColor(from: $0.couleur))
+        }
         let issueLines = dto.lignes.map { ligne -> NearbyIssueLine in
             NearbyIssueLine(
                 number: normalizedLineId(ligne.lineid),
@@ -340,6 +360,48 @@ enum NearbyStopService {
         )
     }
 
+    private static func enrichNearbyStops(_ stops: [NearbyStop], using catalog: StaticTransitCatalog) -> [NearbyStop] {
+        stops.map { stop in
+            guard stop.lines.isEmpty else { return stop }
+            guard let catalogStop = matchingCatalogStop(for: stop, in: catalog) else { return stop }
+
+            let issueLines = issueLines(for: catalogStop, in: catalog)
+            guard !issueLines.isEmpty else { return stop }
+
+            return NearbyStop(
+                backendId: stop.backendId,
+                name: stop.name,
+                lines: uniqueStopLines(from: issueLines),
+                distanceMeters: stop.distanceMeters,
+                issueLines: issueLines,
+                coordinate: stop.coordinate
+            )
+        }
+    }
+
+    private static func matchingCatalogStop(for stop: NearbyStop, in catalog: StaticTransitCatalog) -> StaticTransitStop? {
+        if let backendId = stop.backendId,
+           let direct = catalog.stops.first(where: { $0.id == backendId || $0.stopId == backendId }) {
+            return direct
+        }
+
+        let normalizedName = normalizeStopName(stop.name)
+        if let nameMatch = catalog.stops.first(where: { normalizeStopName($0.name) == normalizedName }) {
+            return nameMatch
+        }
+
+        guard let coordinate = stop.coordinate else { return nil }
+        return catalog.stops.min { lhs, rhs in
+            coordinateDistance(
+                from: coordinate,
+                to: CLLocationCoordinate2D(latitude: lhs.latitude, longitude: lhs.longitude)
+            ) < coordinateDistance(
+                from: coordinate,
+                to: CLLocationCoordinate2D(latitude: rhs.latitude, longitude: rhs.longitude)
+            )
+        }
+    }
+
     private static func toNearbyIssueLine(lineId: String, metadata: StaticTransitLine?) -> NearbyIssueLine {
         let color = normalizedColor(from: metadata?.colorHex)
         let normalizedLine = normalizedLineId(lineId)
@@ -358,6 +420,12 @@ enum NearbyStopService {
     private static func normalizedLineId(_ lineId: String) -> String {
         let normalized = lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         return normalized.split(separator: ":").first.map(String.init) ?? normalized
+    }
+
+    private static func normalizeStopName(_ name: String) -> String {
+        name
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_BE"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func metadata(for lineId: String, in catalog: StaticTransitCatalog) -> StaticTransitLine? {
@@ -417,6 +485,11 @@ enum NearbyStopService {
         let h = sin(dLat / 2) * sin(dLat / 2)
             + sin(dLng / 2) * sin(dLng / 2) * cos(lat1) * cos(lat2)
         return 2 * radius * atan2(sqrt(h), sqrt(1 - h))
+    }
+
+    private static func coordinateDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        CLLocation(latitude: from.latitude, longitude: from.longitude)
+            .distance(from: CLLocation(latitude: to.latitude, longitude: to.longitude))
     }
 
     private static func isLight(hex: String) -> Bool {

@@ -16,6 +16,7 @@
 		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
 		A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = A15F44003C01000100A1B2C3 /* SocketIO */; };
 		A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = A16F55003C22000100A1B2C3 /* OneSignalFramework */; };
+		A17F66013C33000100A1B2C3 /* DotLottie in Frameworks */ = {isa = PBXBuildFile; productRef = A17F66003C33000100A1B2C3 /* DotLottie */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,6 +123,7 @@
 				A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */,
 				A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */,
 				A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */,
+				A17F66013C33000100A1B2C3 /* DotLottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,6 +221,7 @@
 				A14F33003B8D100100A1B2C3 /* GoogleMaps3D */,
 				A15F44003C01000100A1B2C3 /* SocketIO */,
 				A16F55003C22000100A1B2C3 /* OneSignalFramework */,
+				A17F66003C33000100A1B2C3 /* DotLottie */,
 			);
 			productName = StibAlert;
 			productReference = 3831C0812D79C1D100452AA0 /* StibAlert.app */;
@@ -331,6 +334,7 @@
 				A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */,
 				A15F44023C01000100A1B2C3 /* XCRemoteSwiftPackageReference "socket" */,
 				A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */,
+				A17F66023C33000100A1B2C3 /* XCRemoteSwiftPackageReference "dotlottie-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3831C0822D79C1D100452AA0 /* Products */;
@@ -839,6 +843,14 @@
 				minimumVersion = 5.4.0;
 			};
 		};
+		A17F66023C33000100A1B2C3 /* XCRemoteSwiftPackageReference "dotlottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/LottieFiles/dotlottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.15.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -856,6 +868,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */;
 			productName = OneSignalFramework;
+		};
+		A17F66003C33000100A1B2C3 /* DotLottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A17F66023C33000100A1B2C3 /* XCRemoteSwiftPackageReference "dotlottie-ios" */;
+			productName = DotLottie;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

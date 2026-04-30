@@ -1665,6 +1665,7 @@ private struct AddFavoriteSheet: View {
     @State private var isLoading = false
     @State private var addingId: String? = nil
     @State private var addedIds: Set<String> = []
+    @State private var errorMessage: String? = nil
 
     let existingIds: Set<String>
     let onClose: () -> Void
@@ -1672,110 +1673,159 @@ private struct AddFavoriteSheet: View {
     private var pendingIds: Set<String> { existingIds.union(addedIds) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Ajouter un arrêt favori")
-                    .font(.custom("Montserrat-SemiBold", size: 18))
-                    .foregroundStyle(.white)
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 21)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+        ZStack {
+            DS.Color.paper.ignoresSafeArea()
 
-            if isLoading {
-                Spacer()
-                ProgressView().tint(.white)
-                Spacer()
-            } else if nearbyStops.isEmpty {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "mappin.slash")
-                        .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(.white.opacity(0.4))
-                    Text("Aucun arrêt trouvé à proximité")
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(.white.opacity(0.5))
-                }
-                Spacer()
-            } else {
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach(nearbyStops) { stop in
-                            HStack(spacing: 14) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(stop.name)
-                                        .font(.custom("Montserrat-SemiBold", size: 14))
-                                        .foregroundStyle(.white)
-                                    if !stop.lines.isEmpty {
-                                        HStack(spacing: 6) {
-                                            ForEach(stop.lines.prefix(4)) { line in
-                                                Text(line.number)
-                                                    .font(.custom("Montserrat-SemiBold", size: 11))
-                                                    .foregroundStyle(.white)
-                                                    .frame(width: 26, height: 26)
-                                                    .background(line.color)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                            }
-                                        }
-                                    }
-                                    Text("\(stop.distanceMeters) m")
-                                        .font(.custom("Montserrat-Regular", size: 11))
-                                        .foregroundStyle(.white.opacity(0.45))
-                                }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 12) {
+                        PageHeader(title: "Ajouter un arrêt favori", eyebrow: "Réseau personnel", large: true)
 
-                                Spacer()
+                        Spacer(minLength: 12)
 
-                                let isFav = stop.backendId.map { pendingIds.contains($0) } ?? false
-                                let isAdding = stop.backendId == addingId
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(DS.Color.ink)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
+                                )
+                        }
+                        .buttonStyle(PressableScaleStyle())
+                    }
+                    .padding(.horizontal, 20)
 
-                                Button {
-                                    guard stop.backendId != nil, !isFav else { return }
-                                    Task { await addFavori(stop) }
-                                } label: {
-                                    if isAdding {
-                                        ProgressView().tint(.white).frame(width: 60)
-                                    } else if isFav {
-                                        Label("Ajouté", systemImage: "checkmark")
-                                            .font(.custom("Montserrat-SemiBold", size: 12))
-                                            .foregroundStyle(Color(hex: "#10C994"))
-                                            .frame(width: 80, height: 34)
-                                    } else {
-                                        Text("+ Ajouter")
-                                            .font(.custom("Montserrat-SemiBold", size: 12))
-                                            .foregroundStyle(.black)
-                                            .frame(width: 80, height: 34)
-                                            .background(Color.white)
-                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(isFav || isAdding)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Ajoute un arrêt proche pour suivre ses passages et recevoir des alertes ciblées.")
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(DS.Color.inkSoft)
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .foregroundStyle(DS.Color.statusMajor)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(DS.Color.paper)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(DS.Color.statusMajor.opacity(0.35), lineWidth: 1.5)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+
+                        if isLoading {
+                            ProgressView()
+                                .tint(DS.Color.inkMute)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 48)
+                        } else if nearbyStops.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "mappin.slash")
+                                    .font(.system(size: 34, weight: .light))
+                                    .foregroundStyle(DS.Color.inkMute)
+                                Text("Aucun arrêt trouvé à proximité")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                                Text("Active la localisation ou rapproche-toi d’un arrêt STIB.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.inkMute)
                             }
-                            .padding(.horizontal, 21)
-                            .padding(.vertical, 14)
-                            .background(Color.white.opacity(0.06))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .padding(.horizontal, 15)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 56)
+                        } else {
+                            VStack(spacing: 10) {
+                                ForEach(nearbyStops) { stop in
+                                    addFavoriteRow(stop)
+                                }
+                            }
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
                     .padding(.bottom, 32)
                 }
             }
         }
-        .background(Color(hex: "#1B1B1B").ignoresSafeArea())
+        .modifier(PaperGrainBackground())
         .task { await load() }
+    }
+
+    private func addFavoriteRow(_ stop: NearbyStop) -> some View {
+        let isFav = stop.backendId.map { pendingIds.contains($0) } ?? false
+        let isAdding = stop.backendId == addingId
+
+        return HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(stop.name)
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+
+                if !stop.lines.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(stop.lines.prefix(4)) { line in
+                            LineBadge(line: line.number, size: .sm)
+                        }
+                    }
+                }
+
+                Text("\(stop.distanceMeters) m")
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Spacer()
+
+            Button {
+                guard stop.backendId != nil, !isFav else { return }
+                Task { await addFavori(stop) }
+            } label: {
+                Group {
+                    if isAdding {
+                        ProgressView()
+                            .tint(DS.Color.ink)
+                            .frame(width: 88, height: 36)
+                    } else if isFav {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark")
+                            Text("Ajouté")
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 88, height: 36)
+                    } else {
+                        Text("+ Ajouter")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 88, height: 36)
+                    }
+                }
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(DS.Color.ink.opacity(0.22), lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(PressableScaleStyle())
+            .disabled(isFav || isAdding)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func load() async {
         isLoading = true
+        errorMessage = nil
         defer { isLoading = false }
         let loc = await locator.getCurrentLocation()
         do {
@@ -1789,12 +1839,34 @@ private struct AddFavoriteSheet: View {
     private func addFavori(_ stop: NearbyStop) async {
         guard let userId = session.currentUser?.id, let stopId = stop.backendId else { return }
         addingId = stopId
+        errorMessage = nil
         defer { addingId = nil }
         do {
-            _ = try await UtilisateurService.toggleFavori(userId: userId, arretId: stopId)
+            let response = try await UtilisateurService.toggleFavori(userId: userId, arretId: stopId)
             addedIds.insert(stopId)
+            if let updatedUser = session.currentUser.map({
+                UtilisateurDTO(
+                    id: $0.id,
+                    nom: $0.nom,
+                    email: $0.email,
+                    photoProfil: $0.photoProfil,
+                    langue: $0.langue,
+                    notifications: $0.notifications,
+                    role: $0.role,
+                    favoris: response.favoris ?? $0.favoris,
+                    favorisDetails: response.favorisDetails ?? $0.favorisDetails,
+                    routine: $0.routine,
+                    votes: $0.votes,
+                    oneSignalPlayerId: $0.oneSignalPlayerId,
+                    favoriteLines: $0.favoriteLines,
+                    weeklyDigestEnabled: $0.weeklyDigestEnabled
+                )
+            }) {
+                session.applyCurrentUserUpdate(updatedUser)
+            }
         } catch {
             print("Add favori failed: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
         }
     }
 }
