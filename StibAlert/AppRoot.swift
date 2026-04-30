@@ -83,7 +83,16 @@ struct AppRoot: View {
                 .presentationDragIndicator(.visible)
         }
         .onChange(of: session.isSignedIn) { _, signedIn in
-            if signedIn { nav.showAuthFlow = false }
+            guard signedIn else { return }
+            if session.activationSuccessVisible {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    session.activationSuccessVisible = false
+                    nav.showAuthFlow = false
+                }
+            } else {
+                nav.showAuthFlow = false
+            }
         }
         .task { await session.bootstrap() }
         .task(id: session.currentUser?.id) {
@@ -297,12 +306,13 @@ private struct StibiOverlay: View {
     private var compactOverlay: some View {
         AnimatedStibiOrb(visualState: effectiveVisualState)
             .padding(10)
-            .background(Color(hex: "#0D1320").opacity(0.96))
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(DS.Color.paper.opacity(0.98))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
             )
+            .shadow(DS.Shadow.floating)
             .onTapGesture(perform: onTap)
     }
 
@@ -313,15 +323,15 @@ private struct StibiOverlay: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text(data.name)
-                        .font(.custom("DelaGothicOne-Regular", size: 13))
-                        .foregroundStyle(.white)
+                        .font(DS.Font.sectionTitle)
+                        .foregroundStyle(DS.Color.ink)
 
                     Text(data.severityLabel)
-                        .font(.custom("Montserrat-SemiBold", size: 10))
-                        .foregroundStyle(Color.white.opacity(0.72))
+                        .font(DS.Font.eyebrow)
+                        .foregroundStyle(DS.Color.inkMute)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(Color.white.opacity(0.08))
+                        .background(DS.Color.paper2.opacity(0.85))
                         .clipShape(Capsule())
 
                     Spacer()
@@ -329,23 +339,23 @@ private struct StibiOverlay: View {
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.7))
+                            .foregroundStyle(DS.Color.inkMute)
                     }
                     .buttonStyle(.plain)
                 }
 
                 Text(data.title)
-                    .font(.custom("DelaGothicOne-Regular", size: 15))
-                    .foregroundStyle(.white)
+                    .font(DS.Font.displayH3)
+                    .foregroundStyle(DS.Color.ink)
 
                 Text(message)
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(Color.white.opacity(0.82))
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 8) {
                     Text(data.confidenceLabel)
-                        .font(.custom("Montserrat-SemiBold", size: 11))
+                        .font(DS.Font.monoSmall)
                         .foregroundStyle(glowColor)
 
                     Spacer()
@@ -355,12 +365,12 @@ private struct StibiOverlay: View {
                             Image(systemName: "waveform.circle.fill")
                                 .font(.system(size: 12))
                             Text("Parler")
-                                .font(.custom("Montserrat-SemiBold", size: 11))
+                                .font(DS.Font.bodyBold)
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(DS.Color.primaryForeground)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
-                        .background(glowColor)
+                        .background(DS.Color.primary)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -370,16 +380,16 @@ private struct StibiOverlay: View {
                     Button(action: { onAction(primaryAction) }) {
                         HStack(spacing: 8) {
                             Text(primaryAction.label)
-                                .font(.custom("Montserrat-SemiBold", size: 12))
+                                .font(DS.Font.bodyBold)
                             Spacer()
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 11, weight: .bold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DS.Color.ink)
                         .padding(.horizontal, 12)
                         .frame(height: 40)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(DS.Color.paper2.opacity(0.85))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -387,12 +397,13 @@ private struct StibiOverlay: View {
         }
         .padding(14)
         .frame(width: 292, alignment: .leading)
-        .background(Color(hex: "#0D1320").opacity(0.97))
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(DS.Color.paper.opacity(0.985))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
         )
+        .shadow(DS.Shadow.floating)
         .onTapGesture(perform: onTap)
     }
 }
@@ -443,11 +454,11 @@ private struct AnimatedStibiOrb: View {
                 .opacity(visualState == "idle" ? 0.45 : 0.9)
 
             Circle()
-                .fill(Color(hex: "#10151F"))
+                .fill(DS.Color.ink)
                 .frame(width: 38, height: 38)
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                        .stroke(DS.Color.paper.opacity(0.14), lineWidth: 1)
                 )
 
             Circle()
@@ -486,6 +497,10 @@ private struct StibiConversationPanel: View {
     @State private var input = ""
     @StateObject private var voiceManager = StibiVoiceCommandManager()
 
+    private var hasInlineActions: Bool {
+        !(brief?.actions.isEmpty ?? true)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -493,11 +508,11 @@ private struct StibiConversationPanel: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Stibi")
-                        .font(.custom("DelaGothicOne-Regular", size: 18))
-                        .foregroundStyle(.white)
+                        .font(DS.Font.displayH3)
+                        .foregroundStyle(DS.Color.ink)
                     Text(headerSubtitle)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(Color.white.opacity(0.68))
+                        .font(DS.Font.eyebrow)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
 
                 Spacer()
@@ -505,14 +520,14 @@ private struct StibiConversationPanel: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.72))
+                        .foregroundStyle(DS.Color.inkMute)
                 }
                 .buttonStyle(.plain)
 
                 Button(action: onSpeak) {
                     Image(systemName: isSpeaking ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(DS.Color.ink)
                 }
                 .buttonStyle(.plain)
             }
@@ -522,25 +537,32 @@ private struct StibiConversationPanel: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 12) {
                     if let brief, history.isEmpty {
+                        sectionHeader("ÉDITION EN COURS")
                         StibiBubble(text: brief.message, role: .assistant)
                     }
 
-                    ForEach(history) { entry in
-                        StibiBubble(text: entry.text, role: entry.role)
+                    if !history.isEmpty {
+                        sectionHeader("FIL DE CONVERSATION")
+
+                        ForEach(history) { entry in
+                            StibiBubble(text: entry.text, role: entry.role)
+                        }
                     }
 
-                    if let brief, !brief.actions.isEmpty {
+                    if let brief, hasInlineActions {
+                        sectionHeader("RACCOURCIS")
+
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(brief.actions) { action in
                                     Button(action.label) {
                                         onAction(action)
                                     }
-                                    .font(.custom("Montserrat-SemiBold", size: 12))
-                                    .foregroundStyle(.white)
+                                    .font(DS.Font.bodyBold)
+                                    .foregroundStyle(DS.Color.ink)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
-                                    .background(Color.white.opacity(0.08))
+                                    .background(DS.Color.paper2.opacity(0.85))
                                     .clipShape(Capsule())
                                     .buttonStyle(.plain)
                                 }
@@ -550,43 +572,44 @@ private struct StibiConversationPanel: View {
                     }
 
                     if currentScreen == "favorites" || currentScreen == "home" {
+                        sectionHeader("ROUTINE")
+
                         Button {
                             onLoadCommuteBrief()
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "figure.walk.motion")
-                                Text("Mon trajet quotidien")
-                                    .font(.custom("Montserrat-SemiBold", size: 12))
+                                Text("Brief trajet du jour")
+                                    .font(DS.Font.bodyBold)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
                                     .font(.system(size: 11, weight: .bold))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(DS.Color.ink)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 12)
-                            .background(Color(hex: "#151E2C"))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(DS.Color.paper2.opacity(0.85))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 16)
                     }
 
                     if !suggestions.isEmpty {
+                        sectionHeader("QUESTIONS UTILES")
+
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Commandes utiles")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(Color.white.opacity(0.68))
                             ForEach(suggestions, id: \.self) { suggestion in
                                 Button(suggestion) {
                                     onSend(suggestion)
                                 }
-                                .font(.custom("Montserrat-Regular", size: 13))
-                                .foregroundStyle(.white)
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.ink)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 12)
-                                .background(Color.white.opacity(0.06))
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(DS.Color.paper2.opacity(0.72))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .buttonStyle(.plain)
                             }
                         }
@@ -595,17 +618,19 @@ private struct StibiConversationPanel: View {
 
                     if voiceManager.authorizationDenied {
                         Text("Active le micro et la reconnaissance vocale pour utiliser les commandes vocales de Stibi.")
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(Color.white.opacity(0.62))
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
                             .padding(.horizontal, 16)
                     } else if voiceManager.isListening || !voiceManager.transcript.isEmpty {
+                        sectionHeader("DICTÉE")
+
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(voiceManager.isListening ? "Stibi écoute..." : "Commande vocale")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
+                            Text(voiceManager.isListening ? "STIBI ÉCOUTE" : "COMMANDE VOCALE")
+                                .font(DS.Font.eyebrow)
                                 .foregroundStyle(Color(hex: "#73F0D2"))
                             Text(voiceManager.transcript.isEmpty ? "Parle maintenant." : voiceManager.transcript)
-                                .font(.custom("Montserrat-Regular", size: 13))
-                                .foregroundStyle(.white)
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.ink)
                         }
                         .padding(.horizontal, 16)
                     }
@@ -617,10 +642,14 @@ private struct StibiConversationPanel: View {
 
             HStack(spacing: 10) {
                 TextField("Demande-moi une action utile", text: $input)
-                    .font(.custom("Montserrat-Regular", size: 14))
-                    .foregroundStyle(.white)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.ink)
                     .textInputAutocapitalization(.sentences)
                     .autocorrectionDisabled()
+                    .padding(.horizontal, 12)
+                    .frame(height: 40)
+                    .background(DS.Color.paper2.opacity(0.72))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 Button {
                     Task {
@@ -633,10 +662,11 @@ private struct StibiConversationPanel: View {
                     Image(systemName: voiceManager.isListening ? "waveform" : "mic.fill")
                         .font(.system(size: 13, weight: .bold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(DS.Color.ink)
                 .frame(width: 38, height: 38)
-                .background(Color(hex: "#B5CFF8"))
+                .background(DS.Color.paper2)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
                 .buttonStyle(.plain)
 
                 Button {
@@ -651,36 +681,51 @@ private struct StibiConversationPanel: View {
                             .font(.system(size: 13, weight: .bold))
                     }
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(DS.Color.primaryForeground)
                 .frame(width: 38, height: 38)
-                .background(Color(hex: "#73F0D2"))
+                .background(DS.Color.primary)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
                 .buttonStyle(.plain)
                 .disabled(isSending || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 16)
-            .background(Color.white.opacity(0.03))
+            .background(DS.Color.paper.opacity(0.7))
         }
-        .background(Color(hex: "#0B111E").opacity(0.98))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(DS.Color.paper.opacity(0.985))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
         )
+        .shadow(DS.Shadow.overlay)
         .frame(maxWidth: .infinity)
         .frame(maxHeight: 540, alignment: .bottom)
     }
 
     private var headerSubtitle: String {
         switch currentScreen {
-        case "favorites": return "veille favorites"
-        case "signalements": return "lecture réseau"
-        case "profile", "profile_main": return "profil et habitudes"
-        case "report": return "aide au signalement"
-        default: return "copilote mobilité"
+        case "favorites": return "VEILLE FAVORIS"
+        case "signalements": return "LECTURE RÉSEAU"
+        case "profile", "profile_main": return "PROFIL & HABITUDES"
+        case "report": return "AIDE AU SIGNALEMENT"
+        default: return "ÉDITION MOBILITÉ"
         }
+    }
+
+    private func sectionHeader(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(text)
+                .font(DS.Font.eyebrow)
+                .foregroundStyle(DS.Color.inkMute)
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.1))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
     }
 }
 
@@ -702,12 +747,23 @@ private struct StibiBubble: View {
     }
 
     private var content: some View {
-        Text(text)
-            .font(.custom("Montserrat-Regular", size: 13))
-            .foregroundStyle(role == .assistant ? .white : .black)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(role == .assistant ? Color.white.opacity(0.08) : Color(hex: "#73F0D2"))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        VStack(alignment: .leading, spacing: 8) {
+            Text(role == .assistant ? "STIBI" : "VOUS")
+                .font(DS.Font.eyebrow)
+                .foregroundStyle(role == .assistant ? DS.Color.inkMute : DS.Color.primaryForeground.opacity(0.85))
+
+            Text(text)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(role == .assistant ? DS.Color.ink : DS.Color.primaryForeground)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(role == .assistant ? DS.Color.paper2.opacity(0.82) : DS.Color.primary)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(DS.Color.ink.opacity(role == .assistant ? 0.08 : 0), lineWidth: 1)
+        )
     }
 }

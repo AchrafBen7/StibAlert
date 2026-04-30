@@ -1,5 +1,30 @@
 import Foundation
 
+struct HomeDashboardData {
+    let commuteBrief: AssistantBriefDTO?
+    let decision: TransportHomeDecisionData?
+    let recommendedAlternative: HomeRecommendedAlternativeItem?
+    let recommendedAlternativeDetail: TransportAlternativeDTO?
+    let monitoredLines: [HomeMonitoredLineItem]
+    let nearbyAlerts: [HomeNearbyAlertItem]
+    let favoriteLines: [HomeFavoriteLineItem]
+}
+
+struct HomeMonitoredLineItem: Identifiable {
+    let id: String
+    let line: String
+    let statusText: String
+    let departureText: String
+}
+
+struct HomeNearbyAlertItem: Identifiable {
+    let id: String
+    let line: String
+    let title: String
+    let detail: String
+    let confirmationText: String
+}
+
 struct HomeRecommendedAlternativeItem: Identifiable {
     let id: String
     let title: String

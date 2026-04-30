@@ -11,6 +11,7 @@ final class AuthSession: ObservableObject {
     @Published private(set) var state: State = .unknown
     @Published var pendingActivationToken: String? = nil
     @Published var pendingActivationEmail: String? = nil
+    @Published var activationSuccessVisible = false
 
     private var sessionExpiredObserver: NSObjectProtocol?
 
@@ -87,6 +88,7 @@ final class AuthSession: ObservableObject {
         if let refresh = auth.refreshToken { KeychainHelper.saveRefreshToken(refresh) }
         pendingActivationToken = nil
         pendingActivationEmail = nil
+        activationSuccessVisible = true
         state = .signedIn(auth.utilisateur)
         PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
@@ -115,6 +117,7 @@ final class AuthSession: ObservableObject {
         KeychainHelper.deleteRefreshToken()
         pendingActivationToken = nil
         pendingActivationEmail = nil
+        activationSuccessVisible = false
         PushNotificationManager.current?.logoutOneSignal()
         state = .signedOut
     }

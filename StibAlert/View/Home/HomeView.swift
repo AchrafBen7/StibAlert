@@ -182,6 +182,10 @@ struct HomeView: View {
         eventImpacts.filter(isRelevantMapEvent(_:)).count
     }
 
+    private var isStopDetailPresented: Bool {
+        selectedMapStopSummary != nil
+    }
+
     private var transitionSpring: Animation {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
@@ -197,17 +201,18 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) {
             if nav.showReportSheet {
-                ReportSheetView(
+                QuickReportSheetView(
                     isShowing: $nav.showReportSheet,
                     userLatitude: locationManager.userCoordinate?.latitude,
-                    userLongitude: locationManager.userCoordinate?.longitude
+                    userLongitude: locationManager.userCoordinate?.longitude,
+                    activeSignalements: remoteSignalements
                 )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(5)
             }
         }
         .overlay(alignment: .top) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented {
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         HomeEditorialSearchField(query: $searchQuery)
@@ -292,6 +297,7 @@ struct HomeView: View {
                nav.currentPage == .home,
                !nav.showReportSheet,
                !nav.showSideMenu,
+               !isStopDetailPresented,
                !showLegend,
                routeOptions.isEmpty {
                 SignalementMiniCard(
@@ -316,7 +322,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, routeOptions.isEmpty, selectedSignalementPreview == nil {
+            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented, routeOptions.isEmpty, selectedSignalementPreview == nil {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
@@ -333,7 +339,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if !nav.showReportSheet, routeOptions.isEmpty, selectedARRoute == nil, selectedRouteDetail == nil {
+            if !nav.showReportSheet, !isStopDetailPresented, routeOptions.isEmpty, selectedARRoute == nil, selectedRouteDetail == nil {
                 AppTabBar(selection: Binding(
                     get: { AppTab.from(page: nav.currentPage) },
                     set: { newTab in
@@ -561,7 +567,7 @@ struct HomeView: View {
             }
         }
         .mapStyle(.standard(elevation: .realistic))
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, .light)
         .ignoresSafeArea()
         .allowsHitTesting(searchSuggestions.isEmpty)
         .onMapCameraChange(frequency: .onEnd) { ctx in
@@ -590,27 +596,29 @@ struct HomeView: View {
     // MARK: - Controls (search + floating buttons)
 
     @ViewBuilder private var controlsLayer: some View {
-        VStack {
-            Spacer()
-
-            HStack {
+        if !isStopDetailPresented {
+            VStack {
                 Spacer()
 
-                VStack(spacing: 12) {
-                    HelpFloatingButton {
-                        withAnimation(transitionSpring) {
-                            showLegend = true
+                HStack {
+                    Spacer()
+
+                    VStack(spacing: 12) {
+                        HelpFloatingButton {
+                            withAnimation(transitionSpring) {
+                                showLegend = true
+                            }
+                        }
+
+                        LocationFloatingButton {
+                            recenterOnUser()
                         }
                     }
-
-                    LocationFloatingButton {
-                        recenterOnUser()
-                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 150)
+                .zIndex(2)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 150)
-            .zIndex(2)
         }
     }
 
@@ -2233,77 +2241,136 @@ private struct EventMapMarker: View {
 }
 
 private struct HomeVilloStationSheet: View {
+    @Environment(\.openURL) private var openURL
     let station: VilloStation
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            Capsule()
+                .fill(DS.Color.ink.opacity(0.22))
+                .frame(width: 42, height: 5)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 4)
+
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(station.displayName)
-                        .font(.custom("DelaGothicOne-Regular", size: 20))
-                        .foregroundStyle(.white)
+                    Text("VILLO! · STATION \(station.number)")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.8)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    Text("\(station.number) - \(station.displayName)")
+                        .font(DS.Font.displayH2)
+                        .foregroundStyle(DS.Color.ink)
 
                     Text(station.address)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.white.opacity(0.72))
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(station.occupancyStateLabel)
-                        .font(.custom("Montserrat-SemiBold", size: 12))
-                        .foregroundStyle(statusAccent)
+                    Text(station.availabilityLabel)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+
+                    Text(capacityLine)
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.inkSoft)
                 }
 
                 Spacer()
 
                 Text(station.statusLabel)
-                    .font(.custom("Montserrat-SemiBold", size: 11))
-                    .foregroundStyle(station.isOperational ? Color.black : .white)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(station.isOperational ? statusAccent : DS.Color.paper)
                     .padding(.horizontal, 10)
                     .frame(height: 28)
-                    .background(statusAccent)
+                    .background(station.isOperational ? statusAccent.opacity(0.16) : statusAccent)
+                    .overlay(
+                        Capsule()
+                            .stroke(station.isOperational ? statusAccent.opacity(0.35) : statusAccent, lineWidth: 1.5)
+                    )
                     .clipShape(Capsule())
             }
+
+            Button {
+                openWalkingDirections()
+            } label: {
+                HStack(spacing: 8) {
+                    Text("ITINÉRAIRE À PIED")
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 13, weight: .bold))
+                }
+                .font(DS.Font.mono.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(DS.Color.ink)
+                .padding(.horizontal, 16)
+                .frame(height: 52)
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+            }
+            .buttonStyle(.plain)
 
             HStack(spacing: 10) {
                 villoMetricPill(title: "Vélos", value: "\(station.availableBikes)")
                 villoMetricPill(title: "Places", value: "\(station.availableBikeStands)")
-                villoMetricPill(title: "Bornes", value: "\(station.bikeStands)")
+                villoMetricPill(title: "Capacité", value: "\(station.bikeStands)")
             }
 
             if let lastUpdate = station.lastUpdate {
                 let date = Date(timeIntervalSince1970: TimeInterval(lastUpdate) / 1000)
                 Text("Mis à jour \(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))")
-                    .font(.custom("Montserrat-Regular", size: 12))
-                    .foregroundStyle(.white.opacity(0.62))
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(20)
-        .presentationBackground(Color(hex: "#111827"))
+        .background(DS.Color.paper)
+        .presentationBackground(DS.Color.paper)
     }
 
     private var statusAccent: Color {
-        if !station.isOperational { return Color.white.opacity(0.12) }
-        if station.availableBikes == 0 { return Color(hex: "#FF7A7A") }
-        if station.availableBikeStands == 0 { return Color(hex: "#7DB6FF") }
-        if station.availableBikes <= 3 { return Color(hex: "#FFB15A") }
-        return Color(hex: "#57E3B6")
+        if !station.isOperational { return DS.Color.inkMute }
+        if station.availableBikes == 0 { return DS.Color.statusMajor }
+        if station.availableBikeStands == 0 { return DS.Color.accent }
+        if station.availableBikes <= 3 { return DS.Color.statusMinor }
+        return DS.Color.villo
+    }
+
+    private var capacityLine: String {
+        let bankingLabel = station.banking ? "CB" : "Sans CB"
+        return "Capacité \(station.bikeStands) • \(bankingLabel)"
+    }
+
+    private func openWalkingDirections() {
+        let latitude = station.coordinate.latitude
+        let longitude = station.coordinate.longitude
+        guard let url = URL(string: "http://maps.apple.com/?daddr=\(latitude),\(longitude)&dirflg=w") else { return }
+        openURL(url)
     }
 
     private func villoMetricPill(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.custom("Montserrat-SemiBold", size: 10))
+                .font(DS.Font.monoSmall.weight(.bold))
                 .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.52))
+                .foregroundStyle(DS.Color.inkMute)
             Text(value)
-                .font(.custom("DelaGothicOne-Regular", size: 16))
-                .foregroundStyle(.white)
+                .font(DS.Font.displayH3)
+                .foregroundStyle(DS.Color.ink)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06))
+        .background(DS.Color.paper2.opacity(0.55))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
@@ -4259,7 +4326,7 @@ private struct ARMiniMapCard: View {
                     }
                 }
                 .mapStyle(.standard(elevation: .flat))
-                .environment(\.colorScheme, .dark)
+                .environment(\.colorScheme, .light)
                 .allowsHitTesting(false)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
             }

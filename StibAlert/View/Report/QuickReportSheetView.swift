@@ -16,7 +16,6 @@ struct QuickReportSheetView: View {
     @State private var isSubmitting: Bool = false
     @State private var submitError: String? = nil
     @State private var submitSuccess: Bool = false
-    @State private var showStopPicker: Bool = false
     @State private var confirmingExistingId: String? = nil
 
     @State private var showConfetti: Bool = false
@@ -73,6 +72,28 @@ struct QuickReportSheetView: View {
         }
     }
 
+    private var currentStep: Int {
+        if selectedStop == nil { return 1 }
+        if selectedLine == nil { return 2 }
+        return 3
+    }
+
+    private var sheetTitle: String {
+        switch currentStep {
+        case 1: return "Arrêts à proximité"
+        case 2: return "Ligne concernée"
+        default: return "Quel est le problème ?"
+        }
+    }
+
+    private var sheetSubtitle: String {
+        switch currentStep {
+        case 1: return "Signaler un arrêt"
+        case 2: return selectedStop?.name ?? "Choisissez la ligne desservie"
+        default: return selectedLine?.direction ?? "Décrivez l’incident"
+        }
+    }
+
     var body: some View {
         ZStack {
             DS.Color.ink.opacity(0.42)
@@ -95,11 +116,6 @@ struct QuickReportSheetView: View {
             }
         }
         .onAppear(perform: bootstrap)
-        .sheet(isPresented: $showStopPicker) {
-            stopPickerSheet
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     private var sheetContent: some View {
@@ -107,7 +123,8 @@ struct QuickReportSheetView: View {
             handleBar
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 20) {
+                    progressHeader
                     stopSection
                     if !matchingActiveSignalements.isEmpty {
                         activeHereSection
@@ -134,6 +151,46 @@ struct QuickReportSheetView: View {
             submitBar
         }
         .frame(maxHeight: screen - safeTop - 24)
+    }
+
+    private var progressHeader: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 0) {
+                ForEach(1...3, id: \.self) { step in
+                    HStack(spacing: 0) {
+                        ZStack {
+                            Circle()
+                                .fill(step <= currentStep ? DS.Color.paper : DS.Color.paper)
+                                .frame(width: 34, height: 34)
+                            Circle()
+                                .stroke(step <= currentStep ? DS.Color.ink : DS.Color.ink.opacity(0.25), lineWidth: 1.5)
+                                .frame(width: 34, height: 34)
+                            Text("\(step)")
+                                .font(DS.Font.mono.weight(.bold))
+                                .foregroundStyle(step <= currentStep ? DS.Color.ink : DS.Color.inkMute)
+                        }
+
+                        if step < 3 {
+                            Rectangle()
+                                .fill(DS.Color.ink.opacity(0.18))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 1.5)
+                        }
+                    }
+                }
+            }
+            .frame(height: 34)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(sheetTitle)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(sheetSubtitle)
+                    .font(.system(size: 14))
+                    .foregroundStyle(DS.Color.inkSoft)
+            }
+        }
+        .padding(.horizontal, 18)
     }
 
     // MARK: - Handle
@@ -171,158 +228,124 @@ struct QuickReportSheetView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle(icon: "mappin.and.ellipse", text: "1 · Arrêt")
 
-            Button {
-                showStopPicker = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "location.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(autoDetectedStop ? DS.Color.primaryForeground : DS.Color.ink)
-                        .frame(width: 30, height: 30)
-                        .background(autoDetectedStop ? DS.Color.statusOK : DS.Color.secondary)
-                        .clipShape(Circle())
+            stopSearchField
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        if isLoadingStops {
-                            HStack(spacing: 6) {
-                                ProgressView().scaleEffect(0.7)
-                                Text("Recherche...")
-                                    .font(AppTheme.Fonts.title3)
-                                    .foregroundStyle(DS.Color.inkMute)
-                            }
-                        } else {
-                            Text(selectedStop?.name ?? "Choisir un arrêt")
-                                .font(DS.Font.displayH3)
-                                .foregroundStyle(DS.Color.ink)
-                                .lineLimit(1)
-                        }
-                        Text(autoDetectedStop ? "Détecté à proximité" : (isLoadingStops ? "" : "Toucher pour changer"))
-                            .font(DS.Font.bodySmall)
-                            .foregroundStyle(DS.Color.inkMute)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+            if isLoadingStops {
+                HStack(spacing: 8) {
+                    ProgressView().scaleEffect(0.85)
+                    Text("Recherche des arrêts à proximité…")
+                        .font(.system(size: 12.5))
                         .foregroundStyle(DS.Color.inkMute)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 48)
-                .background(DS.Color.paper)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(autoDetectedStop ? DS.Color.statusOK.opacity(0.45) : DS.Color.border, lineWidth: 1)
-                )
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+            } else if filteredNearbyStops.isEmpty {
+                Text("Aucun arrêt trouvé pour cette recherche.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 6)
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                    ForEach(filteredNearbyStops) { stop in
+                        stopCard(stop)
+                    }
+                }
+                .padding(.horizontal, 18)
             }
-            .buttonStyle(.plain)
         }
+    }
+
+    private var stopSearchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(DS.Color.inkMute)
+
+            TextField("Rechercher un arrêt ou une ligne", text: $stopSearchQuery)
+                .font(.system(size: 14))
+                .foregroundStyle(DS.Color.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+
+            if !stopSearchQuery.isEmpty {
+                Button {
+                    stopSearchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .background(DS.Color.paper2.opacity(0.55))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 18)
     }
 
-    private var stopPickerSheet: some View {
-        NavigationStack {
-            Group {
-                if isLoadingStops {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Recherche des arrêts...")
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if nearbyStops.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "mappin.slash")
-                            .font(.system(size: 32))
-                            .foregroundStyle(AppTheme.Palette.textMuted)
-                        Text("Aucun arrêt trouvé à proximité")
-                            .font(AppTheme.Fonts.body)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(AppTheme.Palette.textMuted)
+    private func stopCard(_ stop: NearbyStop) -> some View {
+        let isSelected = selectedStop?.id == stop.id
+        let primaryLine = stop.issueLines.first?.number ?? stop.lines.first?.number ?? "?"
+        let direction = stop.issueLines.first?.direction ?? "Direction à confirmer"
+        let borderColor = isSelected ? DS.Color.community.opacity(0.8) : DS.Color.ink.opacity(0.08)
 
-                            TextField(
-                                "",
-                                text: $stopSearchQuery,
-                                prompt: Text("Rechercher un arrêt ou une ligne")
-                                    .foregroundStyle(AppTheme.Palette.textMuted)
-                            )
-                            .font(AppTheme.Fonts.body)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .textInputAutocapitalization(.words)
-                            .autocorrectionDisabled()
-                        }
-                        .padding(.horizontal, 14)
-                        .frame(height: 44)
-                        .background(AppTheme.Palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                        .padding(.bottom, 8)
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selectedStop = stop
+            selectedLine = stop.issueLines.first
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    Text(stop.name.uppercased())
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Circle()
+                        .fill(isSelected ? DS.Color.community : DS.Color.community.opacity(0.65))
+                        .frame(width: 10, height: 10)
+                }
 
-                        List {
-                            ForEach(filteredNearbyStops) { stop in
-                                Button {
-                                    selectedStop = stop
-                                    selectedLine = stop.issueLines.first
-                                    showStopPicker = false
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            Text(stop.name)
-                                                .font(AppTheme.Fonts.bodyStrong)
-                                                .foregroundStyle(AppTheme.Palette.textPrimary)
-                                            Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
-                                                .font(AppTheme.Fonts.caption)
-                                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                HStack(spacing: 6) {
+                    LineBadge(line: primaryLine, size: .sm)
 
-                                            ScrollView(.horizontal, showsIndicators: false) {
-                                                HStack(spacing: 6) {
-                                                    ForEach(Array(stop.lines.prefix(4))) { line in
-                                                        Text(line.number)
-                                                            .font(AppTheme.Fonts.captionStrong)
-                                                            .foregroundStyle(AppTheme.Palette.textOnBrand)
-                                                            .frame(width: 28, height: 22)
-                                                            .background(line.color)
-                                                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
-                                                    }
-                                                }
-                                            }
-
-                                            if let primaryDirection = stop.issueLines.first?.direction {
-                                                Text(primaryDirection)
-                                                    .font(AppTheme.Fonts.caption)
-                                                    .foregroundStyle(AppTheme.Palette.textSecondary)
-                                                    .lineLimit(2)
-                                            }
-                                        }
-                                        Spacer()
-                                        if selectedStop?.id == stop.id {
-                                            Image(systemName: "checkmark")
-                                                .foregroundStyle(AppTheme.Palette.success)
-                                        }
-                                    }
-                                }
-                                .listRowBackground(AppTheme.Palette.screen)
-                            }
-                        }
-                        .listStyle(.plain)
+                    ForEach(Array(stop.lines.dropFirst().prefix(2))) { line in
+                        LineBadge(line: line.number, size: .sm)
                     }
                 }
+                .padding(.top, 14)
+
+                Text(direction.uppercased())
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(2)
+                    .padding(.top, 12)
+
+                Spacer(minLength: 10)
+
+                Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
+                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(.top, 16)
             }
-            .background(AppTheme.Palette.screen)
-            .navigationTitle("Changer d'arrêt")
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
+            .background(isSelected ? DS.Color.hsl(221, 56, 78) : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(borderColor, lineWidth: isSelected ? 1.5 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .shadow(color: DS.Color.ink.opacity(isSelected ? 0.08 : 0.04), radius: 8, x: 0, y: 4)
         }
-        .preferredColorScheme(.dark)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Lines
@@ -332,18 +355,16 @@ struct QuickReportSheetView: View {
             sectionTitle(icon: "tram.fill", text: "2 · Ligne")
 
             if let stop = selectedStop, !stop.issueLines.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(stop.issueLines) { line in
-                            lineChip(line)
-                        }
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    ForEach(stop.issueLines) { line in
+                        lineChip(line)
                     }
-                    .padding(.horizontal, 18)
                 }
+                .padding(.horizontal, 18)
             } else {
                 Text("Sélectionnez un arrêt pour voir les lignes")
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textMuted)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(DS.Color.inkMute)
                     .padding(.horizontal, 18)
             }
         }
@@ -355,29 +376,73 @@ struct QuickReportSheetView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedLine = line
         } label: {
-            HStack(spacing: 6) {
-                Text(line.number)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(line.lineTextColor)
-                    .frame(width: 26, height: 26)
-                    .background(line.color)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 10) {
+                    LineBadge(line: line.number, size: .lg)
+                    Spacer(minLength: 4)
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Color.paper)
+                            .frame(width: 20, height: 20)
+                            .background(DS.Color.ink)
+                            .clipShape(Circle())
+                    }
+                }
 
-                Text(line.direction)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
-                    .lineLimit(1)
+                Text(line.direction.uppercased())
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(2)
+                    .padding(.top, 14)
+
+                HStack(spacing: 6) {
+                    crowdingTag(for: line.crowding)
+                    reliabilityTag(line.reliability)
+                }
+                .padding(.top, 10)
             }
-            .padding(.horizontal, 10)
-            .frame(height: AppTheme.ButtonHeight.secondary)
-            .background(isSelected ? AppTheme.Palette.surfaceElevated : AppTheme.Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+            .background(isSelected ? DS.Color.paper2.opacity(0.75) : DS.Color.paper)
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                    .stroke(isSelected ? AppTheme.Palette.info : Color.clear, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
+    }
+
+    private func crowdingTag(for crowding: IssueLineCrowding) -> some View {
+        let color: Color
+        switch crowding {
+        case .low:
+            color = DS.Color.statusOK
+        case .medium:
+            color = DS.Color.statusMinor
+        case .high:
+            color = DS.Color.statusMajor
+        }
+
+        return Text(crowding.label.uppercased())
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12))
+            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
+            .clipShape(Capsule())
+    }
+
+    private func reliabilityTag(_ reliability: Int) -> some View {
+        Text("\(max(0, reliability))% FIABLE")
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .foregroundStyle(DS.Color.inkMute)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .overlay(Capsule().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+            .clipShape(Capsule())
     }
 
     // MARK: - Problems
@@ -401,34 +466,53 @@ struct QuickReportSheetView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedProblem = type
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack {
+                    Image(systemName: typeIcon(type))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(isSelected ? DS.Color.paper : type.accentColor)
                     Text(type.title)
-                        .font(AppTheme.Fonts.bodyStrong)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
                     Spacer()
                     Circle()
-                        .fill(type.accentColor)
-                        .frame(width: 10, height: 10)
+                        .fill(isSelected ? DS.Color.paper.opacity(0.88) : type.accentColor)
+                        .frame(width: 9, height: 9)
                 }
                 Text(type.descriptionLines.first ?? "")
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand.opacity(0.78))
-                    .lineLimit(1)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(isSelected ? DS.Color.paper.opacity(0.82) : DS.Color.inkSoft)
+                    .lineLimit(2)
+                    .padding(.top, 10)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
-            .background(type.backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
+            .background(isSelected ? type.accentColor : DS.Color.paper)
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(isSelected ? 0.85 : 0), lineWidth: 2)
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(isSelected ? type.accentColor : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
             )
-            .scaleEffect(isSelected ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.15), value: isSelected)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
+    }
+
+    private func typeIcon(_ type: ReportProblemType) -> String {
+        switch type {
+        case .accident:
+            return "exclamationmark.triangle.fill"
+        case .delay:
+            return "clock.fill"
+        case .breakdown:
+            return "wrench.and.screwdriver.fill"
+        case .incivility:
+            return "person.2.slash.fill"
+        case .cleanliness:
+            return "sparkles"
+        case .aggression:
+            return "shield.lefthalf.filled"
+        }
     }
 
     // MARK: - Active here
@@ -453,25 +537,20 @@ struct QuickReportSheetView: View {
         let confirmations = signalement.community?.confirmations ?? 0
         let isConfirming = confirmingExistingId == signalement.id
         return HStack(spacing: 10) {
-            Text(signalement.ligne)
-                .font(AppTheme.Fonts.captionStrong)
-                .foregroundStyle(AppTheme.Palette.textOnBrand)
-                .frame(width: 30, height: 30)
-                .background(AppTheme.Palette.warning)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+            LineBadge(line: signalement.ligne, size: .sm)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(signalement.typeProbleme)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
                 HStack(spacing: 6) {
                     Text(relativeTime(from: signalement.dateSignalement))
-                        .font(AppTheme.Fonts.caption)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(DS.Color.inkMute)
                     if confirmations > 0 {
                         Text("· \(confirmations) confirmé·e")
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(DS.Color.inkMute)
                     }
                 }
             }
@@ -481,19 +560,19 @@ struct QuickReportSheetView: View {
             Button(action: { confirmExisting(signalement) }) {
                 HStack(spacing: 4) {
                     if isConfirming {
-                        ProgressView().tint(AppTheme.Palette.textOnBrand).scaleEffect(0.7)
+                        ProgressView().tint(DS.Color.paper).scaleEffect(0.7)
                     } else {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
                     }
                     Text("Confirmer")
-                        .font(AppTheme.Fonts.captionStrong)
+                        .font(.system(size: 12, weight: .bold))
                 }
-                .foregroundStyle(AppTheme.Palette.textOnBrand)
+                .foregroundStyle(DS.Color.paper)
                 .padding(.horizontal, 10)
-                .frame(height: AppTheme.ButtonHeight.secondary)
-                .background(AppTheme.Palette.brandStrong)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                .frame(height: 34)
+                .background(DS.Color.ink)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .disabled(confirmingExistingId != nil)
@@ -501,8 +580,12 @@ struct QuickReportSheetView: View {
             .accessibilityHint("Ajoute votre confirmation à ce problème déjà signalé.")
         }
         .padding(10)
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: - Details
@@ -514,56 +597,74 @@ struct QuickReportSheetView: View {
                     detailsExpanded.toggle()
                 }
             } label: {
-                HStack {
-                    Image(systemName: "text.badge.plus")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("4 · Description (optionnel)")
-                        .font(DS.Font.eyebrow)
-                        .tracking(1.1)
-                    Spacer()
-                    Image(systemName: detailsExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "text.badge.plus")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("4 · Description")
+                                .font(DS.Font.sectionTitle)
+                            Text("OPTIONNEL")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                        Spacer()
+                        Image(systemName: detailsExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+
+                    if detailsExpanded {
+                        Rectangle()
+                            .fill(DS.Color.ink.opacity(0.1))
+                            .frame(height: 1)
+                            .padding(.horizontal, 14)
+
+                        ZStack(alignment: .topLeading) {
+                            TextEditor(text: $description)
+                                .scrollContentBackground(.hidden)
+                                .frame(minHeight: 112)
+                                .padding(10)
+                                .background(DS.Color.paper2.opacity(0.35))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .foregroundStyle(DS.Color.ink)
+                                .font(.system(size: 13))
+                            if description.isEmpty {
+                                Text("Ex : Tram bloqué depuis 5 min au feu, impossible de monter.")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(DS.Color.inkMute)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 18)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .padding(14)
+
+                        HStack {
+                            Text("Le signalement peut être envoyé sans texte.")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(DS.Color.inkMute)
+                            Spacer()
+                            Text("\(description.count)/280")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 14)
+                    }
                 }
-                .foregroundStyle(DS.Color.ink)
-                .padding(.horizontal, 14)
-                .frame(height: 40)
                 .background(DS.Color.paper)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
                 )
+                .clipShape(RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(detailsExpanded ? "Masquer les détails optionnels" : "Afficher les détails optionnels")
             .accessibilityHint("Permet d'ajouter une description au signalement.")
-
-            if detailsExpanded {
-                VStack(spacing: 10) {
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $description)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 90)
-                            .padding(10)
-                            .background(DS.Color.paper)
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                            .foregroundStyle(DS.Color.ink)
-                            .font(DS.Font.body)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                    .stroke(DS.Color.border, lineWidth: 1)
-                            )
-                        if description.isEmpty {
-                            Text("Ex : Tram bloqué depuis 5 min au feu.")
-                                .font(DS.Font.body)
-                                .foregroundStyle(DS.Color.inkMute)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 18)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                }
-            }
         }
         .padding(.horizontal, 18)
     }
@@ -580,7 +681,7 @@ struct QuickReportSheetView: View {
                     Text("Envoyé")
                 } else {
                     Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
-                    Text("Envoyer signalement")
+                    Text("Publier le signalement")
                 }
             }
             .font(DS.Font.bodyBold)

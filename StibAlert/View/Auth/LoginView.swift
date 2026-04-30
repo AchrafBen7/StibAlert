@@ -7,6 +7,7 @@ enum AuthEditorialMode: String {
 
 struct LoginView: View {
     @EnvironmentObject private var session: AuthSession
+    @Environment(\.dismiss) private var dismiss
     let onGoToSignUp: () -> Void
 
     @State private var email = ""
@@ -28,6 +29,7 @@ struct LoginView: View {
             socialSection
             AuthDivider()
             formSection
+            guestLink
         }
     }
 
@@ -162,6 +164,22 @@ struct LoginView: View {
             }
             isLoading = false
         }
+    }
+
+    private var guestLink: some View {
+        HStack {
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Text("CONTINUER EN TANT QU’INVITÉ →")
+                    .font(DS.Font.mono.weight(.bold))
+                    .foregroundColor(DS.Color.inkMute)
+                    .tracking(1.5)
+            }
+            Spacer()
+        }
+        .padding(.top, 24)
     }
 }
 

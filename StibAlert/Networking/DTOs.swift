@@ -29,6 +29,36 @@ struct CommuteRoutineDTO: Codable, Equatable {
     let departureTime: String
     let homeStopId: String?
     let workStopId: String?
+
+    init(
+        enabled: Bool,
+        homeLabel: String,
+        workLabel: String,
+        departureTime: String,
+        homeStopId: String?,
+        workStopId: String?
+    ) {
+        self.enabled = enabled
+        self.homeLabel = homeLabel
+        self.workLabel = workLabel
+        self.departureTime = departureTime
+        self.homeStopId = homeStopId
+        self.workStopId = workStopId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        homeLabel = try container.decodeIfPresent(String.self, forKey: .homeLabel) ?? "Domicile"
+        workLabel = try container.decodeIfPresent(String.self, forKey: .workLabel) ?? "Travail"
+        departureTime = try container.decodeIfPresent(String.self, forKey: .departureTime) ?? "08:15"
+        homeStopId = try container.decodeIfPresent(String.self, forKey: .homeStopId)
+        workStopId = try container.decodeIfPresent(String.self, forKey: .workStopId)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enabled, homeLabel, workLabel, departureTime, homeStopId, workStopId
+    }
 }
 
 struct FavoriDetailDTO: Codable, Identifiable, Equatable {

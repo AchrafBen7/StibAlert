@@ -46,6 +46,7 @@ struct SignUpView: View {
             AuthDivider()
             formSection
             termsBlock
+            guestLink
         }
     }
 
@@ -184,6 +185,22 @@ struct SignUpView: View {
             .lineSpacing(2)
             .frame(maxWidth: .infinity)
             .padding(.top, 20)
+    }
+
+    private var guestLink: some View {
+        HStack {
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Text("CONTINUER EN TANT QU’INVITÉ →")
+                    .font(DS.Font.mono.weight(.bold))
+                    .foregroundColor(DS.Color.inkMute)
+                    .tracking(1.5)
+            }
+            Spacer()
+        }
+        .padding(.top, 24)
     }
 
     private func submit() {

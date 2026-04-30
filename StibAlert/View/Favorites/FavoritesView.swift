@@ -543,8 +543,8 @@ struct FavoritesView: View {
                 stopBackendId: stop.id,
                 stopId: stop.id,
                 code: primaryLine,
-                codeColor: filter.badgeColor,
-                codeTextColor: filter.badgeTextColor,
+                codeColor: TransitLinePalette.fill(for: primaryLine),
+                codeTextColor: TransitLinePalette.foreground(for: primaryLine),
                 title: stop.nom,
                 crowding: stop.crowding ?? "Faible",
                 problemLabel: problemLabel,
@@ -553,7 +553,11 @@ struct FavoritesView: View {
                 filter: filter,
                 severity: severity,
                 detailLines: (stop.lignesDesservies ?? [primaryLine]).prefix(4).map {
-                    FavoriteLineChip(code: $0, color: filter.badgeColor, textColor: filter.badgeTextColor)
+                    FavoriteLineChip(
+                        code: $0,
+                        color: TransitLinePalette.fill(for: $0),
+                        textColor: TransitLinePalette.foreground(for: $0)
+                    )
                 },
                 lastUpdatedAt: stop.lastUpdatedAt,
                 lastProblemType: stop.lastProblemType,

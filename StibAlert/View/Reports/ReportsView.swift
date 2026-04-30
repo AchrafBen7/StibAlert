@@ -232,9 +232,6 @@ struct ReportsView: View {
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.md)
 
-                    editorialLineFilters
-                        .padding(.top, DS.Spacing.lg)
-
                     if let summary = currentSummary {
                         summaryPreview(summary)
                             .padding(.horizontal, DS.Spacing.xl)
@@ -248,6 +245,10 @@ struct ReportsView: View {
                     }
 
                     editorialNowSection
+                        .padding(.top, DS.Spacing.lg)
+
+                    editorialSearchSection
+                        .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.lg)
 
                     Section(header: editorialStickySegments) {
@@ -351,55 +352,6 @@ struct ReportsView: View {
 
     private var editorialHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 19) {
-                Button {
-                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
-                        nav.showSideMenu = true
-                    }
-                } label: {
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .fill(DS.Color.paper)
-                        .frame(width: 42, height: 40)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                        )
-                        .overlay(
-                            Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 20, weight: .regular))
-                                .foregroundStyle(DS.Color.ink)
-                        )
-                }
-                .buttonStyle(.plain)
-                .shadow(DS.Shadow.raised)
-
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(DS.Color.ink)
-
-                    TextField(
-                        "",
-                        text: $query,
-                        prompt: Text("Rechercher une ligne, un arrêt ou un problème")
-                            .foregroundStyle(DS.Color.inkMute)
-                    )
-                    .font(DS.Font.body)
-                    .foregroundStyle(DS.Color.ink)
-                    .textInputAutocapitalization(.words)
-                    .autocorrectionDisabled()
-                }
-                .padding(.horizontal, 14)
-                .frame(height: 40)
-                .background(DS.Color.paper)
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                )
-                .shadow(DS.Shadow.raised)
-            }
-
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     PageHeader(
@@ -407,7 +359,7 @@ struct ReportsView: View {
                         eyebrow: "Bruxelles · temps réel",
                         large: true
                     )
-                    Text("Flux temps réel mêlant perturbations officielles STIB, signalements communautaires et événements bruxellois.")
+                    Text("Perturbations, signalements et événements, en direct.")
                         .font(DS.Font.body)
                         .foregroundStyle(DS.Color.inkSoft)
                 }
@@ -440,17 +392,32 @@ struct ReportsView: View {
         }
     }
 
-    private var editorialLineFilters: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(availableLineFilters, id: \.self) { line in
-                    Chip(label: line == "Tout" ? "Tout" : "Ligne \(line)", active: selectedLineFilter == line, icon: { EmptyView() }) {
-                        selectedLineFilter = line
-                    }
-                }
-            }
-            .padding(.horizontal, DS.Spacing.xl)
+    private var editorialSearchSection: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(DS.Color.ink)
+
+            TextField(
+                "",
+                text: $query,
+                prompt: Text("Rechercher une ligne, un arrêt ou un problème")
+                    .foregroundStyle(DS.Color.inkMute)
+            )
+            .font(DS.Font.body)
+            .foregroundStyle(DS.Color.ink)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
         }
+        .padding(.horizontal, 14)
+        .frame(height: 40)
+        .background(DS.Color.paper)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+        )
+        .shadow(DS.Shadow.raised)
     }
 
     private var editorialNowSection: some View {

@@ -4,11 +4,13 @@ struct VehicleMarker: View {
     let vehicle: TransportVehicleDTO
 
     private var lineColor: Color {
-        guard let line = vehicle.line else { return AppTheme.Palette.brand }
-        let n = Int(line) ?? 0
-        if n >= 1 && n <= 6 { return Color(hex: "#0066CC") }    // metro
-        if n >= 7 && n <= 99 { return Color(hex: "#CC6600") }   // tram
-        return Color(hex: "#007A33")                              // bus / other
+        guard let line = vehicle.line else { return DS.Color.primary }
+        return TransitLinePalette.fill(for: line)
+    }
+
+    private var lineTextColor: Color {
+        guard let line = vehicle.line else { return .white }
+        return TransitLinePalette.foreground(for: line)
     }
 
     private var modeIcon: String {
@@ -33,7 +35,7 @@ struct VehicleMarker: View {
             if let line = vehicle.line {
                 Text(line)
                     .font(.system(size: line.count > 2 ? 8 : 10, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(lineTextColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             } else {

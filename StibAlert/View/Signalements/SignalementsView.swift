@@ -126,27 +126,6 @@ struct SignalementsView: View {
     private var topBar: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 19) {
-                Button {
-                    withAnimation(AppMotion.spring(reduceMotion: reduceMotion)) {
-                        nav.showSideMenu = true
-                    }
-                } label: {
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .fill(DS.Color.paper)
-                        .frame(width: 42, height: 40)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                        )
-                        .overlay(
-                            Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 20, weight: .regular))
-                                .foregroundStyle(DS.Color.ink)
-                        )
-                }
-                .buttonStyle(.plain)
-                .shadow(DS.Shadow.raised)
-
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 16, weight: .medium))
@@ -167,6 +146,7 @@ struct SignalementsView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous))
                 .shadow(DS.Shadow.raised)
+                .frame(maxWidth: .infinity)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -329,9 +309,8 @@ struct SignalementsView: View {
             }()
 
             let filter = LineFilter.from(typeTransport: etat.typeTransport)
-            let (fallbackColor, _) = linePalette(for: etat.lineid, filter: filter)
-            let lineColor = etat.couleur.flatMap { hex in hex.hasPrefix("#") ? Color(hex: hex) : Color(hex: "#" + hex) } ?? fallbackColor
-            let lineTextColor = lineColor.isDark ? Color.white : Color.black
+            let lineColor = TransitLinePalette.fill(for: etat.lineid)
+            let lineTextColor = TransitLinePalette.foreground(for: etat.lineid)
 
             let sampleStop = items.compactMap { signalement -> String? in
                 if case .populated(let arret) = signalement.arretId { return arret.nom }
@@ -586,13 +565,8 @@ private struct DisruptedEditorialRow: View {
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 12) {
-                LineBadge(
-                    line: line.line,
-                    size: .lg,
-                    fill: line.lineColor,
-                    foreground: line.lineTextColor
-                )
-                .padding(.top, 2)
+                STIBSquareLineBadge(line: line.line)
+                    .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(line.direction)
@@ -657,18 +631,28 @@ private struct EditorialModeLineGroup: View {
                     Button {
                         onSelect(item)
                     } label: {
-                        LineBadge(
-                            line: item.line,
-                            size: .lg,
-                            fill: item.lineColor,
-                            foreground: item.lineTextColor
-                        )
-                        .frame(maxWidth: .infinity)
+                        STIBSquareLineBadge(line: item.line)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PressableScaleStyle())
                 }
             }
         }
+    }
+}
+
+private struct STIBSquareLineBadge: View {
+    let line: String
+    var side: CGFloat = 42
+
+    var body: some View {
+        LineBadge(
+            line: line,
+            size: .lg,
+            fill: TransitLinePalette.fill(for: line),
+            foreground: TransitLinePalette.foreground(for: line)
+        )
+        .frame(width: side, height: side)
     }
 }
 
@@ -886,13 +870,7 @@ private struct LineOverviewView: View {
                     .eyebrow()
 
                 HStack(spacing: 16) {
-                    LineBadge(
-                        line: line.line,
-                        size: .lg,
-                        fill: line.lineColor,
-                        foreground: line.lineTextColor
-                    )
-                    .frame(width: 54, height: 46)
+                    STIBSquareLineBadge(line: line.line, side: 46)
 
                     HStack(spacing: 0) {
                         routePill(text: routeOriginText, isLeading: true)
@@ -1003,8 +981,8 @@ private struct LineOverviewView: View {
                             connections: (arret.lignesDesservies ?? [line.line]).prefix(6).map {
                                 LineConnectionBadge(
                                     label: $0,
-                                    color: line.lineColor,
-                                    textColor: line.lineTextColor,
+                                    color: TransitLinePalette.fill(for: $0),
+                                    textColor: TransitLinePalette.foreground(for: $0),
                                     fontSize: 10
                                 )
                             },
@@ -1712,14 +1690,14 @@ enum LineStatusMockData {
     static let availableCount = 82
 
     static let all: [LineStatusItem] = [
-        .init(line: "1", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Gare de l'ouest", destination: "Stokkel", direction: "Gare de l’ouest → Stokkel", status: .fluid, reportsCount: 2, filter: .metro, confidenceText: "92% fiable"),
-        .init(line: "2", lineColor: Color(hex: "#ED7807"), lineTextColor: .white, origin: "Simonis", destination: "Elisabeth", direction: "Simonis → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "78% fiable"),
-        .init(line: "4", lineColor: Color(hex: "#EA4F80"), lineTextColor: .white, origin: "Gare du Nord", destination: "Stalle", direction: "Gare du Nord → Stalle", status: .fluid, reportsCount: 2, filter: .tram, confidenceText: "88% fiable"),
-        .init(line: "5", lineColor: Color(hex: "#F9A611"), lineTextColor: .white, origin: "Erasme", destination: "Herrmann-Debroux", direction: "Erasme → Herrmann-Debroux", status: .disrupted, reportsCount: 17, filter: .metro, confidenceText: "71% fiable"),
-        .init(line: "6", lineColor: Color(hex: "#0066A3"), lineTextColor: .white, origin: "Roi Baudouin", destination: "Elisabeth", direction: "Roi Baudouin → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "74% fiable"),
-        .init(line: "7", lineColor: Color(hex: "#EFE048"), lineTextColor: .black, origin: "Vanderkindere", destination: "Heysel", direction: "Vanderkindere → Heysel", status: .critical, reportsCount: 53, filter: .tram, confidenceText: "58% fiable"),
-        .init(line: "8", lineColor: Color(hex: "#378BFF"), lineTextColor: .white, origin: "Louise", destination: "Roodebeek", direction: "Louise → Roodebeek", status: .critical, reportsCount: 22, filter: .bus, confidenceText: "63% fiable"),
-        .init(line: "9", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Montgomery", destination: "Simonis", direction: "Montgomery → Simonis", status: .fluid, reportsCount: 4, filter: .tram, confidenceText: "90% fiable"),
-        .init(line: "10", lineColor: Color(hex: "#8F4199"), lineTextColor: .white, origin: "Rogier", destination: "Churchill", direction: "Rogier → Churchill", status: .fluid, reportsCount: 1, filter: .tram, confidenceText: "94% fiable")
+        .init(line: "1", lineColor: TransitLinePalette.fill(for: "1"), lineTextColor: TransitLinePalette.foreground(for: "1"), origin: "Gare de l'ouest", destination: "Stokkel", direction: "Gare de l’ouest → Stokkel", status: .fluid, reportsCount: 2, filter: .metro, confidenceText: "92% fiable"),
+        .init(line: "2", lineColor: TransitLinePalette.fill(for: "2"), lineTextColor: TransitLinePalette.foreground(for: "2"), origin: "Simonis", destination: "Elisabeth", direction: "Simonis → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "78% fiable"),
+        .init(line: "4", lineColor: TransitLinePalette.fill(for: "4"), lineTextColor: TransitLinePalette.foreground(for: "4"), origin: "Gare du Nord", destination: "Stalle", direction: "Gare du Nord → Stalle", status: .fluid, reportsCount: 2, filter: .tram, confidenceText: "88% fiable"),
+        .init(line: "5", lineColor: TransitLinePalette.fill(for: "5"), lineTextColor: TransitLinePalette.foreground(for: "5"), origin: "Erasme", destination: "Herrmann-Debroux", direction: "Erasme → Herrmann-Debroux", status: .disrupted, reportsCount: 17, filter: .metro, confidenceText: "71% fiable"),
+        .init(line: "6", lineColor: TransitLinePalette.fill(for: "6"), lineTextColor: TransitLinePalette.foreground(for: "6"), origin: "Roi Baudouin", destination: "Elisabeth", direction: "Roi Baudouin → Elisabeth", status: .disrupted, reportsCount: 9, filter: .metro, confidenceText: "74% fiable"),
+        .init(line: "7", lineColor: TransitLinePalette.fill(for: "7"), lineTextColor: TransitLinePalette.foreground(for: "7"), origin: "Vanderkindere", destination: "Heysel", direction: "Vanderkindere → Heysel", status: .critical, reportsCount: 53, filter: .tram, confidenceText: "58% fiable"),
+        .init(line: "8", lineColor: TransitLinePalette.fill(for: "8"), lineTextColor: TransitLinePalette.foreground(for: "8"), origin: "Louise", destination: "Roodebeek", direction: "Louise → Roodebeek", status: .critical, reportsCount: 22, filter: .bus, confidenceText: "63% fiable"),
+        .init(line: "9", lineColor: TransitLinePalette.fill(for: "9"), lineTextColor: TransitLinePalette.foreground(for: "9"), origin: "Montgomery", destination: "Simonis", direction: "Montgomery → Simonis", status: .fluid, reportsCount: 4, filter: .tram, confidenceText: "90% fiable"),
+        .init(line: "10", lineColor: TransitLinePalette.fill(for: "10"), lineTextColor: TransitLinePalette.foreground(for: "10"), origin: "Rogier", destination: "Churchill", direction: "Rogier → Churchill", status: .fluid, reportsCount: 1, filter: .tram, confidenceText: "94% fiable")
     ]
 }

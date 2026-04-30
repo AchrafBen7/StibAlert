@@ -561,16 +561,11 @@ private struct ProfileActivityItem: Identifiable {
     }
 
     private static func lineColor(for line: String) -> Color {
-        switch line {
-        case "1", "5", "10": return Color(hex: "#8F4199")
-        case "7": return Color(hex: "#FFDC01")
-        case "46": return Color(hex: "#F29DC3")
-        default: return Color(hex: "#8F4199")
-        }
+        TransitLinePalette.fill(for: line)
     }
 
     private static func lineTextColor(for line: String) -> Color {
-        line == "7" ? .black : .white
+        TransitLinePalette.foreground(for: line)
     }
 }
 

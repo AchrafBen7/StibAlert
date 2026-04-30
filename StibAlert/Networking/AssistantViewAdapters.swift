@@ -77,15 +77,15 @@ enum AssistantViewAdapters {
                 type: favoriteCount > 0 ? "commute_brief" : "confidence_note",
                 severity: context.transport.severity,
                 confidence: context.transport.confidence,
-                title: favoriteCount > 0 ? "Je veille sur tes favoris" : "Ajoute des favoris utiles",
+                title: favoriteCount > 0 ? "Veille active sur tes favoris" : "Aucun repère favori pour l’instant",
                 message: favoriteCount > 0
                     ? primaryStop != nil
-                        ? "\(favoriteCount) arrêt(s) favori(s) surveillé(s). \(primaryStop!) reste ton point d’ancrage principal.\(favoriteLinesMessage(favoriteLines))"
-                        : "\(favoriteCount) arrêt(s) favori(s) surveillé(s). Je t’alerterai si leur stabilité baisse.\(favoriteLinesMessage(favoriteLines))"
-                    : "Ajoute quelques arrêts ou lignes clés. Mes recommandations deviendront plus personnelles.",
+                        ? "\(favoriteCount) arrêt(s) restent sous surveillance. \(primaryStop!) demeure ton point d’ancrage principal.\(favoriteLinesMessage(favoriteLines))"
+                        : "\(favoriteCount) arrêt(s) sont suivis en continu. Je signalerai toute baisse nette de fiabilité.\(favoriteLinesMessage(favoriteLines))"
+                    : "Ajoute quelques arrêts ou lignes repères. Le briefing deviendra plus utile et plus personnel.",
                 actions: [
-                    AssistantActionDTO(id: "check_favorites_health", label: "Évaluer mes favoris"),
-                    AssistantActionDTO(id: "open_commute_brief", label: "Trajet quotidien"),
+                    AssistantActionDTO(id: "check_favorites_health", label: "Lire l’état de mes favoris"),
+                    AssistantActionDTO(id: "open_commute_brief", label: "Voir le brief trajet"),
                 ],
                 visualState: favoriteCount > 0 ? "watching" : "idle",
                 assistantContext: context
@@ -97,14 +97,14 @@ enum AssistantViewAdapters {
                 type: incidents > 0 ? "warning" : "status",
                 severity: context.transport.severity,
                 confidence: context.transport.confidence,
-                title: incidents > 0 ? "Je surveille les lignes fragiles" : "Le réseau reste lisible",
+                title: incidents > 0 ? "Lecture en cours des lignes fragiles" : "Le réseau reste lisible",
                 message: incidents > 0
-                    ? "\(incidents) incident(s) actif(s) influencent encore les lignes affichées. Commence par les plus confirmées."
-                    : "Je ne vois pas de concentration majeure de problèmes sur les lignes affichées.",
+                    ? "\(incidents) incident(s) actifs influencent encore les lignes affichées. Commence par les plus confirmés."
+                    : "Je ne vois pas de concentration majeure de problèmes sur les lignes actuellement affichées.",
                 actions: [
-                    AssistantActionDTO(id: "explain_risk", label: "Expliquer le risque"),
-                    AssistantActionDTO(id: "open_lines", label: "Voir les lignes"),
-                    AssistantActionDTO(id: "open_report", label: "Signaler"),
+                    AssistantActionDTO(id: "explain_risk", label: "Lire le point de vigilance"),
+                    AssistantActionDTO(id: "open_lines", label: "Ouvrir les lignes"),
+                    AssistantActionDTO(id: "open_report", label: "Faire un signalement"),
                 ],
                 visualState: incidents > 0 ? "alert" : "watching",
                 assistantContext: context
@@ -116,14 +116,14 @@ enum AssistantViewAdapters {
                 type: "status",
                 severity: favoriteCount > 0 ? "normal" : "minor",
                 confidence: max(0.78, context.transport.confidence),
-                title: "Je m’ajuste à ton profil",
+                title: "Profil et habitudes pris en compte",
                 message: context.profile?.notificationsEnabled == true
                     ? "Notifications actives pour \(profileName). Tes favoris, \(favoriteLinesLabel(favoriteLines)) et habitudes nourrissent déjà mes briefs."
-                    : "Active les notifications pour \(profileName) si tu veux que je prévienne avant qu’un trajet se dégrade.",
+                    : "Si tu actives les notifications, je pourrai prévenir \(profileName) avant qu’un trajet se dégrade vraiment.",
                 actions: [
-                    AssistantActionDTO(id: "open_commute_brief", label: "Trajet quotidien"),
-                    AssistantActionDTO(id: "open_profile", label: "Voir le profil"),
-                    AssistantActionDTO(id: "open_favorites", label: "Mes favoris"),
+                    AssistantActionDTO(id: "open_commute_brief", label: "Voir le brief trajet"),
+                    AssistantActionDTO(id: "open_profile", label: "Ouvrir le profil"),
+                    AssistantActionDTO(id: "open_favorites", label: "Relire mes favoris"),
                 ],
                 visualState: "idle",
                 assistantContext: context
@@ -135,8 +135,8 @@ enum AssistantViewAdapters {
                 type: "status",
                 severity: context.transport.severity,
                 confidence: context.transport.confidence,
-                title: "Je garde le contexte réseau",
-                message: "Je surveille tes favoris, \(favoriteLinesLabel(favoriteLines)) et l’état du réseau pour adapter mes conseils.",
+                title: "Contexte réseau maintenu à jour",
+                message: "Je surveille tes favoris, \(favoriteLinesLabel(favoriteLines)) et l’état du réseau pour ajuster le briefing en temps réel.",
                 actions: [],
                 visualState: "watching",
                 assistantContext: context
@@ -148,34 +148,34 @@ enum AssistantViewAdapters {
         switch screen {
         case "favorites":
             return [
-                "Que surveilles-tu sur mes favoris ?",
-                "Puis-je partir maintenant ?",
-                "Explique la stabilité de mes arrêts",
+                "Quel est l’état de mes favoris ce matin ?",
+                "Vois-tu un point faible sur mes arrêts ?",
+                "Puis-je compter sur mes lignes habituelles ?",
             ]
         case "signalements":
             return [
-                "Quelles lignes sont les plus fragiles ?",
-                "Explique cette alerte",
-                "Aide-moi à signaler proprement",
+                "Quelles lignes demandent le plus de prudence ?",
+                "Que faut-il retenir de cette alerte ?",
+                "Aide-moi à formuler un bon signalement",
             ]
         case "profile", "profile_main":
             return [
-                "Comment utilises-tu mes favoris ?",
-                "Pourquoi activer les notifications ?",
-                "Que peux-tu anticiper pour moi ?",
+                "Que prends-tu en compte dans mon profil ?",
+                "Pourquoi activer les notifications maintenant ?",
+                "Qu’anticipes-tu à partir de mes habitudes ?",
             ]
         default:
             if let primaryStop = context?.habits.primaryStopName {
                 return [
-                    "Puis-je partir maintenant ?",
-                    "Comment va \(primaryStop) ?",
-                    "Trouve-moi une alternative fiable",
+                    "Puis-je partir maintenant sans surprise ?",
+                    "Quel est l’état de \(primaryStop) ?",
+                    "Quelle alternative est la plus fiable ?",
                 ]
             }
             return [
-                "Puis-je partir maintenant ?",
-                "Trouve-moi une alternative fiable",
-                "Aide-moi à signaler un problème",
+                "Puis-je partir maintenant sans surprise ?",
+                "Quelle alternative te paraît la plus fiable ?",
+                "Aide-moi à signaler un problème clairement",
             ]
         }
     }
@@ -186,7 +186,7 @@ enum AssistantViewAdapters {
             type: "confidence_note",
             severity: "minor",
             confidence: 0.62,
-            title: "Je garde une lecture prudente",
+            title: "Lecture prudente du réseau",
             message: message,
             actions: [],
             visualState: "speaking",
@@ -246,7 +246,7 @@ enum AssistantViewAdapters {
         } else if let nextDeparture = overview.nextDepartures.first {
             message = "Le réseau reste lisible. Prochain passage utile : ligne \(nextDeparture.line) dans \(nextDeparture.minutes) min."
         } else {
-            message = "Je ne vois pas d’incident majeur, mais je continue de surveiller le réseau."
+            message = "Je ne vois pas d’incident majeur pour l’instant, mais la veille réseau reste active."
         }
 
         return localBrief(
@@ -254,11 +254,11 @@ enum AssistantViewAdapters {
             type: overview.severity == "major" || overview.severity == "critical" ? "warning" : "status",
             severity: overview.severity,
             confidence: overview.confidence,
-            title: overview.severity == "major" || overview.severity == "critical" ? "Voici le risque actuel" : "Le réseau reste exploitable",
+            title: overview.severity == "major" || overview.severity == "critical" ? "Point de vigilance actuel" : "Le réseau reste exploitable",
             message: context.map { message + favoriteLinesMessage($0.favorites.lines) } ?? message,
             actions: [
-                AssistantActionDTO(id: "request_alternative", label: "Chercher une alternative"),
-                AssistantActionDTO(id: "check_primary_stop", label: "Vérifier mon arrêt"),
+                AssistantActionDTO(id: "request_alternative", label: "Chercher une option plus fiable"),
+                AssistantActionDTO(id: "check_primary_stop", label: "Relire l’état de mon arrêt"),
             ],
             visualState: overview.severity == "major" || overview.severity == "critical" ? "alert" : "watching",
             assistantContext: context
@@ -285,10 +285,10 @@ enum AssistantViewAdapters {
             type: stop.severity == "major" || stop.severity == "critical" ? "warning" : "status",
             severity: stop.severity,
             confidence: stop.confidence,
-            title: "État de \(name)",
+            title: "Lecture de \(name)",
             message: message,
             actions: [
-                AssistantActionDTO(id: "request_alternative", label: "Chercher une alternative"),
+                AssistantActionDTO(id: "request_alternative", label: "Chercher une option plus fiable"),
             ],
             visualState: stop.severity == "major" || stop.severity == "critical" ? "alert" : "guiding",
             assistantContext: context
@@ -319,8 +319,8 @@ enum AssistantViewAdapters {
             title: title,
             message: message,
             actions: [
-                AssistantActionDTO(id: "check_primary_stop", label: "Vérifier mon arrêt"),
-                AssistantActionDTO(id: "request_alternative", label: "Chercher une alternative"),
+                AssistantActionDTO(id: "check_primary_stop", label: "Relire l’état de mon arrêt"),
+                AssistantActionDTO(id: "request_alternative", label: "Chercher une option plus fiable"),
             ],
             visualState: fragileCount > 0 ? "alert" : "watching",
             assistantContext: context
@@ -341,7 +341,7 @@ enum AssistantViewAdapters {
 
         if mode == "guide_me" {
             type = "guide"
-            title = "Je te guide"
+            title = "Guidage en cours"
             if let best {
                 let base = best.explanationDetails?.summary ?? best.explanation
                 message = appendCommunityEvidence(base, incidents: routeIncidents(for: best, from: recommendation.activeIncidents))
@@ -350,7 +350,7 @@ enum AssistantViewAdapters {
             }
         } else {
             type = best?.type == "most_reliable" || best?.type == "best_overall" ? "recommendation" : "comparison"
-            title = "Voici l’option la plus utile"
+            title = "Option recommandée"
             if let best {
                 let base = best.explanationDetails?.summary ?? best.explanation
                 message = appendCommunityEvidence(base, incidents: routeIncidents(for: best, from: recommendation.activeIncidents))
@@ -367,8 +367,8 @@ enum AssistantViewAdapters {
             title: title,
             message: message,
             actions: [
-                AssistantActionDTO(id: "view_route", label: "Voir le trajet"),
-                AssistantActionDTO(id: "compare_routes", label: "Comparer"),
+                AssistantActionDTO(id: "view_route", label: "Lire l’itinéraire"),
+                AssistantActionDTO(id: "compare_routes", label: "Comparer les options"),
             ],
             visualState: mode == "guide_me" ? "guiding" : (severity == "major" || severity == "critical" ? "alert" : "speaking"),
             assistantContext: context
