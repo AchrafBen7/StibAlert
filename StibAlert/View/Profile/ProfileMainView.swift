@@ -18,149 +18,159 @@ struct ProfileMainView: View {
                 onSignUp: { nav.showAuthFlow = true }
             )
         } else {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                header
-                    .padding(.horizontal, 21)
-                    .padding(.top, 12)
+            ZStack {
+                DS.Color.paper.ignoresSafeArea()
 
-                avatarSection
-                    .padding(.top, 20)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        header
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
 
-                statsRow
-                    .padding(.horizontal, 37)
-                    .padding(.top, 24)
+                        profileHero
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
 
-                if !earnedBadges.isEmpty {
-                    badgesSection
-                        .padding(.horizontal, 21)
-                        .padding(.top, 18)
-                }
+                        statsRow
+                            .padding(.horizontal, 20)
+                            .padding(.top, 18)
 
-                activityHeader
-                    .padding(.horizontal, 21)
-                    .padding(.top, 34)
+                        activityHeader
+                            .padding(.horizontal, 20)
+                            .padding(.top, 26)
 
-                if let profileLoadError {
-                    HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color(hex: "#FF7A7A"))
-                        Text(profileLoadError)
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(.white.opacity(0.8))
-                        Spacer()
-                        Button {
-                            self.profileLoadError = nil
-                            Task { await loadProfileData() }
-                        } label: {
-                            Text("Réessayer")
-                                .font(.custom("Montserrat-SemiBold", size: 12))
-                                .foregroundStyle(Color(hex: "#7CB2FF"))
+                        if let profileLoadError {
+                            HStack(spacing: 10) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(DS.Color.statusMajor)
+                                Text(profileLoadError)
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                                Spacer()
+                                Button {
+                                    self.profileLoadError = nil
+                                    Task { await loadProfileData() }
+                                } label: {
+                                    Text("Réessayer")
+                                        .font(DS.Font.monoSmall)
+                                        .foregroundStyle(DS.Color.ink)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(DS.Color.paper)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DS.Color.statusMajor.opacity(0.35), lineWidth: 1.5)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .padding(.horizontal, 20)
+                            .padding(.top, 14)
                         }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 21)
-                    .padding(.top, 14)
-                }
 
-                if hasLoadedProfile && activities.isEmpty && profileLoadError == nil {
-                    VStack(spacing: 8) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 28, weight: .light))
-                            .foregroundStyle(.white.opacity(0.4))
-                        Text("Aucun signalement pour l'instant")
-                            .font(.custom("Montserrat-Regular", size: 13))
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 32)
-                } else {
-                    VStack(spacing: 16) {
-                        ForEach(activities) { activity in
+                        if hasLoadedProfile && activities.isEmpty && profileLoadError == nil {
+                            VStack(spacing: 10) {
+                                Image(systemName: "tray")
+                                    .font(.system(size: 28, weight: .light))
+                                    .foregroundStyle(DS.Color.inkMute)
+                                Text("Aucun signalement pour l'instant")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 36)
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach(activities) { activity in
+                                    Button {
+                                        guard let signalement = activity.signalement else { return }
+                                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                                        detailSignalement = signalement
+                                    } label: {
+                                        ProfileActivityCard(activity: activity)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(activity.signalement == nil)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 14)
+                        }
+
+                        if !activities.isEmpty {
                             Button {
-                                guard let signalement = activity.signalement else { return }
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                                detailSignalement = signalement
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                    nav.currentPage = .reports
+                                }
                             } label: {
-                                ProfileActivityCard(activity: activity)
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text("Voir tous vos signalements")
+                                        .font(.system(size: 12.5, weight: .bold))
+                                }
+                                .foregroundStyle(DS.Color.ink)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(DS.Color.paper)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1.5)
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             .buttonStyle(.plain)
-                            .disabled(activity.signalement == nil)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 14)
                         }
-                    }
-                    .padding(.horizontal, 21)
-                    .padding(.top, 14)
-                }
 
-                if !activities.isEmpty {
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.currentPage = .reports
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 12, weight: .medium))
-                            Text("Voir tous vos signalements (\(remoteActivities.count))")
-                                .font(.custom("Montserrat-Regular", size: 12))
-                        }
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 49)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        logoutButton
+                            .padding(.horizontal, 20)
+                            .padding(.top, 22)
+                            .padding(.bottom, 96)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 21)
-                    .padding(.top, 13)
                 }
-
-                logoutButton
-                    .padding(.horizontal, 21)
-                    .padding(.top, 24)
-                    .padding(.bottom, 32)
             }
-        }
-        .background(AppTheme.Palette.screen)
-        .toolbar(.hidden, for: .navigationBar)
-        .sheet(item: $detailSignalement) { signalement in
-            SignalementDetailView(
-                signalement: signalement,
-                onDismiss: { detailSignalement = nil }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-        }
-        .task {
-            stibi.setCurrentScreen("profile_main")
-            await loadProfileData()
-            await loadStibiContext()
-        }
+            .toolbar(.hidden, for: .navigationBar)
+            .sheet(item: $detailSignalement) { signalement in
+                SignalementDetailView(
+                    signalement: signalement,
+                    onDismiss: { detailSignalement = nil }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
+            .task {
+                stibi.setCurrentScreen("profile_main")
+                await loadProfileData()
+                await loadStibiContext()
+            }
         } // end else (guest check)
     }
 
     private var logoutButton: some View {
         Button(action: logout) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 if isLoggingOut {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(DS.Color.paper)
                 } else {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
                         .font(.system(size: 14, weight: .medium))
                     Text("Se déconnecter")
-                        .font(.custom("Montserrat-SemiBold", size: 14))
+                        .font(.system(size: 14, weight: .bold))
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(DS.Color.paper)
             .frame(maxWidth: .infinity)
-            .frame(height: 49)
-            .background(Color(hex: "#2A2A2A"))
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .frame(height: 48)
+            .background(DS.Color.ink)
             .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(Color(hex: "#FF7A7A").opacity(0.5), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isLoggingOut)
@@ -242,41 +252,19 @@ struct ProfileMainView: View {
     }
 
     private var header: some View {
-        ZStack {
-            HStack {
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        nav.currentPage = .home
-                    }
-                } label: {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        nav.currentPage = .home
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-
+        VStack(alignment: .leading, spacing: 8) {
+            Text("COMPTE STIBALERT")
+                .font(DS.Font.monoSmall)
+                .tracking(1.6)
+                .foregroundStyle(DS.Color.inkMute)
             Text("Profil")
-                .font(.custom("Montserrat-SemiBold", size: 20))
-                .foregroundStyle(.white)
+                .font(DS.Font.displayH1)
+                .foregroundStyle(DS.Color.ink)
         }
     }
 
-    private var avatarSection: some View {
-        VStack(spacing: 8) {
+    private var profileHero: some View {
+        VStack(spacing: 10) {
             Circle()
                 .fill(
                     LinearGradient(
@@ -285,64 +273,51 @@ struct ProfileMainView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 49, height: 49)
+                .frame(width: 66, height: 66)
                 .overlay(
                     Text(avatarInitial)
-                        .font(.custom("DelaGothicOne-Regular", size: 18))
+                        .font(.system(size: 28, weight: .heavy, design: .monospaced))
                         .foregroundStyle(Color(hex: "#5B2F1C"))
                 )
 
             Text(displayName)
-                .font(.custom("Montserrat-SemiBold", size: 12))
-                .foregroundStyle(.white)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
 
-            Text(displayEmail)
-                .font(.custom("Montserrat-Regular", size: 12))
-                .foregroundStyle(.white)
+            if !displayEmail.isEmpty {
+                Text(displayEmail)
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Text("MEMBRE STIBALERT")
+                .font(DS.Font.monoSmall)
+                .tracking(1.2)
+                .foregroundStyle(DS.Color.inkMute)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 20)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var statsRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ProfileStatCard(title: "Signalements", value: reportCountText)
             ProfileReliabilityCard(value: reliabilityValue, definition: reliabilityDefinition)
-        }
-    }
-
-    private var badgesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text("Badges")
-                    .font(.custom("DelaGothicOne-Regular", size: 20))
-                    .foregroundStyle(.white)
-
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#D6C7A8"))
-
-                Spacer()
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(earnedBadges) { badge in
-                        ProfileBadgeCard(badge: badge)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
         }
     }
 
     private var activityHeader: some View {
         HStack(spacing: 10) {
             Text("Activité Récente")
-                .font(.custom("DelaGothicOne-Regular", size: 20))
-                .foregroundStyle(.white)
-
-            Image(systemName: "questionmark.circle.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(.white)
+                .font(DS.Font.displayH2)
+                .foregroundStyle(DS.Color.ink)
 
             Spacer()
         }
@@ -391,29 +366,30 @@ private struct ProfileStatCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundStyle(DS.Color.ink)
                 Spacer()
                 Circle()
-                    .fill(Color(hex: "#7CB2FF"))
-                    .frame(width: 12, height: 12)
+                    .fill(DS.Color.primary.opacity(0.75))
+                    .frame(width: 10, height: 10)
             }
 
             Text(value)
-                .font(.custom("DelaGothicOne-Regular", size: 32))
-                .foregroundStyle(.black)
+                .font(DS.Font.displayH1)
+                .foregroundStyle(DS.Color.ink)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 12)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .frame(maxWidth: .infinity, minHeight: 101, alignment: .topLeading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .stroke(Color(hex: "#7AB4FF"), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -425,37 +401,38 @@ private struct ProfileReliabilityCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Fiabilité")
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.black)
+                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .foregroundStyle(DS.Color.ink)
                 Spacer()
                 Circle()
-                    .fill(Color(hex: "#7CB2FF"))
-                    .frame(width: 12, height: 12)
+                    .fill(DS.Color.primary.opacity(0.75))
+                    .frame(width: 10, height: 10)
             }
 
             Text(value)
-                .font(.custom("DelaGothicOne-Regular", size: 32))
-                .foregroundStyle(.black)
+                .font(DS.Font.displayH1)
+                .foregroundStyle(DS.Color.ink)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 12)
 
             Text(definition)
-                .font(.custom("Montserrat-Regular", size: 10))
-                .foregroundStyle(.black.opacity(0.72))
+                .font(.system(size: 10.5))
+                .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 6)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .frame(maxWidth: .infinity, minHeight: 101, alignment: .topLeading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .stroke(Color(hex: "#7AB4FF"), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -466,7 +443,7 @@ private struct ProfileActivityCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 15) {
                 Text(activity.line)
-                    .font(.custom("Montserrat-SemiBold", size: 20))
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundStyle(activity.lineTextColor)
                     .frame(width: 42, height: 41)
                     .background(activity.lineColor)
@@ -475,39 +452,43 @@ private struct ProfileActivityCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(activity.title)
-                            .font(.custom("DelaGothicOne-Regular", size: 20))
-                            .foregroundStyle(.black)
+                            .font(.system(size: 18, weight: .bold, design: .serif))
+                            .foregroundStyle(DS.Color.ink)
 
                         Text(activity.when)
-                            .font(.custom("DelaGothicOne-Regular", size: 11))
-                            .foregroundStyle(.black)
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.inkMute)
                     }
 
                     Text(activity.description)
-                        .font(.custom("Montserrat-Regular", size: 13))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Color.ink)
                         .padding(.top, 8)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Label(activity.location, systemImage: "clock.arrow.circlepath")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.inkMute)
                         .padding(.top, 12)
 
                     Label("\(activity.confirmations) confirmations", systemImage: "person.2")
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.inkMute)
                         .padding(.top, 6)
                 }
 
                 Spacer()
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.top, 12)
-        .padding(.bottom, 16)
-        .background(activity.background)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(.bottom, 14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -521,7 +502,6 @@ private struct ProfileActivityItem: Identifiable {
     let description: String
     let location: String
     let confirmations: Int
-    let background: Color
     let signalement: SignalementDTO?
 
     static func from(signalement: SignalementDTO) -> ProfileActivityItem {
@@ -538,7 +518,6 @@ private struct ProfileActivityItem: Identifiable {
                 return signalement.arretId?.id ?? "Arrêt"
             }(),
             confirmations: signalement.community?.confirmations ?? 0,
-            background: background(for: signalement.typeProbleme),
             signalement: signalement
         )
     }
@@ -549,17 +528,6 @@ private struct ProfileActivityItem: Identifiable {
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: .now)
     }
-
-    private static func background(for type: String) -> Color {
-        switch type {
-        case "Accident": return Color(hex: "#FFB3B7")
-        case "Retard": return Color(hex: "#FFC98D")
-        case "Panne": return Color(hex: "#BBDCFF")
-        case "Propreté": return Color(hex: "#CFF8E7")
-        default: return Color(hex: "#FFC98D")
-        }
-    }
-
     private static func lineColor(for line: String) -> Color {
         TransitLinePalette.fill(for: line)
     }
@@ -593,23 +561,23 @@ private struct ProfileBadgeCard: View {
             }
 
             Text(badge.title)
-                .font(.custom("DelaGothicOne-Regular", size: 14))
-                .foregroundStyle(.white)
+                .font(.system(size: 14, weight: .bold, design: .serif))
+                .foregroundStyle(DS.Color.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(badge.subtitle)
-                .font(.custom("Montserrat-Regular", size: 11))
-                .foregroundStyle(Color.white.opacity(0.72))
+                .font(.system(size: 11))
+                .foregroundStyle(DS.Color.inkMute)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
         .frame(width: 188, alignment: .leading)
-        .background(Color(hex: "#252525"))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(badge.accent.opacity(0.42), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

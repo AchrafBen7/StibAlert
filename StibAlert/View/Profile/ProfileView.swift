@@ -27,8 +27,6 @@ struct ProfileView: View {
     @State private var favoriteLinesSelection: Set<String> = []
     @State private var isSavingSettings = false
 
-    private let items = SettingsMockData.items
-
     var body: some View {
         ZStack {
             if session.isGuest {
@@ -37,154 +35,11 @@ struct ProfileView: View {
                     onSignIn: { nav.showAuthFlow = true },
                     onSignUp: { nav.showAuthFlow = true }
                 )
-            } else if selectedSubpage == .languages {
-                LanguageSettingsView(
-                    selectedLanguage: $selectedLanguageCode,
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if selectedSubpage == .account {
-                AccountSettingsView(
-                    firstName: $firstName,
-                    lastName: $lastName,
-                    email: $email,
-                    username: $username,
-                    commuteEnabled: $commuteEnabled,
-                    homeLabel: $homeLabel,
-                    workLabel: $workLabel,
-                    departureTime: $departureTime,
-                    homeStopId: $homeStopId,
-                    workStopId: $workStopId,
-                    favoriteLinesSelection: $favoriteLinesSelection,
-                    favoriteStops: session.currentUser?.favorisDetails ?? [],
-                    isSaving: isSavingSettings,
-                    onSave: saveAccount,
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if selectedSubpage == .privacy {
-                PrivacySettingsView(
-                    dataSharingEnabled: $dataSharingEnabled,
-                    locationTrackingEnabled: $locationTrackingEnabled,
-                    adsPersonalizationEnabled: $adsPersonalizationEnabled,
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if selectedSubpage == .support {
-                SupportSettingsView(
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if selectedSubpage == .notifications {
-                NotificationSettingsView(
-                    pushEnabled: $pushNotificationsEnabled,
-                    weeklyDigestEnabled: $weeklyDigestEnabled,
-                    emailEnabled: $emailNotificationsEnabled,
-                    smsEnabled: $smsNotificationsEnabled,
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else if selectedSubpage == .transitPass {
-                TransitPassSettingsView(
-                    onBack: { selectedSubpage = nil },
-                    onClose: {
-                        selectedSubpage = nil
-                        nav.currentPage = .home
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
             } else {
-                ZStack {
-                    DS.Color.paper.ignoresSafeArea()
-
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 0) {
-                            profileHeader
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
-
-                            VStack(spacing: 20) {
-                                identityCard
-
-                                profileGroup(title: "Carte de transport") {
-                                    profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCard) {
-                                        selectedSubpage = .transitPass
-                                    }
-                                }
-
-                                profileGroup(title: "Préférences") {
-                                    profileRow(icon: "bell", label: "Notifications", value: pushNotificationsEnabled ? "Activées" : "Désactivées") {
-                                        selectedSubpage = .notifications
-                                    }
-                                    profileDivider
-                                    profileRow(icon: "calendar.badge.clock", label: "Digest hebdo", value: weeklyDigestEnabled ? "Actif" : "Inactif") {
-                                        selectedSubpage = .notifications
-                                    }
-                                    profileDivider
-                                    profileRow(icon: "globe", label: "Langue", value: profileLanguageLabel) {
-                                        selectedSubpage = .languages
-                                    }
-                                }
-
-                                profileGroup(title: "Compte") {
-                                    profileRow(icon: "person.crop.circle", label: "Mon compte", value: username.isEmpty ? nil : "@\(username)") {
-                                        selectedSubpage = .account
-                                    }
-                                    profileDivider
-                                    profileRow(icon: "tram.fill", label: "Lignes favorites", value: "\(favoriteLinesSelection.count)") {
-                                        selectedSubpage = .account
-                                    }
-                                }
-
-                                profileGroup(title: "Confidentialité") {
-                                    profileRow(icon: "lock", label: "Données & confidentialité") {
-                                        selectedSubpage = .privacy
-                                    }
-                                }
-
-                                profileGroup(title: "Support") {
-                                    profileRow(icon: "questionmark.circle", label: "Aide & FAQ") {
-                                        selectedSubpage = .support
-                                    }
-                                    profileDivider
-                                    profileRow(icon: "bubble.left", label: "Contacter l'équipe") {
-                                        if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
-                                            openURL(url)
-                                        }
-                                    }
-                                }
-
-                                Text("STIBALERT · V1.0.0 · BRUXELLES")
-                                    .font(DS.Font.monoSmall)
-                                    .tracking(2)
-                                    .foregroundStyle(DS.Color.inkMute)
-                                    .padding(.top, 8)
-                                    .padding(.bottom, 96)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 16)
-                        }
-                    }
+                if selectedSubpage != nil {
+                    subpageContent
+                } else {
+                    rootContent
                 }
             }
         }
@@ -208,8 +63,145 @@ struct ProfileView: View {
         }
     }
 
+    @ViewBuilder
+    private var subpageContent: some View {
+        switch selectedSubpage {
+        case .languages:
+            LanguageSettingsView(
+                selectedLanguage: $selectedLanguageCode,
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .account:
+            AccountSettingsView(
+                firstName: $firstName,
+                lastName: $lastName,
+                email: $email,
+                username: $username,
+                commuteEnabled: $commuteEnabled,
+                homeLabel: $homeLabel,
+                workLabel: $workLabel,
+                departureTime: $departureTime,
+                homeStopId: $homeStopId,
+                workStopId: $workStopId,
+                favoriteLinesSelection: $favoriteLinesSelection,
+                favoriteStops: session.currentUser?.favorisDetails ?? [],
+                isSaving: isSavingSettings,
+                onSave: saveAccount,
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .privacy:
+            PrivacySettingsView(
+                dataSharingEnabled: $dataSharingEnabled,
+                locationTrackingEnabled: $locationTrackingEnabled,
+                adsPersonalizationEnabled: $adsPersonalizationEnabled,
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .support:
+            SupportSettingsView(
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .notifications:
+            NotificationSettingsView(
+                pushEnabled: $pushNotificationsEnabled,
+                weeklyDigestEnabled: $weeklyDigestEnabled,
+                emailEnabled: $emailNotificationsEnabled,
+                smsEnabled: $smsNotificationsEnabled,
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .transitPass:
+            TransitPassSettingsView(
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private var rootContent: some View {
+        ZStack {
+            DS.Color.paper.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    profileHeader
+                        .padding(.horizontal, 20)
+                        .padding(.top, 18)
+
+                    VStack(spacing: 22) {
+                        identityCard
+
+                        profileGroup(title: "Carte de transport") {
+                            profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCard) {
+                                selectedSubpage = .transitPass
+                            }
+                        }
+
+                        profileGroup(title: "Préférences") {
+                            profileRow(icon: "bell", label: "Notifications", value: pushNotificationsEnabled ? "Activées" : "Désactivées") {
+                                selectedSubpage = .notifications
+                            }
+                            profileDivider
+                            profileRow(icon: "globe", label: "Langue", value: profileLanguageLabel) {
+                                selectedSubpage = .languages
+                            }
+                            profileDivider
+                            profileRow(icon: "person.crop.circle", label: "Mon compte", value: username.isEmpty ? nil : "@\(username)") {
+                                selectedSubpage = .account
+                            }
+                        }
+
+                        profileGroup(title: "Confidentialité") {
+                            profileRow(icon: "lock", label: "Données & confidentialité") {
+                                selectedSubpage = .privacy
+                            }
+                        }
+
+                        profileGroup(title: "Support") {
+                            profileRow(icon: "questionmark.circle", label: "Aide & FAQ") {
+                                selectedSubpage = .support
+                            }
+                            profileDivider
+                            profileRow(icon: "bubble.left", label: "Contacter l'équipe") {
+                                if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
+                                    openURL(url)
+                                }
+                            }
+                        }
+
+                        Text("STIBALERT · V1.0.0 · BRUXELLES")
+                            .font(DS.Font.monoSmall)
+                            .tracking(2)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .padding(.top, 6)
+                            .padding(.bottom, 96)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                }
+            }
+        }
+        .modifier(PaperGrainBackground())
+    }
+
+    private func closeToProfile() {
+        selectedSubpage = nil
+        nav.currentPage = .profile
+    }
+
     private var profileHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Compte StibAlert")
@@ -235,6 +227,10 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.14))
+                .frame(height: 2)
         }
     }
 
@@ -258,6 +254,12 @@ struct ProfileView: View {
         return "•••• \(raw.suffix(4))"
     }
 
+    private var activeAlertCount: Int {
+        [pushNotificationsEnabled, weeklyDigestEnabled, emailNotificationsEnabled, smsNotificationsEnabled]
+            .filter { $0 }
+            .count
+    }
+
     private var identityCard: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -273,7 +275,7 @@ struct ProfileView: View {
                     Text(displayProfileName)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(DS.Color.ink)
-                    Text("COMPTE STIBALERT · \(profileLanguageLabel.uppercased())")
+                    Text("MEMBRE STIBALERT · \(profileLanguageLabel.uppercased())")
                         .font(DS.Font.monoSmall)
                         .tracking(1.2)
                         .foregroundColor(DS.Color.inkMute)
@@ -291,12 +293,12 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 14)
 
             Rectangle()
-                .fill(DS.Color.ink)
+                .fill(DS.Color.ink.opacity(0.16))
                 .frame(height: 1.5)
                 .padding(.horizontal, 16)
 
@@ -305,7 +307,7 @@ struct ProfileView: View {
                 Divider().background(DS.Color.ink.opacity(0.15))
                 profileStatCell(icon: "tram.fill", label: "Lignes", value: "\(favoriteLinesSelection.count)")
                 Divider().background(DS.Color.ink.opacity(0.15))
-                profileStatCell(icon: "calendar.badge.clock", label: "Digest", value: weeklyDigestEnabled ? "ON" : "OFF")
+                profileStatCell(icon: "bell.fill", label: "Alertes", value: "\(activeAlertCount)")
             }
             .frame(height: 72)
         }
@@ -329,9 +331,9 @@ struct ProfileView: View {
     private func profileGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(DS.Font.monoSmall.weight(.semibold))
-                .tracking(1.5)
-                .foregroundColor(DS.Color.inkMute)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(2.2)
+                .foregroundColor(DS.Color.ink)
                 .padding(.leading, 4)
 
             VStack(spacing: 0) { content() }
@@ -354,7 +356,7 @@ struct ProfileView: View {
                 .foregroundColor(DS.Color.ink)
             Text(label.uppercased())
                 .font(DS.Font.monoSmall.weight(.semibold))
-                .tracking(1.2)
+                .tracking(1.8)
                 .foregroundColor(DS.Color.inkMute)
         }
         .frame(maxWidth: .infinity)

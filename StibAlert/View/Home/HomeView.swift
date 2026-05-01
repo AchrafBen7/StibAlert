@@ -24,8 +24,10 @@ struct HomeView: View {
     @State private var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
+    @State private var currentRouteCoordinates: [CLLocationCoordinate2D] = []
     @State private var destinationCoord: CLLocationCoordinate2D? = nil
     @State private var routeOptions: [HomeRouteOption] = []
+    @State private var routeModeSummaries: [RouteModeSummary] = []
     @State private var selectedRouteID: UUID?
     @State private var isRouteSheetExpanded = false
     @State private var selectedRouteDetail: HomeRouteOption?
@@ -213,7 +215,12 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .top) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented {
+            if nav.currentPage == .home,
+               !nav.showReportSheet,
+               !nav.showSideMenu,
+               !isStopDetailPresented,
+               selectedRouteDetail == nil,
+               selectedARRoute == nil {
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         HomeEditorialSearchField(query: $searchQuery)
@@ -288,7 +295,7 @@ struct HomeView: View {
                         .padding(.horizontal, 18)
                     }
                 }
-                .padding(.top, 52)
+                .padding(.top, 10)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
             }
@@ -300,7 +307,9 @@ struct HomeView: View {
                !nav.showSideMenu,
                !isStopDetailPresented,
                !showLegend,
-               routeOptions.isEmpty {
+               routeOptions.isEmpty,
+               selectedRouteDetail == nil,
+               selectedARRoute == nil {
                 SignalementMiniCard(
                     signalement: preview,
                     arretName: arretName(for: preview),
@@ -323,7 +332,15 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if nav.currentPage == .home, !nav.showReportSheet, !nav.showSideMenu, !isStopDetailPresented, selectedMapStopPreview == nil, routeOptions.isEmpty, selectedSignalementPreview == nil {
+            if nav.currentPage == .home,
+               !nav.showReportSheet,
+               !nav.showSideMenu,
+               !isStopDetailPresented,
+               selectedMapStopPreview == nil,
+               routeOptions.isEmpty,
+               selectedSignalementPreview == nil,
+               selectedRouteDetail == nil,
+               selectedARRoute == nil {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
@@ -335,7 +352,7 @@ struct HomeView: View {
                 )
                 .padding(.trailing, 14)
                 .padding(.leading, stibi.brief == nil ? 14 : 92)
-                .padding(.bottom, 92)
+                .padding(.bottom, 80)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
@@ -350,7 +367,7 @@ struct HomeView: View {
                         }
                     }
                 ))
-                .padding(.bottom, 14)
+                .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(8)
             }
@@ -494,8 +511,8 @@ struct HomeView: View {
             Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
                 UserLocationDotView(heading: locationManager.heading)
             }
-            if let route = currentRoute {
-                MapPolyline(route.polyline)
+            if currentRouteCoordinates.count > 1 {
+                MapPolyline(coordinates: currentRouteCoordinates)
                     .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
             }
             if let dest = destinationCoord {
@@ -696,17 +713,19 @@ struct HomeView: View {
         if !routeOptions.isEmpty {
             RouteRecommendationsSheet(
                 options: routeOptions,
+                modeSummaries: routeModeSummaries,
                 selectedRouteID: $selectedRouteID,
                 isExpanded: $isRouteSheetExpanded,
                 onSelect: { option in
                     applyRouteOption(option)
-                    selectedRouteDetail = option
                 },
                 onClose: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                         routeOptions = []
+                        routeModeSummaries = []
                         selectedRouteID = nil
                         currentRoute = nil
+                        currentRouteCoordinates = []
                         destinationCoord = nil
                         isRouteSheetExpanded = false
                         selectedRouteDetail = nil
@@ -1427,37 +1446,110 @@ struct HomeView: View {
         isRouting = true
         defer { isRouting = false }
         let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
+        async let recommendationTask = fetchBackendRecommendation(source: source, destination: destination)
+        async let transitRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .transit)
+        async let walkingRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .walking)
 
-        let transitOptions = await calculateRouteOptions(source: source, destination: destination, transportType: .transit)
-        let anyOptions = transitOptions == nil
-            ? await calculateRouteOptions(source: source, destination: destination, transportType: .any)
-            : nil
-        let walkingOptions = transitOptions == nil && anyOptions == nil
-            ? await calculateRouteOptions(source: source, destination: destination, transportType: .walking)
-            : nil
+        let recommendation = await recommendationTask
+        let transitRoutes = await transitRoutesTask
+        let walkingRoutes = await walkingRoutesTask
+        let fallbackOptions = buildFallbackRouteOptions(
+            transitRoutes: transitRoutes,
+            walkingRoutes: walkingRoutes,
+            originName: "Votre position",
+            destinationName: destination.name ?? "Destination"
+        )
 
-        if let options = transitOptions ?? anyOptions ?? walkingOptions {
-            destinationCoord = destination.placemark.coordinate
-            searchSuggestions = []
-            searchQuery = destination.name ?? ""
+        let finalOptions = buildBackendFirstRouteOptions(
+            recommendation: recommendation,
+            fallbackOptions: fallbackOptions,
+            originName: "Votre position",
+            destinationName: destination.name ?? "Destination"
+        )
 
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                routeOptions = options
-                selectedRouteID = options.first?.id
-                isRouteSheetExpanded = false
-            }
+        guard !finalOptions.isEmpty || recommendation != nil else { return }
 
-            if let first = options.first {
-                applyRouteOption(first)
-            }
+        destinationCoord = destination.placemark.coordinate
+        searchSuggestions = []
+        searchQuery = destination.name ?? ""
+
+        let preferredOption = preferredRouteOption(in: finalOptions)
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            routeOptions = finalOptions
+            routeModeSummaries = buildModeSummaries(recommendation: recommendation, options: finalOptions)
+            selectedRouteID = preferredOption?.id
+            isRouteSheetExpanded = false
+        }
+
+        if let preferredOption {
+            applyRouteOption(preferredOption)
         }
     }
 
-    private func calculateRouteOptions(
+    private func fetchBackendRecommendation(
+        source: MKMapItem,
+        destination: MKMapItem
+    ) async -> TransportRecommendationDTO? {
+        guard AppConfig.isBackendEnabled else { return nil }
+
+        let depart = "\(source.placemark.coordinate.latitude),\(source.placemark.coordinate.longitude)"
+        let destinationQuery = "\(destination.placemark.coordinate.latitude),\(destination.placemark.coordinate.longitude)"
+        return try? await TransportService.recommendRoute(
+            depart: depart,
+            destination: destinationQuery
+        )
+    }
+
+    private func buildModeSummaries(
+        recommendation: TransportRecommendationDTO?,
+        options: [HomeRouteOption]
+    ) -> [RouteModeSummary] {
+        let allAlternatives = recommendation?.recommendedAlternatives ?? []
+        let order = ["transit", "bike", "walk"]
+        let durationsByMode: [String: Int] = Dictionary(uniqueKeysWithValues: order.map { key in
+            let backendMatch = allAlternatives
+                .filter { HomeRouteOption.primaryMode(for: $0) == key }
+                .min(by: { $0.totalDurationMinutes < $1.totalDurationMinutes })
+            let optionMatch = options
+                .filter { $0.primaryModeKey == key }
+                .min(by: { $0.totalDurationMinutes < $1.totalDurationMinutes })
+            return (key, backendMatch?.totalDurationMinutes ?? optionMatch?.totalDurationMinutes ?? .max)
+        })
+        let fastestDuration = durationsByMode.values.filter { $0 < .max }.min()
+
+        return order.map { key in
+            let backendMatch = allAlternatives
+                .filter { HomeRouteOption.primaryMode(for: $0) == key }
+                .min(by: { $0.totalDurationMinutes < $1.totalDurationMinutes })
+
+            let optionMatch = options
+                .filter { $0.primaryModeKey == key }
+                .min(by: { $0.totalDurationMinutes < $1.totalDurationMinutes })
+
+            let durationText: String
+            if let backendMatch {
+                durationText = "\(backendMatch.totalDurationMinutes) min"
+            } else if let optionMatch {
+                durationText = optionMatch.durationText
+            } else {
+                durationText = "—"
+            }
+
+            return RouteModeSummary(
+                modeKey: key,
+                title: key == "bike" ? "Vélo" : key == "walk" ? "À pied" : "Transport",
+                durationText: durationText,
+                isFastest: fastestDuration != nil && durationsByMode[key] == fastestDuration
+            )
+        }
+    }
+
+    private func fetchMKRoutes(
         source: MKMapItem,
         destination: MKMapItem,
         transportType: MKDirectionsTransportType
-    ) async -> [HomeRouteOption]? {
+    ) async -> [MKRoute]? {
         let req = MKDirections.Request()
         req.source = source
         req.destination = destination
@@ -1469,23 +1561,222 @@ struct HomeView: View {
             return nil
         }
 
-        return response.routes.prefix(3).enumerated().map { index, route in
-            HomeRouteOption.from(
+        return Array(response.routes.prefix(4))
+    }
+
+    private func buildFallbackRouteOptions(
+        transitRoutes: [MKRoute]?,
+        walkingRoutes: [MKRoute]?,
+        originName: String,
+        destinationName: String
+    ) -> [HomeRouteOption] {
+        var fallback: [HomeRouteOption] = []
+
+        for (index, route) in (transitRoutes ?? []).enumerated() {
+            fallback.append(
+                HomeRouteOption.from(
+                    route: route,
+                    index: index,
+                    originName: originName,
+                    destinationName: destinationName
+                )
+            )
+        }
+
+        if let walkingRoute = walkingRoutes?.first {
+            fallback.append(
+                HomeRouteOption.from(
+                    route: walkingRoute,
+                    index: fallback.count,
+                    originName: originName,
+                    destinationName: destinationName
+                )
+            )
+        }
+
+        return fallback
+    }
+
+    private func buildBackendFirstRouteOptions(
+        recommendation: TransportRecommendationDTO?,
+        fallbackOptions: [HomeRouteOption],
+        originName: String,
+        destinationName: String
+    ) -> [HomeRouteOption] {
+        guard let recommendation else { return fallbackOptions }
+
+        var backendOptions = recommendation.recommendedAlternatives.enumerated().map { index, alternative in
+            let matchedRoute = matchedFallbackRoute(for: alternative, in: fallbackOptions)
+            return HomeRouteOption.from(
+                route: matchedRoute,
+                index: index,
+                originName: originName,
+                destinationName: destinationName,
+                backendAlternative: alternative
+            )
+        }
+
+        var dedupeKeys = Set(backendOptions.map(\.dedupeKey))
+        if backendOptions.count < 5 {
+            for option in fallbackOptions where !dedupeKeys.contains(option.dedupeKey) {
+                backendOptions.append(option)
+                dedupeKeys.insert(option.dedupeKey)
+                if backendOptions.count >= 5 {
+                    break
+                }
+            }
+        }
+
+        return backendOptions
+    }
+
+    private func matchedFallbackRoute(
+        for alternative: TransportAlternativeDTO,
+        in fallbackOptions: [HomeRouteOption]
+    ) -> MKRoute? {
+        fallbackOptions
+            .filter { $0.primaryModeKey == HomeRouteOption.primaryMode(for: alternative) }
+            .min(by: {
+                abs($0.totalDurationMinutes - alternative.totalDurationMinutes) <
+                abs($1.totalDurationMinutes - alternative.totalDurationMinutes)
+            })?
+            .route
+    }
+
+    private func preferredRouteOption(in options: [HomeRouteOption]) -> HomeRouteOption? {
+        options.first(where: { $0.primaryModeKey == "transit" })
+            ?? options.first(where: { $0.primaryModeKey == "bike" })
+            ?? options.first
+    }
+
+    private func calculateRouteOptions(
+        source: MKMapItem,
+        destination: MKMapItem,
+        transportType: MKDirectionsTransportType
+    ) async -> [HomeRouteOption]? {
+        async let backendAlternativesTask: [TransportAlternativeDTO]? = fetchBackendRouteAlternatives(
+            source: source,
+            destination: destination
+        )
+
+        let req = MKDirections.Request()
+        req.source = source
+        req.destination = destination
+        req.transportType = transportType
+        req.requestsAlternateRoutes = true
+
+        let dirs = MKDirections(request: req)
+        guard let response = try? await dirs.calculate(), !response.routes.isEmpty else {
+            return nil
+        }
+
+        let backendAlternatives = await backendAlternativesTask
+        return mergeRouteOptions(
+            routes: Array(response.routes.prefix(3)),
+            backendAlternatives: backendAlternatives,
+            originName: "Votre position",
+            destinationName: destination.name ?? "Destination"
+        )
+    }
+
+    private func fetchBackendRouteAlternatives(
+        source: MKMapItem,
+        destination: MKMapItem
+    ) async -> [TransportAlternativeDTO]? {
+        guard AppConfig.isBackendEnabled else { return nil }
+
+        let depart = "\(source.placemark.coordinate.latitude),\(source.placemark.coordinate.longitude)"
+        let destinationQuery = "\(destination.placemark.coordinate.latitude),\(destination.placemark.coordinate.longitude)"
+
+        guard let recommendation = try? await TransportService.recommendRoute(
+            depart: depart,
+            destination: destinationQuery
+        ) else {
+            return nil
+        }
+
+        let usable = recommendation.recommendedAlternatives.filter { alternative in
+            guard let steps = alternative.steps else { return false }
+            return !steps.isEmpty
+        }
+
+        return usable.isEmpty ? nil : usable
+    }
+
+    private func mergeRouteOptions(
+        routes: [MKRoute],
+        backendAlternatives: [TransportAlternativeDTO]?,
+        originName: String,
+        destinationName: String
+    ) -> [HomeRouteOption] {
+        var remainingAlternatives = backendAlternatives ?? []
+
+        return routes.enumerated().map { index, route in
+            let matchedAlternative: TransportAlternativeDTO?
+            if let bestOffset = bestAlternativeOffset(for: route, in: remainingAlternatives) {
+                matchedAlternative = remainingAlternatives.remove(at: bestOffset)
+            } else {
+                matchedAlternative = nil
+            }
+
+            return HomeRouteOption.from(
                 route: route,
                 index: index,
-                originName: "Votre position",
-                destinationName: destination.name ?? "Destination"
+                originName: originName,
+                destinationName: destinationName,
+                backendAlternative: matchedAlternative
             )
         }
     }
 
+    private func bestAlternativeOffset(
+        for route: MKRoute,
+        in alternatives: [TransportAlternativeDTO]
+    ) -> Int? {
+        guard !alternatives.isEmpty else { return nil }
+
+        let routeMinutes = max(1, Int((route.expectedTravelTime / 60).rounded()))
+        let routePrimaryMode = route.steps.contains(where: { $0.transportType == .transit })
+            ? "transit"
+            : route.transportType == .walking ? "walk" : "bike"
+
+        return alternatives.enumerated().min { lhs, rhs in
+            let lhsPenalty = routeMatchPenalty(routeMinutes: routeMinutes, routePrimaryMode: routePrimaryMode, alternative: lhs.element)
+            let rhsPenalty = routeMatchPenalty(routeMinutes: routeMinutes, routePrimaryMode: routePrimaryMode, alternative: rhs.element)
+            return lhsPenalty < rhsPenalty
+        }?.offset
+    }
+
+    private func routeMatchPenalty(
+        routeMinutes: Int,
+        routePrimaryMode: String,
+        alternative: TransportAlternativeDTO
+    ) -> Int {
+        let minutesPenalty = abs(alternative.totalDurationMinutes - routeMinutes)
+        let alternativeMode = primaryMode(for: alternative)
+        let modePenalty = alternativeMode == routePrimaryMode ? 0 : 30
+        return minutesPenalty + modePenalty
+    }
+
+    private func primaryMode(for alternative: TransportAlternativeDTO) -> String {
+        let modes = Set((alternative.steps ?? []).map { $0.mode.lowercased() })
+        if modes.contains("tram") || modes.contains("bus") || modes.contains("metro") {
+            return "transit"
+        }
+        if modes.contains("bike") {
+            return "bike"
+        }
+        return "walk"
+    }
+
     private func applyRouteOption(_ option: HomeRouteOption) {
         currentRoute = option.route
+        currentRouteCoordinates = option.routeCoordinates
         selectedRouteID = option.id
 
-        let rect = option.route.polyline.boundingMapRect
+        let rect = option.mapRectWithPadding
         withAnimation(.easeInOut(duration: 0.8)) {
-            mapPosition = .rect(rect.insetBy(dx: -rect.width * 0.2, dy: -rect.height * 0.2))
+            mapPosition = .rect(rect)
         }
     }
 
@@ -1646,7 +1937,7 @@ private struct WazeMenuPanel: View {
 
     private var userHeader: some View {
         Button {
-            onNavigate(.profileMain)
+            onNavigate(.profile)
             onClose()
         } label: {
             HStack(spacing: 14) {
@@ -2202,27 +2493,33 @@ private struct VilloMapMarker: View {
 
     var body: some View {
         VStack(spacing: 3) {
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 Circle()
                     .fill(fill)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 32, height: 32)
                     .overlay(
                         Circle().stroke(stroke, lineWidth: 2)
                     )
 
                 Image(systemName: "bicycle")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.black)
+                    .frame(width: 32, height: 32, alignment: .center)
 
                 Text(bikeBadgeText)
                     .font(.custom("Montserrat-SemiBold", size: 9))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 5)
-                    .frame(height: 16)
+                    .frame(height: 17)
                     .background(Color.white)
                     .clipShape(Capsule())
-                    .offset(x: 8, y: -6)
+                    .overlay(
+                        Capsule()
+                            .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                    )
+                    .offset(x: 12, y: -10)
             }
+            .frame(width: 42, height: 36)
 
             Text(docksBadgeText)
                 .font(.custom("Montserrat-SemiBold", size: 9))
@@ -3803,90 +4100,76 @@ private struct RecentReportCard: View {
 
 private struct RouteRecommendationsSheet: View {
     let options: [HomeRouteOption]
+    let modeSummaries: [RouteModeSummary]
     @Binding var selectedRouteID: UUID?
     @Binding var isExpanded: Bool
     let onSelect: (HomeRouteOption) -> Void
     let onClose: () -> Void
 
     @GestureState private var dragOffset: CGFloat = 0
+    @State private var isRecommendedExpanded = false
+    @State private var selectedModeKey: String = "transit"
 
-    private var recommended: HomeRouteOption? { options.first }
-    private var others: [HomeRouteOption] { Array(options.dropFirst()) }
+    private var filteredOptions: [HomeRouteOption] {
+        let subset = options.filter { $0.primaryModeKey == selectedModeKey }
+        let base = subset.isEmpty ? options : subset
+        return base.sorted { $0.totalDurationMinutes < $1.totalDurationMinutes }
+    }
+    private var recommended: HomeRouteOption? { filteredOptions.first }
+    private var others: [HomeRouteOption] { Array(filteredOptions.dropFirst()) }
+    private var preferredInitialMode: String {
+        if modeSummaries.contains(where: { $0.modeKey == "transit" && $0.durationText != "—" }) {
+            return "transit"
+        }
+        return modeSummaries.first(where: { $0.durationText != "—" })?.modeKey ?? "transit"
+    }
 
     var body: some View {
         GeometryReader { proxy in
-            let expandedHeight = min(proxy.size.height * 0.78, 702)
-            let collapsedHeight = min(proxy.size.height * 0.42, 330)
+            let expandedHeight = min(proxy.size.height * 0.66, 584)
+            let collapsedHeight = min(proxy.size.height * 0.34, 286)
             let sheetHeight = isExpanded ? expandedHeight : collapsedHeight
 
             VStack(spacing: 0) {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    Capsule()
-                        .fill(.white)
-                        .frame(width: 103, height: 3)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 12)
-                        .padding(.bottom, 18)
-
-                    if let recommended {
-                        RouteOptionCard(
-                            option: recommended,
-                            isRecommended: true,
-                            isSelected: selectedRouteID == recommended.id
-                        ) {
-                            onSelect(recommended)
-                        }
-                        .padding(.horizontal, 18)
-                    }
-
-                    HStack(alignment: .center) {
-                        Text("Autres options")
-                            .font(AppTheme.Fonts.bodyStrong)
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                        Spacer()
-                        Text("\(others.count + 1) trajets disponible")
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 18)
-
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 12) {
-                            ForEach(others) { option in
-                                RouteOptionCard(
-                                    option: option,
-                                    isRecommended: false,
-                                    isSelected: selectedRouteID == option.id
-                                ) {
-                                    onSelect(option)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.top, 12)
-                        .padding(.bottom, 26)
-                    }
-                    .scrollDisabled(!isExpanded)
+                    sheetHandle
+                    modeSummaryStrip
+                    recommendedSection
+                    optionsHeader
+                    otherOptionsList
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: sheetHeight, alignment: .top)
-                .background(AppTheme.Palette.overlay.opacity(0.82))
+                .background(DS.Color.paper)
                 .overlay(alignment: .topTrailing) {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(AppTheme.Palette.textSecondary)
-                            .frame(width: 28, height: 28)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .frame(width: 32, height: 32)
+                            .background(DS.Color.paper)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 18)
-                    .padding(.trailing, 18)
+                    .padding(.top, 14)
+                    .padding(.trailing, 14)
                     .opacity(isExpanded ? 1 : 0)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(DS.Color.ink.opacity(0.1))
+                        .frame(height: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                )
                 .offset(y: max(0, dragOffset))
                 .gesture(
                     DragGesture(minimumDistance: 8)
@@ -3912,7 +4195,122 @@ private struct RouteRecommendationsSheet: View {
                 )
             }
             .ignoresSafeArea()
+            .onAppear {
+                selectedModeKey = preferredInitialMode
+            }
+            .onChange(of: modeSummaries.map(\.modeKey)) { _, _ in
+                selectedModeKey = preferredInitialMode
+            }
         }
+    }
+
+    private var sheetHandle: some View {
+        Capsule()
+            .fill(DS.Color.ink.opacity(0.24))
+            .frame(width: 76, height: 4)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 10)
+            .padding(.bottom, 14)
+    }
+
+    @ViewBuilder
+    private var modeSummaryStrip: some View {
+        if !modeSummaries.isEmpty {
+            HStack(spacing: 0) {
+                ForEach(Array(modeSummaries.enumerated()), id: \.offset) { index, summary in
+                    RouteModeSummaryTile(
+                        summary: summary,
+                        isHighlighted: summary.modeKey == selectedModeKey
+                    )
+                    .onTapGesture {
+                        selectedModeKey = summary.modeKey
+                        isRecommendedExpanded = false
+                        if let first = options.first(where: { $0.primaryModeKey == summary.modeKey }) {
+                            onSelect(first)
+                        }
+                    }
+                    if index < modeSummaries.count - 1 {
+                        Rectangle()
+                            .fill(DS.Color.ink.opacity(0.12))
+                            .frame(width: 1)
+                    }
+                }
+            }
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+    }
+
+    @ViewBuilder
+    private var recommendedSection: some View {
+        if let recommended {
+            RouteOptionCard(
+                option: recommended,
+                isRecommended: true,
+                isSelected: selectedRouteID == recommended.id,
+                action: {
+                    onSelect(recommended)
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        isRecommendedExpanded = true
+                        isExpanded = true
+                    }
+                },
+                isExpandedCard: isRecommendedExpanded,
+                expandedContent: AnyView(InlineRouteDetails(option: recommended)),
+                onToggleExpanded: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        isRecommendedExpanded.toggle()
+                        isExpanded = true
+                    }
+                }
+            )
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private var optionsHeader: some View {
+        HStack(alignment: .center) {
+            Text("AUTRES ITINÉRAIRES")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(2)
+                .foregroundStyle(DS.Color.ink)
+            Text(String(format: "%02d", max(others.count, 0)))
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(DS.Color.inkMute)
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.12))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+    }
+
+    private var otherOptionsList: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 12) {
+                ForEach(others) { option in
+                    RouteOptionCard(
+                        option: option,
+                        isRecommended: false,
+                        isSelected: selectedRouteID == option.id,
+                        action: {
+                            onSelect(option)
+                        },
+                        deltaText: option.deltaText(comparedTo: recommended)
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 18)
+        }
+        .scrollDisabled(!isExpanded)
     }
 }
 
@@ -3921,58 +4319,314 @@ private struct RouteOptionCard: View {
     let isRecommended: Bool
     let isSelected: Bool
     let action: () -> Void
+    var isExpandedCard: Bool = false
+    var expandedContent: AnyView? = nil
+    var onToggleExpanded: (() -> Void)? = nil
+    var deltaText: String? = nil
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? AppTheme.Palette.textPrimary : AppTheme.Palette.screen)
-                    .frame(width: 42, height: 41)
-                    .overlay(
-                        Image(systemName: isSelected ? "point.topleft.down.curvedto.point.bottomright.up.fill" : "point.topleft.down.curvedto.point.bottomright.up")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(isSelected ? AppTheme.Palette.textOnBrand : AppTheme.Palette.textPrimary)
-                    )
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(option.durationText)
-                        .font(AppTheme.Fonts.title3)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
-
-                    HStack(spacing: 10) {
-                        Text(option.transitSummary)
-                        Text(option.walkingSummary)
-                        Text(option.reliabilityText)
-                            .foregroundStyle(AppTheme.Palette.success)
-                    }
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand)
-                }
-
-                Spacer()
-
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: action) {
                 if isRecommended {
-                    Text("Recommandé")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .padding(.horizontal, 10)
-                        .frame(height: 20)
-                        .background(AppTheme.Palette.screen)
-                        .clipShape(Capsule())
+                    recommendedLayout
+                } else {
+                    alternativeLayout
                 }
             }
-            .padding(.horizontal, 13)
-            .frame(height: 83)
-            .background(AppTheme.Palette.brand)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+            .buttonStyle(.plain)
+
+            if let expandedContent, isRecommended, isExpandedCard {
+                expandedContent
+            }
         }
-        .buttonStyle(.plain)
+        .background(DS.Color.paper)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(option.leadingAccentColor)
+                .frame(width: isRecommended ? 6 : 4)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.16), lineWidth: isRecommended ? 1.35 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func routeMetaPill(_ text: String, tint: Color = DS.Color.paper2, foreground: Color = DS.Color.ink) -> some View {
+        Text(text.uppercased())
+            .font(DS.Font.monoSmall.weight(.bold))
+            .tracking(1.2)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 7)
+            .frame(height: 20)
+            .background(tint)
+            .clipShape(Capsule())
+    }
+
+    private var recommendedLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(DS.Color.ink)
+                        .frame(width: 46, height: 46)
+                    Image(systemName: option.primaryModeIcon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(DS.Color.paper)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(option.durationText)
+                            .font(.system(size: 24, weight: .black))
+                            .tracking(-0.8)
+                            .foregroundStyle(DS.Color.ink)
+                        Spacer(minLength: 12)
+                        Button(action: { onToggleExpanded?() }) {
+                            Image(systemName: isExpandedCard ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(DS.Color.inkMute)
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Text("\(option.primaryModeLabel.uppercased()) · \(option.transferSummary.uppercased())")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(2)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    HStack(spacing: 8) {
+                        ForEach(option.displayLineCodes, id: \.self) { code in
+                            RouteLineMiniBadge(line: code)
+                        }
+                    }
+
+                    RouteDurationStrip(segments: option.visualSegments)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, isExpandedCard ? 10 : 14)
+        }
+    }
+
+    private var alternativeLayout: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(option.durationText)
+                    .font(.system(size: 18, weight: .black))
+                    .tracking(-0.6)
+                    .foregroundStyle(DS.Color.ink)
+                if let deltaText {
+                    Text(deltaText.uppercased())
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(2)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+            .frame(width: 88, alignment: .leading)
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.12))
+                .frame(width: 1)
+                .frame(maxHeight: .infinity)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    ForEach(Array(option.displayLineCodes.enumerated()), id: \.offset) { index, code in
+                        RouteLineMiniBadge(line: code)
+                        if index < option.displayLineCodes.count - 1 {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                    }
+                }
+
+                Text("\(option.transferSummary.uppercased()) · \(option.terminalLabel.uppercased())")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 10)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.trailing, 2)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+}
+
+private struct RouteModeSummary {
+    let modeKey: String
+    let title: String
+    let durationText: String
+    let isFastest: Bool
+}
+
+private struct RouteVisualSegment {
+    let tint: Color
+    let weight: CGFloat
+}
+
+private struct InlineRouteStepItem: Identifiable {
+    let id = UUID()
+    let icon: String?
+    let title: String
+    let meta: String
+    let lineCode: String?
+}
+
+private struct RouteModeSummaryTile: View {
+    let summary: RouteModeSummary
+    let isHighlighted: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if summary.isFastest {
+                Text("⚡ RAPIDE")
+                    .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                    .tracking(1)
+                    .foregroundStyle(isHighlighted ? DS.Color.ink : DS.Color.paper)
+                    .padding(.horizontal, 5)
+                    .frame(height: 16)
+                    .background(isHighlighted ? DS.Color.paper : DS.Color.ink)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            } else {
+                Spacer().frame(height: 16)
+            }
+            HStack(spacing: 6) {
+                Image(systemName: summary.modeKey == "bike" ? "bicycle" : summary.modeKey == "walk" ? "figure.walk" : "tram.fill")
+                    .font(.system(size: 11, weight: .medium))
+                Text(summary.title.uppercased())
+            }
+            .font(DS.Font.monoSmall.weight(.bold))
+            .tracking(1.6)
+                .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.inkMute)
+            Text(summary.durationText)
+                .font(.system(size: 16, weight: .black))
+                .tracking(-0.4)
+                .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.ink)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(isHighlighted ? DS.Color.ink : DS.Color.paper)
+    }
+}
+
+private struct RouteLineMiniBadge: View {
+    let line: String
+
+    var body: some View {
+        Text(line)
+            .font(DS.Font.monoSmall.weight(.bold))
+            .foregroundStyle(TransitLinePalette.foreground(for: line))
+            .frame(minWidth: 30, minHeight: 30)
+            .padding(.horizontal, 3)
+            .background(TransitLinePalette.fill(for: line))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+}
+
+private struct RouteDurationStrip: View {
+    let segments: [RouteVisualSegment]
+
+    private var totalWeight: CGFloat {
+        max(segments.reduce(0) { $0 + $1.weight }, 1)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let totalSpacing = CGFloat(max(segments.count - 1, 0)) * 2
+            let usableWidth = max(geo.size.width - totalSpacing, 0)
+
+            HStack(spacing: 2) {
+                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(segment.tint)
+                        .frame(width: max(10, usableWidth * (segment.weight / totalWeight)), height: 12)
+                }
+            }
+            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 16)
+            .background(DS.Color.ink.opacity(0.22))
+            .clipShape(Capsule())
+        }
+        .frame(height: 16)
+    }
+}
+
+private struct InlineRouteDetails: View {
+    let option: HomeRouteOption
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(DS.Color.primary)
+                .frame(height: 2)
+                .padding(.horizontal, -14)
+                .padding(.bottom, 8)
+
+            ForEach(Array(option.inlineSteps.enumerated()), id: \.element.id) { index, item in
+                HStack(alignment: .top, spacing: 10) {
+                    if let lineCode = item.lineCode {
+                        RouteLineMiniBadge(line: lineCode)
+                            .frame(width: 30, height: 30)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
+                                .frame(width: 28, height: 28)
+                            if let icon = item.icon {
+                                Image(systemName: icon)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(item.title)
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(2)
+                        Text(item.meta)
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.2)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 8)
+
+                if index < option.inlineSteps.count - 1 {
+                    Rectangle()
+                        .fill(DS.Color.ink.opacity(0.12))
+                        .frame(height: 1)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 12)
     }
 }
 
 private struct HomeRouteOption: Identifiable {
     let id = UUID()
-    let route: MKRoute
+    let route: MKRoute?
+    let backendAlternative: TransportAlternativeDTO?
     let originName: String
     let destinationName: String
     let durationText: String
@@ -3980,123 +4634,125 @@ private struct HomeRouteOption: Identifiable {
     let walkingSummary: String
     let reliabilityText: String
 
-    static func from(route: MKRoute, index: Int, originName: String, destinationName: String) -> HomeRouteOption {
-        let transitSteps = route.steps.filter { $0.transportType == .transit }
-        let walkingMinutes = max(1, Int((route.steps.filter { $0.transportType == .walking }.map(\.distance).reduce(0, +) / 75).rounded()))
-        let reliability = max(82, 95 - index * 6)
+    static func from(
+        route: MKRoute?,
+        index: Int,
+        originName: String,
+        destinationName: String,
+        backendAlternative: TransportAlternativeDTO? = nil
+    ) -> HomeRouteOption {
+        let transitSteps = route?.steps.filter { $0.transportType == .transit } ?? []
+        let walkingDistance = route?.steps.filter { $0.transportType == .walking }.map(\.distance).reduce(0, +) ?? 0
+        let walkingMinutes = max(1, Int((walkingDistance / 75).rounded()))
+        let transferCount = max(0, transitSteps.count - 1)
+        let durationMinutes = backendAlternative?.totalDurationMinutes ?? max(1, Int((((route?.expectedTravelTime) ?? 60) / 60).rounded()))
+        let transitSummary = backendAlternative.map(Self.transitSummary(from:)) ?? (transitSteps.isEmpty ? "à pied" : "\(transitSteps.count) transport")
+        let walkingSummary = "\(backendAlternative?.walkingMinutes ?? walkingMinutes) min à pied"
+        let reliabilityText = backendAlternative.map(Self.reliabilitySummary(from:)) ?? (transferCount == 0 ? "direct" : "\(transferCount) corresp.")
 
         return HomeRouteOption(
             route: route,
+            backendAlternative: backendAlternative,
             originName: originName,
             destinationName: destinationName,
-            durationText: "\(max(1, Int((route.expectedTravelTime / 60).rounded()))) min",
-            transitSummary: "\(max(1, transitSteps.count)) tram",
-            walkingSummary: "\(walkingMinutes) min à pied",
-            reliabilityText: "\(reliability)% fiable"
+            durationText: "\(durationMinutes) min",
+            transitSummary: transitSummary,
+            walkingSummary: walkingSummary,
+            reliabilityText: reliabilityText
         )
     }
 
     var detailSegments: [RouteItinerarySegment] {
-        let totalMinutes = max(10, Int((route.expectedTravelTime / 60).rounded()))
-        let walkingMinutes = max(1, Int(walkingSummary.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()) ?? 4)
-        let transitCount = max(1, Int(transitSummary.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()) ?? 1)
+        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
+            return detailSegments(from: steps)
+        }
+
+        guard let route else { return [] }
+
         let startDate = Date()
+        let usefulSteps = route.steps.filter { step in
+            step.distance > 8 || !step.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
 
-        let firstWalkDuration = max(1, min(6, walkingMinutes / 2 == 0 ? walkingMinutes : walkingMinutes / 2))
-        let secondWalkDuration = max(1, walkingMinutes - firstWalkDuration)
-        let firstTransitDuration = max(4, (totalMinutes - walkingMinutes) / transitCount)
-        let secondTransitDuration = max(4, totalMinutes - walkingMinutes - firstTransitDuration)
-        let firstLine = transitCount > 1 ? "7" : "4"
-        let secondLine = transitCount > 1 ? "58" : "3"
-
-        let schedule = [0, firstWalkDuration, firstWalkDuration + firstTransitDuration, firstWalkDuration + firstTransitDuration + secondWalkDuration, totalMinutes]
-        let stopCountPrimary = max(3, firstTransitDuration / 2)
-        let stopCountSecondary = max(4, secondTransitDuration / 2)
-
-        return [
+        var elapsedMinutes = 0
+        var segments: [RouteItinerarySegment] = [
             RouteItinerarySegment(
-                timeText: schedule[0].clockString(from: startDate),
+                timeText: elapsedMinutes.clockString(from: startDate),
                 placeTitle: originName,
                 icon: nil,
-                accentColor: .white,
+                accentColor: DS.Color.paper,
                 stepCard: nil,
                 durationBadge: nil
-            ),
-            RouteItinerarySegment(
-                timeText: schedule[1].clockString(from: startDate),
-                placeTitle: "Premier arrêt",
-                icon: "figure.walk",
-                accentColor: AppTheme.Palette.brand.opacity(0.9),
-                stepCard: RouteItineraryStepCard(
-                    style: .mint,
-                    title: "Marcher \(max(120, firstWalkDuration * 110))m jusqu’au premier arrêt",
-                    subtitle: "Directions >",
-                    lineBadge: nil,
-                    serviceInfo: nil
-                ),
-                durationBadge: "\(firstWalkDuration) min",
-                stopCountText: nil
-            ),
-            RouteItinerarySegment(
-                timeText: schedule[2].clockString(from: startDate),
-                placeTitle: "Correspondance",
-                icon: transitCount > 1 ? "tram.fill" : "tram.fill",
-                accentColor: AppTheme.Palette.success,
-                stepCard: RouteItineraryStepCard(
-                    style: .mint,
-                    title: "Prenez le tram \(firstLine)\ndirection centre-ville",
-                    subtitle: "Directions >",
-                    lineBadge: firstLine,
-                    serviceInfo: nil
-                ),
-                durationBadge: "\(firstTransitDuration) min",
-                stopCountText: "\(stopCountPrimary) arrêts"
-            ),
-            RouteItinerarySegment(
-                timeText: schedule[3].clockString(from: startDate),
-                placeTitle: destinationName,
-                icon: "figure.walk",
-                accentColor: Color.white.opacity(0.85),
-                stepCard: RouteItineraryStepCard(
-                    style: .white,
-                    title: "Marcher \(max(50, secondWalkDuration * 70))m jusqu’à \(destinationName)",
-                    subtitle: "Directions >",
-                    lineBadge: nil,
-                    serviceInfo: nil
-                ),
-                durationBadge: "\(secondWalkDuration) min",
-                stopCountText: nil
-            ),
-            RouteItinerarySegment(
-                timeText: schedule[4].clockString(from: startDate),
-                placeTitle: destinationName,
-                icon: transitCount > 1 ? "bus.fill" : nil,
-                accentColor: AppTheme.Palette.warning,
-                stepCard: transitCount > 1 ? RouteItineraryStepCard(
-                    style: .white,
-                    title: "Prenez le bus \(secondLine)\ndirection \(destinationName)",
-                    subtitle: "Directions >",
-                    lineBadge: secondLine,
-                    serviceInfo: RouteTransitServiceInfo(
-                        lineCode: secondLine,
-                        statusTitle: "Service Perturbé",
-                        detail: "Perturbations mineures",
-                        waitTime: "\(max(6, secondTransitDuration + 4)) min"
-                    )
-                ) : nil,
-                durationBadge: transitCount > 1 ? "1 min" : nil,
-                stopCountText: transitCount > 1 ? "\(stopCountSecondary) arrêts" : nil
             )
         ]
+
+        for (index, step) in usefulSteps.enumerated() {
+            let durationMinutes = Self.estimatedMinutes(for: step)
+            elapsedMinutes += durationMinutes
+
+            let instruction = step.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = instruction.isEmpty ? Self.fallbackTitle(for: step, destinationName: destinationName) : instruction
+            let lineCode = Self.extractLineCode(from: instruction)
+            let isLastLeg = index == usefulSteps.count - 1
+
+            segments.append(
+                RouteItinerarySegment(
+                    timeText: elapsedMinutes.clockString(from: startDate),
+                    placeTitle: Self.placeTitle(for: step, isLastLeg: isLastLeg, destinationName: destinationName, lineCode: lineCode),
+                    icon: Self.iconName(for: step),
+                    accentColor: Self.accentColor(for: step, lineCode: lineCode),
+                    stepCard: RouteItineraryStepCard(
+                        style: step.transportType == .walking ? .white : .mint,
+                        title: title,
+                        subtitle: Self.subtitle(for: step),
+                        lineBadge: lineCode,
+                        serviceInfo: nil
+                    ),
+                    durationBadge: "\(durationMinutes) min",
+                    stopCountText: Self.stopCountText(for: step)
+                )
+            )
+        }
+
+        if segments.last?.placeTitle != destinationName {
+            segments.append(
+                RouteItinerarySegment(
+                    timeText: max(elapsedMinutes, Int((route.expectedTravelTime / 60).rounded())).clockString(from: startDate),
+                    placeTitle: destinationName,
+                    icon: nil,
+                    accentColor: DS.Color.primary,
+                    stepCard: nil,
+                    durationBadge: nil
+                )
+            )
+        }
+
+        return segments
     }
 
     var routeCoordinates: [CLLocationCoordinate2D] {
+        if let backendAlternative,
+           let backendCoordinates = Self.coordinates(from: backendAlternative),
+           !backendCoordinates.isEmpty {
+            return backendCoordinates
+        }
+
+        guard let route else { return [] }
         let polyline = route.polyline
         return (0..<polyline.pointCount).map { polyline.points()[$0].coordinate }
     }
 
     var mapRectWithPadding: MKMapRect {
-        let rect = route.polyline.boundingMapRect
+        let rect: MKMapRect
+        if routeCoordinates.count > 1 {
+            rect = MKPolyline(coordinates: routeCoordinates, count: routeCoordinates.count).boundingMapRect
+        } else if let route {
+            rect = route.polyline.boundingMapRect
+        } else if let first = routeCoordinates.first {
+            rect = MKMapRect(origin: MKMapPoint(first), size: MKMapSize(width: 1200, height: 1200))
+        } else {
+            rect = MKMapRect.world
+        }
         return rect.insetBy(dx: -rect.width * 0.35, dy: -rect.height * 0.35)
     }
 
@@ -4108,6 +4764,34 @@ private struct HomeRouteOption: Identifiable {
     }
 
     func arInstruction(from current: CLLocationCoordinate2D) -> RouteARInstruction {
+        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
+            let nextStep = steps.first { step in
+                guard let coordinate = Self.primaryCoordinate(for: step) else { return false }
+                return current.distance(to: coordinate) > 20
+            } ?? steps.first
+
+            let primaryText = nextStep?.instruction ?? "Suivez l’itinéraire vers \(destinationName)"
+            let secondaryText = nextStep.map(Self.summaryText(for:)) ?? walkingSummary
+            let distanceText = nextStep
+                .flatMap(Self.primaryCoordinate(for:))
+                .map { current.distance(to: $0).distanceLabel }
+                ?? durationText
+
+            return RouteARInstruction(
+                primaryText: primaryText,
+                secondaryText: secondaryText,
+                distanceText: distanceText
+            )
+        }
+
+        guard let route else {
+            return RouteARInstruction(
+                primaryText: "Suivez l’itinéraire vers \(destinationName)",
+                secondaryText: walkingSummary,
+                distanceText: durationText
+            )
+        }
+
         let usefulSteps = route.steps.filter { !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         let nextStep = usefulSteps.first { step in
             guard let coord = step.polyline.firstCoordinate else { return false }
@@ -4124,6 +4808,458 @@ private struct HomeRouteOption: Identifiable {
             secondaryText: transportType == .transit ? transitSummary : walkingSummary,
             distanceText: distance.distanceLabel
         )
+    }
+
+    private func detailSegments(from steps: [TransportRouteStepDTO]) -> [RouteItinerarySegment] {
+        let startDate = Date()
+        var elapsedMinutes = 0
+        var segments: [RouteItinerarySegment] = [
+            RouteItinerarySegment(
+                timeText: elapsedMinutes.clockString(from: startDate),
+                placeTitle: originName,
+                icon: nil,
+                accentColor: DS.Color.paper,
+                stepCard: nil,
+                durationBadge: nil
+            )
+        ]
+
+        let sortedSteps = steps.sorted { $0.order < $1.order }
+        for (index, step) in sortedSteps.enumerated() {
+            elapsedMinutes += max(1, step.durationMinutes)
+            let isLastStep = index == sortedSteps.count - 1
+
+            segments.append(
+                RouteItinerarySegment(
+                    timeText: elapsedMinutes.clockString(from: startDate),
+                    placeTitle: placeTitle(for: step, isLastStep: isLastStep),
+                    icon: Self.iconName(for: step),
+                    accentColor: Self.accentColor(for: step),
+                    stepCard: RouteItineraryStepCard(
+                        style: Self.cardStyle(for: step),
+                        title: step.instruction,
+                        subtitle: Self.subtitle(for: step),
+                        lineBadge: step.line,
+                        serviceInfo: nil
+                    ),
+                    durationBadge: "\(max(1, step.durationMinutes)) min",
+                    stopCountText: step.stopsCount.map { $0 > 1 ? "\($0) arrêts" : "1 arrêt" }
+                )
+            )
+        }
+
+        if segments.last?.placeTitle != destinationName {
+            segments.append(
+                RouteItinerarySegment(
+                    timeText: max(elapsedMinutes, totalDurationMinutes).clockString(from: startDate),
+                    placeTitle: destinationName,
+                    icon: nil,
+                    accentColor: DS.Color.primary,
+                    stepCard: nil,
+                    durationBadge: nil
+                )
+            )
+        }
+
+        return segments
+    }
+
+    var totalDurationMinutes: Int {
+        backendAlternative?.totalDurationMinutes ?? max(1, Int((((route?.expectedTravelTime) ?? 60) / 60).rounded()))
+    }
+
+    var primaryModeKey: String {
+        if let backendAlternative {
+            return Self.primaryMode(for: backendAlternative)
+        }
+        let transportTypes = Set((route?.steps ?? []).map { $0.transportType.rawValue })
+        if transportTypes.contains(MKDirectionsTransportType.transit.rawValue) { return "transit" }
+        if transportTypes.contains(MKDirectionsTransportType.walking.rawValue) && transportTypes.count == 1 { return "walk" }
+        return "bike"
+    }
+
+    var primaryModeLabel: String {
+        switch primaryModeKey {
+        case "bike": return "Vélo"
+        case "walk": return "À pied"
+        default: return "Transport"
+        }
+    }
+
+    var primaryModeIcon: String {
+        switch primaryModeKey {
+        case "bike": return "bicycle"
+        case "walk": return "figure.walk"
+        default: return "tram.fill"
+        }
+    }
+
+    var transferSummary: String {
+        let transfers = backendAlternative?.transfers ?? max(0, displayLineCodes.count - 1)
+        return "\(transfers) corresp."
+    }
+
+    var displayLineCodes: [String] {
+        if let backendAlternative, !backendAlternative.lines.isEmpty {
+            return Array(backendAlternative.lines.prefix(4))
+        }
+
+        let extracted = (route?.steps ?? []).compactMap { step -> String? in
+            guard step.transportType == .transit else { return nil }
+            let instruction = step.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Self.extractLineCode(from: instruction)
+        }
+        return Array(NSOrderedSet(array: extracted).array as? [String] ?? [])
+    }
+
+    var terminalLabel: String {
+        if let backendAlternative,
+           let lastTransit = (backendAlternative.steps ?? []).last(where: { $0.line != nil }),
+           let stop = lastTransit.arrivalStopName ?? lastTransit.destination {
+            return stop
+        }
+        return destinationName
+    }
+
+    var dedupeKey: String {
+        let lines = displayLineCodes.joined(separator: "-")
+        return "\(primaryModeKey)|\(totalDurationMinutes)|\(lines)|\(terminalLabel)"
+    }
+
+    var leadingAccentColor: Color {
+        if let first = displayLineCodes.first {
+            return TransitLinePalette.fill(for: first)
+        }
+        switch primaryModeKey {
+        case "bike": return DS.Color.villo
+        case "walk": return DS.Color.inkMute.opacity(0.45)
+        default: return DS.Color.primary
+        }
+    }
+
+    var visualSegments: [RouteVisualSegment] {
+        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
+            return steps.map { step in
+                RouteVisualSegment(
+                    tint: Self.segmentColor(for: step),
+                    weight: max(CGFloat(step.durationMinutes), 0.8)
+                )
+            }
+        }
+
+        let usefulSteps = (route?.steps ?? []).filter { $0.distance > 8 || !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return usefulSteps.map { step in
+            RouteVisualSegment(
+                tint: step.transportType == .walking
+                    ? DS.Color.ink.opacity(0.28)
+                    : TransitLinePalette.fill(for: Self.extractLineCode(from: step.instructions) ?? "1"),
+                weight: max(CGFloat(Self.estimatedMinutes(for: step)), 0.8)
+            )
+        }
+    }
+
+    var inlineSteps: [InlineRouteStepItem] {
+        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
+            return steps.sorted { $0.order < $1.order }.map { step in
+                InlineRouteStepItem(
+                    icon: Self.inlineIcon(for: step),
+                    title: Self.inlineTitle(for: step),
+                    meta: Self.inlineMeta(for: step),
+                    lineCode: step.line
+                )
+            }
+        }
+
+        return detailSegments.compactMap { segment in
+            guard let stepCard = segment.stepCard else { return nil }
+            return InlineRouteStepItem(
+                icon: segment.icon,
+                title: stepCard.title,
+                meta: [segment.stopCountText, segment.durationBadge].compactMap { $0 }.joined(separator: " · "),
+                lineCode: stepCard.lineBadge
+            )
+        }
+    }
+
+    func deltaText(comparedTo base: HomeRouteOption?) -> String? {
+        guard let base else { return nil }
+        let delta = totalDurationMinutes - base.totalDurationMinutes
+        guard delta > 0 else { return nil }
+        return "+\(delta) min"
+    }
+
+    private static func estimatedMinutes(for step: MKRoute.Step) -> Int {
+        switch step.transportType {
+        case .walking:
+            return max(1, Int((step.distance / 75).rounded()))
+        case .transit:
+            return max(2, Int((step.distance / 280).rounded()))
+        default:
+            return max(2, Int((step.distance / 250).rounded()))
+        }
+    }
+
+    private static func extractLineCode(from instruction: String) -> String? {
+        let pattern = #"\b(T?\d{1,3})\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(instruction.startIndex..<instruction.endIndex, in: instruction)
+        guard let match = regex.firstMatch(in: instruction, range: range),
+              let foundRange = Range(match.range(at: 1), in: instruction) else { return nil }
+        return String(instruction[foundRange]).uppercased()
+    }
+
+    private static func iconName(for step: MKRoute.Step) -> String? {
+        switch step.transportType {
+        case .walking: return "figure.walk"
+        case .transit: return "tram.fill"
+        default: return nil
+        }
+    }
+
+    private static func accentColor(for step: MKRoute.Step, lineCode: String?) -> Color {
+        switch step.transportType {
+        case .walking:
+            return DS.Color.paper2
+        case .transit:
+            if let lineCode {
+                return TransitLinePalette.fill(for: lineCode)
+            }
+            return DS.Color.community
+        default:
+            return DS.Color.inkMute
+        }
+    }
+
+    private static func placeTitle(for step: MKRoute.Step, isLastLeg: Bool, destinationName: String, lineCode: String?, lineFallback: String = "Transport") -> String {
+        if isLastLeg && step.transportType == .walking {
+            return destinationName
+        }
+        if let lineCode {
+            return "Ligne \(lineCode)"
+        }
+        switch step.transportType {
+        case .walking: return "À pied"
+        case .transit: return lineFallback
+        default: return "Étape"
+        }
+    }
+
+    private static func fallbackTitle(for step: MKRoute.Step, destinationName: String) -> String {
+        switch step.transportType {
+        case .walking:
+            return "Marcher vers \(destinationName)"
+        case .transit:
+            return "Prendre le transport suivant"
+        default:
+            return "Suivre l’itinéraire"
+        }
+    }
+
+    private static func subtitle(for step: MKRoute.Step) -> String {
+        switch step.transportType {
+        case .walking:
+            return step.distance.distanceLabel
+        case .transit:
+            return "Étape transport"
+        default:
+            return "Suivez l’itinéraire"
+        }
+    }
+
+    private static func stopCountText(for step: MKRoute.Step) -> String? {
+        guard step.transportType == .transit else { return nil }
+        let estimatedStops = max(1, Int((step.distance / 350).rounded()))
+        return estimatedStops > 1 ? "\(estimatedStops) arrêts" : "1 arrêt"
+    }
+
+    private func placeTitle(for step: TransportRouteStepDTO, isLastStep: Bool) -> String {
+        if isLastStep, step.mode == "walk" {
+            return destinationName
+        }
+        if let stopName = step.stopName, !stopName.isEmpty {
+            return stopName
+        }
+        if let arrivalStopName = step.arrivalStopName, !arrivalStopName.isEmpty {
+            return arrivalStopName
+        }
+        if let line = step.line, !line.isEmpty {
+            return "Ligne \(line)"
+        }
+        switch step.mode.lowercased() {
+        case "bike": return "À vélo"
+        case "walk": return "À pied"
+        default: return "Correspondance"
+        }
+    }
+
+    private static func transitSummary(from alternative: TransportAlternativeDTO) -> String {
+        if !alternative.lines.isEmpty {
+            let label = alternative.lines.count > 1 ? "lignes" : "ligne"
+            return "\(alternative.lines.count) \(label)"
+        }
+        switch primaryMode(for: alternative) {
+        case "bike": return "à vélo"
+        case "walk": return "à pied"
+        default: return "transport"
+        }
+    }
+
+    private static func reliabilitySummary(from alternative: TransportAlternativeDTO) -> String {
+        if alternative.transfers == 0 {
+            return "direct"
+        }
+        return "\(alternative.transfers) corresp."
+    }
+
+    static func primaryMode(for alternative: TransportAlternativeDTO) -> String {
+        let modes = Set((alternative.steps ?? []).map { $0.mode.lowercased() })
+        if modes.contains("tram") || modes.contains("bus") || modes.contains("metro") {
+            return "transit"
+        }
+        if modes.contains("bike") {
+            return "bike"
+        }
+        return "walk"
+    }
+
+    private static func coordinates(from alternative: TransportAlternativeDTO) -> [CLLocationCoordinate2D]? {
+        let points = (alternative.steps ?? []).flatMap { step in
+            (step.path ?? []).map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng) }
+        }
+        guard !points.isEmpty else { return nil }
+
+        var deduped: [CLLocationCoordinate2D] = []
+        for point in points {
+            if deduped.last?.latitude == point.latitude && deduped.last?.longitude == point.longitude {
+                continue
+            }
+            deduped.append(point)
+        }
+        return deduped
+    }
+
+    private static func primaryCoordinate(for step: TransportRouteStepDTO) -> CLLocationCoordinate2D? {
+        if let lat = step.startLatitude, let lng = step.startLongitude {
+            return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        }
+        if let lat = step.targetLatitude, let lng = step.targetLongitude {
+            return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        }
+        if let path = step.path?.first {
+            return CLLocationCoordinate2D(latitude: path.lat, longitude: path.lng)
+        }
+        return nil
+    }
+
+    private static func iconName(for step: TransportRouteStepDTO) -> String? {
+        switch step.mode.lowercased() {
+        case "walk": return "figure.walk"
+        case "bike": return "bicycle"
+        case "bus": return "bus.fill"
+        default: return "tram.fill"
+        }
+    }
+
+    private static func accentColor(for step: TransportRouteStepDTO) -> Color {
+        if let line = step.line {
+            return TransitLinePalette.fill(for: line)
+        }
+        switch step.mode.lowercased() {
+        case "bike": return DS.Color.villo
+        case "walk": return DS.Color.paper2
+        case "bus": return DS.Color.community
+        case "metro": return DS.Color.primary
+        default: return DS.Color.accent
+        }
+    }
+
+    private static func cardStyle(for step: TransportRouteStepDTO) -> RouteItineraryStepCard.CardStyle {
+        switch step.mode.lowercased() {
+        case "walk": return .white
+        default: return .mint
+        }
+    }
+
+    private static func subtitle(for step: TransportRouteStepDTO) -> String {
+        if let arrivalStopName = step.arrivalStopName, !arrivalStopName.isEmpty {
+            return "Vers \(arrivalStopName)"
+        }
+        if let destination = step.destination, !destination.isEmpty {
+            return "Direction \(destination)"
+        }
+        switch step.mode.lowercased() {
+        case "bike": return "Étape à vélo"
+        case "walk": return "Étape à pied"
+        default: return "Étape transport"
+        }
+    }
+
+    private static func summaryText(for step: TransportRouteStepDTO) -> String {
+        if let line = step.line, !line.isEmpty {
+            return "Ligne \(line)"
+        }
+        switch step.mode.lowercased() {
+        case "bike": return "Pédalez vers la prochaine étape"
+        case "walk": return "Marche en cours"
+        default: return "Transport en cours"
+        }
+    }
+
+    private static func segmentColor(for step: TransportRouteStepDTO) -> Color {
+        if let line = step.line, !line.isEmpty {
+            return TransitLinePalette.fill(for: line)
+        }
+        switch step.mode.lowercased() {
+        case "bike": return DS.Color.villo
+        case "walk": return DS.Color.ink.opacity(0.28)
+        default: return DS.Color.ink.opacity(0.22)
+        }
+    }
+
+    private static func inlineIcon(for step: TransportRouteStepDTO) -> String? {
+        switch step.mode.lowercased() {
+        case "walk": return "figure.walk"
+        case "bike": return "bicycle"
+        default: return nil
+        }
+    }
+
+    private static func inlineTitle(for step: TransportRouteStepDTO) -> String {
+        if let line = step.line, !line.isEmpty {
+            let start = step.stopName ?? "Départ"
+            let end = step.arrivalStopName ?? step.destination ?? "Arrivée"
+            return "\(start) → \(end)"
+        }
+
+        if step.mode.lowercased() == "walk" {
+            if let target = step.stopName ?? step.arrivalStopName ?? step.destination {
+                return "Marche vers \(target)"
+            }
+            return "Marche"
+        }
+
+        if step.mode.lowercased() == "bike" {
+            return "Vélo vers \(step.arrivalStopName ?? step.destination ?? "destination")"
+        }
+
+        return step.destination ?? "Correspondance"
+    }
+
+    private static func inlineMeta(for step: TransportRouteStepDTO) -> String {
+        var parts: [String] = []
+        if let stops = step.stopsCount {
+            parts.append(stops > 1 ? "\(stops) arrêts" : "1 arrêt")
+        } else if step.mode.lowercased() == "walk",
+                  let startLat = step.startLatitude,
+                  let startLng = step.startLongitude,
+                  let endLat = step.targetLatitude,
+                  let endLng = step.targetLongitude {
+            let distance = CLLocation(latitude: startLat, longitude: startLng)
+                .distance(from: CLLocation(latitude: endLat, longitude: endLng))
+            parts.append(distance.distanceLabel.uppercased())
+        }
+        parts.append("\(max(1, step.durationMinutes)) min".uppercased())
+        return parts.joined(separator: " · ")
     }
 
     private func nextCoordinate(from current: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> CLLocationCoordinate2D? {
@@ -4144,7 +5280,7 @@ private struct RouteItineraryDetailsView: View {
     let onStartAR: () -> Void
 
     private var arrivalText: String {
-        let arrival = Date().addingTimeInterval(option.route.expectedTravelTime)
+        let arrival = Date().addingTimeInterval(TimeInterval(option.totalDurationMinutes * 60))
         return Self.timeFormatter.string(from: arrival)
     }
 
@@ -4156,36 +5292,45 @@ private struct RouteItineraryDetailsView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.Palette.screen.ignoresSafeArea()
+            DS.Color.paper.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
 
                     Spacer()
 
-                    Text("Itinéraire détaillés")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                    Text("ITINÉRAIRE DÉTAILLÉ")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(2)
+                        .foregroundStyle(DS.Color.ink)
 
                     Spacer()
 
                     Button(action: onClose) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(DS.Color.inkMute)
+                            .frame(width: 36, height: 36)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 50)
+                .padding(.top, 10)
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
@@ -4206,31 +5351,36 @@ private struct RouteItineraryDetailsView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: "camera.viewfinder")
                                         .font(.system(size: 18, weight: .medium))
-                                    Text("Navigation AR")
-                                        .font(AppTheme.Fonts.bodyStrong)
+                                    Text("Guidage caméra")
+                                        .font(.system(size: 14, weight: .bold))
                                 }
-                                .foregroundStyle(AppTheme.Palette.textOnBrand)
+                                .foregroundStyle(DS.Color.primaryForeground)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: AppTheme.ButtonHeight.primary)
-                                .background(AppTheme.Palette.brandStrong)
-                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+                                .frame(height: 50)
+                                .background(DS.Color.primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
                             .buttonStyle(.plain)
 
                             Button(action: onShowMap) {
                                 Text("Voir sur la carte")
-                                    .font(AppTheme.Fonts.body)
-                                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
                                     .frame(maxWidth: .infinity)
-                                    .frame(height: AppTheme.ButtonHeight.secondary)
-                                    .background(AppTheme.Palette.surfaceMuted)
-                                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                                    .frame(height: 48)
+                                    .background(DS.Color.paper)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             }
+                            .buttonStyle(.plain)
                         }
                         .padding(.top, 8)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 18)
+                    .padding(.top, 12)
                     .padding(.bottom, 32)
                 }
             }
@@ -4239,26 +5389,63 @@ private struct RouteItineraryDetailsView: View {
 
     private var itinerarySummaryCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(option.originName)
-                Spacer()
-                Text(option.destinationName)
-            }
-            .font(AppTheme.Fonts.body)
-            .foregroundStyle(AppTheme.Palette.textOnBrand)
+            Text("TRAJET RECOMMANDÉ")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
 
-            HStack {
-                Text("Arrivée estimé :")
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(option.originName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text("VERS")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.inkMute)
+                    Text(option.destinationName)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                }
+
                 Spacer()
-                Text(arrivalText)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(option.durationText)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text("ARRIVÉE \(arrivalText)")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
             }
-            .font(AppTheme.Fonts.body)
-            .foregroundStyle(AppTheme.Palette.textOnBrand)
+
+            HStack(spacing: 8) {
+                detailPill(option.transitSummary)
+                detailPill(option.walkingSummary)
+                detailPill(option.reliabilityText, tint: DS.Color.community.opacity(0.14), foreground: DS.Color.community)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
-        .background(AppTheme.Palette.brand)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
+        )
+    }
+
+    private func detailPill(_ text: String, tint: Color = DS.Color.paper2, foreground: Color = DS.Color.ink) -> some View {
+        Text(text.uppercased())
+            .font(DS.Font.monoSmall.weight(.bold))
+            .tracking(1)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 8)
+            .frame(height: 22)
+            .background(tint)
+            .clipShape(Capsule())
     }
 }
 
@@ -4303,11 +5490,15 @@ private struct RouteARNavigationView: View {
 
                     Button(action: onClose) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(AppTheme.Palette.textPrimary)
-                            .frame(width: 42, height: AppTheme.ButtonHeight.secondary)
-                            .background(AppTheme.Palette.overlay.opacity(0.82))
-                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 38, height: 38)
+                            .background(DS.Color.paper.opacity(0.92))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -4329,7 +5520,7 @@ private struct RouteARNavigationView: View {
                     relativeTurnAngle: relativeTurnAngle
                 )
                 .padding(.horizontal, 20)
-                .padding(.bottom, 228)
+                .padding(.bottom, 220)
             }
 
             VStack {
@@ -4341,7 +5532,7 @@ private struct RouteARNavigationView: View {
                     heading: locationManager.heading
                 )
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 26)
+                    .padding(.bottom, 22)
             }
         }
         .onAppear { locationManager.start() }
@@ -4399,29 +5590,31 @@ private struct ARMiniMapCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(option.destinationName)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
                 Spacer()
                 Text(option.durationText)
-                    .font(AppTheme.Fonts.title3)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
             }
 
             ZStack {
-                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                    .fill(AppTheme.Palette.surfaceElevated.opacity(0.94))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(DS.Color.paper.opacity(0.96))
 
                 Map(initialPosition: .rect(option.mapRectWithPadding)) {
-                    MapPolyline(option.route.polyline)
-                        .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                    if option.routeCoordinates.count > 1 {
+                        MapPolyline(coordinates: option.routeCoordinates)
+                            .stroke(DS.Color.community, style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                    }
 
                     Annotation("", coordinate: userCoordinate, anchor: .center) {
                         ZStack {
                             Circle()
-                                .fill(Color.white.opacity(0.14))
+                                .fill(DS.Color.community.opacity(0.16))
                                 .frame(width: 52, height: 52)
                             Circle()
-                                .fill(AppTheme.Palette.brandStrong)
+                                .fill(DS.Color.primary)
                                 .frame(width: 26, height: 26)
                             Image(systemName: "location.north.fill")
                                 .font(.system(size: 12, weight: .bold))
@@ -4433,13 +5626,17 @@ private struct ARMiniMapCard: View {
                 .mapStyle(.standard(elevation: .flat))
                 .environment(\.colorScheme, .light)
                 .allowsHitTesting(false)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .frame(height: 170)
         }
         .padding(18)
-        .background(AppTheme.Palette.screenElevated.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .background(DS.Color.paper.opacity(0.94))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+        )
     }
 }
 
@@ -4482,37 +5679,37 @@ private struct ARInstructionOverlay: View {
             HStack(spacing: 10) {
                 Image(systemName: directionIcon)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(AppTheme.Palette.info)
+                    .foregroundStyle(DS.Color.community)
 
                 Text(directionText)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
 
                 Spacer()
 
                 Text(instruction.distanceText)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundStyle(DS.Color.ink)
             }
 
             Text(instruction.primaryText)
-                .font(AppTheme.Fonts.title2)
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let secondaryText = instruction.secondaryText {
                 Text(secondaryText)
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(DS.Color.inkMute)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(AppTheme.Palette.overlay.opacity(0.74))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+        .background(DS.Color.paper.opacity(0.94))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
-                .stroke(AppTheme.Palette.borderStrong, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
         )
     }
 }
@@ -4599,9 +5796,9 @@ private struct RouteTimelineRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(segment.timeText)
-                .font(.custom("Montserrat-Regular", size: 14))
-                .foregroundStyle(.white.opacity(0.82))
-                .frame(width: 50, alignment: .leading)
+                .font(DS.Font.mono)
+                .foregroundStyle(DS.Color.inkMute)
+                .frame(width: 54, alignment: .leading)
                 .padding(.top, 2)
 
             VStack(spacing: 0) {
@@ -4616,7 +5813,7 @@ private struct RouteTimelineRow: View {
                     .frame(width: 10, height: 10)
                     .overlay(
                         Circle()
-                            .stroke(Color.white.opacity(0.9), lineWidth: segment.stepCard == nil ? 1 : 0)
+                            .stroke(DS.Color.paper, lineWidth: segment.stepCard == nil ? 1 : 0)
                     )
 
                 if !isLast {
@@ -4631,21 +5828,21 @@ private struct RouteTimelineRow: View {
                 HStack(alignment: .center, spacing: 8) {
                     if let icon = segment.icon {
                         Image(systemName: icon)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(DS.Color.ink)
                             .frame(width: 24)
                     }
 
                     Text(segment.placeTitle)
-                        .font(.custom("Montserrat-Regular", size: 14))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
 
                     Spacer()
 
                     if let stopCountText = segment.stopCountText {
                         Text(stopCountText)
-                            .font(AppTheme.Fonts.caption)
-                            .foregroundStyle(AppTheme.Palette.textMuted)
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.inkMute)
                     }
                 }
 
@@ -4658,15 +5855,17 @@ private struct RouteTimelineRow: View {
                         Image(systemName: "clock")
                             .font(.system(size: 12, weight: .semibold))
                         Text(durationBadge)
-                            .font(.custom("Montserrat-SemiBold", size: 14))
+                            .font(DS.Font.mono.weight(.bold))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DS.Color.ink)
                     .padding(.horizontal, 12)
                     .frame(height: 33)
+                    .background(DS.Color.paper)
                     .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous)
-                            .stroke(Color.white, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
             }
             .padding(.bottom, isLast ? 0 : 18)
@@ -4681,26 +5880,26 @@ private struct RouteInstructionCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 6) {
                 Text(card.title)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.textOnBrand)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let lineBadge = card.lineBadge {
                     Text(lineBadge)
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundStyle(TransitLinePalette.foreground(for: lineBadge))
                         .padding(.horizontal, 5)
                         .frame(height: 17)
-                        .background(AppTheme.Palette.brand)
-                        .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                        .background(TransitLinePalette.fill(for: lineBadge))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 }
 
                 Spacer(minLength: 0)
             }
 
             Text(card.subtitle)
-                .font(AppTheme.Fonts.captionStrong)
-                .foregroundStyle(AppTheme.Palette.info)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(DS.Color.community)
 
             if let serviceInfo = card.serviceInfo {
                 RouteTransitServiceCard(info: serviceInfo)
@@ -4709,8 +5908,12 @@ private struct RouteInstructionCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(card.style == .mint ? AppTheme.Palette.brand.opacity(0.75) : AppTheme.Palette.brand)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+        .background(card.style == .mint ? DS.Color.paper2.opacity(0.8) : DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
@@ -4720,41 +5923,41 @@ private struct RouteTransitServiceCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text(info.lineCode)
-                .font(AppTheme.Fonts.bodyStrong)
-                .foregroundStyle(AppTheme.Palette.textPrimary)
+                .font(DS.Font.mono.weight(.bold))
+                .foregroundStyle(TransitLinePalette.foreground(for: info.lineCode))
                 .frame(width: 29, height: 28)
-                .background(AppTheme.Palette.success.opacity(0.7))
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+                .background(TransitLinePalette.fill(for: info.lineCode))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.statusTitle)
-                    .font(AppTheme.Fonts.captionStrong)
-                    .foregroundStyle(AppTheme.Palette.warning)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundStyle(DS.Color.statusMajor)
                 Text(info.detail)
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.ink)
                 Text("Prochain passage")
-                    .font(AppTheme.Fonts.caption)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.inkMute)
                     .padding(.top, 4)
                 Text(info.waitTime)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppTheme.Palette.warning)
+                .foregroundStyle(DS.Color.inkMute)
                 .padding(.top, 4)
         }
         .padding(10)
-        .background(AppTheme.Palette.screen)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous)
-                .stroke(Color.white, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
         )
     }
 }

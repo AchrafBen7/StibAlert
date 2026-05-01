@@ -8,11 +8,20 @@ struct AppRoot: View {
     @AppStorage(AppStorageKeys.hasSeenOnboarding) private var hasSeenOnboarding = false
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
 
+    private var shouldShowStibi: Bool {
+        guard case .signedIn = session.state else { return false }
+        return nav.currentPage == .home && !nav.showReportSheet
+    }
+
+    private var shouldHideStibi: Bool {
+        nav.showReportSheet
+    }
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             content
 
-            if case .signedIn = session.state, let brief = stibi.brief {
+            if shouldShowStibi, let brief = stibi.brief, !shouldHideStibi {
                 StibiOverlay(
                     data: AssistantViewAdapters.presentationData(from: brief),
                     message: brief.message,
@@ -25,12 +34,12 @@ struct AppRoot: View {
                     onAction: handleStibiAction
                 )
                 .padding(.leading, 18)
-                .padding(.bottom, 92)
+                .padding(.bottom, 80)
                 .transition(.move(edge: .leading).combined(with: .opacity))
                 .zIndex(20)
             }
 
-            if case .signedIn = session.state, stibi.isConversationPresented {
+            if shouldShowStibi, stibi.isConversationPresented, !shouldHideStibi {
                 Color.black.opacity(0.42)
                     .ignoresSafeArea()
                     .transition(.opacity)
@@ -118,6 +127,16 @@ struct AppRoot: View {
             if brief.type == "guide" || brief.type == "commute_brief" {
                 stibiSpeech.speak(brief: brief)
             }
+        }
+        .onChange(of: nav.showReportSheet) { _, isPresented in
+            guard isPresented else { return }
+            stibi.dismiss()
+            stibiSpeech.stop()
+        }
+        .onChange(of: nav.currentPage) { _, page in
+            guard page != .home else { return }
+            stibi.dismiss()
+            stibiSpeech.stop()
         }
     }
 
@@ -212,7 +231,7 @@ struct AppRoot: View {
                 nav.currentPage = .favorites
                 stibi.closeConversation()
             case .profile:
-                nav.currentPage = .profileMain
+                nav.currentPage = .profile
                 stibi.closeConversation()
             case .report:
                 nav.currentPage = .home
