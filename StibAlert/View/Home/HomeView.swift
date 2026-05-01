@@ -2518,7 +2518,7 @@ private struct SearchSuggestionsDropdown: View {
 
     private func primaryLocationLine(for item: MKMapItem) -> String {
         let placemark = item.placemark
-        let pieces = [
+        let pieces: [String] = [
             placemark.thoroughfare,
             placemark.locality,
             placemark.country
