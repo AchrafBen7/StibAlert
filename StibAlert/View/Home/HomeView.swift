@@ -1304,9 +1304,11 @@ struct HomeView: View {
     }
 
     private func routeScopedStops(for option: HomeRouteOption) -> [TransportStopSummaryDTO] {
+        let corridorStops = mapStopsAlongCurrentRoute(for: option)
+
         guard let backendAlternative = option.backendAlternative,
               let steps = backendAlternative.steps, !steps.isEmpty else {
-            return mapStopsAlongCurrentRoute()
+            return corridorStops
         }
 
         var summaries: [TransportStopSummaryDTO] = []
@@ -1338,11 +1340,14 @@ struct HomeView: View {
             }
         }
 
-        if !summaries.isEmpty {
-            return summaries
+        for summary in corridorStops {
+            let key = routeStopKey(for: summary)
+            if seen.insert(key).inserted {
+                summaries.append(summary)
+            }
         }
 
-        return mapStopsAlongCurrentRoute()
+        return summaries
     }
 
     private func routeStopSummary(
@@ -1368,32 +1373,46 @@ struct HomeView: View {
         "\(normalizedStopKey(summary.name))-\(summary.latitude ?? 0)-\(summary.longitude ?? 0)"
     }
 
-    private func mapStopsAlongCurrentRoute() -> [TransportStopSummaryDTO] {
-        guard !currentRouteCoordinates.isEmpty else { return [] }
+    private func mapStopsAlongCurrentRoute(for option: HomeRouteOption? = nil) -> [TransportStopSummaryDTO] {
+        let routeCoordinates = option?.routeCoordinates ?? currentRouteCoordinates
+        guard !routeCoordinates.isEmpty else { return [] }
 
-        let sampledCoordinates = stride(from: 0, to: currentRouteCoordinates.count, by: 6).map {
-            currentRouteCoordinates[$0]
-        } + [currentRouteCoordinates.last].compactMap { $0 }
+        let sampledCoordinates = stride(from: 0, to: routeCoordinates.count, by: 4).map {
+            routeCoordinates[$0]
+        } + [routeCoordinates.last].compactMap { $0 }
+        let relevantLines = Set((option?.backendAlternative?.lines ?? []).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty })
 
         return baseMapStops
             .filter { summary in
                 guard let latitude = summary.latitude, let longitude = summary.longitude else { return false }
+                if !relevantLines.isEmpty {
+                    let stopLines = Set(summary.lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                    if stopLines.isDisjoint(with: relevantLines) {
+                        return false
+                    }
+                }
                 let stopLocation = CLLocation(latitude: latitude, longitude: longitude)
                 return sampledCoordinates.contains { coordinate in
-                    stopLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) <= 150
+                    stopLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) <= 120
                 }
             }
             .sorted { lhs, rhs in
-                routeDistanceScore(for: lhs) < routeDistanceScore(for: rhs)
+                routeDistanceScore(for: lhs, on: routeCoordinates) < routeDistanceScore(for: rhs, on: routeCoordinates)
             }
             .prefix(12)
             .map { $0 }
     }
 
-    private func routeDistanceScore(for stop: TransportStopSummaryDTO) -> CLLocationDistance {
+    private func routeDistanceScore(
+        for stop: TransportStopSummaryDTO,
+        on routeCoordinates: [CLLocationCoordinate2D]? = nil
+    ) -> CLLocationDistance {
+        let coordinates = routeCoordinates ?? currentRouteCoordinates
         guard let latitude = stop.latitude, let longitude = stop.longitude else { return .greatestFiniteMagnitude }
         let stopLocation = CLLocation(latitude: latitude, longitude: longitude)
-        return currentRouteCoordinates.reduce(.greatestFiniteMagnitude) { best, coordinate in
+        return coordinates.reduce(.greatestFiniteMagnitude) { best, coordinate in
             min(best, stopLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)))
         }
     }
