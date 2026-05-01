@@ -323,43 +323,43 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 18)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            HomeEditorialActionChip(
-                                icon: "location.viewfinder",
-                                title: "Autour de moi",
-                                count: nil,
-                                isActive: locationManager.userCoordinate != nil
-                            ) {
-                                aroundMe()
-                            }
+                    if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                HomeEditorialActionChip(
+                                    icon: "location.viewfinder",
+                                    title: "Autour de moi",
+                                    count: nil,
+                                    isActive: locationManager.userCoordinate != nil
+                                ) {
+                                    aroundMe()
+                                }
 
-                            HomeEditorialActionChip(
-                                icon: "star",
-                                title: "Favoris",
-                                count: favoriteLineCount,
-                                isActive: favoriteLineCount > 0
-                            ) {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                    nav.currentPage = .favorites
+                                HomeEditorialActionChip(
+                                    icon: "star",
+                                    title: "Favoris",
+                                    count: favoriteLineCount,
+                                    isActive: favoriteLineCount > 0
+                                ) {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                        nav.currentPage = .favorites
+                                    }
+                                }
+
+                                HomeEditorialActionChip(
+                                    icon: "exclamationmark.triangle",
+                                    title: "Perturbations",
+                                    count: totalActiveSignalementsCount,
+                                    isActive: totalActiveSignalementsCount > 0
+                                ) {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                        nav.currentPage = .reports
+                                    }
                                 }
                             }
-
-                            HomeEditorialActionChip(
-                                icon: "exclamationmark.triangle",
-                                title: "Perturbations",
-                                count: totalActiveSignalementsCount,
-                                isActive: totalActiveSignalementsCount > 0
-                            ) {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                    nav.currentPage = .reports
-                                }
-                            }
+                            .padding(.horizontal, 18)
                         }
-                        .padding(.horizontal, 18)
-                    }
-
-                    if !searchSuggestions.isEmpty {
+                    } else if !searchSuggestions.isEmpty {
                         SearchSuggestionsDropdown(
                             suggestions: searchSuggestions,
                             isRouting: isRouting,
@@ -669,7 +669,6 @@ struct HomeView: View {
         .mapStyle(.standard(elevation: .realistic))
         .environment(\.colorScheme, .light)
         .ignoresSafeArea()
-        .allowsHitTesting(searchSuggestions.isEmpty)
         .onMapCameraChange(frequency: .onEnd) { ctx in
             cameraLatitudeDelta = ctx.region.span.latitudeDelta
             cameraCenterCoordinate = ctx.region.center
@@ -1637,12 +1636,21 @@ struct HomeView: View {
     private func searchSuggestions(for text: String) async {
         let req = MKLocalSearch.Request()
         req.naturalLanguageQuery = text
+        req.resultTypes = [.address, .pointOfInterest]
         req.region = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
             span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25)
         )
         let results = try? await MKLocalSearch(request: req).start()
-        searchSuggestions = Array((results?.mapItems ?? []).prefix(5))
+        var unique: [MKMapItem] = []
+        var seen = Set<String>()
+        for item in results?.mapItems ?? [] {
+            let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
+            if seen.insert(key).inserted {
+                unique.append(item)
+            }
+        }
+        searchSuggestions = Array(unique.prefix(8))
     }
 
     @MainActor
@@ -2430,24 +2438,46 @@ private struct SearchSuggestionsDropdown: View {
     let onSelect: (MKMapItem) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("DESTINATIONS")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(DS.Color.inkMute)
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
             ForEach(suggestions, id: \.self) { item in
                 Button {
                     onSelect(item)
                 } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(DS.Color.primary)
+                    HStack(alignment: .top, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(DS.Color.paper2)
+                            .frame(width: 34, height: 34)
+                            .overlay(
+                                Image(systemName: symbol(for: item))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(DS.Color.primary)
+                            )
 
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 5) {
                             Text(item.name ?? "Lieu")
-                                .font(DS.Font.bodyBold)
+                                .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(DS.Color.ink)
-                            Text(item.placemark.title ?? "")
+                            Text(primaryLocationLine(for: item))
                                 .font(DS.Font.caption)
                                 .foregroundStyle(DS.Color.inkMute)
                                 .lineLimit(1)
+                            Text(categoryLabel(for: item))
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .tracking(1.4)
+                                .foregroundStyle(DS.Color.community)
                         }
 
                         Spacer()
@@ -2459,12 +2489,14 @@ private struct SearchSuggestionsDropdown: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 13)
                 }
                 .buttonStyle(.plain)
 
                 if item != suggestions.last {
-                    Divider().overlay(DS.Color.ink.opacity(0.08))
+                    Divider()
+                        .overlay(DS.Color.ink.opacity(0.08))
+                        .padding(.leading, 60)
                 }
             }
         }
@@ -2475,6 +2507,33 @@ private struct SearchSuggestionsDropdown: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
         .shadow(DS.Shadow.floating)
+    }
+
+    private func symbol(for item: MKMapItem) -> String {
+        if item.pointOfInterestCategory != nil {
+            return "sparkles"
+        }
+        return "mappin"
+    }
+
+    private func primaryLocationLine(for item: MKMapItem) -> String {
+        let placemark = item.placemark
+        let pieces = [
+            placemark.thoroughfare,
+            placemark.locality,
+            placemark.country
+        ].compactMap { value in
+            guard let value, !value.isEmpty else { return nil }
+            return value
+        }
+        return pieces.isEmpty ? (placemark.title ?? "") : pieces.joined(separator: ", ")
+    }
+
+    private func categoryLabel(for item: MKMapItem) -> String {
+        if item.pointOfInterestCategory != nil {
+            return "LIEU"
+        }
+        return "ADRESSE"
     }
 }
 
@@ -4402,8 +4461,10 @@ private struct RouteRecommendationsSheet: View {
                         .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
                 )
                 .offset(y: max(0, dragOffset))
+                .allowsHitTesting(true)
             }
             .ignoresSafeArea()
+            .allowsHitTesting(false)
             .onAppear {
                 selectedModeKey = preferredInitialMode
             }
