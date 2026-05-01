@@ -3161,21 +3161,26 @@ private struct HomeEventImpactSheet: View {
     let onOpenStop: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             Capsule()
-                .fill(AppTheme.Palette.borderStrong)
-                .frame(width: 42, height: 5)
+                .fill(DS.Color.ink.opacity(0.22))
+                .frame(width: 44, height: 5)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 8)
+                .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 8) {
+                Text("ÉVÉNEMENT BRUXELLES")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(DS.Color.inkMute)
+
                 Text(event.title)
-                    .font(AppTheme.Fonts.clash(22))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    .font(DS.Font.displayH2)
+                    .foregroundStyle(DS.Color.ink)
 
                 Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.inkSoft)
 
                 HStack(spacing: 8) {
                     badge(event.phaseLabel ?? "À venir", tint: phaseTint)
@@ -3187,15 +3192,16 @@ private struct HomeEventImpactSheet: View {
 
             if let notes = event.notesFr, !notes.isEmpty {
                 Text(notes)
-                    .font(AppTheme.Fonts.body)
-                    .foregroundStyle(AppTheme.Palette.textSecondary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.inkSoft)
             }
 
             if !event.impactedLines.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Lignes potentiellement affectées")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.inkMute)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
                         ForEach(event.impactedLines, id: \.self) { line in
@@ -3204,15 +3210,19 @@ private struct HomeEventImpactSheet: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Text("Ligne \(line)")
-                                        .font(AppTheme.Fonts.captionStrong)
+                                        .font(DS.Font.monoSmall.weight(.bold))
                                     Image(systemName: "arrow.right")
                                         .font(.system(size: 10, weight: .bold))
                                 }
-                                .foregroundStyle(AppTheme.Palette.textPrimary)
+                                .foregroundStyle(DS.Color.ink)
                                 .padding(.horizontal, 10)
                                 .frame(height: 32)
                                 .frame(maxWidth: .infinity)
-                                .background(AppTheme.Palette.surfaceElevated)
+                                .background(DS.Color.paper2)
+                                .overlay(
+                                    Capsule()
+                                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                                )
                                 .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
@@ -3224,8 +3234,9 @@ private struct HomeEventImpactSheet: View {
             if let impactedStops = event.impactedStopDetails, !impactedStops.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Arrêts / zones")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.inkMute)
 
                     ForEach(impactedStops) { stop in
                         if let stopId = stop.id {
@@ -3234,63 +3245,73 @@ private struct HomeEventImpactSheet: View {
                             } label: {
                                 HStack {
                                     Text(stop.name)
-                                        .font(AppTheme.Fonts.bodyStrong)
-                                        .foregroundStyle(AppTheme.Palette.textPrimary)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(DS.Color.ink)
                                     Spacer()
                                     Image(systemName: "location.viewfinder")
                                         .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(AppTheme.Palette.textMuted)
+                                        .foregroundStyle(DS.Color.inkMute)
                                 }
                                 .padding(12)
-                                .background(AppTheme.Palette.surfaceElevated)
+                                .background(DS.Color.paper)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                                )
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         } else {
                             Text(stop.name)
-                                .font(AppTheme.Fonts.body)
-                                .foregroundStyle(AppTheme.Palette.textSecondary)
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.inkSoft)
                         }
                     }
                 }
             } else if !event.impactedStops.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Arrêts / zones")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textMuted)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.inkMute)
 
                     Text(event.impactedStops.joined(separator: " • "))
-                        .font(AppTheme.Fonts.body)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.inkSoft)
                 }
             }
 
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, 20)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.Palette.screen)
+        .background(DS.Color.paper)
+        .presentationBackground(DS.Color.paper)
     }
 
     private func badge(_ title: String, tint: Color) -> some View {
         Text(title)
-            .font(AppTheme.Fonts.captionStrong)
-            .foregroundStyle(AppTheme.Palette.textPrimary)
+            .font(DS.Font.monoSmall.weight(.bold))
+            .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 10)
             .frame(height: 30)
             .background(tint)
+            .overlay(
+                Capsule()
+                    .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
+            )
             .clipShape(Capsule())
     }
 
     private var phaseTint: Color {
         switch event.phase {
         case "live":
-            return Color(hex: "#FFB89A")
+            return Color(hex: "#FFD1B4")
         case "upcoming":
-            return Color(hex: "#F4D6A0")
+            return Color(hex: "#F3D58F")
         default:
-            return AppTheme.Palette.surfaceElevated
+            return DS.Color.paper2
         }
     }
 
@@ -3308,7 +3329,7 @@ private struct HomeEventImpactSheet: View {
     private func impactTint(_ value: String) -> Color {
         switch value.lowercased() {
         case "high":
-            return Color(hex: "#FF9A7A")
+            return Color(hex: "#FFA17F")
         case "moderate":
             return Color(hex: "#F1C46C")
         default:
