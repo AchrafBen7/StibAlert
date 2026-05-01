@@ -78,6 +78,13 @@ struct HomeView: View {
         let source: String?
     }
 
+    private struct RouteMapSegment: Identifiable {
+        let id: String
+        let coordinates: [CLLocationCoordinate2D]
+        let color: Color
+        let lineWidth: CGFloat
+    }
+
     private var filteredSignalements: [SignalementDTO] {
         guard let filter = problemFilter else { return remoteSignalements }
         return remoteSignalements.filter { $0.typeProbleme == filter.title }
@@ -117,6 +124,7 @@ struct HomeView: View {
     }
 
     private var visibleLineShapes: [LineShape] {
+        guard selectedRouteOption == nil else { return [] }
         guard cameraLatitudeDelta <= 0.08 else { return [] }
         return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
     }
@@ -127,6 +135,14 @@ struct HomeView: View {
     }
 
     private var mapStops: [TransportStopSummaryDTO] {
+        if let selectedRouteOption {
+            return routeScopedStops(for: selectedRouteOption)
+        }
+
+        return baseMapStops
+    }
+
+    private var baseMapStops: [TransportStopSummaryDTO] {
         guard cameraLatitudeDelta <= 0.12 else { return [] }
 
         let catalogStops = catalogMapStops.compactMap { stop -> TransportStopSummaryDTO? in
@@ -163,6 +179,65 @@ struct HomeView: View {
         }
 
         return merged
+    }
+
+    private var selectedRouteOption: HomeRouteOption? {
+        if let selectedRouteID,
+           let selected = routeOptions.first(where: { $0.id == selectedRouteID }) {
+            return selected
+        }
+        return routeOptions.first
+    }
+
+    private var routeMapSegments: [RouteMapSegment] {
+        guard let selectedRouteOption else { return [] }
+
+        if let backendAlternative = selectedRouteOption.backendAlternative,
+           let steps = backendAlternative.steps, !steps.isEmpty {
+            let sortedSteps = steps.sorted { $0.order < $1.order }
+            var segments: [RouteMapSegment] = []
+
+            for (index, step) in sortedSteps.enumerated() {
+                let coordinates = HomeRouteOption.segmentCoordinates(for: step)
+                guard coordinates.count > 1 else { continue }
+                let color = HomeRouteOption.mapStrokeColor(for: step)
+                let width = HomeRouteOption.mapStrokeWidth(for: step)
+                segments.append(RouteMapSegment(
+                    id: "\(selectedRouteOption.id.uuidString)-\(step.id)",
+                    coordinates: coordinates,
+                    color: color,
+                    lineWidth: width
+                ))
+
+                guard index < sortedSteps.count - 1 else { continue }
+                let nextStep = sortedSteps[index + 1]
+                let nextCoordinates = HomeRouteOption.segmentCoordinates(for: nextStep)
+                guard let end = coordinates.last, let nextStart = nextCoordinates.first else { continue }
+                guard coordinateDistance(from: end, to: nextStart) > 2 else { continue }
+
+                segments.append(
+                    RouteMapSegment(
+                        id: "\(selectedRouteOption.id.uuidString)-bridge-\(step.id)-\(nextStep.id)",
+                        coordinates: [end, nextStart],
+                        color: DS.Color.ink.opacity(0.28),
+                        lineWidth: 4
+                    )
+                )
+            }
+            if !segments.isEmpty {
+                return segments
+            }
+        }
+
+        guard selectedRouteOption.routeCoordinates.count > 1 else { return [] }
+        return [
+            RouteMapSegment(
+                id: selectedRouteOption.id.uuidString,
+                coordinates: selectedRouteOption.routeCoordinates,
+                color: DS.Color.primary,
+                lineWidth: 5
+            )
+        ]
     }
 
     private var mapVilloStations: [VilloStation] {
@@ -511,9 +586,12 @@ struct HomeView: View {
             Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
                 UserLocationDotView(heading: locationManager.heading)
             }
-            if currentRouteCoordinates.count > 1 {
-                MapPolyline(coordinates: currentRouteCoordinates)
-                    .stroke(AppTheme.Palette.info, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+            ForEach(routeMapSegments) { segment in
+                MapPolyline(coordinates: segment.coordinates)
+                    .stroke(
+                        segment.color,
+                        style: StrokeStyle(lineWidth: segment.lineWidth, lineCap: .round, lineJoin: .round)
+                    )
             }
             if let dest = destinationCoord {
                 Annotation("", coordinate: dest, anchor: .bottom) {
@@ -1225,6 +1303,107 @@ struct HomeView: View {
             .map { $0 }
     }
 
+    private func routeScopedStops(for option: HomeRouteOption) -> [TransportStopSummaryDTO] {
+        guard let backendAlternative = option.backendAlternative,
+              let steps = backendAlternative.steps, !steps.isEmpty else {
+            return mapStopsAlongCurrentRoute()
+        }
+
+        var summaries: [TransportStopSummaryDTO] = []
+        var seen = Set<String>()
+
+        for step in steps.sorted(by: { $0.order < $1.order }) {
+            if let summary = routeStopSummary(
+                name: step.stopName,
+                latitude: step.startLatitude,
+                longitude: step.startLongitude,
+                line: step.line
+            ) {
+                let key = routeStopKey(for: summary)
+                if seen.insert(key).inserted {
+                    summaries.append(summary)
+                }
+            }
+
+            if let summary = routeStopSummary(
+                name: step.arrivalStopName ?? step.destination,
+                latitude: step.targetLatitude,
+                longitude: step.targetLongitude,
+                line: step.line
+            ) {
+                let key = routeStopKey(for: summary)
+                if seen.insert(key).inserted {
+                    summaries.append(summary)
+                }
+            }
+        }
+
+        if !summaries.isEmpty {
+            return summaries
+        }
+
+        return mapStopsAlongCurrentRoute()
+    }
+
+    private func routeStopSummary(
+        name: String?,
+        latitude: Double?,
+        longitude: Double?,
+        line: String?
+    ) -> TransportStopSummaryDTO? {
+        guard let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let latitude, let longitude else { return nil }
+
+        return TransportStopSummaryDTO(
+            id: "\(normalizedStopKey(name))-\(latitude)-\(longitude)",
+            stopId: nil,
+            name: name,
+            latitude: latitude,
+            longitude: longitude,
+            lines: line.map { [$0] } ?? []
+        )
+    }
+
+    private func routeStopKey(for summary: TransportStopSummaryDTO) -> String {
+        "\(normalizedStopKey(summary.name))-\(summary.latitude ?? 0)-\(summary.longitude ?? 0)"
+    }
+
+    private func mapStopsAlongCurrentRoute() -> [TransportStopSummaryDTO] {
+        guard !currentRouteCoordinates.isEmpty else { return [] }
+
+        let sampledCoordinates = stride(from: 0, to: currentRouteCoordinates.count, by: 6).map {
+            currentRouteCoordinates[$0]
+        } + [currentRouteCoordinates.last].compactMap { $0 }
+
+        return baseMapStops
+            .filter { summary in
+                guard let latitude = summary.latitude, let longitude = summary.longitude else { return false }
+                let stopLocation = CLLocation(latitude: latitude, longitude: longitude)
+                return sampledCoordinates.contains { coordinate in
+                    stopLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)) <= 150
+                }
+            }
+            .sorted { lhs, rhs in
+                routeDistanceScore(for: lhs) < routeDistanceScore(for: rhs)
+            }
+            .prefix(12)
+            .map { $0 }
+    }
+
+    private func routeDistanceScore(for stop: TransportStopSummaryDTO) -> CLLocationDistance {
+        guard let latitude = stop.latitude, let longitude = stop.longitude else { return .greatestFiniteMagnitude }
+        let stopLocation = CLLocation(latitude: latitude, longitude: longitude)
+        return currentRouteCoordinates.reduce(.greatestFiniteMagnitude) { best, coordinate in
+            min(best, stopLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)))
+        }
+    }
+
+    private func normalizedStopKey(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func reportStillBlocked(id: String) async {
         guard !session.isGuest else {
             guestGateReason = .confirm
@@ -1293,6 +1472,12 @@ struct HomeView: View {
     }
 
     private func centerDistanceMeters(from lhs: CLLocationCoordinate2D, to rhs: CLLocationCoordinate2D) -> Double {
+        let start = CLLocation(latitude: lhs.latitude, longitude: lhs.longitude)
+        let end = CLLocation(latitude: rhs.latitude, longitude: rhs.longitude)
+        return start.distance(from: end)
+    }
+
+    private func coordinateDistance(from lhs: CLLocationCoordinate2D, to rhs: CLLocationCoordinate2D) -> Double {
         let start = CLLocation(latitude: lhs.latitude, longitude: lhs.longitude)
         let end = CLLocation(latitude: rhs.latitude, longitude: rhs.longitude)
         return start.distance(from: end)
@@ -4135,10 +4320,14 @@ private struct RouteRecommendationsSheet: View {
 
                 VStack(alignment: .leading, spacing: 0) {
                     sheetHandle
-                    modeSummaryStrip
-                    recommendedSection
-                    optionsHeader
-                    otherOptionsList
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            modeSummaryStrip
+                            recommendedSection
+                            optionsHeader
+                            otherOptionsList
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: sheetHeight, alignment: .top)
@@ -4292,25 +4481,22 @@ private struct RouteRecommendationsSheet: View {
     }
 
     private var otherOptionsList: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 12) {
-                ForEach(others) { option in
-                    RouteOptionCard(
-                        option: option,
-                        isRecommended: false,
-                        isSelected: selectedRouteID == option.id,
-                        action: {
-                            onSelect(option)
-                        },
-                        deltaText: option.deltaText(comparedTo: recommended)
-                    )
-                }
+        VStack(spacing: 12) {
+            ForEach(others) { option in
+                RouteOptionCard(
+                    option: option,
+                    isRecommended: false,
+                    isSelected: selectedRouteID == option.id,
+                    action: {
+                        onSelect(option)
+                    },
+                    deltaText: option.deltaText(comparedTo: recommended)
+                )
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 18)
         }
-        .scrollDisabled(!isExpanded)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 18)
     }
 }
 
@@ -5138,6 +5324,49 @@ private struct HomeRouteOption: Identifiable {
         return deduped
     }
 
+    static func segmentCoordinates(for step: TransportRouteStepDTO) -> [CLLocationCoordinate2D] {
+        let pathCoordinates = (step.path ?? []).map {
+            CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lng)
+        }
+        if pathCoordinates.count > 1 {
+            return dedupedCoordinates(pathCoordinates)
+        }
+
+        var coordinates: [CLLocationCoordinate2D] = []
+        if let lat = step.startLatitude, let lng = step.startLongitude {
+            coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lng))
+        }
+        if let lat = step.targetLatitude, let lng = step.targetLongitude {
+            coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lng))
+        }
+        return dedupedCoordinates(coordinates)
+    }
+
+    static func mapStrokeColor(for step: TransportRouteStepDTO) -> Color {
+        if let line = step.line, !line.isEmpty {
+            return TransitLinePalette.fill(for: line)
+        }
+        switch step.mode.lowercased() {
+        case "bike":
+            return DS.Color.villo
+        case "walk":
+            return DS.Color.ink.opacity(0.30)
+        default:
+            return DS.Color.primary
+        }
+    }
+
+    static func mapStrokeWidth(for step: TransportRouteStepDTO) -> CGFloat {
+        switch step.mode.lowercased() {
+        case "walk":
+            return 4
+        case "bike":
+            return 5
+        default:
+            return 6
+        }
+    }
+
     private static func primaryCoordinate(for step: TransportRouteStepDTO) -> CLLocationCoordinate2D? {
         if let lat = step.startLatitude, let lng = step.startLongitude {
             return CLLocationCoordinate2D(latitude: lat, longitude: lng)
@@ -5269,6 +5498,17 @@ private struct HomeRouteOption: Identifiable {
         }
         guard let nearest else { return nil }
         return coords[min(coords.count - 1, nearest.offset + 1)]
+    }
+
+    private static func dedupedCoordinates(_ coordinates: [CLLocationCoordinate2D]) -> [CLLocationCoordinate2D] {
+        var deduped: [CLLocationCoordinate2D] = []
+        for point in coordinates {
+            if deduped.last?.latitude == point.latitude && deduped.last?.longitude == point.longitude {
+                continue
+            }
+            deduped.append(point)
+        }
+        return deduped
     }
 }
 

@@ -97,7 +97,7 @@ struct StibWidgetProvider: TimelineProvider {
 
     private func fetchLineStatus(_ line: String) async -> StibLineSnapshot? {
         guard let encoded = line.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "\(backendBaseURL)/api/stib/\(encoded)") else { return nil }
+              let url = URL(string: "\(backendBaseURL)/api/transport/line/\(encoded)") else { return nil }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let decoded   = try JSONDecoder().decode(WidgetLineResponse.self, from: data)
