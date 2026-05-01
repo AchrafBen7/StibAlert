@@ -25,7 +25,7 @@ struct NextPassageIntent: AppIntent {
         }
 
         guard let encoded = line.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://stib-alert-backend.onrender.com/api/stib/\(encoded)") else {
+              let url = URL(string: "https://stib-alert-backend.onrender.com/api/transport/line/\(encoded)") else {
             return .result(dialog: "Ligne \(line) introuvable.")
         }
 
