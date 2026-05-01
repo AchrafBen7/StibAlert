@@ -4295,6 +4295,29 @@ private struct RouteRecommendationsSheet: View {
     @State private var isRecommendedExpanded = false
     @State private var selectedModeKey: String = "transit"
 
+    private var sheetDragGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation.height
+            }
+            .onEnded { value in
+                let verticalMove = value.translation.height
+                let predictedMove = value.predictedEndTranslation.height
+
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                    if verticalMove < -70 || predictedMove < -120 {
+                        isExpanded = true
+                    } else if verticalMove > 110 || predictedMove > 180 {
+                        if isExpanded {
+                            isExpanded = false
+                        } else {
+                            onClose()
+                        }
+                    }
+                }
+            }
+    }
+
     private var filteredOptions: [HomeRouteOption] {
         let subset = options.filter { $0.primaryModeKey == selectedModeKey }
         let base = subset.isEmpty ? options : subset
@@ -4360,28 +4383,6 @@ private struct RouteRecommendationsSheet: View {
                         .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
                 )
                 .offset(y: max(0, dragOffset))
-                .gesture(
-                    DragGesture(minimumDistance: 8)
-                        .updating($dragOffset) { value, state, _ in
-                            state = value.translation.height
-                        }
-                        .onEnded { value in
-                            let verticalMove = value.translation.height
-                            let predictedMove = value.predictedEndTranslation.height
-
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                                if verticalMove < -70 || predictedMove < -120 {
-                                    isExpanded = true
-                                } else if verticalMove > 110 || predictedMove > 180 {
-                                    if isExpanded {
-                                        isExpanded = false
-                                    } else {
-                                        onClose()
-                                    }
-                                }
-                            }
-                        }
-                )
             }
             .ignoresSafeArea()
             .onAppear {
@@ -4400,6 +4401,8 @@ private struct RouteRecommendationsSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 14)
+            .contentShape(Rectangle())
+            .gesture(sheetDragGesture)
     }
 
     @ViewBuilder
