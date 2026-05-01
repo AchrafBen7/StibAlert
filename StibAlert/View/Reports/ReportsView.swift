@@ -244,9 +244,6 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
-                    editorialNowSection
-                        .padding(.top, DS.Spacing.lg)
-
                     editorialSearchSection
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.lg)
@@ -351,7 +348,7 @@ struct ReportsView: View {
     }
 
     private var editorialHeader: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     PageHeader(
@@ -365,29 +362,6 @@ struct ReportsView: View {
                 }
 
                 Spacer()
-
-                Button {} label: {
-                    ZStack(alignment: .topTrailing) {
-                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                            .fill(DS.Color.paper)
-                            .frame(width: 36, height: 36)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                            )
-                            .overlay(
-                                Image(systemName: "bell")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(DS.Color.ink)
-                            )
-
-                        Circle()
-                            .fill(DS.Color.primary)
-                            .frame(width: 8, height: 8)
-                            .offset(x: 2, y: -2)
-                    }
-                }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -420,62 +394,8 @@ struct ReportsView: View {
         .shadow(DS.Shadow.raised)
     }
 
-    private var editorialNowSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                EditorialPingDot(color: DS.Color.statusMajor)
-                Text("État réseau · maintenant")
-                    .font(DS.Font.monoSmall)
-                    .tracking(1.4)
-                    .foregroundStyle(DS.Color.ink)
-            }
-            .padding(.horizontal, DS.Spacing.xl)
-
-            if nowItems.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Tout roule sur le réseau STIB")
-                        .font(DS.Font.bodyBold)
-                        .foregroundStyle(DS.Color.ink)
-                    Text("Aucune perturbation officielle.")
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(DS.Color.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md)
-                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
-                )
-                .padding(.horizontal, DS.Spacing.xl)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(nowItems) { item in
-                            Button {
-                                if let match = reports.first(where: { $0.ligne == item.line }) {
-                                    selectedReport = match
-                                }
-                            } label: {
-                                EditorialNowCard(item: item)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.xl)
-                }
-            }
-        }
-    }
-
     private var editorialStickySegments: some View {
         VStack(alignment: .leading, spacing: 0) {
-            DS.Rule(thick: true)
-                .padding(.horizontal, DS.Spacing.xl)
-                .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, DS.Spacing.md)
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(ReportSegment.allCases) { segment in
@@ -494,6 +414,7 @@ struct ReportsView: View {
                 }
                 .padding(.horizontal, DS.Spacing.xl)
             }
+            .padding(.top, DS.Spacing.md)
             .padding(.bottom, DS.Spacing.sm)
         }
         .background(DS.Color.paper)
@@ -734,70 +655,69 @@ struct ReportsView: View {
         Button {
             isShowingSummary = true
         } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Lecture rapide")
-                            .font(DS.Font.eyebrow)
-                            .tracking(1.4)
-                            .foregroundStyle(DS.Color.inkMute)
+            HStack(alignment: .top, spacing: 12) {
+                EditorialPingDot(color: summaryDotColor(for: summary))
 
-                        Text(summary.title)
-                            .font(DS.Font.displayH3)
-                            .foregroundStyle(DS.Color.ink)
-                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(summary.title)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
 
-                    Spacer()
+                    Text(summary.shortText)
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkSoft)
+                        .lineLimit(2)
 
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-
-                Text(summary.shortText)
-                    .font(DS.Font.body)
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .lineLimit(3)
-
-                HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         ReportsMetaBadge(
                             title: sourcePreviewTitle(for: summary),
                             tint: sourcePreviewTint(for: summary)
                         )
 
-                    if let line = summary.affectedLines.first {
-                        ReportsMetaBadge(
-                            title: "Ligne \(line)",
-                            tint: DS.Color.secondary
-                        )
+                        if let line = summary.affectedLines.first {
+                            ReportsMetaBadge(
+                                title: "Ligne \(line)",
+                                tint: DS.Color.secondary.opacity(0.18)
+                            )
+                        }
                     }
-
-                    if let crowding = summary.crowdingRisk, crowding.level != "none" {
-                        ReportsMetaBadge(
-                            title: crowdingBadgeTitle(for: crowding),
-                            tint: crowdingBadgeTint(for: crowding)
-                        )
-                    }
-
-                    Spacer()
-
-                    Text("Ouvrir")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .foregroundStyle(DS.Color.inkMute)
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
             }
-            .padding(DS.Spacing.lg)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Color.primary)
+            .background(DS.Color.paper)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
+                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
             )
-            .foregroundStyle(DS.Color.primaryForeground)
-            .shadow(DS.Shadow.floating)
+            .shadow(DS.Shadow.raised)
         }
         .buttonStyle(.plain)
+    }
+
+    private func summaryDotColor(for summary: TransportPerturbationSummaryDTO) -> Color {
+        if let crowding = summary.crowdingRisk {
+            switch crowding.level.lowercased() {
+            case "high":
+                return DS.Color.statusMajor
+            case "moderate":
+                return DS.Color.statusMinor
+            default:
+                break
+            }
+        }
+        if !summary.affectedLines.isEmpty {
+            return DS.Color.statusMinor
+        }
+        return summary.sourceLabel?.lowercased() == "officiel" ? DS.Color.statusOK : DS.Color.community
     }
 
     private func sourcePreviewTitle(for summary: TransportPerturbationSummaryDTO) -> String {
