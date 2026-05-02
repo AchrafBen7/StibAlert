@@ -180,15 +180,22 @@ struct ReportsView: View {
             )
         }
 
-        return (reportItems + eventItems)
-            .filter { item in
+        let scopedItems: [EditorialFeedItem]
+        switch selectedScope {
+        case .reports:
+            scopedItems = reportItems.filter { item in
                 switch selectedSegment {
                 case .all: return true
                 case .official: return item.type == .official || item.type == .mixed
                 case .community: return item.type == .community || item.type == .mixed
-                case .events: return item.type == .event
+                case .events: return false
                 }
             }
+        case .events:
+            scopedItems = eventItems
+        }
+
+        return scopedItems
             .filter { item in
                 let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return true }
@@ -363,6 +370,33 @@ struct ReportsView: View {
 
                 Spacer()
             }
+
+            contentScopeSwitch
+        }
+    }
+
+    private var contentScopeSwitch: some View {
+        HStack(spacing: 8) {
+            ForEach(ContentScope.allCases) { scope in
+                Button {
+                    selectedScope = scope
+                    selectedSegment = scope == .events ? .events : .all
+                } label: {
+                    Text(scope == .reports ? "Réseau & signalements" : "Événements")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(selectedScope == scope ? DS.Color.paper : DS.Color.ink)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(selectedScope == scope ? DS.Color.ink : DS.Color.paper)
+                        .overlay(
+                            Capsule()
+                                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -396,28 +430,54 @@ struct ReportsView: View {
 
     private var editorialStickySegments: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(ReportSegment.allCases) { segment in
-                        Chip(
-                            label: segment.label + (segmentCounts[segment].map { " \($0)" } ?? ""),
-                            active: selectedSegment == segment,
-                            icon: {
-                                if let name = segment.iconSystemName {
-                                    Image(systemName: name)
+            if selectedScope == .reports {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach([ReportSegment.all, .official, .community], id: \.self) { segment in
+                            Chip(
+                                label: segment.label,
+                                active: selectedSegment == segment,
+                                icon: {
+                                    if let name = segment.iconSystemName {
+                                        Image(systemName: name)
+                                    }
                                 }
+                            ) {
+                                selectedSegment = segment
                             }
-                        ) {
-                            selectedSegment = segment
                         }
                     }
+                    .padding(.horizontal, DS.Spacing.xl)
                 }
-                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.top, DS.Spacing.md)
+                .padding(.bottom, 6)
             }
-            .padding(.top, DS.Spacing.md)
-            .padding(.bottom, DS.Spacing.sm)
+
+            Text(scopeHelperText)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkSoft)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.bottom, DS.Spacing.sm)
         }
         .background(DS.Color.paper)
+    }
+
+    private var scopeHelperText: String {
+        switch selectedScope {
+        case .reports:
+            switch selectedSegment {
+            case .all:
+                return "Vue mixte des infos STIB officielles et des signalements de terrain."
+            case .official:
+                return "Informations publiées côté STIB ou confirmées par des sources officielles."
+            case .community:
+                return "Signalements partagés par les usagers sur le terrain."
+            case .events:
+                return "Événements bruxellois pouvant charger le réseau."
+            }
+        case .events:
+            return "Événements et lieux qui peuvent augmenter l’affluence autour de certaines lignes."
+        }
     }
 
     @ViewBuilder
