@@ -4523,10 +4523,15 @@ private struct RouteRecommendationsSheet: View {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    sheetHandle
+                    VStack(alignment: .leading, spacing: 0) {
+                        sheetHandle
+                        modeSummaryStrip
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(sheetDragGesture)
+
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
-                            modeSummaryStrip
                             recommendedSection
                             optionsHeader
                             otherOptionsList
@@ -4584,8 +4589,6 @@ private struct RouteRecommendationsSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 14)
-            .contentShape(Rectangle())
-            .gesture(sheetDragGesture)
     }
 
     @ViewBuilder
