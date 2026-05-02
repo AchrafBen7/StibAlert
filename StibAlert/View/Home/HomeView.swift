@@ -4572,7 +4572,6 @@ private struct RouteRecommendationsSheet: View {
                 .allowsHitTesting(true)
             }
             .ignoresSafeArea()
-            .allowsHitTesting(false)
             .onAppear {
                 selectedModeKey = preferredInitialMode
             }
