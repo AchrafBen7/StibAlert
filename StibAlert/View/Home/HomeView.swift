@@ -63,7 +63,8 @@ struct HomeView: View {
     @State private var hasBootstrappedHomeData = false
     @State private var homeRefreshTask: Task<Void, Never>? = nil
     @State private var lastHomeRefreshAt: Date? = nil
-    @State private var lastRefreshCoordinate: CLLocationCoordinate2D? = nil
+    @State private var lastHomeSurfaceRefreshCoordinate: CLLocationCoordinate2D? = nil
+    @State private var lastMapStopsRefreshCoordinate: CLLocationCoordinate2D? = nil
     @State private var hasAutoCenteredOnUser = false
     @State private var isFollowingUser = true
     @State private var suppressNextCameraInteraction = false
@@ -561,7 +562,7 @@ struct HomeView: View {
                 hasAutoCenteredOnUser = true
             }
             cameraCenterCoordinate = coord
-            Task { await refreshCatalogMapStops(force: true) }
+            scheduleCatalogMapStopsRefresh()
             Task { await refreshHomeSurfaceForLocation(coord) }
         }
         .onChange(of: searchQuery) { _, newValue in
@@ -1482,7 +1483,7 @@ struct HomeView: View {
 
         if !force,
            !catalogMapStops.isEmpty,
-           lastRefreshCoordinate.flatMap({ centerDistanceMeters(from: $0, to: cameraCenterCoordinate) < max(220, radius * 0.22) }) == true {
+           lastMapStopsRefreshCoordinate.flatMap({ centerDistanceMeters(from: $0, to: cameraCenterCoordinate) < max(220, radius * 0.22) }) == true {
             return
         }
 
@@ -1493,7 +1494,7 @@ struct HomeView: View {
                 radius: radius
             )
             catalogMapStops = nearby
-            lastRefreshCoordinate = cameraCenterCoordinate
+            lastMapStopsRefreshCoordinate = cameraCenterCoordinate
         } catch {
             print("Home map nearby stops failed: \(error.localizedDescription)")
         }
@@ -1588,7 +1589,7 @@ struct HomeView: View {
         guard AppConfig.isBackendEnabled else { return }
 
         let now = Date()
-        if !force, let lastHomeRefreshAt, now.timeIntervalSince(lastHomeRefreshAt) < 12 {
+        if !force, let lastHomeRefreshAt, now.timeIntervalSince(lastHomeRefreshAt) < 20 {
             return
         }
 
@@ -1613,16 +1614,16 @@ struct HomeView: View {
     @MainActor
     private func refreshHomeSurfaceForLocation(_ coord: CLLocationCoordinate2D) async {
         let movedEnough: Bool
-        if let lastRefreshCoordinate {
-            let previous = CLLocation(latitude: lastRefreshCoordinate.latitude, longitude: lastRefreshCoordinate.longitude)
+        if let lastHomeSurfaceRefreshCoordinate {
+            let previous = CLLocation(latitude: lastHomeSurfaceRefreshCoordinate.latitude, longitude: lastHomeSurfaceRefreshCoordinate.longitude)
             let current = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
-            movedEnough = previous.distance(from: current) >= 250
+            movedEnough = previous.distance(from: current) >= 325
         } else {
             movedEnough = true
         }
 
         guard movedEnough else { return }
-        lastRefreshCoordinate = coord
+        lastHomeSurfaceRefreshCoordinate = coord
         await refreshHomeSurface(reason: "location", force: false)
     }
 
