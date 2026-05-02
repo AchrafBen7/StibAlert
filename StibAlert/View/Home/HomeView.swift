@@ -4499,7 +4499,7 @@ private struct RouteRecommendationsSheet: View {
     let onClose: () -> Void
 
     @GestureState private var dragOffset: CGFloat = 0
-    @State private var isRecommendedExpanded = false
+    @State private var expandedRouteID: UUID?
     @State private var selectedModeKey: String = "transit"
 
     private var sheetDragGesture: some Gesture {
@@ -4549,15 +4549,13 @@ private struct RouteRecommendationsSheet: View {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        sheetHandle
-                        modeSummaryStrip
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(sheetDragGesture)
+                    sheetHandle
+                        .contentShape(Rectangle())
+                        .gesture(sheetDragGesture)
 
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
+                            modeSummaryStrip
                             recommendedSection
                             optionsHeader
                             otherOptionsList
@@ -4600,9 +4598,11 @@ private struct RouteRecommendationsSheet: View {
             .ignoresSafeArea()
             .onAppear {
                 selectedModeKey = preferredInitialMode
+                expandedRouteID = recommended?.id
             }
             .onChange(of: modeSummaries.map(\.modeKey)) { _, _ in
                 selectedModeKey = preferredInitialMode
+                expandedRouteID = filteredOptions.first?.id
             }
         }
     }
@@ -4627,8 +4627,8 @@ private struct RouteRecommendationsSheet: View {
                     )
                     .onTapGesture {
                         selectedModeKey = summary.modeKey
-                        isRecommendedExpanded = false
                         if let first = options.first(where: { $0.primaryModeKey == summary.modeKey }) {
+                            expandedRouteID = first.id
                             onSelect(first)
                         }
                     }
@@ -4646,7 +4646,7 @@ private struct RouteRecommendationsSheet: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
     }
 
@@ -4660,15 +4660,15 @@ private struct RouteRecommendationsSheet: View {
                 action: {
                     onSelect(recommended)
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        isRecommendedExpanded = true
+                        expandedRouteID = recommended.id
                         isExpanded = true
                     }
                 },
-                isExpandedCard: isRecommendedExpanded,
+                isExpandedCard: expandedRouteID == recommended.id,
                 expandedContent: AnyView(InlineRouteDetails(option: recommended)),
                 onToggleExpanded: {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        isRecommendedExpanded.toggle()
+                        expandedRouteID = expandedRouteID == recommended.id ? nil : recommended.id
                         isExpanded = true
                     }
                 }
@@ -4703,6 +4703,18 @@ private struct RouteRecommendationsSheet: View {
                     isSelected: selectedRouteID == option.id,
                     action: {
                         onSelect(option)
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                            expandedRouteID = option.id
+                            isExpanded = true
+                        }
+                    },
+                    isExpandedCard: expandedRouteID == option.id,
+                    expandedContent: AnyView(InlineRouteDetails(option: option)),
+                    onToggleExpanded: {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                            expandedRouteID = expandedRouteID == option.id ? nil : option.id
+                            isExpanded = true
+                        }
                     },
                     deltaText: option.deltaText(comparedTo: recommended)
                 )
@@ -4735,7 +4747,7 @@ private struct RouteOptionCard: View {
             }
             .buttonStyle(.plain)
 
-            if let expandedContent, isRecommended, isExpandedCard {
+            if let expandedContent, isExpandedCard {
                 expandedContent
             }
         }
@@ -4765,20 +4777,20 @@ private struct RouteOptionCard: View {
 
     private var recommendedLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
                 ZStack {
                     Circle()
                         .fill(DS.Color.ink)
-                        .frame(width: 46, height: 46)
+                        .frame(width: 42, height: 42)
                     Image(systemName: option.primaryModeIcon)
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(DS.Color.paper)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(option.durationText)
-                            .font(.system(size: 24, weight: .black))
+                            .font(.system(size: 22, weight: .black))
                             .tracking(-0.8)
                             .foregroundStyle(DS.Color.ink)
                         Spacer(minLength: 12)
@@ -4806,8 +4818,8 @@ private struct RouteOptionCard: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, isExpandedCard ? 10 : 14)
+            .padding(.top, 12)
+            .padding(.bottom, isExpandedCard ? 8 : 12)
         }
     }
 
@@ -4903,20 +4915,20 @@ private struct RouteModeSummaryTile: View {
             }
             HStack(spacing: 6) {
                 Image(systemName: summary.modeKey == "bike" ? "bicycle" : summary.modeKey == "walk" ? "figure.walk" : "tram.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                 Text(summary.title.uppercased())
             }
             .font(DS.Font.monoSmall.weight(.bold))
-            .tracking(1.6)
+            .tracking(1.2)
                 .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.inkMute)
             Text(summary.durationText)
-                .font(.system(size: 16, weight: .black))
+                .font(.system(size: 14, weight: .black))
                 .tracking(-0.4)
                 .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
         .background(isHighlighted ? DS.Color.ink : DS.Color.paper)
     }
 }
