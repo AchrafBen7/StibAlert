@@ -3295,6 +3295,18 @@ private struct HomeEventImpactSheet: View {
                 Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)
+
+                if let eventDateLabel {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(eventDateLabel)
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .tracking(1.1)
+                    }
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.top, 2)
+                }
             }
 
             HStack(spacing: 8) {
@@ -3318,6 +3330,7 @@ private struct HomeEventImpactSheet: View {
                 .stroke(DS.Color.ink, lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -3418,6 +3431,19 @@ private struct HomeEventImpactSheet: View {
             return Color(hex: "#B8E28A")
         }
     }
+
+    private var eventDateLabel: String? {
+        guard let startsAt = event.startsAt else { return nil }
+        return Self.eventDateFormatter.string(from: startsAt)
+    }
+
+    private static let eventDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
+        formatter.dateFormat = "EEE d MMM · HH:mm"
+        return formatter
+    }()
 }
 
 private struct HomeStopDetailSheet: View {
