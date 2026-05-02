@@ -423,6 +423,16 @@ struct HomeView: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                             nav.currentPage = .reports
                         }
+                    },
+                    onReport: {
+                        if session.isGuest {
+                            guestGateReason = .report
+                            showReportAuthGate = true
+                        } else {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                nav.showReportSheet = true
+                            }
+                        }
                     }
                 )
                 .padding(.trailing, 14)
@@ -2332,42 +2342,66 @@ private struct HomePulseBar: View {
     let totalActive: Int
     let eventCount: Int
     let onOpenReports: () -> Void
+    let onReport: () -> Void
 
     var body: some View {
-        Button(action: onOpenReports) {
+        HStack(spacing: 10) {
+            Button(action: onOpenReports) {
                 HStack(spacing: 12) {
                     Circle()
                         .fill(totalActive > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
                         .frame(width: 12, height: 12)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
-                        .font(DS.Font.bodyBold)
-                        .foregroundStyle(DS.Color.ink)
-                    Text("\(eventCount) événements ce soir")
-                        .font(DS.Font.monoSmall)
-                        .tracking(1.2)
-                        .textCase(.uppercase)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        Text("\(eventCount) événements ce soir")
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(DS.Color.inkMute)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkMute)
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity)
+                .frame(height: 60)
+                .background(DS.Color.paper.opacity(0.98))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(DS.Shadow.overlay)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 60)
-            .background(DS.Color.paper.opacity(0.98))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(DS.Shadow.overlay)
+            .buttonStyle(.plain)
+
+            Button(action: onReport) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .heavy))
+                    Text("Signaler")
+                        .font(DS.Font.bodyBold)
+                }
+                .foregroundStyle(DS.Color.primaryForeground)
+                .padding(.horizontal, 14)
+                .frame(height: 60)
+                .background(DS.Color.primary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(DS.Shadow.overlay)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }
 
