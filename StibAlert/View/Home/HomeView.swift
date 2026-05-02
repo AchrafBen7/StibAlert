@@ -4702,10 +4702,14 @@ private struct RouteRecommendationsSheet: View {
                     isRecommended: false,
                     isSelected: selectedRouteID == option.id,
                     action: {
-                        onSelect(option)
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                            expandedRouteID = option.id
-                            isExpanded = true
+                            if expandedRouteID == option.id {
+                                expandedRouteID = nil
+                            } else {
+                                onSelect(option)
+                                expandedRouteID = option.id
+                                isExpanded = true
+                            }
                         }
                     },
                     isExpandedCard: expandedRouteID == option.id,
@@ -4808,6 +4812,11 @@ private struct RouteOptionCard: View {
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
 
+                    Text("DÉPART \(option.departureTimeText) · ARRIVÉE \(option.arrivalTimeText)")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Color.inkMute)
+
                     HStack(spacing: 8) {
                         ForEach(option.displayLineCodes, id: \.self) { code in
                             RouteLineMiniBadge(line: code)
@@ -4836,6 +4845,10 @@ private struct RouteOptionCard: View {
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
                 }
+                Text("\(option.departureTimeText) → \(option.arrivalTimeText)")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(DS.Color.inkMute)
             }
             .frame(width: 88, alignment: .leading)
 
@@ -5280,6 +5293,15 @@ private struct HomeRouteOption: Identifiable {
         backendAlternative?.totalDurationMinutes ?? max(1, Int((((route?.expectedTravelTime) ?? 60) / 60).rounded()))
     }
 
+    var departureTimeText: String {
+        Self.timeFormatter.string(from: Date())
+    }
+
+    var arrivalTimeText: String {
+        let arrival = Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60))
+        return Self.timeFormatter.string(from: arrival)
+    }
+
     var primaryModeKey: String {
         if let backendAlternative {
             return Self.primaryMode(for: backendAlternative)
@@ -5410,6 +5432,14 @@ private struct HomeRouteOption: Identifiable {
             return max(2, Int((step.distance / 250).rounded()))
         }
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 
     private static func extractLineCode(from instruction: String) -> String? {
         let pattern = #"\b(T?\d{1,3})\b"#
