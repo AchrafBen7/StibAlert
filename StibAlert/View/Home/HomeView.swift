@@ -3196,19 +3196,98 @@ private struct HomeEventImpactSheet: View {
     let onOpenStop: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Capsule()
-                .fill(DS.Color.ink.opacity(0.22))
-                .frame(width: 44, height: 5)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 6)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                Capsule()
+                    .fill(DS.Color.ink.opacity(0.22))
+                    .frame(width: 44, height: 5)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 6)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("ÉVÉNEMENT BRUXELLES")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.8)
-                    .foregroundStyle(DS.Color.inkMute)
+                heroCard
 
+                if !event.impactedLines.isEmpty {
+                    sectionCard(title: "LIGNES TOUCHÉES") {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 70), spacing: 8)], spacing: 8) {
+                            ForEach(event.impactedLines, id: \.self) { line in
+                                Button {
+                                    onOpenLine(line)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        LineBadge(line: line, size: .sm)
+                                        Image(systemName: "arrow.up.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(DS.Color.inkMute)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 40)
+                                    .background(DS.Color.paper)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
+                if let impactedStops = event.impactedStopDetails, !impactedStops.isEmpty {
+                    sectionCard(title: "ARRÊTS / ZONES") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(impactedStops.enumerated()), id: \.element.id) { index, stop in
+                                if index > 0 {
+                                    Rectangle()
+                                        .fill(DS.Color.ink.opacity(0.1))
+                                        .frame(height: 1)
+                                }
+
+                                if let stopId = stop.id {
+                                    Button {
+                                        onOpenStop(stopId)
+                                    } label: {
+                                        stopRow(title: stop.name, subtitle: "Ouvrir l'arrêt")
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    stopRow(title: stop.name, subtitle: "Zone impactée", interactive: false)
+                                }
+                            }
+                        }
+                    }
+                } else if !event.impactedStops.isEmpty {
+                    sectionCard(title: "ARRÊTS / ZONES") {
+                        VStack(spacing: 0) {
+                            ForEach(Array(event.impactedStops.enumerated()), id: \.offset) { index, stop in
+                                if index > 0 {
+                                    Rectangle()
+                                        .fill(DS.Color.ink.opacity(0.1))
+                                        .frame(height: 1)
+                                }
+                                stopRow(title: stop, subtitle: "Zone impactée", interactive: false)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 22)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper)
+        .presentationBackground(DS.Color.paper)
+    }
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("ÉVÉNEMENT BRUXELLES")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.8)
+                .foregroundStyle(DS.Color.inkMute)
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text(event.title)
                     .font(DS.Font.displayH2)
                     .foregroundStyle(DS.Color.ink)
@@ -3216,12 +3295,12 @@ private struct HomeEventImpactSheet: View {
                 Text(event.venue ?? event.zoneLabel ?? "Bruxelles")
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)
+            }
 
-                HStack(spacing: 8) {
-                    badge(event.phaseLabel ?? "À venir", tint: phaseTint)
-                    if let impact = event.impactLevel {
-                        badge(impactLabel(impact), tint: impactTint(impact))
-                    }
+            HStack(spacing: 8) {
+                badge(event.phaseLabel ?? "À venir", tint: phaseTint)
+                if let impact = event.impactLevel {
+                    badge(impactLabel(impact), tint: impactTint(impact))
                 }
             }
 
@@ -3229,100 +3308,68 @@ private struct HomeEventImpactSheet: View {
                 Text(notes)
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            if !event.impactedLines.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Lignes potentiellement affectées")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.6)
-                        .foregroundStyle(DS.Color.inkMute)
-
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
-                        ForEach(event.impactedLines, id: \.self) { line in
-                            Button {
-                                onOpenLine(line)
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Text("Ligne \(line)")
-                                        .font(DS.Font.monoSmall.weight(.bold))
-                                    Image(systemName: "arrow.right")
-                                        .font(.system(size: 10, weight: .bold))
-                                }
-                                .foregroundStyle(DS.Color.ink)
-                                .padding(.horizontal, 10)
-                                .frame(height: 32)
-                                .frame(maxWidth: .infinity)
-                                .background(DS.Color.paper2)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-                                )
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-
-            if let impactedStops = event.impactedStopDetails, !impactedStops.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Arrêts / zones")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.6)
-                        .foregroundStyle(DS.Color.inkMute)
-
-                    ForEach(impactedStops) { stop in
-                        if let stopId = stop.id {
-                            Button {
-                                onOpenStop(stopId)
-                            } label: {
-                                HStack {
-                                    Text(stop.name)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(DS.Color.ink)
-                                    Spacer()
-                                    Image(systemName: "location.viewfinder")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(DS.Color.inkMute)
-                                }
-                                .padding(12)
-                                .background(DS.Color.paper)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Text(stop.name)
-                                .font(DS.Font.body)
-                                .foregroundStyle(DS.Color.inkSoft)
-                        }
-                    }
-                }
-            } else if !event.impactedStops.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Arrêts / zones")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.6)
-                        .foregroundStyle(DS.Color.inkMute)
-
-                    Text(event.impactedStops.joined(separator: " • "))
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.inkSoft)
-                }
-            }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
         .background(DS.Color.paper)
-        .presentationBackground(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(DS.Color.ink, lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.6)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.horizontal, 4)
+
+            content()
+                .padding(12)
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func stopRow(title: String, subtitle: String, interactive: Bool = true) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(DS.Color.paper2)
+                .frame(width: 34, height: 34)
+                .overlay(
+                    Image(systemName: interactive ? "location.viewfinder" : "mappin.and.ellipse")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+
+                Text(subtitle)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .tracking(1.1)
+            }
+
+            Spacer()
+
+            if interactive {
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+        }
+        .padding(.vertical, 10)
     }
 
     private func badge(_ title: String, tint: Color) -> some View {
