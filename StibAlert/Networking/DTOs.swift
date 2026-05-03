@@ -330,7 +330,10 @@ struct TransportLabelDTO: Codable, Equatable {
 
 struct TransportIncidentStopDTO: Codable, Equatable {
     let id: String?
+    let stopId: String?
     let name: String?
+    let latitude: Double?
+    let longitude: Double?
 }
 
 struct TransportIncidentDTO: Codable, Identifiable, Equatable {
