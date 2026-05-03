@@ -426,13 +426,8 @@ struct HomeView: View {
                         }
                     },
                     onReport: {
-                        if session.isGuest {
-                            guestGateReason = .report
-                            showReportAuthGate = true
-                        } else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                nav.showReportSheet = true
-                            }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.showReportSheet = true
                         }
                     }
                 )
@@ -1263,12 +1258,6 @@ struct HomeView: View {
         selectedMapStopSummary = nil
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = false
-
-        guard !session.isGuest else {
-            guestGateReason = .report
-            showReportAuthGate = true
-            return
-        }
 
         nav.pendingReportStopBackendId = stop.id
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
