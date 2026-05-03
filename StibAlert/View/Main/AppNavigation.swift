@@ -14,6 +14,7 @@ final class AppNavigation: ObservableObject {
     @Published var showReportSheet = false
     @Published var showSideMenu = false
     @Published var showAuthFlow = false
+    @Published var authInitialRoute: AuthRoute?
     @Published var pendingLineFocus: String?
     @Published var pendingReportFocus: String?
     @Published var pendingReportStopBackendId: String?

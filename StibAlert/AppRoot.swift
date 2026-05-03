@@ -88,7 +88,7 @@ struct AppRoot: View {
         .environmentObject(session)
         .environmentObject(stibi)
         .sheet(isPresented: $nav.showAuthFlow) {
-            AuthFlowView()
+            AuthFlowView(initialRoute: nav.authInitialRoute)
                 .environmentObject(session)
                 .presentationDragIndicator(.visible)
         }
@@ -99,9 +99,11 @@ struct AppRoot: View {
                     try? await Task.sleep(nanoseconds: 1_200_000_000)
                     session.activationSuccessVisible = false
                     nav.showAuthFlow = false
+                    nav.authInitialRoute = nil
                 }
             } else {
                 nav.showAuthFlow = false
+                nav.authInitialRoute = nil
             }
         }
         .task { await session.bootstrap() }

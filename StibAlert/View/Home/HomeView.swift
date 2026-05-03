@@ -461,8 +461,14 @@ struct HomeView: View {
         .guestAuthGate(
             isPresented: $showReportAuthGate,
             reason: guestGateReason,
-            onSignIn: { nav.showAuthFlow = true },
-            onSignUp: { nav.showAuthFlow = true }
+            onSignIn: {
+                nav.authInitialRoute = .signIn
+                nav.showAuthFlow = true
+            },
+            onSignUp: {
+                nav.authInitialRoute = .signUp
+                nav.showAuthFlow = true
+            }
         )
         .sheet(item: $selectedAlternativeDetail) { alternative in
             HomeAlternativeDetailsSheet(

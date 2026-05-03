@@ -9,28 +9,48 @@ enum AuthRoute: Hashable {
 struct AuthFlowView: View {
     @EnvironmentObject private var session: AuthSession
     @Environment(\.dismiss) private var dismiss
+    let initialRoute: AuthRoute?
     @State private var path: [AuthRoute] = []
 
     var body: some View {
         NavigationStack(path: $path) {
+            rootPage
+                .navigationDestination(for: AuthRoute.self) { route in
+                    destination(for: route)
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var rootPage: some View {
+        switch initialRoute {
+        case .signIn:
+            destination(for: .signIn)
+        case .signUp:
+            destination(for: .signUp)
+        case .activation:
+            destination(for: .activation)
+        case nil:
             WelcomePage(
                 onSignIn: { path.append(.signIn) },
                 onSignUp: { path.append(.signUp) },
                 onSkip: { dismiss() }
             )
-                .navigationDestination(for: AuthRoute.self) { route in
-                    switch route {
-                    case .signIn:
-                        LoginView(onGoToSignUp: { path.append(.signUp) })
-                            .environmentObject(session)
-                    case .signUp:
-                        SignUpView(onRequireActivation: { path.append(.activation) })
-                            .environmentObject(session)
-                    case .activation:
-                        ActivationView()
-                            .environmentObject(session)
-                    }
-                }
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for route: AuthRoute) -> some View {
+        switch route {
+        case .signIn:
+            LoginView(onGoToSignUp: { path.append(.signUp) })
+                .environmentObject(session)
+        case .signUp:
+            SignUpView(onRequireActivation: { path.append(.activation) })
+                .environmentObject(session)
+        case .activation:
+            ActivationView()
+                .environmentObject(session)
         }
     }
 }

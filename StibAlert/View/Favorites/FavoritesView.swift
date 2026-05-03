@@ -55,8 +55,14 @@ struct FavoritesView: View {
         if session.isGuest {
             GuestTabPlaceholder(
                 reason: .favorites,
-                onSignIn: { nav.showAuthFlow = true },
-                onSignUp: { nav.showAuthFlow = true }
+                onSignIn: {
+                    nav.authInitialRoute = .signIn
+                    nav.showAuthFlow = true
+                },
+                onSignUp: {
+                    nav.authInitialRoute = .signUp
+                    nav.showAuthFlow = true
+                }
             )
         } else {
             ZStack {
