@@ -79,6 +79,7 @@ struct ReportsView: View {
     @State private var selectedReport: SignalementDTO? = nil
     @State private var selectedEvent: TransportEventImpactDTO? = nil
     @State private var transportOverview: TransportOverviewDTO? = nil
+    @State private var selectedLineTransport: TransportLineDTO? = nil
     @State private var selectedLineSummary: TransportPerturbationSummaryDTO? = nil
     @State private var isLoadingSummary = false
     @State private var isShowingSummary = false
@@ -161,6 +162,8 @@ struct ReportsView: View {
             )
         }
 
+        let officialTransportItems = officialTransportFeedItems
+
         let eventItems = events.compactMap { event -> EditorialFeedItem? in
             guard selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter) else { return nil }
             return EditorialFeedItem(
@@ -183,7 +186,7 @@ struct ReportsView: View {
         let scopedItems: [EditorialFeedItem]
         switch selectedScope {
         case .reports:
-            scopedItems = reportItems.filter { item in
+            scopedItems = (reportItems + officialTransportItems).filter { item in
                 switch selectedSegment {
                 case .all: return true
                 case .official: return item.type == .official || item.type == .mixed
@@ -352,6 +355,40 @@ struct ReportsView: View {
             return transportOverview?.perturbationSummary
         }
         return selectedLineSummary
+    }
+
+    private var currentOfficialIncidents: [TransportIncidentDTO] {
+        if selectedLineFilter == "Tout" {
+            return transportOverview?.activeIncidents ?? []
+        }
+        return selectedLineTransport?.activeIncidents ?? []
+    }
+
+    private var officialTransportFeedItems: [EditorialFeedItem] {
+        currentOfficialIncidents
+            .filter { incident in
+                let source = incident.source?.lowercased() ?? ""
+                return source.contains("official") || source.contains("stib")
+            }
+            .map { incident in
+                let primaryLine = incident.line?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let lines = primaryLine.map { [$0] } ?? []
+                return EditorialFeedItem(
+                    id: "official-transport-\(incident.id)",
+                    type: .official,
+                    title: primaryLine.map { "Ligne \($0) — \(incident.type ?? "Information STIB")" } ?? (incident.type ?? "Information STIB"),
+                    body: incident.description,
+                    timeLabel: relativeTimeLabel(from: incident.date),
+                    lines: lines,
+                    location: incident.stop?.name,
+                    upvotes: nil,
+                    url: nil,
+                    attendance: nil,
+                    venueCapacity: nil,
+                    report: nil,
+                    event: nil
+                )
+            }
     }
 
     private var editorialHeader: some View {
@@ -628,9 +665,11 @@ struct ReportsView: View {
         do {
             if selectedLineFilter == "Tout" {
                 transportOverview = try await TransportService.overview()
+                selectedLineTransport = nil
                 selectedLineSummary = nil
             } else {
                 let line = try await TransportService.line(id: selectedLineFilter)
+                selectedLineTransport = line
                 selectedLineSummary = line.perturbationSummary
             }
         } catch {
