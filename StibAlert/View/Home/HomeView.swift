@@ -3050,92 +3050,167 @@ private struct HomeVilloStationSheet: View {
     let station: VilloStation
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Capsule()
-                .fill(DS.Color.ink.opacity(0.22))
-                .frame(width: 42, height: 5)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 4)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 18) {
+                Capsule()
+                    .fill(DS.Color.ink.opacity(0.22))
+                    .frame(width: 42, height: 5)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
 
+                heroCard
+
+                HStack(spacing: 10) {
+                    villoMetricCard(
+                        title: "Vélos",
+                        value: "\(station.availableBikes)",
+                        accent: DS.Color.villo,
+                        subtitle: station.availableBikes == 1 ? "disponible" : "disponibles"
+                    )
+                    villoMetricCard(
+                        title: "Places",
+                        value: "\(station.availableBikeStands)",
+                        accent: DS.Color.accent,
+                        subtitle: station.availableBikeStands == 1 ? "libre" : "libres"
+                    )
+                }
+
+                stationFactsCard
+
+                if let lastUpdate = station.lastUpdate {
+                    let date = Date(timeIntervalSince1970: TimeInterval(lastUpdate) / 1000)
+                    Text("Mis à jour \(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .padding(.horizontal, 2)
+                }
+            }
+            .padding(20)
+        }
+        .background(DS.Color.paper)
+        .presentationBackground(DS.Color.paper)
+    }
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text("VILLO! · STATION \(station.number)")
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
 
-                    Text("\(station.number) - \(station.displayName)")
-                        .font(DS.Font.displayH2)
+                    Text(station.displayName)
+                        .font(.system(size: 23, weight: .black, design: .rounded))
                         .foregroundStyle(DS.Color.ink)
+                        .lineLimit(2)
 
                     Text(station.address)
                         .font(DS.Font.body)
                         .foregroundStyle(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    Text(station.availabilityLabel)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-
-                    Text(capacityLine)
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.inkSoft)
                 }
 
-                Spacer()
+                Spacer(minLength: 12)
 
-                Text(station.statusLabel)
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(station.isOperational ? statusAccent : DS.Color.paper)
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .background(station.isOperational ? statusAccent.opacity(0.16) : statusAccent)
-                    .overlay(
-                        Capsule()
-                            .stroke(station.isOperational ? statusAccent.opacity(0.35) : statusAccent, lineWidth: 1.5)
-                    )
-                    .clipShape(Capsule())
+                VStack(alignment: .trailing, spacing: 10) {
+                    Text(station.statusLabel)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(station.isOperational ? statusAccent : DS.Color.paper)
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .background(station.isOperational ? statusAccent.opacity(0.15) : statusAccent)
+                        .overlay(
+                            Capsule()
+                                .stroke(station.isOperational ? statusAccent.opacity(0.35) : statusAccent, lineWidth: 1.4)
+                        )
+                        .clipShape(Capsule())
+
+                    ZStack {
+                        Circle()
+                            .fill(statusAccent.opacity(0.12))
+                            .frame(width: 54, height: 54)
+                        Image(systemName: "bicycle")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(statusAccent)
+                    }
+                }
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("\(station.availableBikes) vélos")
+                    .font(.system(size: 26, weight: .black, design: .rounded))
+                    .foregroundStyle(DS.Color.ink)
+                Text("·")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+                Text("\(station.availableBikeStands) places")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(DS.Color.inkSoft)
             }
 
             Button {
                 openWalkingDirections()
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    Image(systemName: "figure.walk")
+                        .font(.system(size: 15, weight: .bold))
                     Text("ITINÉRAIRE À PIED")
+                    Spacer(minLength: 0)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                 }
                 .font(DS.Font.mono.weight(.bold))
-                .tracking(1.2)
-                .foregroundStyle(DS.Color.ink)
+                .tracking(1.1)
+                .foregroundStyle(DS.Color.paper)
                 .padding(.horizontal, 16)
-                .frame(height: 52)
-                .background(DS.Color.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
-                )
+                .frame(height: 54)
+                .background(DS.Color.ink)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            DS.Color.paper2.opacity(0.78),
+                            DS.Color.paper
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.4)
+        )
+    }
+
+    private var stationFactsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("STATION")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.6)
+                .foregroundStyle(DS.Color.inkMute)
 
             HStack(spacing: 10) {
-                villoMetricPill(title: "Vélos", value: "\(station.availableBikes)")
-                villoMetricPill(title: "Places", value: "\(station.availableBikeStands)")
-                villoMetricPill(title: "Capacité", value: "\(station.bikeStands)")
-            }
-
-            if let lastUpdate = station.lastUpdate {
-                let date = Date(timeIntervalSince1970: TimeInterval(lastUpdate) / 1000)
-                Text("Mis à jour \(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))")
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkMute)
+                factPill(icon: "dock.rectangle", label: "Capacité", value: "\(station.bikeStands)")
+                factPill(icon: station.banking ? "creditcard.fill" : "xmark.circle", label: "Paiement", value: station.banking ? "CB" : "Sans CB")
+                factPill(icon: "number.square", label: "Numéro", value: "\(station.number)")
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(20)
-        .background(DS.Color.paper)
-        .presentationBackground(DS.Color.paper)
+        .padding(16)
+        .background(DS.Color.paper2.opacity(0.38))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.1), lineWidth: 1.2)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private var statusAccent: Color {
@@ -3146,11 +3221,6 @@ private struct HomeVilloStationSheet: View {
         return DS.Color.villo
     }
 
-    private var capacityLine: String {
-        let bankingLabel = station.banking ? "CB" : "Sans CB"
-        return "Capacité \(station.bikeStands) • \(bankingLabel)"
-    }
-
     private func openWalkingDirections() {
         let latitude = station.coordinate.latitude
         let longitude = station.coordinate.longitude
@@ -3158,25 +3228,58 @@ private struct HomeVilloStationSheet: View {
         openURL(url)
     }
 
-    private func villoMetricPill(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func villoMetricCard(title: String, value: String, accent: Color, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
             Text(title)
                 .font(DS.Font.monoSmall.weight(.bold))
                 .textCase(.uppercase)
+                .tracking(1.1)
                 .foregroundStyle(DS.Color.inkMute)
+
             Text(value)
-                .font(DS.Font.displayH3)
+                .font(.system(size: 31, weight: .black, design: .rounded))
                 .foregroundStyle(DS.Color.ink)
+
+            Text(subtitle)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DS.Color.inkSoft)
+
+            Capsule()
+                .fill(accent.opacity(0.88))
+                .frame(width: 42, height: 6)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Color.paper2.opacity(0.55))
+        .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.4)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func factPill(icon: String, label: String, value: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(DS.Color.paper)
+                    .frame(width: 34, height: 34)
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(DS.Color.inkMute)
+                Text(value)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
