@@ -117,6 +117,12 @@ struct FavoritesView: View {
                 await loadFavoris()
                 await loadStibiContext()
             }
+            .onChange(of: session.currentUser?.favorisDetails?.map(\.id) ?? []) { _, _ in
+                syncRemoteItemsFromSession()
+            }
+            .onChange(of: session.currentUser?.favoris ?? []) { _, _ in
+                syncRemoteItemsFromSession()
+            }
             .sheet(isPresented: $showAddSheet, onDismiss: {
                 Task { await loadFavoris() }
             }) {
@@ -193,6 +199,7 @@ struct FavoritesView: View {
         guard AppConfig.isBackendEnabled else { return }
         guard !isLoadingRemote else { return }
         guard let user = session.currentUser else {
+            remoteItems = []
             hasLoadedFavorites = true
             return
         }
@@ -209,7 +216,16 @@ struct FavoritesView: View {
             remoteItems = mapFavoriteItems(from: remoteUser.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
         } catch {
             print("Favorites load failed: \(error.localizedDescription)")
+            syncRemoteItemsFromSession()
         }
+    }
+
+    private func syncRemoteItemsFromSession() {
+        guard let user = session.currentUser else {
+            remoteItems = []
+            return
+        }
+        remoteItems = mapFavoriteItems(from: user.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
     }
 
     private func loadStibiContext() async {

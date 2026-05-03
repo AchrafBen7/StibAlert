@@ -90,6 +90,7 @@ private extension Array {
 }
 
 struct ArretDetailPage: View {
+    @EnvironmentObject private var session: AuthSession
     let stopSummary: TransportStopSummaryDTO
     let stopDetail: TransportStopDTO?
     let isLoading: Bool
@@ -104,6 +105,7 @@ struct ArretDetailPage: View {
     @State private var selectedTab: StopDetailTab = .live
     @State private var selectedLineFilter: String? = nil
     @State private var isFavorite = false
+    @State private var isUpdatingFavorite = false
 
     private var effectiveStop: TransportStopSummaryDTO {
         stopDetail?.stop ?? stopSummary
@@ -230,6 +232,9 @@ struct ArretDetailPage: View {
 
             stickyCTA
         }
+        .task(id: session.currentUser?.id) {
+            syncFavoriteState()
+        }
     }
 
     private var topBar: some View {
@@ -251,8 +256,9 @@ struct ArretDetailPage: View {
 
             HStack(spacing: 8) {
                 iconButton(systemName: isFavorite ? "star.fill" : "star", tint: isFavorite ? DS.Color.primary : DS.Color.ink) {
-                    isFavorite.toggle()
+                    Task { await toggleFavorite() }
                 }
+                .disabled(isUpdatingFavorite || session.currentUser == nil)
                 iconButton(systemName: "square.and.arrow.up") {
                     shareStop()
                 }
@@ -827,6 +833,58 @@ struct ArretDetailPage: View {
         guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let root = scene.windows.first?.rootViewController else { return }
         root.present(controller, animated: true)
+    }
+
+    private func syncFavoriteState() {
+        guard let user = session.currentUser else {
+            isFavorite = false
+            return
+        }
+
+        let favoriteIds = Set(user.favoris ?? [])
+        let detailedIds = Set((user.favorisDetails ?? []).map(\.id))
+        isFavorite = favoriteIds.contains(effectiveStop.id) || detailedIds.contains(effectiveStop.id)
+    }
+
+    private func toggleFavorite() async {
+        guard let user = session.currentUser else { return }
+        guard !isUpdatingFavorite else { return }
+
+        isUpdatingFavorite = true
+        let previous = isFavorite
+        isFavorite.toggle()
+        defer { isUpdatingFavorite = false }
+
+        do {
+            let response = try await UtilisateurService.toggleFavori(userId: user.id, arretId: effectiveStop.id)
+            if let updatedUser = session.currentUser.map({
+                UtilisateurDTO(
+                    id: $0.id,
+                    nom: $0.nom,
+                    email: $0.email,
+                    photoProfil: $0.photoProfil,
+                    langue: $0.langue,
+                    notifications: $0.notifications,
+                    role: $0.role,
+                    favoris: response.favoris ?? $0.favoris,
+                    favorisDetails: response.favorisDetails ?? $0.favorisDetails,
+                    routine: $0.routine,
+                    votes: $0.votes,
+                    oneSignalPlayerId: $0.oneSignalPlayerId,
+                    favoriteLines: $0.favoriteLines,
+                    weeklyDigestEnabled: $0.weeklyDigestEnabled
+                )
+            }) {
+                session.applyCurrentUserUpdate(updatedUser)
+                syncFavoriteState()
+            } else {
+                await session.refreshCurrentUser()
+                syncFavoriteState()
+            }
+        } catch {
+            isFavorite = previous
+            print("Stop favorite toggle failed: \(error.localizedDescription)")
+        }
     }
 }
 
