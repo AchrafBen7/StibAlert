@@ -369,6 +369,12 @@ struct TransportAlternativeDTO: Codable, Identifiable, Equatable {
     let explanationDetails: TransportAlternativeExplanationDTO?
     let reasons: [String]?
     let steps: [TransportRouteStepDTO]?
+    let scheduledDepartureAt: Date?
+    let scheduledArrivalAt: Date?
+    let realtimeDepartureAt: Date?
+    let realtimeArrivalAt: Date?
+    let activeVehicle: TransportVehicleDTO?
+    let officialAlerts: [TransportOfficialAlertDTO]?
 }
 
 struct TransportAlternativeExplanationDTO: Codable, Equatable {
@@ -401,7 +407,61 @@ struct TransportRouteStepDTO: Codable, Identifiable, Equatable {
     let startLongitude: Double?
     let targetLatitude: Double?
     let targetLongitude: Double?
+    let scheduledDepartureAt: Date?
+    let scheduledArrivalAt: Date?
+    let realtimeDepartureMinutes: Int?
+    let realtimeDepartureAt: Date?
+    let realtimeArrivalAt: Date?
+    let vehicle: TransportVehicleDTO?
+    let alerts: [TransportOfficialAlertDTO]?
     let path: [TransportStepCoordinateDTO]?
+}
+
+struct TransportOfficialAlertDTO: Codable, Identifiable, Equatable {
+    var id: String { alertId ?? "\(title ?? "alert")-\(priority ?? 0)" }
+    private enum CodingKeys: String, CodingKey {
+        case alertId = "id"
+        case title
+        case description
+        case priority
+        case lines
+        case stops
+    }
+    let alertId: String?
+    let title: String?
+    let description: String?
+    let priority: Int?
+    let lines: [String]?
+    let stops: [String]?
+
+    init(id: String?, title: String?, description: String?, priority: Int?, lines: [String]?, stops: [String]?) {
+        self.alertId = id
+        self.title = title
+        self.description = description
+        self.priority = priority
+        self.lines = lines
+        self.stops = stops
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        alertId = try container.decodeIfPresent(String.self, forKey: .alertId)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority)
+        lines = try container.decodeIfPresent([String].self, forKey: .lines)
+        stops = try container.decodeIfPresent([String].self, forKey: .stops)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(alertId, forKey: .alertId)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(priority, forKey: .priority)
+        try container.encodeIfPresent(lines, forKey: .lines)
+        try container.encodeIfPresent(stops, forKey: .stops)
+    }
 }
 
 struct TransportStepCoordinateDTO: Codable, Equatable, Hashable {
