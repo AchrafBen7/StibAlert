@@ -2846,42 +2846,56 @@ private struct EventMapMarker: View {
     let event: TransportEventImpactDTO
 
     var body: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(backgroundTint)
-                    .frame(width: 42, height: 42)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.white.opacity(0.28), lineWidth: 1)
-                    )
+        VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(backgroundTint)
+                        .frame(width: 5)
 
-                Image(systemName: "calendar.badge.exclamationmark")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppTheme.Palette.textPrimary)
+                    ZStack {
+                        DS.Color.paper.opacity(0.98)
+
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                    }
+                    .frame(width: 34, height: 38)
+                }
+                .frame(width: 39, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+
+                if let firstLine = event.impactedLines.first, !firstLine.isEmpty {
+                    Text(firstLine)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(TransitLinePalette.foreground(for: firstLine))
+                        .frame(minWidth: 18, minHeight: 16)
+                        .padding(.horizontal, 3)
+                        .background(TransitLinePalette.fill(for: firstLine))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(DS.Color.ink, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .offset(x: 6, y: -6)
+                }
             }
 
-            Text(compactLabel)
-                .font(.custom("Montserrat-SemiBold", size: 10))
-                .foregroundStyle(AppTheme.Palette.textPrimary)
-                .padding(.horizontal, 8)
-                .frame(height: 22)
-                .background(AppTheme.Palette.screenElevated.opacity(0.96))
-                .clipShape(Capsule())
+            Diamond()
+                .fill(DS.Color.paper.opacity(0.98))
+                .frame(width: 11, height: 11)
                 .overlay(
-                    Capsule()
-                        .stroke(AppTheme.Palette.border, lineWidth: 1)
+                    Diamond()
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
                 )
+                .offset(y: -4)
         }
-        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 5)
         .accessibilityLabel("Événement \(event.title)")
-    }
-
-    private var compactLabel: String {
-        if let first = event.impactedLines.first, !first.isEmpty {
-            return "Ligne \(first)"
-        }
-        return event.phaseLabel ?? "Event"
     }
 
     private var backgroundTint: Color {
@@ -2893,6 +2907,18 @@ private struct EventMapMarker: View {
         default:
             return Color(hex: "#B8E28A")
         }
+    }
+}
+
+private struct Diamond: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.closeSubpath()
+        return path
     }
 }
 
