@@ -251,12 +251,6 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
-                    if selectedScope == .reports {
-                        reportsGuideSection
-                            .padding(.horizontal, DS.Spacing.xl)
-                            .padding(.top, DS.Spacing.lg)
-                    }
-
                     editorialSearchSection
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.lg)
@@ -432,36 +426,6 @@ struct ReportsView: View {
                 .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
         )
         .shadow(DS.Shadow.raised)
-    }
-
-    private var reportsGuideSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("COMMENT LIRE LE FLUX")
-                .font(DS.Font.monoSmall.weight(.bold))
-                .tracking(1.4)
-                .foregroundStyle(DS.Color.inkMute)
-
-            HStack(spacing: 8) {
-                ReportsGuideCard(
-                    icon: "checkmark.seal.fill",
-                    title: "Officiel",
-                    subtitle: "Publié ou confirmé côté STIB.",
-                    tint: DS.Color.statusMajor
-                )
-                ReportsGuideCard(
-                    icon: "person.2.fill",
-                    title: "Communauté",
-                    subtitle: "Signalement terrain, parfois à confirmer.",
-                    tint: DS.Color.community
-                )
-                ReportsGuideCard(
-                    icon: "ticket.fill",
-                    title: "Événement",
-                    subtitle: "Contexte d'affluence autour du réseau.",
-                    tint: DS.Color.event
-                )
-            }
-        }
     }
 
     private var editorialStickySegments: some View {
@@ -1310,38 +1274,6 @@ private struct EditorialFeedCard: View {
         case .event:
             return "#event"
         }
-    }
-}
-
-private struct ReportsGuideCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(tint)
-
-            Text(title)
-                .font(DS.Font.bodyBold)
-                .foregroundStyle(DS.Color.ink)
-
-            Text(subtitle)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkSoft)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
-        .padding(12)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md)
-                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
     }
 }
 
