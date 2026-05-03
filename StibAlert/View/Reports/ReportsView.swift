@@ -251,6 +251,12 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
+                    if selectedScope == .reports {
+                        reportsGuideSection
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
+                    }
+
                     editorialSearchSection
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.lg)
@@ -426,6 +432,36 @@ struct ReportsView: View {
                 .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
         )
         .shadow(DS.Shadow.raised)
+    }
+
+    private var reportsGuideSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("COMMENT LIRE LE FLUX")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.4)
+                .foregroundStyle(DS.Color.inkMute)
+
+            HStack(spacing: 8) {
+                ReportsGuideCard(
+                    icon: "checkmark.seal.fill",
+                    title: "Officiel",
+                    subtitle: "Publié ou confirmé côté STIB.",
+                    tint: DS.Color.statusMajor
+                )
+                ReportsGuideCard(
+                    icon: "person.2.fill",
+                    title: "Communauté",
+                    subtitle: "Signalement terrain, parfois à confirmer.",
+                    tint: DS.Color.community
+                )
+                ReportsGuideCard(
+                    icon: "ticket.fill",
+                    title: "Événement",
+                    subtitle: "Contexte d'affluence autour du réseau.",
+                    tint: DS.Color.event
+                )
+            }
+        }
     }
 
     private var editorialStickySegments: some View {
@@ -892,6 +928,15 @@ private struct EditorialFeedCard: View {
     }
 
     var body: some View {
+        switch item.type {
+        case .event:
+            eventCard
+        case .official, .community, .mixed:
+            reportCard
+        }
+    }
+
+    private var eventCard: some View {
         HStack(spacing: 0) {
             Rectangle()
                 .fill(meta.stripe)
@@ -1001,6 +1046,270 @@ private struct EditorialFeedCard: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .shadow(DS.Shadow.raised)
+    }
+
+    private var reportCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                sourceAvatar
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(sourceTitle)
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        Text(sourceHandle)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                        Text("·")
+                            .foregroundStyle(DS.Color.inkMute.opacity(0.65))
+                        Text(item.timeLabel)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+
+                    HStack(spacing: 6) {
+                        Image(systemName: sourceBadgeIcon)
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(sourceBadgeTitle)
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .tracking(1.4)
+                    }
+                    .foregroundStyle(sourceBadgeColor)
+                }
+
+                Spacer()
+            }
+
+            Text(primaryText)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .multilineTextAlignment(.leading)
+                .padding(.top, 14)
+
+            HStack(spacing: 8) {
+                ForEach(Array(item.lines.prefix(4)), id: \.self) { line in
+                    LineBadge(line: line, size: .sm)
+                }
+
+                if let location = item.location {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(location)
+                            .lineLimit(1)
+                    }
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 12)
+
+            HStack(spacing: 16) {
+                if let up = item.upvotes {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("\(up)")
+                            .font(DS.Font.bodySmall.weight(.semibold))
+                    }
+                    .foregroundStyle(DS.Color.inkMute)
+                }
+
+                if let report = item.report, let confirmationText = report.confirmationsSummaryLabel {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(confirmationText)
+                            .lineLimit(1)
+                    }
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                } else if item.type == .official || item.type == .mixed {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Certifié STIB")
+                    }
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.statusMajor)
+                }
+
+                Spacer()
+            }
+            .padding(.top, 14)
+        }
+        .padding(14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        .shadow(DS.Shadow.raised)
+    }
+
+    private var primaryText: String {
+        let preferred = (item.body?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+            ? item.body
+            : item.title
+        return preferred ?? item.title
+    }
+
+    private var sourceTitle: String {
+        switch item.type {
+        case .community:
+            return "Voyageur · Bruxelles"
+        case .official:
+            return "STIB · Bruxelles"
+        case .mixed:
+            return "Signal croisé"
+        case .event:
+            return meta.label
+        }
+    }
+
+    private var sourceHandle: String {
+        switch item.type {
+        case .community:
+            return "@communauté"
+        case .official:
+            return "@stib"
+        case .mixed:
+            return "@mixte"
+        case .event:
+            return "@événement"
+        }
+    }
+
+    private var sourceBadgeTitle: String {
+        switch item.type {
+        case .community:
+            return "COMMUNAUTÉ"
+        case .official:
+            return "CERTIFIÉ STIB"
+        case .mixed:
+            return "OFFICIEL + TERRAIN"
+        case .event:
+            return meta.label.uppercased()
+        }
+    }
+
+    private var sourceBadgeIcon: String {
+        switch item.type {
+        case .community:
+            return "person.2"
+        case .official:
+            return "checkmark.seal.fill"
+        case .mixed:
+            return "exclamationmark.triangle.fill"
+        case .event:
+            return meta.iconSystemName
+        }
+    }
+
+    private var sourceBadgeColor: Color {
+        switch item.type {
+        case .community:
+            return DS.Color.community
+        case .official:
+            return DS.Color.statusMajor
+        case .mixed:
+            return DS.Color.statusMinor
+        case .event:
+            return DS.Color.event
+        }
+    }
+
+    @ViewBuilder
+    private var sourceAvatar: some View {
+        switch item.type {
+        case .community:
+            RoundedRectangle(cornerRadius: 12)
+                .fill(DS.Color.paper)
+                .frame(width: 52, height: 52)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
+                .overlay(
+                    Text("V.")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundStyle(DS.Color.ink)
+                )
+        case .official:
+            RoundedRectangle(cornerRadius: 12)
+                .fill(DS.Color.paper)
+                .frame(width: 52, height: 52)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DS.Color.statusMajor.opacity(0.35), lineWidth: 1)
+                )
+                .overlay(
+                    VStack(spacing: 1) {
+                        Text("STIB")
+                            .font(.system(size: 11, weight: .black))
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundStyle(DS.Color.statusMajor)
+                )
+        case .mixed:
+            RoundedRectangle(cornerRadius: 12)
+                .fill(
+                    LinearGradient(
+                        colors: [DS.Color.statusMajor.opacity(0.14), DS.Color.community.opacity(0.14)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 52, height: 52)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
+                .overlay(
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(DS.Color.statusMajor)
+                )
+        case .event:
+            EmptyView()
+        }
+    }
+}
+
+private struct ReportsGuideCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+
+            Text(title)
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+
+            Text(subtitle)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
     }
 }
 
