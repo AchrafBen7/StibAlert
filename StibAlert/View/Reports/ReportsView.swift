@@ -1053,19 +1053,22 @@ private struct EditorialFeedCard: View {
             HStack(alignment: .top, spacing: 12) {
                 sourceAvatar
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
                         Text(sourceTitle)
                             .font(DS.Font.bodyBold)
                             .foregroundStyle(DS.Color.ink)
+                            .lineLimit(1)
                         Text(sourceHandle)
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
                         Text("·")
                             .foregroundStyle(DS.Color.inkMute.opacity(0.65))
                         Text(item.timeLabel)
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
                     }
 
                     HStack(spacing: 6) {
@@ -1082,30 +1085,33 @@ private struct EditorialFeedCard: View {
             }
 
             Text(primaryText)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
                 .multilineTextAlignment(.leading)
-                .padding(.top, 14)
+                .padding(.top, 12)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
-                ForEach(Array(item.lines.prefix(4)), id: \.self) { line in
-                    LineBadge(line: line, size: .sm)
-                }
-
-                if let location = item.location {
-                    HStack(spacing: 4) {
-                        Image(systemName: "mappin.and.ellipse")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(location)
-                            .lineLimit(1)
+            if !item.lines.isEmpty || item.location != nil {
+                HStack(spacing: 8) {
+                    ForEach(Array(item.lines.prefix(3)), id: \.self) { line in
+                        LineBadge(line: line, size: .sm)
                     }
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkMute)
-                }
 
-                Spacer(minLength: 0)
+                    if let location = item.location {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(location)
+                                .lineLimit(1)
+                        }
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 12)
             }
-            .padding(.top, 12)
 
             HStack(spacing: 16) {
                 if let up = item.upvotes {
@@ -1131,13 +1137,17 @@ private struct EditorialFeedCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 11, weight: .semibold))
-                        Text("Certifié STIB")
+                        Text(item.type == .official ? "Certifié STIB" : "Signal croisé")
                     }
                     .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.statusMajor)
+                    .foregroundStyle(item.type == .official ? DS.Color.statusMajor : DS.Color.statusMinor)
                 }
 
                 Spacer()
+
+                Text(reportFooterTag)
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.8))
             }
             .padding(.top, 14)
         }
@@ -1163,7 +1173,7 @@ private struct EditorialFeedCard: View {
         case .community:
             return "Voyageur · Bruxelles"
         case .official:
-            return "STIB · Bruxelles"
+            return "STIB · Info trafic"
         case .mixed:
             return "Signal croisé"
         case .event:
@@ -1248,13 +1258,22 @@ private struct EditorialFeedCard: View {
                         .stroke(DS.Color.statusMajor.opacity(0.35), lineWidth: 1)
                 )
                 .overlay(
-                    VStack(spacing: 1) {
-                        Text("STIB")
-                            .font(.system(size: 11, weight: .black))
+                    ZStack(alignment: .bottomTrailing) {
+                        Circle()
+                            .fill(Color(red: 0.03, green: 0.33, blue: 0.64))
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                Text("B")
+                                    .font(.system(size: 16, weight: .black, design: .rounded))
+                                    .foregroundStyle(.white)
+                            )
+
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.statusMajor)
+                            .background(DS.Color.paper.clipShape(Circle()))
+                            .offset(x: 4, y: 4)
                     }
-                    .foregroundStyle(DS.Color.statusMajor)
                 )
         case .mixed:
             RoundedRectangle(cornerRadius: 12)
@@ -1277,6 +1296,19 @@ private struct EditorialFeedCard: View {
                 )
         case .event:
             EmptyView()
+        }
+    }
+
+    private var reportFooterTag: String {
+        switch item.type {
+        case .community:
+            return "#com"
+        case .official:
+            return "#stib"
+        case .mixed:
+            return "#mixte"
+        case .event:
+            return "#event"
         }
     }
 }
