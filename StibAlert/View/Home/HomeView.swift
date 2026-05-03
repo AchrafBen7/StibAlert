@@ -43,6 +43,7 @@ struct HomeView: View {
     @State private var hasLoadedSignalements = false
     @State private var signalementLoadError: String? = nil
     @State private var transportOverview: TransportOverviewDTO?
+    @State private var currentTransportRecommendation: TransportRecommendationDTO?
     @State private var isLoadingTransportOverview = false
     @State private var stibiBrief: AssistantBriefDTO?
     @State private var isLoadingStibiBrief = false
@@ -77,6 +78,14 @@ struct HomeView: View {
         let coordinate: CLLocationCoordinate2D
         let typeProbleme: String
         let source: String?
+    }
+
+    private struct RouteOfficialSignalPoint: Identifiable {
+        let id: String
+        let coordinate: CLLocationCoordinate2D
+        let title: String
+        let severity: String?
+        let stop: TransportStopSummaryDTO?
     }
 
     private struct RouteMapSegment: Identifiable {
@@ -121,6 +130,9 @@ struct HomeView: View {
             numbers.formUnion(favs)
         }
         numbers.formUnion(remoteSignalements.map(\.ligne))
+        if let selectedRouteOption {
+            numbers.formUnion(selectedRouteOption.displayLineCodes)
+        }
         return numbers
     }
 
@@ -132,7 +144,68 @@ struct HomeView: View {
 
     private var mapVehicles: [TransportVehicleDTO] {
         guard cameraLatitudeDelta <= 0.12 else { return [] }
+        if let selectedRouteOption,
+           let trackedVehicle = trackedVehicle(for: selectedRouteOption) {
+            return [trackedVehicle]
+        }
         return vehicleTracker.vehicles.filter { $0.latitude != nil && $0.longitude != nil }
+    }
+
+    private var routeOfficialSignalPoints: [RouteOfficialSignalPoint] {
+        guard let selectedRouteOption else { return [] }
+        let stopNames = Set(
+            (selectedRouteOption.backendAlternative?.steps ?? []).flatMap { step in
+                [step.stopName, step.arrivalStopName]
+            }
+            .compactMap { $0?.normalizedStopKey }
+        )
+        let routeLines = Set(selectedRouteOption.displayLineCodes)
+
+        return (currentTransportRecommendation?.activeIncidents ?? [])
+            .filter { $0.source == "official" }
+            .filter { incident in
+                guard let stop = incident.stop,
+                      let latitude = stop.latitude,
+                      let longitude = stop.longitude else { return false }
+                _ = latitude
+                _ = longitude
+                let lineMatches: Bool
+                if let line = incident.line {
+                    lineMatches = routeLines.contains(line)
+                } else {
+                    lineMatches = false
+                }
+
+                let stopMatches: Bool
+                if let stopName = stop.name?.normalizedStopKey {
+                    stopMatches = stopNames.contains(stopName)
+                } else {
+                    stopMatches = false
+                }
+                return lineMatches || stopMatches
+            }
+            .compactMap { incident in
+                guard let stop = incident.stop,
+                      let latitude = stop.latitude,
+                      let longitude = stop.longitude else { return nil }
+                let summary = stop.id.map {
+                    TransportStopSummaryDTO(
+                        id: $0,
+                        stopId: stop.stopId,
+                        name: stop.name ?? "Arrêt STIB",
+                        latitude: latitude,
+                        longitude: longitude,
+                        lines: incident.line.map { [$0] } ?? []
+                    )
+                }
+                return RouteOfficialSignalPoint(
+                    id: incident.id,
+                    coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                    title: incident.type ?? "Alerte STIB",
+                    severity: incident.severity,
+                    stop: summary
+                )
+            }
     }
 
     private var mapStops: [TransportStopSummaryDTO] {
@@ -621,6 +694,18 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
+            ForEach(routeOfficialSignalPoints) { point in
+                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
+                    Button {
+                        if let stop = point.stop {
+                            openStopPreview(for: stop)
+                        }
+                    } label: {
+                        OfficialSignalMarker(problemType: point.title)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             ForEach(mapClusters) { cluster in
                 Annotation("", coordinate: cluster.coordinate, anchor: .bottom) {
                     Button { handleClusterTap(cluster) } label: {
@@ -816,6 +901,7 @@ struct HomeView: View {
                         currentRoute = nil
                         currentRouteCoordinates = []
                         destinationCoord = nil
+                        currentTransportRecommendation = nil
                         isRouteSheetExpanded = false
                         selectedRouteDetail = nil
                     }
@@ -840,6 +926,7 @@ struct HomeView: View {
                         selectedRouteID = nil
                         currentRoute = nil
                         destinationCoord = nil
+                        currentTransportRecommendation = nil
                         isRouteSheetExpanded = false
                     }
                 },
@@ -1507,6 +1594,39 @@ struct HomeView: View {
         return start.distance(from: end)
     }
 
+    private func trackedVehicle(for option: HomeRouteOption) -> TransportVehicleDTO? {
+        guard let activeVehicle = option.backendAlternative?.activeVehicle else { return nil }
+        let visibleVehicles = vehicleTracker.vehicles.filter { $0.latitude != nil && $0.longitude != nil }
+
+        if let vehicleId = activeVehicle.vehicleId,
+           let exact = visibleVehicles.first(where: { $0.vehicleId == vehicleId }) {
+            return exact
+        }
+
+        let targetPoint = activeVehicle.latitude.flatMap { lat in
+            activeVehicle.longitude.map { lng in CLLocationCoordinate2D(latitude: lat, longitude: lng) }
+        }
+
+        let candidates = visibleVehicles.filter {
+            guard let line = $0.line else { return false }
+            return line == activeVehicle.line
+        }
+
+        if let targetPoint {
+            return candidates.min { left, right in
+                let leftDistance = left.latitude.flatMap { lat in
+                    left.longitude.map { lng in coordinateDistance(from: CLLocationCoordinate2D(latitude: lat, longitude: lng), to: targetPoint) }
+                } ?? .greatestFiniteMagnitude
+                let rightDistance = right.latitude.flatMap { lat in
+                    right.longitude.map { lng in coordinateDistance(from: CLLocationCoordinate2D(latitude: lat, longitude: lng), to: targetPoint) }
+                } ?? .greatestFiniteMagnitude
+                return leftDistance < rightDistance
+            } ?? activeVehicle
+        }
+
+        return candidates.first ?? activeVehicle
+    }
+
     private func reportResolved(id: String) async {
         guard !session.isGuest else {
             guestGateReason = .confirm
@@ -1690,6 +1810,7 @@ struct HomeView: View {
         destinationCoord = destination.placemark.coordinate
         searchSuggestions = []
         searchQuery = destination.name ?? ""
+        currentTransportRecommendation = recommendation
 
         let preferredOption = preferredRouteOption(in: finalOptions)
 
@@ -2664,6 +2785,13 @@ private struct OfficialSignalMarker: View {
         .accessibilityElement()
         .accessibilityLabel("Alerte officielle STIB — \(problemType)")
         .accessibilityHint("Ouvre le détail de la perturbation officielle")
+    }
+}
+
+private extension String {
+    var normalizedStopKey: String {
+        folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -4833,10 +4961,16 @@ private struct RouteOptionCard: View {
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
 
-                    Text("DÉPART \(option.departureTimeText) · ARRIVÉE \(option.arrivalTimeText)")
+                    Text(option.timingHeadlineText)
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(1.2)
                         .foregroundStyle(DS.Color.inkMute)
+
+                    if let timingSecondaryText = option.timingSecondaryText {
+                        Text(timingSecondaryText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(DS.Color.inkMute.opacity(0.82))
+                    }
 
                     HStack(spacing: 8) {
                         ForEach(option.displayLineCodes, id: \.self) { code in
@@ -4866,10 +5000,18 @@ private struct RouteOptionCard: View {
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
                 }
-                Text("\(option.departureTimeText) → \(option.arrivalTimeText)")
+                Text(option.realtimeDepartureTimeText != nil || option.realtimeArrivalTimeText != nil
+                     ? "\(option.realtimeDepartureTimeText ?? option.departureTimeText) → \(option.realtimeArrivalTimeText ?? option.arrivalTimeText)"
+                     : "\(option.departureTimeText) → \(option.arrivalTimeText)")
                     .font(DS.Font.monoSmall.weight(.bold))
                     .tracking(1.2)
                     .foregroundStyle(DS.Color.inkMute)
+                if let timingSecondaryText = option.timingSecondaryText {
+                    Text(timingSecondaryText)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.72))
+                        .lineLimit(1)
+                }
             }
             .frame(width: 88, alignment: .leading)
 
@@ -5315,12 +5457,50 @@ private struct HomeRouteOption: Identifiable {
     }
 
     var departureTimeText: String {
-        Self.timeFormatter.string(from: Date())
+        realtimeDepartureTimeText ?? scheduledDepartureTimeText ?? Self.timeFormatter.string(from: Date())
     }
 
     var arrivalTimeText: String {
-        let arrival = Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60))
-        return Self.timeFormatter.string(from: arrival)
+        realtimeArrivalTimeText
+            ?? scheduledArrivalTimeText
+            ?? Self.timeFormatter.string(from: Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60)))
+    }
+
+    var scheduledDepartureTimeText: String? {
+        backendAlternative?.scheduledDepartureAt.map { Self.timeFormatter.string(from: $0) }
+    }
+
+    var scheduledArrivalTimeText: String? {
+        backendAlternative?.scheduledArrivalAt.map { Self.timeFormatter.string(from: $0) }
+    }
+
+    var realtimeDepartureTimeText: String? {
+        backendAlternative?.realtimeDepartureAt.map { Self.timeFormatter.string(from: $0) }
+    }
+
+    var realtimeArrivalTimeText: String? {
+        backendAlternative?.realtimeArrivalAt.map { Self.timeFormatter.string(from: $0) }
+    }
+
+    var hasRealtimeTimingDelta: Bool {
+        scheduledDepartureTimeText != realtimeDepartureTimeText || scheduledArrivalTimeText != realtimeArrivalTimeText
+    }
+
+    var timingHeadlineText: String {
+        if let realtimeDepartureTimeText, let realtimeArrivalTimeText {
+            return "TEMPS RÉEL \(realtimeDepartureTimeText) → \(realtimeArrivalTimeText)"
+        }
+        if let scheduledDepartureTimeText, let scheduledArrivalTimeText {
+            return "PRÉVU \(scheduledDepartureTimeText) → \(scheduledArrivalTimeText)"
+        }
+        return "DÉPART \(departureTimeText) · ARRIVÉE \(arrivalTimeText)"
+    }
+
+    var timingSecondaryText: String? {
+        guard hasRealtimeTimingDelta,
+              let scheduledDepartureTimeText,
+              let scheduledArrivalTimeText else { return nil }
+        return "Prévu \(scheduledDepartureTimeText) → \(scheduledArrivalTimeText)"
     }
 
     var primaryModeKey: String {
@@ -5765,6 +5945,21 @@ private struct HomeRouteOption: Identifiable {
             parts.append(distance.distanceLabel.uppercased())
         }
         parts.append("\(max(1, step.durationMinutes)) min".uppercased())
+        if let realtimeDepartureAt = step.realtimeDepartureAt {
+            let departure = timeFormatter.string(from: realtimeDepartureAt)
+            if let realtimeArrivalAt = step.realtimeArrivalAt {
+                parts.append("\(departure)→\(timeFormatter.string(from: realtimeArrivalAt))")
+            } else {
+                parts.append("DÉP. \(departure)")
+            }
+        } else if let scheduledDepartureAt = step.scheduledDepartureAt {
+            let departure = timeFormatter.string(from: scheduledDepartureAt)
+            if let scheduledArrivalAt = step.scheduledArrivalAt {
+                parts.append("\(departure)→\(timeFormatter.string(from: scheduledArrivalAt))")
+            } else {
+                parts.append("PRÉVU \(departure)")
+            }
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -5795,11 +5990,6 @@ private struct RouteItineraryDetailsView: View {
     let onClose: () -> Void
     let onShowMap: () -> Void
     let onStartAR: () -> Void
-
-    private var arrivalText: String {
-        let arrival = Date().addingTimeInterval(TimeInterval(option.totalDurationMinutes * 60))
-        return Self.timeFormatter.string(from: arrival)
-    }
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -5931,10 +6121,15 @@ private struct RouteItineraryDetailsView: View {
                     Text(option.durationText)
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
-                    Text("ARRIVÉE \(arrivalText)")
+                    Text(option.timingHeadlineText.uppercased())
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(1.4)
                         .foregroundStyle(DS.Color.inkMute)
+                    if let timingSecondaryText = option.timingSecondaryText {
+                        Text(timingSecondaryText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(DS.Color.inkMute.opacity(0.82))
+                    }
                 }
             }
 
