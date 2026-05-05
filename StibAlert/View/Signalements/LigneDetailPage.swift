@@ -24,6 +24,7 @@ final class LigneDetailViewModel: ObservableObject {
         let stopId: String?
         let name: String
         let waits: [Int]
+        let waitsSource: String?
         let disruption: String?
         let reportsCount: Int
     }
@@ -111,6 +112,7 @@ final class LigneDetailViewModel: ObservableObject {
                 stopId: dto.stopId,
                 name: dto.nom,
                 waits: dto.nextPassages ?? dto.nextPassageMinutes.map { [$0] } ?? [],
+                waitsSource: dto.nextPassageSource,
                 disruption: nil,
                 reportsCount: 0
             )
@@ -126,7 +128,9 @@ final class LigneDetailViewModel: ObservableObject {
 
     var summaryDetails: String {
         guard let activeLine else { return "Chargement des données de ligne…" }
-        let departures = activeLine.nextDepartures.prefix(3).map { "\($0.line) \($0.minutes) min" }
+        let departures = activeLine.nextDepartures.prefix(3).map {
+            "\($0.line) \($0.minutes) min\($0.source == "scheduled" ? " · théorique" : "")"
+        }
         if departures.isEmpty {
             return activeLine.realtimeStatus
         }
@@ -207,6 +211,7 @@ final class LigneDetailViewModel: ObservableObject {
             stopId: catalog?.stopId ?? stop.stopId,
             name: stop.name,
             waits: waits.sorted(),
+            waitsSource: catalog?.nextPassageSource,
             disruption: disruption,
             reportsCount: incidents.count
         )
@@ -562,6 +567,11 @@ private struct LigneTimelineRow: View {
                         Text("\(stop.waits[0]) min")
                             .font(DS.Font.monoLarge)
                             .foregroundStyle(DS.Color.ink)
+                        if stop.waitsSource == "scheduled" {
+                            Text("théorique")
+                                .font(DS.Font.monoSmall)
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
                         if stop.waits.count > 1 {
                             Text("+\(stop.waits[1])")
                                 .font(DS.Font.monoSmall)
