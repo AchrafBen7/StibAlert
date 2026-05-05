@@ -168,6 +168,43 @@ struct ArretDetailPage: View {
             }
     }
 
+    private var passagesAvailabilityText: String {
+        if isLoading {
+            return "Chargement des passages..."
+        }
+
+        guard let stopDetail else {
+            return "Passages indisponibles pour le moment."
+        }
+
+        if !stopDetail.nextDepartures.isEmpty {
+            let hasRealtime = stopDetail.nextDepartures.contains { $0.source != "scheduled" }
+            let hasScheduled = stopDetail.nextDepartures.contains { $0.source == "scheduled" }
+            if hasRealtime && hasScheduled {
+                return "Temps réel complété par l'horaire prévu."
+            }
+            if hasRealtime {
+                return "Temps réel STIB disponible."
+            }
+            if hasScheduled {
+                return "Temps réel indisponible, horaires prévus affichés."
+            }
+        }
+
+        if let message = stopDetail.officialDataMessage, !message.isEmpty {
+            return message
+        }
+
+        switch stopDetail.officialDataStatus {
+        case "unavailable":
+            return "Passages indisponibles: source STIB temporairement inaccessible."
+        case "limited":
+            return "Données STIB limitées: derniers horaires fiables indisponibles."
+        default:
+            return "Aucun passage prévu pour le moment."
+        }
+    }
+
     private var lineDestinations: [GroupedStopPassage] {
         if !groupedPassages.isEmpty {
             return groupedPassages
@@ -441,6 +478,11 @@ struct ArretDetailPage: View {
                     .font(DS.Font.eyebrow)
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
+                if !groupedPassages.isEmpty {
+                    Text(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? "PRÉVU" : "TEMPS RÉEL")
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? DS.Color.statusMinor : DS.Color.statusOK)
+                }
             }
 
             Rectangle()
@@ -450,7 +492,7 @@ struct ArretDetailPage: View {
             if isLoading {
                 StopSkeletonRows()
             } else if groupedPassages.isEmpty {
-                Text("Aucun passage prévu pour le moment.")
+                Text(passagesAvailabilityText)
                     .font(DS.Font.body)
                     .italic()
                     .foregroundStyle(DS.Color.inkMute)
@@ -487,7 +529,7 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 if let next {
-                    Text(next.source == "scheduled" ? "horaire théorique dans \(next.minutes) min" : "arrivée prévue dans \(next.minutes) min")
+                    Text(next.source == "scheduled" ? "prévu dans \(next.minutes) min" : "temps réel dans \(next.minutes) min")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
