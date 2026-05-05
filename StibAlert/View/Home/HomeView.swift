@@ -4,6 +4,15 @@ import Combine
 import AVFoundation
 
 struct HomeView: View {
+    private enum InteractionMode: Equatable {
+        case map
+        case stopPreview
+        case stopDetail
+        case routePreview
+        case routeDetail
+        case ar
+    }
+
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
     @EnvironmentObject private var session: AuthSession
@@ -72,6 +81,7 @@ struct HomeView: View {
     @State private var cameraCenterCoordinate = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
     @State private var catalogMapStops: [NearbyStop] = []
     @State private var mapStopsTask: Task<Void, Never>? = nil
+    @State private var interactionMode: InteractionMode = .map
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
@@ -845,13 +855,11 @@ struct HomeView: View {
                 isLoading: isLoadingMapStopDetail,
                 nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
                 onDismiss: {
-                    selectedMapStopPreview = nil
-                    selectedMapStopDetail = nil
-                    isLoadingMapStopDetail = false
+                    enterInteractionMode(.map)
                 },
                 onOpenDetail: {
-                    selectedMapStopPreview = nil
                     selectedMapStopSummary = stop
+                    enterInteractionMode(.stopDetail)
                 }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -867,16 +875,10 @@ struct HomeView: View {
                 nearbyStops: nearbyStops(for: stop, detail: selectedMapStopDetail),
                 nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
                 onDismiss: {
-                    selectedMapStopPreview = nil
-                    selectedMapStopSummary = nil
-                    selectedMapStopDetail = nil
-                    isLoadingMapStopDetail = false
+                    enterInteractionMode(.map)
                 },
                 onOpenLine: { line in
-                    selectedMapStopPreview = nil
-                    selectedMapStopSummary = nil
-                    selectedMapStopDetail = nil
-                    isLoadingMapStopDetail = false
+                    clearStopSelection()
                     nav.pendingLineFocus = line
                     nav.currentPage = .signalements
                 },
@@ -902,15 +904,7 @@ struct HomeView: View {
                 },
                 onClose: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        routeOptions = []
-                        routeModeSummaries = []
-                        selectedRouteID = nil
-                        currentRoute = nil
-                        currentRouteCoordinates = []
-                        destinationCoord = nil
-                        currentTransportRecommendation = nil
-                        isRouteSheetExpanded = false
-                        selectedRouteDetail = nil
+                        enterInteractionMode(.map)
                     }
                 }
             )
@@ -924,27 +918,24 @@ struct HomeView: View {
                 onBack: {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         self.selectedRouteDetail = nil
+                        enterInteractionMode(.routePreview)
                     }
                 },
                 onClose: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        self.selectedRouteDetail = nil
-                        routeOptions = []
-                        selectedRouteID = nil
-                        currentRoute = nil
-                        destinationCoord = nil
-                        currentTransportRecommendation = nil
-                        isRouteSheetExpanded = false
+                        enterInteractionMode(.map)
                     }
                 },
                 onShowMap: {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         self.selectedRouteDetail = nil
+                        enterInteractionMode(.routePreview)
                     }
                 },
                 onStartAR: {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         selectedARRoute = selectedRouteDetail
+                        enterInteractionMode(.ar)
                     }
                 }
             )
@@ -958,6 +949,7 @@ struct HomeView: View {
                 onClose: {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         self.selectedARRoute = nil
+                        enterInteractionMode(routeOptions.isEmpty ? .map : .routePreview)
                     }
                 }
             )
@@ -975,6 +967,58 @@ struct HomeView: View {
     private var currentCommuteBrief: AssistantBriefDTO? {
         guard let brief = stibi.brief, brief.type == "commute_brief" else { return nil }
         return brief
+    }
+
+    @MainActor
+    private func enterInteractionMode(_ mode: InteractionMode) {
+        interactionMode = mode
+
+        switch mode {
+        case .map:
+            clearStopSelection()
+            clearRouteSelection(keepDestination: false)
+        case .stopPreview:
+            selectedMapStopSummary = nil
+            selectedRouteDetail = nil
+            selectedARRoute = nil
+        case .stopDetail:
+            selectedMapStopPreview = nil
+            selectedRouteDetail = nil
+            selectedARRoute = nil
+        case .routePreview:
+            clearStopSelection()
+            selectedRouteDetail = nil
+            selectedARRoute = nil
+        case .routeDetail:
+            clearStopSelection()
+            selectedARRoute = nil
+        case .ar:
+            clearStopSelection()
+        }
+    }
+
+    @MainActor
+    private func clearStopSelection() {
+        selectedMapStopPreview = nil
+        selectedMapStopSummary = nil
+        selectedMapStopDetail = nil
+        isLoadingMapStopDetail = false
+    }
+
+    @MainActor
+    private func clearRouteSelection(keepDestination: Bool) {
+        routeOptions = []
+        routeModeSummaries = []
+        selectedRouteID = nil
+        currentRoute = nil
+        currentRouteCoordinates = []
+        if !keepDestination {
+            destinationCoord = nil
+        }
+        currentTransportRecommendation = nil
+        isRouteSheetExpanded = false
+        selectedRouteDetail = nil
+        selectedARRoute = nil
     }
 
     private var homeDashboardData: HomeDashboardData {
@@ -1278,15 +1322,15 @@ struct HomeView: View {
 
     @MainActor
     private func openStopPreview(for stop: TransportStopSummaryDTO) {
-        selectedMapStopSummary = nil
         selectedMapStopPreview = stop
+        enterInteractionMode(.stopPreview)
         loadStopDetail(for: stop)
     }
 
     @MainActor
     private func openStopDetail(for stop: TransportStopSummaryDTO) {
-        selectedMapStopPreview = nil
         selectedMapStopSummary = stop
+        enterInteractionMode(.stopDetail)
         loadStopDetail(for: stop)
     }
 
@@ -1337,9 +1381,9 @@ struct HomeView: View {
             let summary = detail.stop
             focusMap(on: summary)
             selectedMapStopSummary = summary
-            selectedMapStopPreview = nil
             selectedMapStopDetail = detail
             isLoadingMapStopDetail = false
+            enterInteractionMode(.stopDetail)
             nav.pendingMapStopFocusBackendId = nil
         } catch {
             print("Pending map stop focus failed: \(error.localizedDescription)")
@@ -1348,10 +1392,7 @@ struct HomeView: View {
 
     @MainActor
     private func openReportSheet(for stop: TransportStopSummaryDTO) {
-        selectedMapStopPreview = nil
-        selectedMapStopSummary = nil
-        selectedMapStopDetail = nil
-        isLoadingMapStopDetail = false
+        clearStopSelection()
 
         nav.pendingReportStopBackendId = stop.id
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
@@ -1826,6 +1867,7 @@ struct HomeView: View {
             routeModeSummaries = buildModeSummaries(recommendation: recommendation, options: finalOptions)
             selectedRouteID = preferredOption?.id
             isRouteSheetExpanded = false
+            enterInteractionMode(.routePreview)
         }
 
         if let preferredOption {
@@ -2119,6 +2161,7 @@ struct HomeView: View {
         currentRoute = option.route
         currentRouteCoordinates = option.routeCoordinates
         selectedRouteID = option.id
+        enterInteractionMode(.routePreview)
 
         let rect = option.mapRectWithPadding
         withAnimation(.easeInOut(duration: 0.8)) {
