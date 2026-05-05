@@ -487,7 +487,7 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 if let next {
-                    Text("arrivée prévue dans \(next.minutes) min")
+                    Text(next.source == "scheduled" ? "horaire théorique dans \(next.minutes) min" : "arrivée prévue dans \(next.minutes) min")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }

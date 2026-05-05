@@ -313,12 +313,13 @@ struct ArretDTO: Codable, Equatable {
     let lignesDesservies: [String]?
     let nextPassageMinutes: Int?
     let nextPassages: [Int]?
+    let nextPassageSource: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case stopId = "stop_id"
         case nom, latitude, longitude, lignesDesservies
-        case nextPassageMinutes, nextPassages
+        case nextPassageMinutes, nextPassages, nextPassageSource
     }
 }
 

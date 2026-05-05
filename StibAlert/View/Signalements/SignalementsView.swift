@@ -1123,15 +1123,16 @@ private struct LineOverviewView: View {
     }
 
     nonisolated private static func formattedNextPassages(for arret: ArretDTO) -> String {
+        let suffix = arret.nextPassageSource == "scheduled" ? " · théorique" : ""
         if let nextPassages = arret.nextPassages, !nextPassages.isEmpty {
             return nextPassages
                 .prefix(3)
                 .map { "\($0)" }
-                .joined(separator: ", ") + " min"
+                .joined(separator: ", ") + " min" + suffix
         }
 
         if let nextPassageMinutes = arret.nextPassageMinutes {
-            return "\(nextPassageMinutes) min"
+            return "\(nextPassageMinutes) min\(suffix)"
         }
 
         return "--"

@@ -3392,9 +3392,17 @@ private struct HomeStopPreviewCard: View {
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .lineLimit(1)
 
-                                    Text(departure.minutes <= 0 ? "Imminent" : "\(departure.minutes) min")
-                                        .font(DS.Font.displayH3)
-                                        .foregroundStyle(DS.Color.ink)
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(departure.minutes <= 0 ? "Imminent" : "\(departure.minutes) min")
+                                            .font(DS.Font.displayH3)
+                                            .foregroundStyle(DS.Color.ink)
+                                        if departure.source == "scheduled" {
+                                            Text("théorique")
+                                                .font(DS.Font.monoSmall.weight(.bold))
+                                                .tracking(0.8)
+                                                .foregroundStyle(DS.Color.inkMute)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3792,7 +3800,7 @@ private struct HomeStopDetailSheet: View {
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
                                         .lineLimit(2)
-                                    Text("Dans \(departure.minutes) min")
+                                    Text(departure.source == "scheduled" ? "Dans \(departure.minutes) min · horaire théorique" : "Dans \(departure.minutes) min")
                                         .font(.custom("Montserrat-Regular", size: 12))
                                         .foregroundStyle(.white.opacity(0.72))
                                 }
