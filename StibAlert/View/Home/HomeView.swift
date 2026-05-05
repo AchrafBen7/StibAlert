@@ -136,6 +136,11 @@ struct HomeView: View {
         return numbers
     }
 
+    private var trackedVehicleLineNumbers: Set<String> {
+        guard let selectedRouteOption else { return [] }
+        return Set(selectedRouteOption.displayLineCodes)
+    }
+
     private var visibleLineShapes: [LineShape] {
         guard selectedRouteOption == nil else { return [] }
         guard cameraLatitudeDelta <= 0.08 else { return [] }
@@ -144,11 +149,11 @@ struct HomeView: View {
 
     private var mapVehicles: [TransportVehicleDTO] {
         guard cameraLatitudeDelta <= 0.12 else { return [] }
-        if let selectedRouteOption,
-           let trackedVehicle = trackedVehicle(for: selectedRouteOption) {
+        guard let selectedRouteOption else { return [] }
+        if let trackedVehicle = trackedVehicle(for: selectedRouteOption) {
             return [trackedVehicle]
         }
-        return vehicleTracker.vehicles.filter { $0.latitude != nil && $0.longitude != nil }
+        return []
     }
 
     private var routeOfficialSignalPoints: [RouteOfficialSignalPoint] {
@@ -577,15 +582,17 @@ struct HomeView: View {
             stibi.setCurrentScreen("home")
             locationManager.start()
             realtimeSignalements.connect()
-            vehicleTracker.start(lines: visibleLineNumbers)
+            vehicleTracker.start(lines: trackedVehicleLineNumbers)
         }
         .onDisappear {
             realtimeSignalements.disconnect()
             vehicleTracker.stop()
         }
         .onChange(of: visibleLineNumbers) { _, newLines in
-            vehicleTracker.updateLines(newLines)
             syncFavoritesToWidget(newLines)
+        }
+        .onChange(of: trackedVehicleLineNumbers) { _, newLines in
+            vehicleTracker.updateLines(newLines)
         }
         .task { await loadRemoteSignalements() }
         .task { await loadEventImpacts() }
