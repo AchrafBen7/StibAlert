@@ -355,6 +355,7 @@ struct TransportDepartureDTO: Codable, Identifiable, Equatable {
     let line: String
     let destination: String?
     let minutes: Int
+    let source: String?
 }
 
 struct TransportAlternativeDTO: Codable, Identifiable, Equatable {

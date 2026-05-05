@@ -365,7 +365,7 @@ struct ReportsView: View {
     }
 
     private var officialTransportFeedItems: [EditorialFeedItem] {
-        currentOfficialIncidents
+        let directItems = currentOfficialIncidents
             .filter { incident in
                 let source = incident.source?.lowercased() ?? ""
                 return source.contains("official") || source.contains("stib")
@@ -389,6 +389,35 @@ struct ReportsView: View {
                     event: nil
                 )
             }
+
+        if !directItems.isEmpty {
+            return directItems
+        }
+
+        guard let summary = currentSummary,
+              (summary.sourceBreakdown?.official ?? 0) > 0 || (summary.sourceLabel?.lowercased() == "officiel")
+        else {
+            return []
+        }
+
+        let bullets = summary.bullets.isEmpty ? [summary.shortText] : summary.bullets
+        return bullets.prefix(4).enumerated().map { index, bullet in
+            EditorialFeedItem(
+                id: "official-summary-\(index)",
+                type: .official,
+                title: summary.affectedLines.first.map { "Ligne \($0) — Information STIB" } ?? "Information STIB",
+                body: bullet,
+                timeLabel: "source officielle",
+                lines: summary.affectedLines,
+                location: summary.affectedStops.first,
+                upvotes: nil,
+                url: nil,
+                attendance: nil,
+                venueCapacity: nil,
+                report: nil,
+                event: nil
+            )
+        }
     }
 
     private var editorialHeader: some View {
