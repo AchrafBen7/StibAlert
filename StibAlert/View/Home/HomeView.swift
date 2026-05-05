@@ -3691,7 +3691,7 @@ private struct HomeEventImpactSheet: View {
 
     private static let eventDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
         formatter.dateFormat = "EEE d MMM · HH:mm"
         return formatter
@@ -5739,7 +5739,7 @@ private struct HomeRouteOption: Identifiable {
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
         formatter.dateFormat = "HH:mm"
         return formatter

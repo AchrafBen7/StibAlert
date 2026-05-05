@@ -100,7 +100,7 @@ struct TransitPassSettingsView: View {
     private var issuedAtLabel: String {
         let date = previewPass.lastScannedAt ?? Date()
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.dateFormat = "MM / yyyy"
         return formatter.string(from: date)
     }
@@ -415,7 +415,7 @@ struct TransitPassSettingsView: View {
 
     private func relativeDateText(from date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }

@@ -772,7 +772,7 @@ struct ReportsView: View {
         }
         if let startsAt = event.startsAt {
             let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "fr_BE")
+            formatter.locale = AppLocale.current
             formatter.dateFormat = "HH:mm"
             return formatter.string(from: startsAt)
         }
@@ -1669,7 +1669,7 @@ private struct EventImpactDetailSheet: View {
         let date = item.startsAt ?? Date()
         let day = Calendar.current.component(.day, from: date)
         let monthFormatter = DateFormatter()
-        monthFormatter.locale = Locale(identifier: "fr_BE")
+        monthFormatter.locale = AppLocale.current
         monthFormatter.dateFormat = "MMM"
         let month = monthFormatter.string(from: date).replacingOccurrences(of: ".", with: "").uppercased()
 
@@ -1793,7 +1793,7 @@ private struct EventImpactDetailSheet: View {
 
     private func timeLabel(for date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
@@ -1804,7 +1804,7 @@ private struct EventImpactDetailSheet: View {
 
     private func formatNumber(_ n: Int) -> String {
         let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.numberStyle = .decimal
         return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
     }

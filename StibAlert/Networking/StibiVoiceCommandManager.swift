@@ -9,7 +9,7 @@ final class StibiVoiceCommandManager: NSObject, ObservableObject {
     @Published private(set) var authorizationDenied = false
 
     private let audioEngine = AVAudioEngine()
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "fr-BE"))
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: AppLocale.speechIdentifier))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioSession = AVAudioSession.sharedInstance()

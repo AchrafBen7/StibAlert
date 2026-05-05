@@ -424,7 +424,7 @@ enum NearbyStopService {
 
     private static func normalizeStopName(_ name: String) -> String {
         name
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_BE"))
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: AppLocale.current)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

@@ -48,7 +48,7 @@ final class StibiSpeechSynthesizer: NSObject, ObservableObject {
 
     private func enqueue(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "fr-BE")
+        utterance.voice = AVSpeechSynthesisVoice(language: AppLocale.speechIdentifier)
         utterance.rate = 0.46
         utterance.pitchMultiplier = 0.96
         utterance.volume = 0.85

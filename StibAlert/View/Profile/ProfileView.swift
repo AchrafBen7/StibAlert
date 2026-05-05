@@ -414,7 +414,7 @@ struct ProfileView: View {
         lastName = parts.count > 1 ? parts[1] : ""
         email = user.email
         username = String(user.email.split(separator: "@").first ?? "user")
-        selectedLanguageCode = user.langue ?? "FR"
+        selectedLanguageCode = user.langue ?? AppLocale.languageCode.uppercased()
         pushNotificationsEnabled = user.notifications ?? true
         weeklyDigestEnabled = user.weeklyDigestEnabled ?? true
         commuteEnabled = user.routine?.enabled ?? false
@@ -909,7 +909,7 @@ private struct LanguageSettingsView: View {
                     }
                 }
 
-                Text("La langue sélectionnée s’applique à l’interface et aux contenus éditoriaux disponibles.")
+                Text("L’app suit d’abord la langue du téléphone. Cette préférence aide aussi les contenus éditoriaux disponibles.")
                     .font(.system(size: 11.5))
                     .foregroundColor(DS.Color.inkSoft)
                     .padding(.horizontal, 4)
@@ -966,13 +966,8 @@ private struct LanguageItem: Identifiable {
 
 private enum LanguageMockData {
     static let items: [LanguageItem] = [
-        .init(code: "FR", title: "Francais", subtitle: "Francais"),
-        .init(code: "BE", title: "Nederlands", subtitle: "Néerlandais"),
-        .init(code: "GB", title: "English", subtitle: "Anglais"),
-        .init(code: "MA", title: "العربية", subtitle: "Arabe"),
-        .init(code: "ES", title: "Español", subtitle: "Espagnol"),
-        .init(code: "PT", title: "Português", subtitle: "Portugais"),
-        .init(code: "ES", title: "Español", subtitle: "Espagnol")
+        .init(code: "FR", title: "Français", subtitle: "Belgique"),
+        .init(code: "NL", title: "Nederlands", subtitle: "België")
     ]
 }
 

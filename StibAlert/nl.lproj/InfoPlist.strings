@@ -1,0 +1,7 @@
+"NSLocationWhenInUseUsageDescription" = "StibAlert gebruikt je locatie om je vertrekpunt en je route in realtime weer te geven.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "StibAlert gebruikt je locatie op de achtergrond om actieve begeleiding te behouden en je route opnieuw te berekenen als je afwijkt.";
+"NSCameraUsageDescription" = "StibAlert gebruikt de camera om een foto aan je meldingen toe te voegen.";
+"NSPhotoLibraryUsageDescription" = "StibAlert gebruikt je fotobibliotheek om een foto aan je meldingen toe te voegen.";
+"NSMicrophoneUsageDescription" = "StibAlert gebruikt de microfoon voor spraakopdrachten met Stibi.";
+"NFCReaderUsageDescription" = "StibAlert gebruikt NFC om je MoBIB-kaart aan je profiel te koppelen en je abonnement gemakkelijker terug te vinden.";
+"NSSpeechRecognitionUsageDescription" = "StibAlert gebruikt spraakherkenning om je opdrachten aan Stibi te transcriberen.";

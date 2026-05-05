@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>fr</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>fr</string>
+		<string>nl</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>StibAlert utilise votre position pour afficher votre point de départ et votre itinéraire en temps réel.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

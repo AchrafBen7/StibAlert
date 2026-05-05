@@ -364,7 +364,7 @@ private struct WelcomePage: View {
 
     private func formattedDate() -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.dateFormat = "dd MMM"
         return formatter.string(from: Date()).uppercased().replacingOccurrences(of: ".", with: "")
     }

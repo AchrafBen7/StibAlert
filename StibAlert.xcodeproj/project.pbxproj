@@ -322,10 +322,11 @@
 				};
 			};
 			buildConfigurationList = 3831C07C2D79C1D100452AA0 /* Build configuration list for PBXProject "StibAlert" */;
-			developmentRegion = en;
+			developmentRegion = fr;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				fr,
+				nl,
 				Base,
 			);
 			mainGroup = 3831C0782D79C1D100452AA0;

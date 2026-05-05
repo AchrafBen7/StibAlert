@@ -31,7 +31,7 @@ struct TransitPass: Codable, Equatable {
     var formattedExpiryDate: String {
         guard let expiryDate else { return "Ajouter l'expiration" }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.dateFormat = "dd.MM.yyyy"
         return formatter.string(from: expiryDate)
     }
@@ -147,7 +147,7 @@ enum MobibScanState: Equatable {
 
     private static func relativeText(from date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }

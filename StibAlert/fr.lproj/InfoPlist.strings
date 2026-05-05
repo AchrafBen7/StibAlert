@@ -1,0 +1,7 @@
+"NSLocationWhenInUseUsageDescription" = "StibAlert utilise votre position pour afficher votre point de départ et votre itinéraire en temps réel.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "StibAlert utilise votre position en arrière-plan pour maintenir le guidage actif et recalculer votre itinéraire si vous déviez.";
+"NSCameraUsageDescription" = "StibAlert utilise la caméra pour joindre une photo à vos signalements.";
+"NSPhotoLibraryUsageDescription" = "StibAlert accède à votre bibliothèque pour joindre une photo à vos signalements.";
+"NSMicrophoneUsageDescription" = "StibAlert utilise le micro pour permettre les commandes vocales de Stibi.";
+"NFCReaderUsageDescription" = "StibAlert utilise le NFC pour associer votre carte MoBIB à votre profil et retrouver votre abonnement plus facilement.";
+"NSSpeechRecognitionUsageDescription" = "StibAlert utilise la reconnaissance vocale pour transcrire vos commandes à Stibi.";
