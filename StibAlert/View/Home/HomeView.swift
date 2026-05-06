@@ -800,19 +800,13 @@ struct HomeView: View {
                     Spacer()
 
                     VStack(spacing: 12) {
-                        HelpFloatingButton {
-                            withAnimation(transitionSpring) {
-                                showLegend = true
-                            }
-                        }
-
                         LocationFloatingButton {
                             recenterOnUser()
                         }
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 166)
+                .padding(.bottom, 190)
                 .zIndex(2)
             }
         }
@@ -2424,7 +2418,7 @@ private struct HomeBottomChromeOverlay: View {
 
     var body: some View {
         Group {
-            if shouldShowPulseBar {
+            if shouldShowPulseBar, totalActiveSignalementsCount > 0 {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
@@ -2436,6 +2430,15 @@ private struct HomeBottomChromeOverlay: View {
                 .padding(.bottom, 80)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
+            } else if shouldShowPulseBar {
+                HStack {
+                    Spacer()
+                    HomeReportFloatingButton(action: onOpenReportSheet)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 118)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(6)
             }
 
             if shouldShowTabBar {
@@ -2443,7 +2446,7 @@ private struct HomeBottomChromeOverlay: View {
                     get: { AppTab.from(page: currentPage) },
                     set: onSelectTab
                 ))
-                .padding(.bottom, 8)
+                .padding(.bottom, 0)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(8)
             }
@@ -2785,6 +2788,32 @@ private struct HomePulseBar: View {
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+private struct HomeReportFloatingButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .heavy))
+                Text("Signaler")
+                    .font(DS.Font.bodyBold)
+            }
+            .foregroundStyle(DS.Color.primaryForeground)
+            .padding(.horizontal, 18)
+            .frame(height: 58)
+            .background(DS.Color.primary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(DS.Shadow.overlay)
+        }
+        .buttonStyle(.plain)
     }
 }
 
