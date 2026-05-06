@@ -52,6 +52,44 @@ enum LineWidgetStatus: String {
     }
 }
 
+private enum WidgetDesign {
+    static let paper = Color(red: 0.97, green: 0.94, blue: 0.90)
+    static let paperElevated = Color(red: 1.00, green: 0.98, blue: 0.94)
+    static let ink = Color(red: 0.06, green: 0.06, blue: 0.05)
+    static let inkSoft = Color(red: 0.43, green: 0.40, blue: 0.36)
+    static let inkMute = Color(red: 0.62, green: 0.58, blue: 0.52)
+    static let orange = Color(red: 0.94, green: 0.25, blue: 0.09)
+    static let lineBorder = Color.black.opacity(0.14)
+    static let mono = Font.system(.caption2, design: .monospaced).weight(.bold)
+
+    static func lineColor(_ line: String) -> Color {
+        switch line.uppercased() {
+        case "1", "5": return Color(red: 0.66, green: 0.18, blue: 0.62)
+        case "2", "6": return Color(red: 0.00, green: 0.44, blue: 0.72)
+        case "3", "4": return Color(red: 0.76, green: 0.11, blue: 0.55)
+        case "7": return Color(red: 0.96, green: 0.90, blue: 0.13)
+        case "8": return Color(red: 0.56, green: 0.28, blue: 0.62)
+        case "9": return Color(red: 0.72, green: 0.52, blue: 0.18)
+        case "10": return Color(red: 0.61, green: 0.32, blue: 0.67)
+        case "25", "55": return Color(red: 0.00, green: 0.45, blue: 0.72)
+        case "36", "53": return Color(red: 0.31, green: 0.61, blue: 0.25)
+        case "37": return Color(red: 0.95, green: 0.88, blue: 0.16)
+        case "47", "56": return Color(red: 1.00, green: 0.47, blue: 0.00)
+        case "71": return Color(red: 0.33, green: 0.55, blue: 0.25)
+        case "83": return Color(red: 0.70, green: 0.84, blue: 0.00)
+        default: return orange
+        }
+    }
+
+    static func readableText(for line: String) -> Color {
+        // Yellow/bright lime STIB lines read better with dark text.
+        if ["7", "37", "83"].contains(line.uppercased()) {
+            return ink
+        }
+        return .white
+    }
+}
+
 // MARK: - Provider
 
 struct StibWidgetProvider: TimelineProvider {
@@ -146,34 +184,44 @@ private struct SmallWidgetView: View {
 
     var body: some View {
         if let line = entry.lines.first {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(line.lineNumber)
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text("STIB")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.5))
+            ZStack(alignment: .bottomLeading) {
+                WidgetBackgroundPattern()
+
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack {
+                        Text("STIBALERT")
+                            .font(WidgetDesign.mono)
+                            .tracking(1.4)
+                            .foregroundStyle(WidgetDesign.inkMute)
+                        Spacer()
+                        StatusDot(status: line.status)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    HStack(alignment: .bottom, spacing: 10) {
+                        WidgetLineBadge(line: line.lineNumber, size: 48)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(line.status.label.uppercased())
+                                .font(.system(size: 13, weight: .black, design: .rounded))
+                                .foregroundStyle(WidgetDesign.ink)
+                                .lineLimit(1)
+                            Text(line.destination?.uppercased() ?? "RÉSEAU")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .tracking(0.9)
+                                .foregroundStyle(WidgetDesign.inkSoft)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    WidgetNextPassagePill(minutes: line.nextPassageMinutes)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Spacer()
-                HStack(spacing: 5) {
-                    Image(systemName: line.status.icon)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(line.status.color)
-                    Text(line.status.label)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-                if let mins = line.nextPassageMinutes {
-                    Text(mins == 0 ? "À l'arrêt" : "Prochain : \(mins) min")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(1)
-                }
+                .padding(13)
             }
-            .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .containerBackground(Color(red: 0.06, green: 0.09, blue: 0.15), for: .widget)
+            .containerBackground(WidgetDesign.paper, for: .widget)
         } else {
             EmptyWidgetView()
         }
@@ -187,77 +235,203 @@ private struct MediumWidgetView: View {
         if entry.lines.isEmpty {
             EmptyWidgetView()
         } else {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("StibAlert")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.5))
-                    Spacer()
-                    Text(entry.date, style: .time)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.35))
-                }
+            ZStack {
+                WidgetBackgroundPattern()
 
-                ForEach(entry.lines.prefix(2)) { line in
-                    HStack(spacing: 10) {
-                        Text(line.lineNumber)
-                            .font(.system(size: 18, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                            .frame(width: 36)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 4) {
-                                Image(systemName: line.status.icon)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(line.status.color)
-                                Text(line.status.label)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
-                            }
-                            if let dest = line.destination {
-                                Text(dest)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.white.opacity(0.55))
-                                    .lineLimit(1)
-                            }
+                            Text("STIBALERT")
+                                .font(WidgetDesign.mono)
+                                .tracking(1.5)
+                                .foregroundStyle(WidgetDesign.inkMute)
+                            Text("Tes lignes maintenant")
+                                .font(.system(size: 17, weight: .black, design: .rounded))
+                                .foregroundStyle(WidgetDesign.ink)
+                                .lineLimit(1)
                         }
+
                         Spacer()
-                        if let mins = line.nextPassageMinutes {
-                            VStack(alignment: .trailing, spacing: 0) {
-                                Text("\(mins)")
-                                    .font(.system(size: 20, weight: .black, design: .rounded))
-                                    .foregroundStyle(.white)
-                                Text("min")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.white.opacity(0.5))
-                            }
+
+                        Text(entry.date, style: .time)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(WidgetDesign.inkMute)
+                    }
+
+                    HStack(spacing: 9) {
+                        ForEach(entry.lines.prefix(2)) { line in
+                            MediumLineCard(line: line)
                         }
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 10)
-                    .background(Color.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
+                .padding(13)
             }
-            .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .containerBackground(Color(red: 0.06, green: 0.09, blue: 0.15), for: .widget)
+            .containerBackground(WidgetDesign.paper, for: .widget)
+        }
+    }
+}
+
+private struct MediumLineCard: View {
+    let line: StibLineSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                WidgetLineBadge(line: line.lineNumber, size: 40)
+                Spacer()
+                StatusDot(status: line.status)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(line.status.label)
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .foregroundStyle(WidgetDesign.ink)
+                    .lineLimit(1)
+                Text(line.destination?.uppercased() ?? "DESTINATION")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(WidgetDesign.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            WidgetNextPassagePill(minutes: line.nextPassageMinutes)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 94, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(WidgetDesign.paperElevated)
+                .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 5)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(WidgetDesign.lineBorder, lineWidth: 1)
+        )
+    }
+}
+
+private struct WidgetLineBadge: View {
+    let line: String
+    let size: CGFloat
+
+    private var color: Color { WidgetDesign.lineColor(line) }
+
+    var body: some View {
+        Text(line)
+            .font(.system(size: size * 0.38, weight: .black, design: .rounded))
+            .foregroundStyle(WidgetDesign.readableText(for: line))
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+            .frame(width: size, height: size)
+            .background(
+                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                    .fill(color)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                    .stroke(.white.opacity(0.5), lineWidth: 1)
+            )
+            .shadow(color: color.opacity(0.25), radius: 8, x: 0, y: 4)
+    }
+}
+
+private struct StatusDot: View {
+    let status: LineWidgetStatus
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: status.icon)
+                .font(.system(size: 10, weight: .black))
+            Text(status.label.uppercased())
+                .font(.system(size: 9, weight: .black, design: .monospaced))
+                .tracking(0.7)
+        }
+        .foregroundStyle(status.color)
+        .padding(.horizontal, 8)
+        .frame(height: 24)
+        .background(status.color.opacity(0.12))
+        .clipShape(Capsule())
+    }
+}
+
+private struct WidgetNextPassagePill: View {
+    let minutes: Int?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(WidgetDesign.orange)
+
+            if let minutes {
+                Text(minutes == 0 ? "À quai" : "\(minutes) min")
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .foregroundStyle(WidgetDesign.ink)
+                Text("prochain")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WidgetDesign.inkMute)
+            } else {
+                Text("Horaire indispo")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetDesign.inkSoft)
+            }
+        }
+        .padding(.horizontal, 9)
+        .frame(height: 28)
+        .background(.white.opacity(0.72))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(WidgetDesign.lineBorder, lineWidth: 1))
+    }
+}
+
+private struct WidgetBackgroundPattern: View {
+    var body: some View {
+        ZStack {
+            WidgetDesign.paper
+            LinearGradient(
+                colors: [
+                    WidgetDesign.orange.opacity(0.18),
+                    .clear,
+                    Color(red: 0.97, green: 0.74, blue: 0.10).opacity(0.16)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(WidgetDesign.orange.opacity(0.14))
+                .frame(width: 118, height: 118)
+                .offset(x: 92, y: -58)
+            Circle()
+                .stroke(WidgetDesign.ink.opacity(0.08), lineWidth: 18)
+                .frame(width: 128, height: 128)
+                .offset(x: -92, y: 72)
         }
     }
 }
 
 private struct EmptyWidgetView: View {
     var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "tram.fill")
-                .font(.system(size: 24))
-                .foregroundStyle(.white.opacity(0.4))
-            Text("Ajoutez des\nlignes en favoris")
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.4))
-                .multilineTextAlignment(.center)
+        ZStack {
+            WidgetBackgroundPattern()
+            VStack(spacing: 8) {
+                Image(systemName: "tram.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(WidgetDesign.orange)
+                Text("Ajoute une ligne\nen favoris")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(WidgetDesign.ink)
+                    .multilineTextAlignment(.center)
+                Text("StibAlert")
+                    .font(WidgetDesign.mono)
+                    .tracking(1.3)
+                    .foregroundStyle(WidgetDesign.inkMute)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(Color(red: 0.06, green: 0.09, blue: 0.15), for: .widget)
+        .containerBackground(WidgetDesign.paper, for: .widget)
     }
 }
 
