@@ -122,6 +122,18 @@ final class AuthSession: ObservableObject {
         state = .signedOut
     }
 
+    func supprimerCompte() async throws {
+        guard let userId = currentUser?.id else { return }
+        try await AuthService.supprimerCompte(userId: userId)
+        KeychainHelper.deleteToken()
+        KeychainHelper.deleteRefreshToken()
+        pendingActivationToken = nil
+        pendingActivationEmail = nil
+        activationSuccessVisible = false
+        PushNotificationManager.current?.logoutOneSignal()
+        state = .signedOut
+    }
+
     func refreshCurrentUser() async {
         guard isSignedIn else { return }
         do {

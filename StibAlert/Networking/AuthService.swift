@@ -52,6 +52,14 @@ enum AuthService {
             body: RefreshTokenRequest(refreshToken: refreshToken)
         )
     }
+
+    static func supprimerCompte(userId: String) async throws {
+        let _: MessageResponse = try await APIClient.shared.request(
+            "/api/utilisateurs/\(userId)",
+            method: .DELETE,
+            requiresAuth: true
+        )
+    }
 }
 
 private struct RenvoyerCodeRequest: Encodable {

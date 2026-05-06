@@ -751,6 +751,9 @@ struct QuickReportSheetView: View {
         }
     }
 
+
+
+    
     // MARK: - Submit bar
 
     private var submitBar: some View {

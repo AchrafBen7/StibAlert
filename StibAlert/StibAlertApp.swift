@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import AppIntents
 
 @main
 struct StibAlertApp: App {
@@ -14,6 +15,7 @@ struct StibAlertApp: App {
 
     init() {
         UITextView.appearance().backgroundColor = .clear
+        StibAlertShortcuts.updateAppShortcutParameters()
     }
 
     var body: some Scene {

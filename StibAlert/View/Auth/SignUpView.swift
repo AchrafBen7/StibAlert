@@ -78,10 +78,7 @@ struct SignUpView: View {
     }
 
     private var socialSection: some View {
-        VStack(spacing: 10) {
-            AuthSocialButton(label: "Continuer avec Apple", icon: AnyView(Image(systemName: "applelogo").font(.system(size: 16))), primary: true) {}
-            AuthSocialButton(label: "Continuer avec Google", icon: AnyView(AuthGoogleIcon()), primary: false) {}
-        }
+        EmptyView()
     }
 
     private var formSection: some View {

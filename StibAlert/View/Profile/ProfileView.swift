@@ -1445,6 +1445,8 @@ private struct PrivacySettingsView: View {
     let onBack: () -> Void
     let onClose: () -> Void
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var session: AuthSession
+    @State private var showDeleteAlert = false
 
     private let privacyPolicyURL = URL(string: "https://stib-alert-backend.onrender.com/privacy")!
 
@@ -1517,9 +1519,18 @@ private struct PrivacySettingsView: View {
                     title: "Supprimer votre compte",
                     description: "Efface définitivement le compte et les données associées.",
                     actionLabel: "Supprimer",
-                    danger: true
+                    danger: true,
+                    action: { showDeleteAlert = true }
                 )
             }
+        }
+        .alert("Supprimer votre compte", isPresented: $showDeleteAlert) {
+            Button("Annuler", role: .cancel) {}
+            Button("Supprimer", role: .destructive) {
+                Task { try? await session.supprimerCompte() }
+            }
+        } message: {
+            Text("Cette action est irréversible. Votre compte et toutes vos données seront définitivement supprimés.")
         }
     }
 }
@@ -1564,6 +1575,7 @@ private struct PrivacyActionRow: View {
     let actionLabel: String
     var learnMoreURL: URL? = nil
     var danger: Bool = false
+    var action: (() -> Void)? = nil
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -1589,7 +1601,7 @@ private struct PrivacyActionRow: View {
 
             Spacer(minLength: 12)
 
-            Button(actionLabel) {}
+            Button(actionLabel) { action?() }
                 .buttonStyle(.plain)
                 .font(DS.Font.monoSmall.weight(.bold))
                 .foregroundStyle(danger ? DS.Color.destructiveForeground : DS.Color.paper)
