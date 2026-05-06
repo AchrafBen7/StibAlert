@@ -322,6 +322,10 @@ struct ReportsView: View {
         ]
     }
 
+    private var visibleLineFilters: [String] {
+        Array(availableLineFilters.filter { $0 == "Tout" || matchesSelectedMode(lines: [$0]) }.prefix(40))
+    }
+
     var body: some View {
         ZStack {
             DS.Color.paper
@@ -594,124 +598,20 @@ struct ReportsView: View {
     }
 
     private var editorialStickySegments: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if selectedScope == .reports {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach([ReportSegment.all, .official, .community], id: \.self) { segment in
-                            Chip(
-                                label: segment.label,
-                                active: selectedSegment == segment,
-                                icon: {
-                                    if let name = segment.iconSystemName {
-                                        Image(systemName: name)
-                                    }
-                                }
-                            ) {
-                                selectedSegment = segment
-                            }
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.xl)
-                }
-                .padding(.top, DS.Spacing.md)
-                .padding(.bottom, 6)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(ReportTransportMode.allCases) { mode in
-                            Chip(
-                                label: mode.label,
-                                active: selectedModeFilter == mode,
-                                icon: {
-                                    if let icon = mode.iconSystemName {
-                                        Image(systemName: icon)
-                                    }
-                                }
-                            ) {
-                                selectedModeFilter = mode
-                            }
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.xl)
-                }
-                .padding(.bottom, 6)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(Array(availableLineFilters.filter { $0 == "Tout" || matchesSelectedMode(lines: [$0]) }.prefix(18)), id: \.self) { line in
-                            Button {
-                                selectedLineFilter = line
-                            } label: {
-                                if line == "Tout" {
-                                    Text("Toutes lignes")
-                                        .font(DS.Font.bodyBold)
-                                        .foregroundStyle(selectedLineFilter == line ? DS.Color.paper : DS.Color.ink)
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 34)
-                                        .background(selectedLineFilter == line ? DS.Color.ink : DS.Color.paper)
-                                        .overlay(
-                                            Capsule()
-                                                .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
-                                        )
-                                        .clipShape(Capsule())
-                                } else {
-                                    LineBadge(
-                                        line: line,
-                                        size: .sm
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                            .stroke(selectedLineFilter == line ? DS.Color.ink : .clear, lineWidth: 2)
-                                    )
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.xl)
-                }
-                .padding(.bottom, 6)
-            }
-
-            HStack(alignment: .center, spacing: 8) {
-                Text(scopeHelperText)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .lineLimit(2)
-
-                Spacer(minLength: 8)
-
-                if selectedScope == .reports {
-                    Menu {
-                        ForEach(ReportSortMode.allCases) { mode in
-                            Button(mode.label) {
-                                selectedSortMode = mode
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "arrow.up.arrow.down")
-                                .font(.system(size: 10, weight: .bold))
-                            Text(selectedSortMode.label)
-                                .font(DS.Font.monoSmall.weight(.bold))
-                        }
-                        .foregroundStyle(DS.Color.ink)
-                    }
-                }
-            }
-            .padding(.horizontal, DS.Spacing.xl)
-            .padding(.bottom, 4)
-
-            if let lastUpdatedAt {
-                Text("Mis à jour \(relativeTimeLabel(from: lastUpdatedAt))")
-                    .font(DS.Font.monoSmall)
-                    .foregroundStyle(DS.Color.inkMute)
-                    .padding(.horizontal, DS.Spacing.xl)
-                    .padding(.bottom, DS.Spacing.sm)
-            }
-        }
-        .background(DS.Color.paper)
+        ReportsFilterDock(
+            showsReportFilters: selectedScope == .reports,
+            selectedSegment: selectedSegment,
+            selectedMode: selectedModeFilter,
+            selectedLine: selectedLineFilter,
+            selectedSort: selectedSortMode,
+            lineFilters: visibleLineFilters,
+            helperText: scopeHelperText,
+            updatedText: lastUpdatedAt.map { "Mis à jour \(relativeTimeLabel(from: $0))" },
+            onSelectSegment: { selectedSegment = $0 },
+            onSelectMode: { selectedModeFilter = $0 },
+            onSelectLine: { selectedLineFilter = $0 },
+            onSelectSort: { selectedSortMode = $0 }
+        )
     }
 
     private var scopeHelperText: String {
@@ -1236,7 +1136,7 @@ struct ReportsView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 188)
+            .frame(height: 212)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
             .onReceive(networkCarouselTimer) { _ in
                 guard !reduceMotion, items.count > 1 else { return }
@@ -1473,13 +1373,177 @@ private struct EditorialNowCard: View {
     }
 }
 
+private struct ReportsFilterDock: View {
+    let showsReportFilters: Bool
+    let selectedSegment: ReportSegment
+    let selectedMode: ReportTransportMode
+    let selectedLine: String
+    let selectedSort: ReportSortMode
+    let lineFilters: [String]
+    let helperText: String
+    let updatedText: String?
+    let onSelectSegment: (ReportSegment) -> Void
+    let onSelectMode: (ReportTransportMode) -> Void
+    let onSelectLine: (String) -> Void
+    let onSelectSort: (ReportSortMode) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if showsReportFilters {
+                HStack(spacing: 8) {
+                    compactSegmentControl
+                    Spacer(minLength: 8)
+                    filterMenuButton(
+                        icon: "arrow.up.arrow.down",
+                        title: selectedSort.label
+                    ) {
+                        ForEach(ReportSortMode.allCases) { mode in
+                            Button(mode.label) { onSelectSort(mode) }
+                        }
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    filterMenuButton(
+                        icon: selectedMode.iconSystemName ?? "square.grid.2x2",
+                        title: selectedMode.label
+                    ) {
+                        ForEach(ReportTransportMode.allCases) { mode in
+                            Button(mode.label) { onSelectMode(mode) }
+                        }
+                    }
+
+                    filterMenuButton(
+                        icon: selectedLine == "Tout" ? "line.3.horizontal.decrease.circle" : "tram.fill",
+                        title: selectedLine == "Tout" ? "Toutes lignes" : "Ligne \(selectedLine)"
+                    ) {
+                        ForEach(lineFilters, id: \.self) { line in
+                            Button(line == "Tout" ? "Toutes lignes" : "Ligne \(line)") {
+                                onSelectLine(line)
+                            }
+                        }
+                    }
+
+                    if selectedLine != "Tout" {
+                        LineBadge(line: selectedLine, size: .sm)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(helperText)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .lineLimit(2)
+
+                Spacer(minLength: 8)
+
+                if let updatedText {
+                    Text(updatedText)
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(.horizontal, DS.Spacing.xl)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(
+            DS.Color.paper.opacity(0.84)
+                .background(.ultraThinMaterial)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(DS.Color.ink.opacity(0.08))
+                        .frame(height: 1)
+                }
+        )
+    }
+
+    private var compactSegmentControl: some View {
+        HStack(spacing: 4) {
+            ForEach([ReportSegment.all, .official, .community], id: \.self) { segment in
+                Button {
+                    onSelectSegment(segment)
+                } label: {
+                    HStack(spacing: 5) {
+                        if let icon = segment.iconSystemName {
+                            Image(systemName: icon)
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        Text(segment.label)
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .tracking(0.8)
+                    }
+                    .foregroundStyle(selectedSegment == segment ? DS.Color.paper : DS.Color.ink)
+                    .padding(.horizontal, 10)
+                    .frame(height: 32)
+                    .background(selectedSegment == segment ? DS.Color.ink : Color.clear)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(DS.Color.paper.opacity(0.78))
+        .overlay(
+            Capsule()
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+        .shadow(color: DS.Color.ink.opacity(0.06), radius: 14, x: 0, y: 8)
+    }
+
+    private func filterMenuButton<Content: View>(
+        icon: String,
+        title: String,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        Menu(content: content) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                Text(title)
+                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .foregroundStyle(DS.Color.ink)
+            .padding(.horizontal, 11)
+            .frame(height: 34)
+            .background(DS.Color.paper.opacity(0.86))
+            .overlay(
+                Capsule()
+                    .stroke(DS.Color.ink.opacity(0.13), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+        }
+    }
+}
+
 private struct NetworkIssueCarouselCard: View {
     let item: NetworkIssueCarouselItem
     let itemCount: Int
     let activeIndex: Int
 
+    private var severityLabel: String {
+        let value = item.keyword.lowercased()
+        switch value {
+        case _ where value.contains("interrompu") || value.contains("accident"):
+            return "Impact fort"
+        case _ where value.contains("travaux") || value.contains("dévi"):
+            return "À anticiper"
+        default:
+            return "À surveiller"
+        }
+    }
+
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             Image("reports-metro-stib")
                 .resizable()
                 .scaledToFill()
@@ -1488,9 +1552,9 @@ private struct NetworkIssueCarouselCard: View {
 
             LinearGradient(
                 colors: [
-                    .black.opacity(0.05),
-                    .black.opacity(0.42),
-                    .black.opacity(0.78)
+                    .black.opacity(0.64),
+                    .black.opacity(0.22),
+                    .black.opacity(0.76)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -1498,22 +1562,22 @@ private struct NetworkIssueCarouselCard: View {
 
             LinearGradient(
                 colors: [
-                    item.tint.opacity(0.44),
-                    .black.opacity(0.05),
+                    item.tint.opacity(0.58),
+                    .black.opacity(0.22),
                     .clear
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
 
-            VStack(alignment: .leading, spacing: 13) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center, spacing: 9) {
                     Circle()
-                        .fill(DS.Color.statusMajor)
+                        .fill(item.tint)
                         .frame(width: 10, height: 10)
-                        .shadow(color: DS.Color.statusMajor.opacity(0.7), radius: 9)
+                        .shadow(color: item.tint.opacity(0.7), radius: 9)
 
-                    Text(item.sourceLabel.uppercased())
+                    Text("AUTOUR DE TOI")
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(2.0)
                         .foregroundStyle(.white.opacity(0.88))
@@ -1526,27 +1590,38 @@ private struct NetworkIssueCarouselCard: View {
                         .foregroundStyle(.white.opacity(0.9))
                 }
 
-                Spacer(minLength: 4)
-
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(item.keyword)
-                        .font(DS.Font.displayH1)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                    HStack(spacing: 8) {
+                        ReportsGlassBadge(title: item.sourceLabel, icon: "checkmark.seal.fill")
+                        ReportsGlassBadge(title: severityLabel, icon: "exclamationmark.triangle.fill")
+                    }
+
+                    HStack(alignment: .lastTextBaseline, spacing: 10) {
+                        Text(item.keyword)
+                            .font(DS.Font.displayH1)
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+
+                        Text("\(activeIndex + 1)/\(max(itemCount, 1))")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.68))
+                    }
 
                     Text(item.detail)
                         .font(DS.Font.bodySmall.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.86))
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .multilineTextAlignment(.leading)
                 }
 
-                HStack(alignment: .center, spacing: 8) {
+                Spacer(minLength: 0)
+
+                HStack(alignment: .bottom, spacing: 8) {
                     if !item.lines.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(Array(item.lines.prefix(4)), id: \.self) { line in
-                                LineBadge(line: line, size: .sm)
+                                LineBadge(line: line, size: .lg)
                             }
                             if item.lines.count > 4 {
                                 Text("+\(item.lines.count - 4)")
@@ -1569,28 +1644,49 @@ private struct NetworkIssueCarouselCard: View {
 
                     Spacer(minLength: 8)
 
-                    HStack(spacing: 6) {
-                        Text("\(activeIndex + 1)/\(max(itemCount, 1))")
-                            .font(DS.Font.monoSmall.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.82))
-
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundStyle(.white)
-                    }
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(.white.opacity(0.16))
+                        .clipShape(Circle())
                 }
             }
             .padding(18)
         }
-        .frame(maxWidth: .infinity, minHeight: 188, maxHeight: 188)
+        .frame(maxWidth: .infinity, minHeight: 212, maxHeight: 212)
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(.white.opacity(0.5), lineWidth: 1)
+                .stroke(.white.opacity(0.46), lineWidth: 1)
                 .padding(1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
         .shadow(color: item.tint.opacity(0.22), radius: 20, x: 0, y: 12)
         .accessibilityLabel("\(item.keyword). \(item.detail)")
+    }
+}
+
+private struct ReportsGlassBadge: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+            Text(title)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(0.9)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 9)
+        .frame(height: 26)
+        .background(.white.opacity(0.16))
+        .overlay(
+            Capsule()
+                .stroke(.white.opacity(0.22), lineWidth: 1)
+        )
+        .clipShape(Capsule())
     }
 }
 
