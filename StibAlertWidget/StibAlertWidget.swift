@@ -24,21 +24,12 @@ struct StibLineSnapshot: Identifiable {
 enum LineWidgetStatus: String {
     case ok, warning, critical, unknown
 
-    var icon: String {
+    var dsColor: Color {
         switch self {
-        case .ok:       return "checkmark.circle.fill"
-        case .warning:  return "exclamationmark.triangle.fill"
-        case .critical: return "xmark.circle.fill"
-        case .unknown:  return "minus.circle.fill"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .ok:       return Color(red: 0.13, green: 0.75, blue: 0.40)
-        case .warning:  return Color(red: 0.96, green: 0.65, blue: 0.14)
-        case .critical: return Color(red: 0.96, green: 0.27, blue: 0.27)
-        case .unknown:  return Color.gray
+        case .ok:       return WD.statusOK
+        case .warning:  return WD.statusMinor
+        case .critical: return WD.statusCritical
+        case .unknown:  return WD.inkMute
         }
     }
 
@@ -47,28 +38,68 @@ enum LineWidgetStatus: String {
         case .ok:       return "Normal"
         case .warning:  return "Perturbé"
         case .critical: return "Arrêté"
-        case .unknown:  return "—"
+        case .unknown:  return "Inconnu"
         }
     }
 }
 
-// MARK: - Design tokens
+// MARK: - Design tokens (mirrors DS exactly)
+
+private extension Color {
+    /// HSL → SwiftUI.Color, with optional adaptive dark variant.
+    static func ds(_ h: Double, _ s: Double, _ l: Double, dark: Color? = nil) -> Color {
+        let light = hslColor(h, s, l)
+        guard let dark else { return light }
+        return Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
+    }
+
+    private static func hslColor(_ h: Double, _ s: Double, _ l: Double) -> Color {
+        let hN = h / 360, sN = s / 100, lN = l / 100
+        func hue2rgb(_ p: Double, _ q: Double, _ tIn: Double) -> Double {
+            var t = tIn
+            if t < 0 { t += 1 }; if t > 1 { t -= 1 }
+            if t < 1/6 { return p + (q-p)*6*t }
+            if t < 1/2 { return q }
+            if t < 2/3 { return p + (q-p)*(2/3-t)*6 }
+            return p
+        }
+        let r, g, b: Double
+        if sN == 0 { r = lN; g = lN; b = lN }
+        else {
+            let q = lN < 0.5 ? lN*(1+sN) : lN+sN-lN*sN
+            let p = 2*lN - q
+            r = hue2rgb(p, q, hN + 1/3)
+            g = hue2rgb(p, q, hN)
+            b = hue2rgb(p, q, hN - 1/3)
+        }
+        return Color(.sRGB, red: r, green: g, blue: b)
+    }
+}
 
 private enum WD {
-    // Backgrounds
-    static let bg          = Color(red: 0.07, green: 0.08, blue: 0.11)
-    static let card        = Color(red: 0.12, green: 0.14, blue: 0.18)
-    static let cardStroke  = Color.white.opacity(0.08)
+    // Backgrounds — mirrors DS.Color.background / paper / paper2
+    static let background = Color.ds(38, 24, 93, dark: .ds(0, 0, 7))
+    static let paper      = Color.ds(36, 28, 95, dark: .ds(0, 0, 10))
+    static let paper2     = Color.ds(36, 18, 88, dark: .ds(0, 0, 14))
 
-    // Text
-    static let ink         = Color.white
-    static let inkSoft     = Color.white.opacity(0.60)
-    static let inkMute     = Color.white.opacity(0.30)
+    // Text — mirrors DS.Color.ink / inkSoft / inkMute
+    static let ink     = Color.ds(0, 0, 6,  dark: .ds(38, 24, 92))
+    static let inkSoft = Color.ds(0, 0, 22, dark: .ds(36, 14, 78))
+    static let inkMute = Color.ds(30, 6, 42, dark: .ds(30, 6, 58))
 
-    // Brand
-    static let orange      = Color(red: 0.94, green: 0.38, blue: 0.09)
+    // Border — mirrors DS.Color.border
+    static let border = Color.ds(30, 8, 78, dark: .ds(0, 0, 24))
 
-    // Line colors (official STIB palette)
+    // Primary (STIB orange-red) — mirrors DS.Color.primary
+    static let primary = Color.ds(14, 82, 51, dark: .ds(14, 88, 56))
+
+    // Status — mirrors DS.Color.status*
+    static let statusOK       = Color.ds(152, 60, 32)
+    static let statusMinor    = Color.ds(38,  92, 45)
+    static let statusMajor    = Color.ds(14,  84, 48)
+    static let statusCritical = Color.ds(350, 75, 38)
+
+    // Per-line STIB brand colors (official palette, not in DS)
     static func lineColor(_ line: String) -> Color {
         switch line.uppercased() {
         case "1", "5": return Color(red: 0.66, green: 0.18, blue: 0.62)
@@ -84,12 +115,12 @@ private enum WD {
         case "47", "56": return Color(red: 1.00, green: 0.47, blue: 0.00)
         case "71":     return Color(red: 0.33, green: 0.55, blue: 0.25)
         case "83":     return Color(red: 0.70, green: 0.84, blue: 0.00)
-        default:       return orange
+        default:       return primary
         }
     }
 
-    static func textColor(for line: String) -> Color {
-        ["7", "37", "83"].contains(line.uppercased()) ? Color(red: 0.07, green: 0.08, blue: 0.11) : .white
+    static func lineTextColor(for line: String) -> Color {
+        ["7", "37", "83"].contains(line.uppercased()) ? ink : .white
     }
 
     static func modeIcon(for line: String) -> String {
@@ -100,14 +131,12 @@ private enum WD {
         return num >= 90 || (12...89).contains(num) ? "bus.fill" : "tram.fill"
     }
 
-    /// Converts raw minutes into a human-readable string.
-    /// ≥ 60 minutes → actual arrival time "HH:mm" instead of absurd counts.
+    /// < 60 min → "X min" ; ≥ 60 min → actual HH:mm arrival time.
     static func formatMinutes(_ minutes: Int) -> String {
         guard minutes > 0 else { return "À quai" }
         guard minutes < 60 else {
             let arrival = Calendar.current.date(byAdding: .minute, value: minutes, to: Date()) ?? Date()
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm"
+            let f = DateFormatter(); f.dateFormat = "HH:mm"
             return f.string(from: arrival)
         }
         return "\(minutes) min"
@@ -119,8 +148,8 @@ private enum WD {
 struct StibWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> StibLineEntry {
         .init(date: .now, lines: [
-            .init(id: "92", lineNumber: "92", status: .ok,      nextPassageMinutes: 4, destination: "Simonis"),
-            .init(id: "5",  lineNumber: "5",  status: .warning, nextPassageMinutes: 9, destination: "Herrmann-Debroux")
+            .init(id: "92", lineNumber: "92", status: .ok,      nextPassageMinutes: 4,  destination: "Simonis"),
+            .init(id: "5",  lineNumber: "5",  status: .warning, nextPassageMinutes: 11, destination: "Herrmann-Debroux")
         ])
     }
 
@@ -186,7 +215,7 @@ private struct WidgetDeparture: Decodable {
     let minutes: Int
 }
 
-// MARK: - Entry View
+// MARK: - Entry view
 
 struct StibAlertWidgetEntryView: View {
     let entry: StibLineEntry
@@ -201,7 +230,7 @@ struct StibAlertWidgetEntryView: View {
     }
 }
 
-// MARK: - Small widget
+// MARK: - Small
 
 private struct SmallWidgetView: View {
     let entry: StibLineEntry
@@ -210,68 +239,65 @@ private struct SmallWidgetView: View {
         if let line = entry.lines.first {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
-                HStack {
-                    Image(systemName: WD.modeIcon(for: line.lineNumber))
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(WD.inkMute)
+                HStack(spacing: 4) {
                     Text("StibAlert")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(1.2)
                         .foregroundStyle(WD.inkMute)
                     Spacer()
-                    StatusPip(status: line.status)
+                    WStatusPip(status: line.status)
                 }
 
                 Spacer()
 
-                // Line badge + time
+                // Line badge + next passage
                 HStack(alignment: .bottom, spacing: 10) {
-                    WLineBadge(line: line.lineNumber, size: 44)
+                    WLineBadge(line: line.lineNumber, size: 42)
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WD.formatMinutes(line.nextPassageMinutes ?? -1))
-                            .font(.system(size: 26, weight: .black, design: .rounded))
-                            .foregroundStyle(timeColor(for: line.nextPassageMinutes))
-                            .minimumScaleFactor(0.70)
+                            .font(.system(size: 24, weight: .black, design: .rounded))
+                            .foregroundStyle(nextColor(line.nextPassageMinutes))
+                            .minimumScaleFactor(0.7)
                             .lineLimit(1)
+
                         if let dest = line.destination, !dest.isEmpty {
-                            Text(dest.uppercased())
-                                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .tracking(0.6)
-                                .foregroundStyle(WD.inkSoft)
+                            Text(dest)
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(WD.inkMute)
                                 .lineLimit(1)
                         }
                     }
                 }
 
-                Spacer().frame(height: 8)
+                Spacer().frame(height: 10)
 
-                // Status label
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(line.status.color)
-                        .frame(width: 5, height: 5)
+                // Status bar
+                HStack(spacing: 4) {
+                    Image(systemName: WD.modeIcon(for: line.lineNumber))
+                        .font(.system(size: 8, weight: .bold))
                     Text(line.status.label)
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(line.status.color)
                 }
+                .foregroundStyle(line.status.dsColor)
             }
             .padding(13)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .containerBackground(WD.bg, for: .widget)
+            .containerBackground(WD.background, for: .widget)
         } else {
             EmptyWidgetView()
         }
     }
 
-    private func timeColor(for minutes: Int?) -> Color {
-        guard let m = minutes else { return WD.inkMute }
-        if m == 0 { return WD.orange }
-        if m <= 3 { return Color(red: 0.96, green: 0.65, blue: 0.14) }
+    private func nextColor(_ minutes: Int?) -> Color {
+        guard let m = minutes, m >= 0 else { return WD.inkMute }
+        if m == 0 { return WD.primary }
+        if m <= 3 { return WD.statusMinor }
         return WD.ink
     }
 }
 
-// MARK: - Medium widget
+// MARK: - Medium
 
 private struct MediumWidgetView: View {
     let entry: StibLineEntry
@@ -284,12 +310,12 @@ private struct MediumWidgetView: View {
                 // Header
                 HStack {
                     Text("StibAlert")
-                        .font(.system(size: 11, weight: .black, design: .monospaced))
-                        .tracking(1.4)
-                        .foregroundStyle(WD.orange)
+                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                        .tracking(1.6)
+                        .foregroundStyle(WD.primary)
                     Spacer()
                     Text(entry.date, style: .time)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(WD.inkMute)
                 }
 
@@ -301,7 +327,7 @@ private struct MediumWidgetView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .containerBackground(WD.bg, for: .widget)
+            .containerBackground(WD.background, for: .widget)
         }
     }
 }
@@ -311,24 +337,24 @@ private struct MediumLineCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top row: badge + time
+            // Badge + time
             HStack(alignment: .top) {
                 WLineBadge(line: line.lineNumber, size: 36)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    if let minutes = line.nextPassageMinutes {
-                        Text(WD.formatMinutes(minutes))
-                            .font(.system(size: 22, weight: .black, design: .rounded))
-                            .foregroundStyle(timeColor(for: minutes))
+                    if let min = line.nextPassageMinutes {
+                        Text(WD.formatMinutes(min))
+                            .font(.system(size: 21, weight: .black, design: .rounded))
+                            .foregroundStyle(nextColor(min))
                             .minimumScaleFactor(0.65)
                             .lineLimit(1)
-                        Text(minutes >= 60 ? "arrivée" : "prochain")
-                            .font(.system(size: 7, weight: .bold, design: .monospaced))
-                            .tracking(0.5)
+                        Text(min >= 60 ? "arrivée" : "prochain")
+                            .font(.system(size: 7, weight: .semibold, design: .monospaced))
+                            .tracking(0.4)
                             .foregroundStyle(WD.inkMute)
                     } else {
                         Text("—")
-                            .font(.system(size: 22, weight: .black, design: .rounded))
+                            .font(.system(size: 21, weight: .black, design: .rounded))
                             .foregroundStyle(WD.inkMute)
                     }
                 }
@@ -339,52 +365,50 @@ private struct MediumLineCard: View {
             // Destination
             if let dest = line.destination, !dest.isEmpty {
                 Text(dest)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(WD.inkSoft)
                     .lineLimit(1)
             } else {
-                Text("Aucune dest.")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                Text("–")
+                    .font(.system(size: 9))
                     .foregroundStyle(WD.inkMute)
-                    .lineLimit(1)
             }
 
             Spacer(minLength: 6)
 
-            // Status
+            // Footer: mode icon + status
             HStack(spacing: 4) {
-                Circle()
-                    .fill(line.status.color)
-                    .frame(width: 5, height: 5)
-                Text(line.status.label)
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundStyle(line.status.color)
-                Spacer()
                 Image(systemName: WD.modeIcon(for: line.lineNumber))
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(WD.inkMute)
+                Text(line.status.label)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                Spacer()
+                Circle()
+                    .fill(line.status.dsColor)
+                    .frame(width: 6, height: 6)
             }
+            .foregroundStyle(line.status.dsColor)
         }
         .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(WD.card)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(WD.paper2)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(WD.cardStroke, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(WD.border, lineWidth: 1)
                 )
         )
     }
 
-    private func timeColor(for minutes: Int) -> Color {
-        if minutes == 0 { return WD.orange }
-        if minutes <= 3 { return Color(red: 0.96, green: 0.65, blue: 0.14) }
+    private func nextColor(_ minutes: Int) -> Color {
+        if minutes == 0 { return WD.primary }
+        if minutes <= 3 { return WD.statusMinor }
         return WD.ink
     }
 }
 
-// MARK: - Shared components
+// MARK: - Shared sub-views
 
 private struct WLineBadge: View {
     let line: String
@@ -393,7 +417,7 @@ private struct WLineBadge: View {
     var body: some View {
         Text(line)
             .font(.system(size: size * 0.38, weight: .black, design: .rounded))
-            .foregroundStyle(WD.textColor(for: line))
+            .foregroundStyle(WD.lineTextColor(for: line))
             .minimumScaleFactor(0.55)
             .lineLimit(1)
             .frame(width: size, height: size)
@@ -404,17 +428,17 @@ private struct WLineBadge: View {
     }
 }
 
-private struct StatusPip: View {
+private struct WStatusPip: View {
     let status: LineWidgetStatus
 
     var body: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(status.color)
+                .fill(status.dsColor)
                 .frame(width: 5, height: 5)
             Text(status.label)
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
-                .foregroundStyle(status.color)
+                .foregroundStyle(status.dsColor)
         }
     }
 }
@@ -424,14 +448,14 @@ private struct EmptyWidgetView: View {
         VStack(spacing: 8) {
             Image(systemName: "tram.fill")
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(WD.orange)
-            Text("Ajoute une ligne\nen favoris")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(WD.primary)
+            Text("Ajoute une ligne en favoris")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(WD.ink)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(WD.bg, for: .widget)
+        .containerBackground(WD.background, for: .widget)
     }
 }
 
