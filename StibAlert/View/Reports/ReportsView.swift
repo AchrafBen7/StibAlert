@@ -145,6 +145,9 @@ struct ReportsView: View {
     @State private var locallyUpvotedReportIds: Set<String> = []
     @State private var expandedFeedLineIds: Set<String> = []
     @State private var notificationLineInFlight: Set<String> = []
+    @State private var activeNetworkCarouselIndex = 0
+
+    private let networkCarouselTimer = Timer.publish(every: 4.5, on: .main, in: .common).autoconnect()
 
     private var favoriteLines: Set<String> {
         Set(session.currentUser?.favoriteLines ?? [])
@@ -1205,34 +1208,65 @@ struct ReportsView: View {
     private func summaryCarousel(_ summary: TransportPerturbationSummaryDTO) -> some View {
         let items = networkIssueCarouselItems(for: summary)
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                EditorialPingDot(color: summaryDotColor(for: summary))
-                Text(items.count > 1 ? "À surveiller sur le réseau" : summary.title)
+                Text("À SURVEILLER")
                     .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.5)
-                    .foregroundStyle(DS.Color.ink)
-                Spacer()
-                Text("\(items.count)")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.8)
                     .foregroundStyle(DS.Color.inkMute)
+
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.18))
+                    .frame(height: 1)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 12) {
-                    ForEach(items) { item in
+            TabView(selection: $activeNetworkCarouselIndex) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    Button {
+                        isShowingSummary = true
+                    } label: {
+                        NetworkIssueCarouselCard(
+                            item: item,
+                            itemCount: items.count,
+                            activeIndex: index
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 188)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .onReceive(networkCarouselTimer) { _ in
+                guard !reduceMotion, items.count > 1 else { return }
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+                    activeNetworkCarouselIndex = (activeNetworkCarouselIndex + 1) % items.count
+                }
+            }
+            .onChange(of: items.count) { _, count in
+                if activeNetworkCarouselIndex >= count {
+                    activeNetworkCarouselIndex = 0
+                }
+            }
+
+            if items.count > 1 {
+                HStack(spacing: 6) {
+                    ForEach(items.indices, id: \.self) { index in
                         Button {
-                            isShowingSummary = true
+                            withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) {
+                                activeNetworkCarouselIndex = index
+                            }
                         } label: {
-                            NetworkIssueCarouselCard(item: item)
+                            Capsule()
+                                .fill(index == activeNetworkCarouselIndex ? DS.Color.statusMajor : DS.Color.ink.opacity(0.16))
+                                .frame(width: index == activeNetworkCarouselIndex ? 22 : 7, height: 7)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.vertical, 2)
-                .scrollTargetLayout()
+                .frame(maxWidth: .infinity)
             }
-            .scrollTargetBehavior(.viewAligned)
         }
     }
 
@@ -1441,81 +1475,122 @@ private struct EditorialNowCard: View {
 
 private struct NetworkIssueCarouselCard: View {
     let item: NetworkIssueCarouselItem
+    let itemCount: Int
+    let activeIndex: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                Circle()
-                    .fill(item.tint)
-                    .frame(width: 9, height: 9)
-                    .padding(.top, 6)
+        ZStack(alignment: .bottomLeading) {
+            Image("reports-metro-stib")
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.sourceLabel)
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.05),
+                    .black.opacity(0.42),
+                    .black.opacity(0.78)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            LinearGradient(
+                colors: [
+                    item.tint.opacity(0.44),
+                    .black.opacity(0.05),
+                    .clear
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+
+            VStack(alignment: .leading, spacing: 13) {
+                HStack(alignment: .center, spacing: 9) {
+                    Circle()
+                        .fill(DS.Color.statusMajor)
+                        .frame(width: 10, height: 10)
+                        .shadow(color: DS.Color.statusMajor.opacity(0.7), radius: 9)
+
+                    Text(item.sourceLabel.uppercased())
                         .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.4)
-                        .foregroundStyle(DS.Color.inkMute)
+                        .tracking(2.0)
+                        .foregroundStyle(.white.opacity(0.88))
 
+                    Spacer()
+
+                    Text("STIB-MIVB")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(2.0)
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .leading, spacing: 8) {
                     Text(item.keyword)
-                        .font(DS.Font.displayH3)
-                        .foregroundStyle(DS.Color.ink)
+                        .font(DS.Font.displayH1)
+                        .foregroundStyle(.white)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    Text(item.detail)
+                        .font(DS.Font.bodySmall.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.86))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
 
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .padding(.top, 4)
-            }
-
-            Text(item.detail)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkSoft)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(minHeight: 38, alignment: .topLeading)
-
-            VStack(alignment: .leading, spacing: 8) {
-                if !item.lines.isEmpty {
-                    HStack(spacing: 7) {
-                        ForEach(Array(item.lines.prefix(5)), id: \.self) { line in
-                            LineBadge(line: line, size: .sm)
-                        }
-                        if item.lines.count > 5 {
-                            Text("+\(item.lines.count - 5)")
-                                .font(DS.Font.monoSmall.weight(.bold))
-                                .foregroundStyle(DS.Color.inkMute)
+                HStack(alignment: .center, spacing: 8) {
+                    if !item.lines.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(Array(item.lines.prefix(4)), id: \.self) { line in
+                                LineBadge(line: line, size: .sm)
+                            }
+                            if item.lines.count > 4 {
+                                Text("+\(item.lines.count - 4)")
+                                    .font(DS.Font.monoSmall.weight(.bold))
+                                    .foregroundStyle(.white.opacity(0.78))
+                            }
                         }
                     }
-                }
 
-                if let location = item.location, !location.isEmpty {
-                    HStack(spacing: 5) {
-                        Image(systemName: "mappin")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text(location)
-                            .lineLimit(1)
+                    if let location = item.location, !location.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(location)
+                                .lineLimit(1)
+                        }
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.82))
                     }
-                    .font(DS.Font.monoSmall)
-                    .foregroundStyle(DS.Color.inkMute)
+
+                    Spacer(minLength: 8)
+
+                    HStack(spacing: 6) {
+                        Text("\(activeIndex + 1)/\(max(itemCount, 1))")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.82))
+
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(.white)
+                    }
                 }
             }
+            .padding(18)
         }
-        .padding(12)
-        .frame(width: 236, alignment: .topLeading)
-        .frame(minHeight: 146, alignment: .topLeading)
-        .background(
-            DS.Color.paper
-                .overlay(item.tint.opacity(0.06))
-        )
+        .frame(maxWidth: .infinity, minHeight: 188, maxHeight: 188)
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                .stroke(.white.opacity(0.5), lineWidth: 1)
+                .padding(1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .shadow(DS.Shadow.raised)
+        .shadow(color: item.tint.opacity(0.22), radius: 20, x: 0, y: 12)
+        .accessibilityLabel("\(item.keyword). \(item.detail)")
     }
 }
 
