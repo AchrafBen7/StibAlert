@@ -353,6 +353,67 @@ struct HomeView: View {
         selectedMapStopSummary != nil
     }
 
+    private var isHomeSurfaceInteractive: Bool {
+        nav.currentPage == .home && !nav.showReportSheet && !nav.showSideMenu
+    }
+
+    private var hasRouteSurface: Bool {
+        !routeOptions.isEmpty || selectedRouteDetail != nil || selectedARRoute != nil
+    }
+
+    private var shouldShowSearchHeader: Bool {
+        isHomeSurfaceInteractive
+        && !isStopDetailPresented
+        && selectedRouteDetail == nil
+        && selectedARRoute == nil
+    }
+
+    private var shouldShowSignalementPreview: Bool {
+        selectedSignalementPreview != nil
+        && isHomeSurfaceInteractive
+        && !isStopDetailPresented
+        && !showLegend
+        && routeOptions.isEmpty
+        && selectedRouteDetail == nil
+        && selectedARRoute == nil
+    }
+
+    private var shouldShowPulseBar: Bool {
+        isHomeSurfaceInteractive
+        && !isStopDetailPresented
+        && selectedMapStopPreview == nil
+        && routeOptions.isEmpty
+        && selectedSignalementPreview == nil
+        && selectedRouteDetail == nil
+        && selectedARRoute == nil
+    }
+
+    private var shouldShowTabBar: Bool {
+        !nav.showReportSheet
+        && !isStopDetailPresented
+        && !hasRouteSurface
+    }
+
+    private var shouldShowStopPreview: Bool {
+        interactionMode == .stopPreview && selectedMapStopPreview != nil && selectedMapStopSummary == nil
+    }
+
+    private var shouldShowStopDetail: Bool {
+        interactionMode == .stopDetail && selectedMapStopSummary != nil
+    }
+
+    private var shouldShowRouteSheet: Bool {
+        interactionMode == .routePreview && !routeOptions.isEmpty
+    }
+
+    private var shouldShowRouteDetail: Bool {
+        interactionMode == .routeDetail && selectedRouteDetail != nil
+    }
+
+    private var shouldShowAR: Bool {
+        interactionMode == .ar && selectedARRoute != nil
+    }
+
     private var transitionSpring: Animation {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
@@ -379,12 +440,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .top) {
-            if nav.currentPage == .home,
-               !nav.showReportSheet,
-               !nav.showSideMenu,
-               !isStopDetailPresented,
-               selectedRouteDetail == nil,
-               selectedARRoute == nil {
+            if shouldShowSearchHeader {
                 VStack(spacing: 10) {
                     HStack(spacing: 10) {
                         HomeEditorialSearchField(query: $searchQuery)
@@ -466,14 +522,7 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) {
             if let preview = selectedSignalementPreview,
-               nav.currentPage == .home,
-               !nav.showReportSheet,
-               !nav.showSideMenu,
-               !isStopDetailPresented,
-               !showLegend,
-               routeOptions.isEmpty,
-               selectedRouteDetail == nil,
-               selectedARRoute == nil {
+               shouldShowSignalementPreview {
                 SignalementMiniCard(
                     signalement: preview,
                     arretName: arretName(for: preview),
@@ -496,15 +545,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if nav.currentPage == .home,
-               !nav.showReportSheet,
-               !nav.showSideMenu,
-               !isStopDetailPresented,
-               selectedMapStopPreview == nil,
-               routeOptions.isEmpty,
-               selectedSignalementPreview == nil,
-               selectedRouteDetail == nil,
-               selectedARRoute == nil {
+            if shouldShowPulseBar {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
@@ -527,7 +568,7 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if !nav.showReportSheet, !isStopDetailPresented, routeOptions.isEmpty, selectedARRoute == nil, selectedRouteDetail == nil {
+            if shouldShowTabBar {
                 AppTabBar(selection: Binding(
                     get: { AppTab.from(page: nav.currentPage) },
                     set: { newTab in
@@ -848,7 +889,7 @@ struct HomeView: View {
             .zIndex(9)
         }
 
-        if let stop = selectedMapStopPreview, selectedMapStopSummary == nil {
+        if shouldShowStopPreview, let stop = selectedMapStopPreview {
             HomeStopPreviewCard(
                 stopSummary: stop,
                 stopDetail: selectedMapStopDetail,
@@ -866,7 +907,7 @@ struct HomeView: View {
             .zIndex(7)
         }
 
-        if let stop = selectedMapStopSummary {
+        if shouldShowStopDetail, let stop = selectedMapStopSummary {
             ArretDetailPage(
                 stopSummary: stop,
                 stopDetail: selectedMapStopDetail,
@@ -893,7 +934,7 @@ struct HomeView: View {
             .zIndex(10)
         }
 
-        if !routeOptions.isEmpty {
+        if shouldShowRouteSheet {
             RouteRecommendationsSheet(
                 options: routeOptions,
                 modeSummaries: routeModeSummaries,
@@ -912,7 +953,7 @@ struct HomeView: View {
             .zIndex(8)
         }
 
-        if let selectedRouteDetail {
+        if shouldShowRouteDetail, let selectedRouteDetail {
             RouteItineraryDetailsView(
                 option: selectedRouteDetail,
                 onBack: {
@@ -943,7 +984,7 @@ struct HomeView: View {
             .zIndex(9)
         }
 
-        if let selectedARRoute {
+        if shouldShowAR, let selectedARRoute {
             RouteARNavigationView(
                 option: selectedARRoute,
                 onClose: {
