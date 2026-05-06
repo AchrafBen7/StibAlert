@@ -349,9 +349,6 @@ struct QuickReportSheetView: View {
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    Circle()
-                        .fill(isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.22))
-                        .frame(width: 8, height: 8)
                 }
 
                 HStack(spacing: 6) {
@@ -585,6 +582,9 @@ struct QuickReportSheetView: View {
 
     private func problemCard(_ type: ReportProblemType) -> some View {
         let isSelected = selectedProblem == type
+        let titleColor = DS.Color.ink
+        let descriptionColor = DS.Color.inkSoft
+        let iconColor = type.accentColor
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedProblem = type
@@ -593,25 +593,25 @@ struct QuickReportSheetView: View {
                 HStack {
                     Image(systemName: typeIcon(type))
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(isSelected ? DS.Color.paper : type.accentColor)
+                        .foregroundStyle(iconColor)
                     Text(type.title)
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
+                        .foregroundStyle(titleColor)
                     Spacer()
                     Circle()
-                        .fill(isSelected ? DS.Color.paper.opacity(0.88) : type.accentColor)
+                        .fill(type.accentColor)
                         .frame(width: 9, height: 9)
                 }
                 Text(type.descriptionLines.first ?? "")
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(isSelected ? DS.Color.paper.opacity(0.82) : DS.Color.inkSoft)
+                    .foregroundStyle(descriptionColor)
                     .lineLimit(2)
                     .padding(.top, 10)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
-            .background(isSelected ? type.accentColor : DS.Color.paper)
+            .background(isSelected ? type.backgroundColor : DS.Color.paper)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(isSelected ? type.accentColor : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
