@@ -453,80 +453,35 @@ struct HomeView: View {
         }
         .overlay(alignment: .top) {
             if shouldShowSearchHeader {
-                VStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        HomeEditorialSearchField(query: $searchQuery)
-
-                        Button {
-                            withAnimation(transitionSpring) {
-                                showLegend = true
-                            }
-                        } label: {
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .fill(DS.Color.paper.opacity(0.96))
-                                .frame(width: 48, height: 48)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                                )
-                                .overlay(
-                                    Image(systemName: "square.3.layers.3d")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(DS.Color.ink)
-                                )
-                                .shadow(DS.Shadow.floating)
+                HomeSearchHeaderOverlay(
+                    searchQuery: $searchQuery,
+                    suggestions: searchSuggestions,
+                    isRouting: isRouting,
+                    hasUserCoordinate: locationManager.userCoordinate != nil,
+                    favoriteLineCount: favoriteLineCount,
+                    totalActiveSignalementsCount: totalActiveSignalementsCount,
+                    onShowLegend: {
+                        withAnimation(transitionSpring) {
+                            showLegend = true
                         }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 18)
-
-                    if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                HomeEditorialActionChip(
-                                    icon: "location.viewfinder",
-                                    title: "Autour de moi",
-                                    count: nil,
-                                    isActive: locationManager.userCoordinate != nil
-                                ) {
-                                    aroundMe()
-                                }
-
-                                HomeEditorialActionChip(
-                                    icon: "star",
-                                    title: "Favoris",
-                                    count: favoriteLineCount,
-                                    isActive: favoriteLineCount > 0
-                                ) {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                        nav.currentPage = .favorites
-                                    }
-                                }
-
-                                HomeEditorialActionChip(
-                                    icon: "exclamationmark.triangle",
-                                    title: "Perturbations",
-                                    count: totalActiveSignalementsCount,
-                                    isActive: totalActiveSignalementsCount > 0
-                                ) {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                        nav.currentPage = .reports
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 18)
+                    },
+                    onAroundMe: {
+                        aroundMe()
+                    },
+                    onOpenFavorites: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.currentPage = .favorites
                         }
-                    } else if !searchSuggestions.isEmpty {
-                        SearchSuggestionsDropdown(
-                            suggestions: searchSuggestions,
-                            isRouting: isRouting,
-                            onSelect: { item in
-                                Task { await buildRoute(to: item) }
-                            }
-                        )
-                        .padding(.horizontal, 18)
+                    },
+                    onOpenReports: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                            nav.currentPage = .reports
+                        }
+                    },
+                    onSelectSuggestion: { item in
+                        Task { await buildRoute(to: item) }
                     }
-                }
+                )
                 .padding(.top, 10)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(3)
@@ -2483,6 +2438,90 @@ private struct HamburgerButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Ouvrir le menu")
         .accessibilityHint("Affiche les sections principales de l’application")
+    }
+}
+
+private struct HomeSearchHeaderOverlay: View {
+    @Binding var searchQuery: String
+    let suggestions: [MKMapItem]
+    let isRouting: Bool
+    let hasUserCoordinate: Bool
+    let favoriteLineCount: Int
+    let totalActiveSignalementsCount: Int
+    let onShowLegend: () -> Void
+    let onAroundMe: () -> Void
+    let onOpenFavorites: () -> Void
+    let onOpenReports: () -> Void
+    let onSelectSuggestion: (MKMapItem) -> Void
+
+    private var isSearching: Bool {
+        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                HomeEditorialSearchField(query: $searchQuery)
+
+                Button(action: onShowLegend) {
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(DS.Color.paper.opacity(0.96))
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                        )
+                        .overlay(
+                            Image(systemName: "square.3.layers.3d")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(DS.Color.ink)
+                        )
+                        .shadow(DS.Shadow.floating)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 18)
+
+            if isSearching {
+                if !suggestions.isEmpty {
+                    SearchSuggestionsDropdown(
+                        suggestions: suggestions,
+                        isRouting: isRouting,
+                        onSelect: onSelectSuggestion
+                    )
+                    .padding(.horizontal, 18)
+                }
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        HomeEditorialActionChip(
+                            icon: "location.viewfinder",
+                            title: "Autour de moi",
+                            count: nil,
+                            isActive: hasUserCoordinate,
+                            action: onAroundMe
+                        )
+
+                        HomeEditorialActionChip(
+                            icon: "star",
+                            title: "Favoris",
+                            count: favoriteLineCount,
+                            isActive: favoriteLineCount > 0,
+                            action: onOpenFavorites
+                        )
+
+                        HomeEditorialActionChip(
+                            icon: "exclamationmark.triangle",
+                            title: "Perturbations",
+                            count: totalActiveSignalementsCount,
+                            isActive: totalActiveSignalementsCount > 0,
+                            action: onOpenReports
+                        )
+                    }
+                    .padding(.horizontal, 18)
+                }
+            }
+        }
     }
 }
 
