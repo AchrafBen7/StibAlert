@@ -5,12 +5,16 @@ import SwiftUI
 
 private let appGroupID = "group.com.ehb.StibAlert"
 private let backendBaseURL = "https://stib-alert-backend.onrender.com"
+private let nearbyLinesKey = "widget_nearby_lines"
+private let favoriteLinesKey = "favoriteLines"
 
 // MARK: - Timeline model
 
 struct StibLineEntry: TimelineEntry {
     let date: Date
     let lines: [StibLineSnapshot]
+    let totalLineCount: Int   // across all pages, for indicator dots
+    let pageIndex: Int
 }
 
 struct StibLineSnapshot: Identifiable {
@@ -38,28 +42,27 @@ enum LineWidgetStatus: String {
         case .ok:       return "Normal"
         case .warning:  return "Perturbé"
         case .critical: return "Arrêté"
-        case .unknown:  return "Inconnu"
+        case .unknown:  return "—"
         }
     }
 }
 
-// MARK: - Design tokens (mirrors DS exactly)
+// MARK: - Design tokens (mirrors DS.Color exactly)
 
 private extension Color {
-    /// HSL → SwiftUI.Color, with optional adaptive dark variant.
     static func ds(_ h: Double, _ s: Double, _ l: Double, dark: Color? = nil) -> Color {
-        let light = hslColor(h, s, l)
+        let light = hsl(h, s, l)
         guard let dark else { return light }
         return Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
     }
 
-    private static func hslColor(_ h: Double, _ s: Double, _ l: Double) -> Color {
+    private static func hsl(_ h: Double, _ s: Double, _ l: Double) -> Color {
         let hN = h / 360, sN = s / 100, lN = l / 100
-        func hue2rgb(_ p: Double, _ q: Double, _ tIn: Double) -> Double {
-            var t = tIn
+        func hue2rgb(_ p: Double, _ q: Double, _ t: Double) -> Double {
+            var t = t
             if t < 0 { t += 1 }; if t > 1 { t -= 1 }
             if t < 1/6 { return p + (q-p)*6*t }
-            if t < 1/2 { return q }
+            if t < 0.5 { return q }
             if t < 2/3 { return p + (q-p)*(2/3-t)*6 }
             return p
         }
@@ -77,29 +80,19 @@ private extension Color {
 }
 
 private enum WD {
-    // Backgrounds — mirrors DS.Color.background / paper / paper2
     static let background = Color.ds(38, 24, 93, dark: .ds(0, 0, 7))
     static let paper      = Color.ds(36, 28, 95, dark: .ds(0, 0, 10))
     static let paper2     = Color.ds(36, 18, 88, dark: .ds(0, 0, 14))
+    static let ink        = Color.ds(0, 0, 6,   dark: .ds(38, 24, 92))
+    static let inkSoft    = Color.ds(0, 0, 22,  dark: .ds(36, 14, 78))
+    static let inkMute    = Color.ds(30, 6, 42,  dark: .ds(30, 6, 58))
+    static let border     = Color.ds(30, 8, 78,  dark: .ds(0, 0, 24))
+    static let primary    = Color.ds(14, 82, 51, dark: .ds(14, 88, 56))
 
-    // Text — mirrors DS.Color.ink / inkSoft / inkMute
-    static let ink     = Color.ds(0, 0, 6,  dark: .ds(38, 24, 92))
-    static let inkSoft = Color.ds(0, 0, 22, dark: .ds(36, 14, 78))
-    static let inkMute = Color.ds(30, 6, 42, dark: .ds(30, 6, 58))
-
-    // Border — mirrors DS.Color.border
-    static let border = Color.ds(30, 8, 78, dark: .ds(0, 0, 24))
-
-    // Primary (STIB orange-red) — mirrors DS.Color.primary
-    static let primary = Color.ds(14, 82, 51, dark: .ds(14, 88, 56))
-
-    // Status — mirrors DS.Color.status*
     static let statusOK       = Color.ds(152, 60, 32)
     static let statusMinor    = Color.ds(38,  92, 45)
-    static let statusMajor    = Color.ds(14,  84, 48)
     static let statusCritical = Color.ds(350, 75, 38)
 
-    // Per-line STIB brand colors (official palette, not in DS)
     static func lineColor(_ line: String) -> Color {
         switch line.uppercased() {
         case "1", "5": return Color(red: 0.66, green: 0.18, blue: 0.62)
@@ -147,41 +140,67 @@ private enum WD {
 
 struct StibWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> StibLineEntry {
-        .init(date: .now, lines: [
+        StibLineEntry(date: .now, lines: [
             .init(id: "92", lineNumber: "92", status: .ok,      nextPassageMinutes: 4,  destination: "Simonis"),
             .init(id: "5",  lineNumber: "5",  status: .warning, nextPassageMinutes: 11, destination: "Herrmann-Debroux")
-        ])
+        ], totalLineCount: 2, pageIndex: 0)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (StibLineEntry) -> Void) {
-        Task { completion(await fetchEntry()) }
+        Task { completion(await buildEntries(family: context.family).first ?? placeholder(in: context)) }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<StibLineEntry>) -> Void) {
         Task {
-            let entry = await fetchEntry()
-            let next  = Calendar.current.date(byAdding: .minute, value: 5, to: .now)!
-            completion(Timeline(entries: [entry], policy: .after(next)))
+            let entries = await buildEntries(family: context.family)
+            // Reload after 5 min (all pages will have cycled by then)
+            let refresh = Calendar.current.date(byAdding: .minute, value: 5, to: .now)!
+            completion(Timeline(entries: entries, policy: .after(refresh)))
         }
     }
 
-    private func fetchEntry() async -> StibLineEntry {
-        let favorites = loadFavoriteLines()
-        guard !favorites.isEmpty else { return .init(date: .now, lines: []) }
+    // MARK: Private
 
-        var snapshots: [StibLineSnapshot] = []
-        for line in favorites.prefix(2) {
-            if let snap = await fetchLineStatus(line) {
-                snapshots.append(snap)
-            } else {
-                snapshots.append(.init(id: line, lineNumber: line, status: .unknown, nextPassageMinutes: nil, destination: nil))
+    /// Build one entry per carousel page, staggered 30 s apart.
+    private func buildEntries(family: WidgetFamily) async -> [StibLineEntry] {
+        let lineNumbers = loadLineNumbers()
+        guard !lineNumbers.isEmpty else {
+            return [StibLineEntry(date: .now, lines: [], totalLineCount: 0, pageIndex: 0)]
+        }
+
+        // Fetch all snapshots in parallel, preserving order
+        var ordered = [StibLineSnapshot?](repeating: nil, count: lineNumbers.count)
+        await withTaskGroup(of: (Int, StibLineSnapshot?).self) { group in
+            for (i, line) in lineNumbers.enumerated() {
+                group.addTask { (i, await fetchLineStatus(line)) }
+            }
+            for await (i, snap) in group {
+                ordered[i] = snap ?? StibLineSnapshot(
+                    id: lineNumbers[i], lineNumber: lineNumbers[i],
+                    status: .unknown, nextPassageMinutes: nil, destination: nil)
             }
         }
-        return .init(date: .now, lines: snapshots)
+        let allSnaps = ordered.compactMap { $0 }
+
+        // Page size depends on widget family
+        let pageSize = family == .systemLarge ? 4 : 2
+        let pages = stride(from: 0, to: allSnaps.count, by: pageSize).map { i in
+            Array(allSnaps[i..<min(i + pageSize, allSnaps.count)])
+        }
+
+        return pages.enumerated().map { idx, page in
+            let date = idx == 0 ? Date() : Calendar.current.date(byAdding: .second, value: idx * 30, to: .now)!
+            return StibLineEntry(date: date, lines: page, totalLineCount: allSnaps.count, pageIndex: idx)
+        }
     }
 
-    private func loadFavoriteLines() -> [String] {
-        (UserDefaults(suiteName: appGroupID) ?? .standard).stringArray(forKey: "favoriteLines") ?? []
+    /// Nearby lines written by the app take priority; falls back to favorites.
+    private func loadLineNumbers() -> [String] {
+        let ud = UserDefaults(suiteName: appGroupID) ?? .standard
+        if let nearby = ud.stringArray(forKey: nearbyLinesKey), !nearby.isEmpty {
+            return Array(nearby.prefix(8))
+        }
+        return Array((ud.stringArray(forKey: favoriteLinesKey) ?? []).prefix(8))
     }
 
     private func fetchLineStatus(_ line: String) async -> StibLineSnapshot? {
@@ -198,9 +217,9 @@ struct StibWidgetProvider: TimelineProvider {
                 default: return .ok
                 }
             }()
-            return .init(id: line, lineNumber: line, status: status,
-                         nextPassageMinutes: decoded.nextDepartures?.first?.minutes,
-                         destination: decoded.nextDepartures?.first?.destination)
+            return StibLineSnapshot(id: line, lineNumber: line, status: status,
+                                    nextPassageMinutes: decoded.nextDepartures?.first?.minutes,
+                                    destination: decoded.nextDepartures?.first?.destination)
         } catch { return nil }
     }
 }
@@ -224,8 +243,8 @@ struct StibAlertWidgetEntryView: View {
     var body: some View {
         switch family {
         case .systemSmall:  SmallWidgetView(entry: entry)
-        case .systemMedium: MediumWidgetView(entry: entry)
-        default:            SmallWidgetView(entry: entry)
+        case .systemLarge:  LargeWidgetView(entry: entry)
+        default:            MediumWidgetView(entry: entry)
         }
     }
 }
@@ -238,7 +257,6 @@ private struct SmallWidgetView: View {
     var body: some View {
         if let line = entry.lines.first {
             VStack(alignment: .leading, spacing: 0) {
-                // Header
                 HStack(spacing: 4) {
                     Text("StibAlert")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
@@ -250,17 +268,14 @@ private struct SmallWidgetView: View {
 
                 Spacer()
 
-                // Line badge + next passage
                 HStack(alignment: .bottom, spacing: 10) {
                     WLineBadge(line: line.lineNumber, size: 42)
-
                     VStack(alignment: .leading, spacing: 2) {
                         Text(WD.formatMinutes(line.nextPassageMinutes ?? -1))
                             .font(.system(size: 24, weight: .black, design: .rounded))
                             .foregroundStyle(nextColor(line.nextPassageMinutes))
                             .minimumScaleFactor(0.7)
                             .lineLimit(1)
-
                         if let dest = line.destination, !dest.isEmpty {
                             Text(dest)
                                 .font(.system(size: 9, weight: .semibold))
@@ -272,7 +287,6 @@ private struct SmallWidgetView: View {
 
                 Spacer().frame(height: 10)
 
-                // Status bar
                 HStack(spacing: 4) {
                     Image(systemName: WD.modeIcon(for: line.lineNumber))
                         .font(.system(size: 8, weight: .bold))
@@ -297,7 +311,7 @@ private struct SmallWidgetView: View {
     }
 }
 
-// MARK: - Medium
+// MARK: - Medium (2 cards + carousel dots)
 
 private struct MediumWidgetView: View {
     let entry: StibLineEntry
@@ -307,21 +321,29 @@ private struct MediumWidgetView: View {
             EmptyWidgetView()
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                // Header
                 HStack {
                     Text("StibAlert")
                         .font(.system(size: 10, weight: .black, design: .monospaced))
                         .tracking(1.6)
                         .foregroundStyle(WD.primary)
                     Spacer()
+                    // Carousel page dots
+                    if entry.totalLineCount > 2 {
+                        PageDots(total: Int(ceil(Double(entry.totalLineCount) / 2)), current: entry.pageIndex)
+                    }
                     Text(entry.date, style: .time)
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(WD.inkMute)
+                        .padding(.leading, 6)
                 }
 
                 HStack(spacing: 8) {
                     ForEach(entry.lines.prefix(2)) { line in
                         MediumLineCard(line: line)
+                    }
+                    // Pad to 2 cards if only 1 line on last page
+                    if entry.lines.count < 2 {
+                        Spacer()
                     }
                 }
             }
@@ -332,12 +354,120 @@ private struct MediumWidgetView: View {
     }
 }
 
+// MARK: - Large (4 rows)
+
+private struct LargeWidgetView: View {
+    let entry: StibLineEntry
+
+    var body: some View {
+        if entry.lines.isEmpty {
+            EmptyWidgetView()
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                HStack {
+                    Text("StibAlert")
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .tracking(1.6)
+                        .foregroundStyle(WD.primary)
+                    Spacer()
+                    if entry.totalLineCount > 4 {
+                        PageDots(total: Int(ceil(Double(entry.totalLineCount) / 4)), current: entry.pageIndex)
+                    }
+                    Text(entry.date, style: .time)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(WD.inkMute)
+                        .padding(.leading, 6)
+                }
+                .padding(.bottom, 10)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(entry.lines.prefix(4).enumerated()), id: \.element.id) { idx, line in
+                        LargeLineRow(line: line)
+                        if idx < entry.lines.prefix(4).count - 1 {
+                            Rectangle()
+                                .fill(WD.border)
+                                .frame(height: 0.5)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(WD.paper2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(WD.border, lineWidth: 1)
+                        )
+                )
+
+                Spacer()
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .containerBackground(WD.background, for: .widget)
+        }
+    }
+}
+
+private struct LargeLineRow: View {
+    let line: StibLineSnapshot
+
+    var body: some View {
+        HStack(spacing: 10) {
+            WLineBadge(line: line.lineNumber, size: 32)
+
+            VStack(alignment: .leading, spacing: 1) {
+                if let dest = line.destination, !dest.isEmpty {
+                    Text(dest)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(WD.ink)
+                        .lineLimit(1)
+                } else {
+                    Text("Direction inconnue")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WD.inkMute)
+                }
+                HStack(spacing: 4) {
+                    Image(systemName: WD.modeIcon(for: line.lineNumber))
+                        .font(.system(size: 8, weight: .bold))
+                    Text(line.status.label)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                }
+                .foregroundStyle(line.status.dsColor)
+            }
+
+            Spacer()
+
+            if let min = line.nextPassageMinutes {
+                Text(WD.formatMinutes(min))
+                    .font(.system(size: min >= 60 ? 14 : 17, weight: .black, design: .rounded))
+                    .foregroundStyle(nextColor(min))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+            } else {
+                Text("—")
+                    .font(.system(size: 17, weight: .black, design: .rounded))
+                    .foregroundStyle(WD.inkMute)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 52)
+    }
+
+    private func nextColor(_ minutes: Int) -> Color {
+        if minutes == 0 { return WD.primary }
+        if minutes <= 3 { return WD.statusMinor }
+        return WD.ink
+    }
+}
+
+// MARK: - Medium card
+
 private struct MediumLineCard: View {
     let line: StibLineSnapshot
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Badge + time
             HStack(alignment: .top) {
                 WLineBadge(line: line.lineNumber, size: 36)
                 Spacer()
@@ -362,7 +492,6 @@ private struct MediumLineCard: View {
 
             Spacer(minLength: 6)
 
-            // Destination
             if let dest = line.destination, !dest.isEmpty {
                 Text(dest)
                     .font(.system(size: 9, weight: .semibold))
@@ -376,7 +505,6 @@ private struct MediumLineCard: View {
 
             Spacer(minLength: 6)
 
-            // Footer: mode icon + status
             HStack(spacing: 4) {
                 Image(systemName: WD.modeIcon(for: line.lineNumber))
                     .font(.system(size: 8, weight: .bold))
@@ -408,7 +536,7 @@ private struct MediumLineCard: View {
     }
 }
 
-// MARK: - Shared sub-views
+// MARK: - Shared components
 
 private struct WLineBadge: View {
     let line: String
@@ -433,12 +561,25 @@ private struct WStatusPip: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            Circle()
-                .fill(status.dsColor)
-                .frame(width: 5, height: 5)
+            Circle().fill(status.dsColor).frame(width: 5, height: 5)
             Text(status.label)
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                 .foregroundStyle(status.dsColor)
+        }
+    }
+}
+
+private struct PageDots: View {
+    let total: Int
+    let current: Int
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<total, id: \.self) { i in
+                Circle()
+                    .fill(i == current ? WD.primary : WD.inkMute.opacity(0.5))
+                    .frame(width: i == current ? 5 : 4, height: i == current ? 5 : 4)
+            }
         }
     }
 }
@@ -449,7 +590,7 @@ private struct EmptyWidgetView: View {
             Image(systemName: "tram.fill")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(WD.primary)
-            Text("Ajoute une ligne en favoris")
+            Text("Ouvre StibAlert\npour voir les lignes proches")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(WD.ink)
                 .multilineTextAlignment(.center)
@@ -469,7 +610,7 @@ struct StibAlertWidget: Widget {
             StibAlertWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("StibAlert")
-        .description("Vos lignes favorites et leurs prochains passages.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .description("Lignes proches de toi, mises à jour automatiquement.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

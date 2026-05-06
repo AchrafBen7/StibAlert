@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import Combine
 import AVFoundation
+import WidgetKit
 
 struct HomeView: View {
     private enum InteractionMode: Equatable {
@@ -1013,6 +1014,16 @@ struct HomeView: View {
         }
     }
 
+    private func syncNearbyLinesToWidget(_ stops: [NearbyStop]) {
+        var seen = Set<String>()
+        let lines = stops
+            .flatMap { $0.lines.map { $0.number } }
+            .filter { seen.insert($0).inserted }
+        guard let shared = UserDefaults(suiteName: AppConfig.appGroupID) else { return }
+        shared.set(Array(lines.prefix(8)), forKey: "widget_nearby_lines")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     private var eventAgendaStrip: some View {
         HStack(spacing: 10) {
             Image(systemName: "calendar.badge.exclamationmark")
@@ -1602,6 +1613,7 @@ struct HomeView: View {
             )
             catalogMapStops = nearby
             lastMapStopsRefreshCoordinate = cameraCenterCoordinate
+            syncNearbyLinesToWidget(nearby)
         } catch {
             print("Home map nearby stops failed: \(error.localizedDescription)")
         }
