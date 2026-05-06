@@ -271,12 +271,12 @@ struct QuickReportSheetView: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 6)
             } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                     ForEach(displayedStops) { stop in
                         stopCard(stop)
                     }
                 }
-                .padding(.horizontal, 18)
+                .padding(.horizontal, 16)
             }
 
             Text("8 arrêts proches maximum pour garder le choix simple.")
@@ -324,7 +324,16 @@ struct QuickReportSheetView: View {
         let isSelected = selectedStop?.id == stop.id
         let primaryLine = stop.issueLines.first?.number ?? stop.lines.first?.number ?? "?"
         let direction = stop.issueLines.first?.direction ?? "Direction à confirmer"
-        let borderColor = isSelected ? DS.Color.community.opacity(0.8) : DS.Color.ink.opacity(0.08)
+        let borderColor = isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.08)
+        let selectedFill = LinearGradient(
+            colors: [
+                DS.Color.primary.opacity(0.16),
+                DS.Color.statusMinor.opacity(0.10),
+                DS.Color.paper
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
 
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
@@ -341,8 +350,8 @@ struct QuickReportSheetView: View {
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Circle()
-                        .fill(isSelected ? DS.Color.community : DS.Color.community.opacity(0.65))
-                        .frame(width: 10, height: 10)
+                        .fill(isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.22))
+                        .frame(width: 8, height: 8)
                 }
 
                 HStack(spacing: 6) {
@@ -352,30 +361,37 @@ struct QuickReportSheetView: View {
                         LineBadge(line: line.number, size: .sm)
                     }
                 }
-                .padding(.top, 14)
+                .padding(.top, 11)
 
                 Text(direction.uppercased())
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
                     .lineLimit(2)
-                    .padding(.top, 12)
+                    .padding(.top, 10)
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 8)
 
                 Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(DS.Color.ink)
-                    .padding(.top, 16)
+                    .padding(.top, 12)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
-            .background(isSelected ? DS.Color.hsl(221, 56, 78) : DS.Color.paper)
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 146, alignment: .topLeading)
+            .background {
+                if isSelected {
+                    selectedFill
+                } else {
+                    DS.Color.paper
+                }
+            }
             .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(borderColor, lineWidth: isSelected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(borderColor, lineWidth: isSelected ? 1.8 : 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-            .shadow(color: DS.Color.ink.opacity(isSelected ? 0.08 : 0.04), radius: 8, x: 0, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: DS.Color.primary.opacity(isSelected ? 0.14 : 0), radius: 14, x: 0, y: 6)
+            .shadow(color: DS.Color.ink.opacity(isSelected ? 0.06 : 0.035), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
