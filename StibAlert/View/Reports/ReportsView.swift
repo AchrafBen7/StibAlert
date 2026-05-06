@@ -83,6 +83,8 @@ struct ReportsView: View {
     @State private var selectedLineSummary: TransportPerturbationSummaryDTO? = nil
     @State private var isLoadingSummary = false
     @State private var isShowingSummary = false
+    @State private var votingReportIds: Set<String> = []
+    @State private var locallyUpvotedReportIds: Set<String> = []
 
     private var availableLineFilters: [String] {
         let reportLines = reports.map(\.ligne)
@@ -210,16 +212,7 @@ struct ReportsView: View {
                 ].joined(separator: " ")
                 return haystack.localizedCaseInsensitiveContains(trimmed)
             }
-            .sorted { lhs, rhs in
-                switch (lhs.event?.startsAt, rhs.event?.startsAt, lhs.report?.dateSignalement, rhs.report?.dateSignalement) {
-                case let (l?, r?, _, _):
-                    return l > r
-                case let (_, _, l?, r?):
-                    return l > r
-                default:
-                    return lhs.title < rhs.title
-                }
-            }
+            .sorted(by: sortFeedItems)
     }
 
     private var segmentCounts: [ReportSegment: Int] {
@@ -563,16 +556,22 @@ struct ReportsView: View {
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(feedItems) { item in
-                    Button {
+                    EditorialFeedCard(
+                        item: item,
+                        isVoting: item.report.map { votingReportIds.contains($0.id) } ?? false,
+                        hasUpvoted: item.report.map { locallyUpvotedReportIds.contains($0.id) } ?? false,
+                        onUpvote: { report in
+                            Task { await upvoteReport(report) }
+                        }
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
                         if let report = item.report {
                             selectedReport = report
                         } else if let event = item.event {
                             selectedEvent = event
                         }
-                    } label: {
-                        EditorialFeedCard(item: item)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, DS.Spacing.xl)
@@ -765,6 +764,90 @@ struct ReportsView: View {
         return .community
     }
 
+    private func sortFeedItems(_ lhs: EditorialFeedItem, _ rhs: EditorialFeedItem) -> Bool {
+        let lhsIsCommunity = lhs.type == .community || lhs.type == .mixed
+        let rhsIsCommunity = rhs.type == .community || rhs.type == .mixed
+
+        if lhsIsCommunity, rhsIsCommunity {
+            let lhsScore = communityRankScore(lhs)
+            let rhsScore = communityRankScore(rhs)
+            if lhsScore != rhsScore { return lhsScore > rhsScore }
+        }
+
+        switch (lhs.event?.startsAt, rhs.event?.startsAt, lhs.report?.dateSignalement, rhs.report?.dateSignalement) {
+        case let (l?, r?, _, _):
+            return l > r
+        case let (_, _, l?, r?):
+            return l > r
+        default:
+            return lhs.title < rhs.title
+        }
+    }
+
+    private func communityRankScore(_ item: EditorialFeedItem) -> Int {
+        guard let report = item.report else { return 0 }
+        let upvotes = report.votesPositifs ?? 0
+        let downvotes = report.votesNegatifs ?? 0
+        let confirmations = report.community?.confirmations ?? 0
+        return max(0, upvotes - downvotes) + confirmations * 2
+    }
+
+    @MainActor
+    private func upvoteReport(_ report: SignalementDTO) async {
+        guard !votingReportIds.contains(report.id) else { return }
+        if locallyUpvotedReportIds.contains(report.id) { return }
+
+        votingReportIds.insert(report.id)
+        defer { votingReportIds.remove(report.id) }
+
+        do {
+            let response = try await SignalementService.voter(signalementId: report.id, vote: "up")
+            locallyUpvotedReportIds.insert(report.id)
+            if let updated = response.signalement {
+                replaceReport(updated)
+            } else {
+                incrementLocalUpvote(for: report.id)
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } catch {
+            loadError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func replaceReport(_ updated: SignalementDTO) {
+        if let index = reports.firstIndex(where: { $0.id == updated.id }) {
+            reports[index] = updated
+        }
+        if selectedReport?.id == updated.id {
+            selectedReport = updated
+        }
+    }
+
+    @MainActor
+    private func incrementLocalUpvote(for reportId: String) {
+        guard let index = reports.firstIndex(where: { $0.id == reportId }) else { return }
+        let current = reports[index]
+        reports[index] = SignalementDTO(
+            id: current.id,
+            utilisateurId: current.utilisateurId,
+            arretId: current.arretId,
+            ligne: current.ligne,
+            typeProbleme: current.typeProbleme,
+            description: current.description,
+            photo: current.photo,
+            latitude: current.latitude,
+            longitude: current.longitude,
+            confiance: current.confiance,
+            source: current.source,
+            votesPositifs: (current.votesPositifs ?? 0) + 1,
+            votesNegatifs: current.votesNegatifs,
+            dateSignalement: current.dateSignalement,
+            status: current.status,
+            community: current.community
+        )
+    }
+
     private func relativeTimeLabel(from date: Date?) -> String {
         guard let date else { return "il y a quelques min" }
         let minutes = max(0, Int(Date().timeIntervalSince(date) / 60))
@@ -955,6 +1038,9 @@ private struct EditorialNowCard: View {
 
 private struct EditorialFeedCard: View {
     let item: EditorialFeedItem
+    var isVoting: Bool = false
+    var hasUpvoted: Bool = false
+    var onUpvote: ((SignalementDTO) -> Void)? = nil
 
     private var meta: EditorialTypeMeta { .for(item.type) }
 
@@ -1153,7 +1239,36 @@ private struct EditorialFeedCard: View {
             }
 
             HStack(spacing: 16) {
-                if let up = item.upvotes {
+                if item.type == .community || item.type == .mixed,
+                   let report = item.report {
+                    Button {
+                        onUpvote?(report)
+                    } label: {
+                        HStack(spacing: 5) {
+                            if isVoting {
+                                ProgressView()
+                                    .scaleEffect(0.62)
+                                    .tint(hasUpvoted ? DS.Color.primary : DS.Color.inkMute)
+                            } else {
+                                Image(systemName: hasUpvoted ? "arrow.up.circle.fill" : "arrow.up")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            Text("\(item.upvotes ?? 0)")
+                                .font(DS.Font.bodySmall.weight(.semibold))
+                        }
+                        .foregroundStyle(hasUpvoted ? DS.Color.primary : DS.Color.inkMute)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(hasUpvoted ? DS.Color.primary.opacity(0.10) : DS.Color.paper2.opacity(0.55))
+                        .overlay(
+                            Capsule()
+                                .stroke(hasUpvoted ? DS.Color.primary.opacity(0.35) : DS.Color.ink.opacity(0.12), lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isVoting || hasUpvoted)
+                } else if let up = item.upvotes {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 11, weight: .bold))

@@ -55,8 +55,8 @@ enum SignalementService {
         )
     }
 
-    static func voter(signalementId: String, vote: String) async throws {
-        let _: MessageResponse = try await APIClient.shared.request(
+    static func voter(signalementId: String, vote: String) async throws -> SignalementVoteResponse {
+        try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/vote",
             method: .POST,
             body: VoteRequest(vote: vote),
@@ -97,6 +97,11 @@ enum SignalementService {
 }
 
 struct VoteRequest: Encodable { let vote: String }
+
+struct SignalementVoteResponse: Decodable {
+    let message: String
+    let signalement: SignalementDTO?
+}
 
 struct SignalementsListResponse: Decodable {
     let signalements: [SignalementDTO]
