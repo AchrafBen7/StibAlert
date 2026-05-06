@@ -32,6 +32,16 @@ private struct EditorialNowItem: Identifiable {
     let reason: String
 }
 
+private struct NetworkIssueCarouselItem: Identifiable {
+    let id: String
+    let title: String
+    let body: String
+    let lines: [String]
+    let location: String?
+    let sourceLabel: String
+    let tint: Color
+}
+
 private struct EditorialFeedItem: Identifiable {
     let id: String
     let type: EditorialFeedItemType
@@ -236,7 +246,7 @@ struct ReportsView: View {
                         .padding(.top, DS.Spacing.md)
 
                     if let summary = currentSummary {
-                        summaryPreview(summary)
+                        summaryCarousel(summary)
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
                     }
@@ -869,56 +879,113 @@ struct ReportsView: View {
         return "—"
     }
 
-    private func summaryPreview(_ summary: TransportPerturbationSummaryDTO) -> some View {
-        Button {
-            isShowingSummary = true
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
+    private func summaryCarousel(_ summary: TransportPerturbationSummaryDTO) -> some View {
+        let items = networkIssueCarouselItems(for: summary)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
                 EditorialPingDot(color: summaryDotColor(for: summary))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(summary.title)
-                        .font(DS.Font.bodyBold)
-                        .foregroundStyle(DS.Color.ink)
-
-                    Text(summary.shortText)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkSoft)
-                        .lineLimit(2)
-
-                    HStack(spacing: 6) {
-                        ReportsMetaBadge(
-                            title: sourcePreviewTitle(for: summary),
-                            tint: sourcePreviewTint(for: summary)
-                        )
-
-                        if let line = summary.affectedLines.first {
-                            ReportsMetaBadge(
-                                title: "Ligne \(line)",
-                                tint: DS.Color.secondary.opacity(0.18)
-                            )
-                        }
-                    }
-                }
-
+                Text(items.count > 1 ? "À surveiller sur le réseau" : summary.title)
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.5)
+                    .foregroundStyle(DS.Color.ink)
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                Text("\(items.count)")
+                    .font(DS.Font.monoSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Color.paper)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-            )
-            .shadow(DS.Shadow.raised)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(items) { item in
+                        Button {
+                            isShowingSummary = true
+                        } label: {
+                            NetworkIssueCarouselCard(item: item)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 2)
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func networkIssueCarouselItems(for summary: TransportPerturbationSummaryDTO) -> [NetworkIssueCarouselItem] {
+        let officialItems = currentOfficialIncidents
+            .filter { incident in
+                let source = incident.source?.lowercased() ?? ""
+                let isOfficial = source.contains("official") || source.contains("stib")
+                let matchesLine = selectedLineFilter == "Tout"
+                    || incident.line == selectedLineFilter
+                    || incident.line == nil
+                return isOfficial && matchesLine
+            }
+            .prefix(8)
+            .map { incident in
+                let line = incident.line?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let lines = line.map { [$0] } ?? Array(summary.affectedLines.prefix(4))
+                return NetworkIssueCarouselItem(
+                    id: "official-\(incident.id)",
+                    title: incident.type ?? "Information STIB",
+                    body: incident.description ?? summary.shortText,
+                    lines: lines,
+                    location: incident.stop?.name,
+                    sourceLabel: "Officiel STIB",
+                    tint: DS.Color.statusMinor
+                )
+            }
+
+        if !officialItems.isEmpty {
+            return Array(officialItems)
+        }
+
+        var items: [NetworkIssueCarouselItem] = []
+
+        if let crowding = summary.crowdingRisk {
+            items.append(
+                NetworkIssueCarouselItem(
+                    id: "crowding",
+                    title: crowding.title,
+                    body: crowding.shortText,
+                    lines: crowding.impactedLines.isEmpty ? summary.affectedLines : crowding.impactedLines,
+                    location: crowding.zoneLabel,
+                    sourceLabel: "Affluence",
+                    tint: summaryDotColor(for: summary)
+                )
+            )
+        }
+
+        let bullets = summary.bullets.isEmpty ? [summary.shortText] : summary.bullets
+        items += bullets.prefix(6).enumerated().map { index, bullet in
+            NetworkIssueCarouselItem(
+                id: "summary-\(index)",
+                title: summary.title,
+                body: bullet,
+                lines: summary.affectedLines,
+                location: summary.affectedStops.first,
+                sourceLabel: sourcePreviewTitle(for: summary),
+                tint: summaryDotColor(for: summary)
+            )
+        }
+
+        if items.isEmpty {
+            items.append(
+                NetworkIssueCarouselItem(
+                    id: "summary-fallback",
+                    title: summary.title,
+                    body: summary.shortText,
+                    lines: summary.affectedLines,
+                    location: summary.affectedStops.first,
+                    sourceLabel: sourcePreviewTitle(for: summary),
+                    tint: summaryDotColor(for: summary)
+                )
+            )
+        }
+
+        return items
     }
 
     private func summaryDotColor(for summary: TransportPerturbationSummaryDTO) -> Color {
@@ -1033,6 +1100,86 @@ private struct EditorialNowCard: View {
                 .stroke(DS.Color.ink, lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+}
+
+private struct NetworkIssueCarouselCard: View {
+    let item: NetworkIssueCarouselItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Circle()
+                    .fill(item.tint)
+                    .frame(width: 9, height: 9)
+                    .padding(.top, 6)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.sourceLabel)
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    Text(item.title)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.top, 4)
+            }
+
+            Text(item.body)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkSoft)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+                .frame(minHeight: 52, alignment: .topLeading)
+
+            VStack(alignment: .leading, spacing: 8) {
+                if !item.lines.isEmpty {
+                    HStack(spacing: 7) {
+                        ForEach(Array(item.lines.prefix(5)), id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                        if item.lines.count > 5 {
+                            Text("+\(item.lines.count - 5)")
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                    }
+                }
+
+                if let location = item.location, !location.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(location)
+                            .lineLimit(1)
+                    }
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: 292, alignment: .topLeading)
+        .frame(minHeight: 174, alignment: .topLeading)
+        .background(
+            DS.Color.paper
+                .overlay(item.tint.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+        .shadow(DS.Shadow.raised)
     }
 }
 
