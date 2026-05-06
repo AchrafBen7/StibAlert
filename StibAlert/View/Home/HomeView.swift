@@ -901,69 +901,24 @@ struct HomeView: View {
             .zIndex(10)
         }
 
-        if shouldShowRouteSheet {
-            RouteRecommendationsSheet(
-                options: routeOptions,
-                modeSummaries: routeModeSummaries,
-                selectedRouteID: $selectedRouteID,
-                isExpanded: $isRouteSheetExpanded,
-                onSelect: { option in
-                    applyRouteOption(option)
-                },
-                onClose: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        enterInteractionMode(.map)
-                    }
-                }
-            )
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(8)
-        }
-
-        if shouldShowRouteDetail, let selectedRouteDetail {
-            RouteItineraryDetailsView(
-                option: selectedRouteDetail,
-                onBack: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        self.selectedRouteDetail = nil
-                        enterInteractionMode(.routePreview)
-                    }
-                },
-                onClose: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        enterInteractionMode(.map)
-                    }
-                },
-                onShowMap: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        self.selectedRouteDetail = nil
-                        enterInteractionMode(.routePreview)
-                    }
-                },
-                onStartAR: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        selectedARRoute = selectedRouteDetail
-                        enterInteractionMode(.ar)
-                    }
-                }
-            )
-            .transition(.move(edge: .trailing).combined(with: .opacity))
-            .zIndex(9)
-        }
-
-        if shouldShowAR, let selectedARRoute {
-            RouteARNavigationView(
-                option: selectedARRoute,
-                onClose: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                        self.selectedARRoute = nil
-                        enterInteractionMode(routeOptions.isEmpty ? .map : .routePreview)
-                    }
-                }
-            )
-            .transition(.opacity)
-            .zIndex(11)
-        }
+        HomeRouteSurfaceOverlay(
+            options: routeOptions,
+            modeSummaries: routeModeSummaries,
+            selectedRouteID: $selectedRouteID,
+            isRouteSheetExpanded: $isRouteSheetExpanded,
+            selectedRouteDetail: selectedRouteDetail,
+            selectedARRoute: selectedARRoute,
+            shouldShowRouteSheet: shouldShowRouteSheet,
+            shouldShowRouteDetail: shouldShowRouteDetail,
+            shouldShowAR: shouldShowAR,
+            onSelect: applyRouteOption(_:),
+            onCloseRouteSheet: closeRouteSurface,
+            onBackFromRouteDetail: showRoutePreviewFromDetail,
+            onCloseRouteDetail: closeRouteSurface,
+            onShowRouteMap: showRoutePreviewFromDetail,
+            onStartAR: startARRoute(_:),
+            onCloseAR: closeARRoute
+        )
 
         if nav.currentPage != .home {
             pageOverlay
@@ -1027,6 +982,37 @@ struct HomeView: View {
         isRouteSheetExpanded = false
         selectedRouteDetail = nil
         selectedARRoute = nil
+    }
+
+    @MainActor
+    private func closeRouteSurface() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            enterInteractionMode(.map)
+        }
+    }
+
+    @MainActor
+    private func showRoutePreviewFromDetail() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            selectedRouteDetail = nil
+            enterInteractionMode(.routePreview)
+        }
+    }
+
+    @MainActor
+    private func startARRoute(_ route: HomeRouteOption) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            selectedARRoute = route
+            enterInteractionMode(.ar)
+        }
+    }
+
+    @MainActor
+    private func closeARRoute() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            selectedARRoute = nil
+            enterInteractionMode(routeOptions.isEmpty ? .map : .routePreview)
+        }
     }
 
     private var homeDashboardData: HomeDashboardData {
@@ -2438,6 +2424,65 @@ private struct HamburgerButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Ouvrir le menu")
         .accessibilityHint("Affiche les sections principales de l’application")
+    }
+}
+
+private struct HomeRouteSurfaceOverlay: View {
+    let options: [HomeRouteOption]
+    let modeSummaries: [RouteModeSummary]
+    @Binding var selectedRouteID: UUID?
+    @Binding var isRouteSheetExpanded: Bool
+    let selectedRouteDetail: HomeRouteOption?
+    let selectedARRoute: HomeRouteOption?
+    let shouldShowRouteSheet: Bool
+    let shouldShowRouteDetail: Bool
+    let shouldShowAR: Bool
+    let onSelect: (HomeRouteOption) -> Void
+    let onCloseRouteSheet: () -> Void
+    let onBackFromRouteDetail: () -> Void
+    let onCloseRouteDetail: () -> Void
+    let onShowRouteMap: () -> Void
+    let onStartAR: (HomeRouteOption) -> Void
+    let onCloseAR: () -> Void
+
+    var body: some View {
+        Group {
+            if shouldShowRouteSheet {
+                RouteRecommendationsSheet(
+                    options: options,
+                    modeSummaries: modeSummaries,
+                    selectedRouteID: $selectedRouteID,
+                    isExpanded: $isRouteSheetExpanded,
+                    onSelect: onSelect,
+                    onClose: onCloseRouteSheet
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(8)
+            }
+
+            if shouldShowRouteDetail, let selectedRouteDetail {
+                RouteItineraryDetailsView(
+                    option: selectedRouteDetail,
+                    onBack: onBackFromRouteDetail,
+                    onClose: onCloseRouteDetail,
+                    onShowMap: onShowRouteMap,
+                    onStartAR: {
+                        onStartAR(selectedRouteDetail)
+                    }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .zIndex(9)
+            }
+
+            if shouldShowAR, let selectedARRoute {
+                RouteARNavigationView(
+                    option: selectedARRoute,
+                    onClose: onCloseAR
+                )
+                .transition(.opacity)
+                .zIndex(11)
+            }
+        }
     }
 }
 
