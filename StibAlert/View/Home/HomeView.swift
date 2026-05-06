@@ -2436,7 +2436,7 @@ private struct HomeBottomChromeOverlay: View {
                     HomeReportFloatingButton(action: onOpenReportSheet)
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 118)
+                .padding(.bottom, 126)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
@@ -2447,6 +2447,7 @@ private struct HomeBottomChromeOverlay: View {
                     set: onSelectTab
                 ))
                 .padding(.bottom, 0)
+                .offset(y: 46)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(8)
             }
@@ -3006,31 +3007,6 @@ private struct LocationFloatingButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Recentrer la carte")
         .accessibilityHint("Replace la carte sur votre position")
-    }
-}
-
-private struct HelpFloatingButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(DS.Color.paper.opacity(0.96))
-                .frame(width: 42, height: 44)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                )
-                .overlay(
-                    Image(systemName: "questionmark")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-                )
-                .shadow(DS.Shadow.floating)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Aide de la carte")
-        .accessibilityHint("Explique les icônes et statuts affichés")
     }
 }
 
