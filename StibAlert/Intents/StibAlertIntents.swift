@@ -101,7 +101,7 @@ struct SignalerArretIntent: AppIntent {
             case 404:
                 return .result(dialog: "L'arrêt \(nomArret) est introuvable. Vérifiez l'orthographe.")
             default:
-                return .result(dialog: body?.message ?? "Erreur lors de la création du signalement.")
+                return .result(dialog: "Erreur lors de la création du signalement. Réessayez.")
             }
         } catch {
             return .result(dialog: "Problème de connexion. Vérifiez votre réseau.")
