@@ -512,42 +512,17 @@ struct HomeView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if shouldShowPulseBar {
-                HomePulseBar(
-                    totalActive: totalActiveSignalementsCount,
-                    eventCount: highlightedEventCount,
-                    onOpenReports: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.currentPage = .reports
-                        }
-                    },
-                    onReport: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.showReportSheet = true
-                        }
-                    }
-                )
-                .padding(.trailing, 14)
-                .padding(.leading, stibi.brief == nil ? 14 : 92)
-                .padding(.bottom, 80)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(6)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if shouldShowTabBar {
-                AppTabBar(selection: Binding(
-                    get: { AppTab.from(page: nav.currentPage) },
-                    set: { newTab in
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                            nav.currentPage = newTab.page
-                        }
-                    }
-                ))
-                .padding(.bottom, 8)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
-            }
+            HomeBottomChromeOverlay(
+                currentPage: nav.currentPage,
+                shouldShowPulseBar: shouldShowPulseBar,
+                shouldShowTabBar: shouldShowTabBar,
+                hasStibiBrief: stibi.brief != nil,
+                totalActiveSignalementsCount: totalActiveSignalementsCount,
+                highlightedEventCount: highlightedEventCount,
+                onOpenReports: openReportsFromHome,
+                onOpenReportSheet: openQuickReportFromHome,
+                onSelectTab: selectTab(_:)
+            )
         }
         .guestAuthGate(
             isPresented: $showReportAuthGate,
@@ -947,6 +922,27 @@ struct HomeView: View {
         selectedMapStopSummary = nil
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = false
+    }
+
+    @MainActor
+    private func openReportsFromHome() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            nav.currentPage = .reports
+        }
+    }
+
+    @MainActor
+    private func openQuickReportFromHome() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            nav.showReportSheet = true
+        }
+    }
+
+    @MainActor
+    private func selectTab(_ tab: AppTab) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            nav.currentPage = tab.page
+        }
     }
 
     @MainActor
@@ -2412,6 +2408,46 @@ private struct HamburgerButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Ouvrir le menu")
         .accessibilityHint("Affiche les sections principales de l’application")
+    }
+}
+
+private struct HomeBottomChromeOverlay: View {
+    let currentPage: AppPage
+    let shouldShowPulseBar: Bool
+    let shouldShowTabBar: Bool
+    let hasStibiBrief: Bool
+    let totalActiveSignalementsCount: Int
+    let highlightedEventCount: Int
+    let onOpenReports: () -> Void
+    let onOpenReportSheet: () -> Void
+    let onSelectTab: (AppTab) -> Void
+
+    var body: some View {
+        Group {
+            if shouldShowPulseBar {
+                HomePulseBar(
+                    totalActive: totalActiveSignalementsCount,
+                    eventCount: highlightedEventCount,
+                    onOpenReports: onOpenReports,
+                    onReport: onOpenReportSheet
+                )
+                .padding(.trailing, 14)
+                .padding(.leading, hasStibiBrief ? 92 : 14)
+                .padding(.bottom, 80)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(6)
+            }
+
+            if shouldShowTabBar {
+                AppTabBar(selection: Binding(
+                    get: { AppTab.from(page: currentPage) },
+                    set: onSelectTab
+                ))
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(8)
+            }
+        }
     }
 }
 
