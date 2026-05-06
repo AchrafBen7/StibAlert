@@ -667,8 +667,15 @@ struct ReportsView: View {
         }
 
         do {
-            let response = try await SignalementService.liste(page: 1, limit: 100)
-            reports = response.signalements.sorted {
+            async let mixedResponse = SignalementService.liste(page: 1, limit: 100)
+            async let officialResponse = SignalementService.liste(page: 1, limit: 100, source: "official")
+            let mixed = try await mixedResponse
+            let official = try await officialResponse
+            var seenReportIds = Set<String>()
+            let merged = (mixed.signalements + official.signalements).filter { report in
+                seenReportIds.insert(report.id).inserted
+            }
+            reports = merged.sorted {
                 ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast)
             }
             if !availableLineFilters.contains(selectedLineFilter) {

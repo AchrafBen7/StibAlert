@@ -7,8 +7,12 @@ enum SignalementService {
         return response.signalements
     }
 
-    static func liste(page: Int, limit: Int = 25) async throws -> SignalementsListResponse {
-        try await APIClient.shared.request("/api/signalements?page=\(page)&limit=\(limit)")
+    static func liste(page: Int, limit: Int = 25, source: String? = nil) async throws -> SignalementsListResponse {
+        var path = "/api/signalements?page=\(page)&limit=\(limit)"
+        if let source, !source.isEmpty {
+            path += "&source=\(source.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? source)"
+        }
+        return try await APIClient.shared.request(path)
     }
 
     static func arretsParLigne(_ ligne: String) async throws -> [ArretDTO] {
