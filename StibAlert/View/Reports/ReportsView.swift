@@ -26,6 +26,44 @@ private enum EditorialFeedItemType {
     case official, community, mixed, event
 }
 
+private enum ReportTransportMode: String, CaseIterable, Identifiable {
+    case all, metro, tram, bus
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "Tous modes"
+        case .metro: return "Métro"
+        case .tram: return "Tram"
+        case .bus: return "Bus"
+        }
+    }
+
+    var iconSystemName: String? {
+        switch self {
+        case .all: return nil
+        case .metro: return "m.circle.fill"
+        case .tram: return "tram.fill"
+        case .bus: return "bus.fill"
+        }
+    }
+}
+
+private enum ReportSortMode: String, CaseIterable, Identifiable {
+    case recent, urgent, personal
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .recent: return "Plus récents"
+        case .urgent: return "Plus urgents"
+        case .personal: return "Mes lignes"
+        }
+    }
+}
+
 private struct EditorialNowItem: Identifiable {
     let id: String
     let line: String
@@ -34,8 +72,8 @@ private struct EditorialNowItem: Identifiable {
 
 private struct NetworkIssueCarouselItem: Identifiable {
     let id: String
-    let title: String
-    let body: String
+    let keyword: String
+    let detail: String
     let lines: [String]
     let location: String?
     let sourceLabel: String
@@ -58,6 +96,12 @@ private struct EditorialFeedItem: Identifiable {
     let event: TransportEventImpactDTO?
 }
 
+private struct EditorialLineGroup: Identifiable {
+    let id: String
+    let line: String
+    let items: [EditorialFeedItem]
+}
+
 struct ReportsView: View {
     private enum ContentScope: String, CaseIterable, Identifiable {
         case reports
@@ -75,14 +119,18 @@ struct ReportsView: View {
 
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
+    @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var selectedScope: ContentScope = .reports
     @State private var selectedSegment: ReportSegment = .all
+    @State private var selectedModeFilter: ReportTransportMode = .all
+    @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
     @State private var isLoading = false
     @State private var hasLoaded = false
+    @State private var lastUpdatedAt: Date? = nil
     @State private var loadError: String? = nil
     @State private var query = ""
     @State private var selectedLineFilter = "Tout"
@@ -95,11 +143,19 @@ struct ReportsView: View {
     @State private var isShowingSummary = false
     @State private var votingReportIds: Set<String> = []
     @State private var locallyUpvotedReportIds: Set<String> = []
+    @State private var expandedFeedLineIds: Set<String> = []
+    @State private var notificationLineInFlight: Set<String> = []
+
+    private var favoriteLines: Set<String> {
+        Set(session.currentUser?.favoriteLines ?? [])
+    }
 
     private var availableLineFilters: [String] {
         let reportLines = reports.map(\.ligne)
         let eventLines = events.flatMap(\.impactedLines)
-        let lines = Set(reportLines + eventLines).sorted {
+        let officialLines = (transportOverview?.activeIncidents ?? []).compactMap(\.line)
+        let summaryLines = transportOverview?.perturbationSummary?.affectedLines ?? []
+        let lines = Set(reportLines + eventLines + officialLines + summaryLines).sorted {
             $0.compare($1, options: .numeric) == .orderedAscending
         }
         return ["Tout"] + lines
@@ -174,7 +230,7 @@ struct ReportsView: View {
             )
         }
 
-        let officialTransportItems = officialTransportFeedItems
+        let officialTransportItems = shouldHideOfficialFeedDuplicates ? [] : officialTransportFeedItems
 
         let eventItems = events.compactMap { event -> EditorialFeedItem? in
             guard selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter) else { return nil }
@@ -212,6 +268,7 @@ struct ReportsView: View {
 
         return scopedItems
             .filter { item in
+                guard matchesSelectedMode(lines: item.lines) else { return false }
                 let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return true }
                 let haystack = [
@@ -223,6 +280,34 @@ struct ReportsView: View {
                 return haystack.localizedCaseInsensitiveContains(trimmed)
             }
             .sorted(by: sortFeedItems)
+    }
+
+    private var shouldHideOfficialFeedDuplicates: Bool {
+        selectedScope == .reports
+            && selectedSegment == .all
+            && selectedLineFilter == "Tout"
+            && currentSummary != nil
+    }
+
+    private var shouldGroupFeedByLine: Bool {
+        selectedScope == .reports && selectedLineFilter == "Tout"
+    }
+
+    private var groupedFeedItems: [EditorialLineGroup] {
+        let grouped = Dictionary(grouping: feedItems.filter { !$0.lines.isEmpty }) { item in
+            item.lines.first ?? "Réseau"
+        }
+
+        return grouped.map { line, items in
+            EditorialLineGroup(
+                id: line,
+                line: line,
+                items: items.sorted(by: sortFeedItems)
+            )
+        }
+        .sorted { lhs, rhs in
+            sortLineGroups(lhs, rhs)
+        }
     }
 
     private var segmentCounts: [ReportSegment: Int] {
@@ -264,8 +349,11 @@ struct ReportsView: View {
                     Section(header: editorialStickySegments) {
                         editorialFeedSection
                     }
-                }
+            }
                 .padding(.bottom, 140)
+            }
+            .refreshable {
+                await loadData(force: true)
             }
 
             VStack {
@@ -324,6 +412,11 @@ struct ReportsView: View {
         }
         .onChange(of: selectedScope) { _, _ in
             Task { await loadData(force: true) }
+        }
+        .onChange(of: selectedModeFilter) { _, _ in
+            if selectedLineFilter != "Tout", !matchesSelectedMode(lines: [selectedLineFilter]) {
+                selectedLineFilter = "Tout"
+            }
         }
     }
 
@@ -520,13 +613,100 @@ struct ReportsView: View {
                 }
                 .padding(.top, DS.Spacing.md)
                 .padding(.bottom, 6)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(ReportTransportMode.allCases) { mode in
+                            Chip(
+                                label: mode.label,
+                                active: selectedModeFilter == mode,
+                                icon: {
+                                    if let icon = mode.iconSystemName {
+                                        Image(systemName: icon)
+                                    }
+                                }
+                            ) {
+                                selectedModeFilter = mode
+                            }
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.xl)
+                }
+                .padding(.bottom, 6)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(availableLineFilters.filter { $0 == "Tout" || matchesSelectedMode(lines: [$0]) }.prefix(18)), id: \.self) { line in
+                            Button {
+                                selectedLineFilter = line
+                            } label: {
+                                if line == "Tout" {
+                                    Text("Toutes lignes")
+                                        .font(DS.Font.bodyBold)
+                                        .foregroundStyle(selectedLineFilter == line ? DS.Color.paper : DS.Color.ink)
+                                        .padding(.horizontal, 12)
+                                        .frame(height: 34)
+                                        .background(selectedLineFilter == line ? DS.Color.ink : DS.Color.paper)
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
+                                        )
+                                        .clipShape(Capsule())
+                                } else {
+                                    LineBadge(
+                                        line: line,
+                                        size: .sm
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                            .stroke(selectedLineFilter == line ? DS.Color.ink : .clear, lineWidth: 2)
+                                    )
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.xl)
+                }
+                .padding(.bottom, 6)
             }
 
-            Text(scopeHelperText)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkSoft)
-                .padding(.horizontal, DS.Spacing.xl)
-                .padding(.bottom, DS.Spacing.sm)
+            HStack(alignment: .center, spacing: 8) {
+                Text(scopeHelperText)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .lineLimit(2)
+
+                Spacer(minLength: 8)
+
+                if selectedScope == .reports {
+                    Menu {
+                        ForEach(ReportSortMode.allCases) { mode in
+                            Button(mode.label) {
+                                selectedSortMode = mode
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(selectedSortMode.label)
+                                .font(DS.Font.monoSmall.weight(.bold))
+                        }
+                        .foregroundStyle(DS.Color.ink)
+                    }
+                }
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.bottom, 4)
+
+            if let lastUpdatedAt {
+                Text("Mis à jour \(relativeTimeLabel(from: lastUpdatedAt))")
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.horizontal, DS.Spacing.xl)
+                    .padding(.bottom, DS.Spacing.sm)
+            }
         }
         .background(DS.Color.paper)
     }
@@ -565,27 +745,71 @@ struct ReportsView: View {
                 .padding(.vertical, 64)
         } else {
             LazyVStack(spacing: 10) {
-                ForEach(feedItems) { item in
-                    EditorialFeedCard(
-                        item: item,
-                        isVoting: item.report.map { votingReportIds.contains($0.id) } ?? false,
-                        hasUpvoted: item.report.map { locallyUpvotedReportIds.contains($0.id) } ?? false,
-                        onUpvote: { report in
-                            Task { await upvoteReport(report) }
-                        }
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if let report = item.report {
-                            selectedReport = report
-                        } else if let event = item.event {
-                            selectedEvent = event
-                        }
+                if shouldGroupFeedByLine {
+                    ForEach(groupedFeedItems) { group in
+                        EditorialLineGroupCard(
+                            group: group,
+                            isExpanded: expandedFeedLineIds.contains(group.id),
+                            isFavoriteLine: favoriteLines.contains(group.line),
+                            onToggle: {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    if expandedFeedLineIds.contains(group.id) {
+                                        expandedFeedLineIds.remove(group.id)
+                                    } else {
+                                        expandedFeedLineIds.insert(group.id)
+                                    }
+                                }
+                            },
+                            nestedContent: {
+                                VStack(spacing: 8) {
+                                    ForEach(group.items) { item in
+                                        feedCard(for: item)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    ForEach(feedItems) { item in
+                        feedCard(for: item)
                     }
                 }
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, 4)
+        }
+    }
+
+    private func feedCard(for item: EditorialFeedItem) -> some View {
+        EditorialFeedCard(
+            item: item,
+            isFavoriteLine: item.lines.contains(where: { favoriteLines.contains($0) }),
+            isVoting: item.report.map { votingReportIds.contains($0.id) } ?? false,
+            hasUpvoted: item.report.map { locallyUpvotedReportIds.contains($0.id) } ?? false,
+            isNotificationLoading: item.lines.contains(where: { notificationLineInFlight.contains($0) }),
+            isNotificationEnabled: item.lines.contains(where: { favoriteLines.contains($0) }),
+            onUpvote: { report in
+                Task { await upvoteReport(report) }
+            },
+            onNotifyLine: { line in
+                Task { await enableLineNotifications(for: line) }
+            }
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let report = item.report {
+                selectedReport = report
+            } else if let event = item.event {
+                selectedEvent = event
+            }
+        }
+    }
+
+    private func openFeedItem(_ item: EditorialFeedItem) {
+        if let report = item.report {
+            selectedReport = report
+        } else if let event = item.event {
+            selectedEvent = event
         }
     }
 
@@ -657,6 +881,7 @@ struct ReportsView: View {
         await loadReports(force: force)
         await loadEvents(force: force)
         await loadSummary(force: force)
+        lastUpdatedAt = Date()
     }
 
     @MainActor
@@ -774,7 +999,36 @@ struct ReportsView: View {
         return .community
     }
 
+    private func matchesSelectedMode(lines: [String]) -> Bool {
+        guard selectedModeFilter != .all else { return true }
+        return lines.contains { transportMode(for: $0) == selectedModeFilter }
+    }
+
+    private func transportMode(for line: String) -> ReportTransportMode {
+        let normalized = line.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasPrefix("T") { return .tram }
+        guard let number = Int(normalized) else { return .bus }
+        if (1...6).contains(number) { return .metro }
+        if [7, 8, 9, 10, 19, 25, 39, 44, 51, 55, 62, 81, 82, 92, 93].contains(number) {
+            return .tram
+        }
+        return .bus
+    }
+
     private func sortFeedItems(_ lhs: EditorialFeedItem, _ rhs: EditorialFeedItem) -> Bool {
+        switch selectedSortMode {
+        case .personal:
+            let lhsFavorite = lhs.lines.contains { favoriteLines.contains($0) }
+            let rhsFavorite = rhs.lines.contains { favoriteLines.contains($0) }
+            if lhsFavorite != rhsFavorite { return lhsFavorite }
+        case .urgent:
+            let lhsUrgency = urgencyScore(lhs)
+            let rhsUrgency = urgencyScore(rhs)
+            if lhsUrgency != rhsUrgency { return lhsUrgency > rhsUrgency }
+        case .recent:
+            break
+        }
+
         let lhsIsCommunity = lhs.type == .community || lhs.type == .mixed
         let rhsIsCommunity = rhs.type == .community || rhs.type == .mixed
 
@@ -792,6 +1046,48 @@ struct ReportsView: View {
         default:
             return lhs.title < rhs.title
         }
+    }
+
+    private func sortLineGroups(_ lhs: EditorialLineGroup, _ rhs: EditorialLineGroup) -> Bool {
+        switch selectedSortMode {
+        case .personal:
+            let lhsFavorite = favoriteLines.contains(lhs.line)
+            let rhsFavorite = favoriteLines.contains(rhs.line)
+            if lhsFavorite != rhsFavorite { return lhsFavorite }
+        case .urgent:
+            let lhsScore = lhs.items.map(urgencyScore).max() ?? 0
+            let rhsScore = rhs.items.map(urgencyScore).max() ?? 0
+            if lhsScore != rhsScore { return lhsScore > rhsScore }
+        case .recent:
+            break
+        }
+
+        if lhs.items.count != rhs.items.count {
+            return lhs.items.count > rhs.items.count
+        }
+        return lhs.line.compare(rhs.line, options: .numeric) == .orderedAscending
+    }
+
+    private func urgencyScore(_ item: EditorialFeedItem) -> Int {
+        var score = 0
+        switch item.type {
+        case .official: score += 5
+        case .mixed: score += 7
+        case .community: score += 2
+        case .event: score += 1
+        }
+
+        let text = "\(item.title) \(item.body ?? "")".lowercased()
+        if text.contains("interrompu") || text.contains("bloqué") || text.contains("accident") {
+            score += 8
+        }
+        if text.contains("travaux") || text.contains("dévi") || text.contains("retard") {
+            score += 4
+        }
+        if item.lines.contains(where: { favoriteLines.contains($0) }) {
+            score += 3
+        }
+        return score
     }
 
     private func communityRankScore(_ item: EditorialFeedItem) -> Int {
@@ -818,6 +1114,33 @@ struct ReportsView: View {
             } else {
                 incrementLocalUpvote(for: report.id)
             }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } catch {
+            loadError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func enableLineNotifications(for line: String) async {
+        guard let user = session.currentUser else {
+            nav.authInitialRoute = .signIn
+            nav.showAuthFlow = true
+            return
+        }
+        guard !favoriteLines.contains(line), !notificationLineInFlight.contains(line) else { return }
+
+        notificationLineInFlight.insert(line)
+        defer { notificationLineInFlight.remove(line) }
+
+        do {
+            let updatedLines = Array((favoriteLines.union([line]))).sorted {
+                $0.compare($1, options: .numeric) == .orderedAscending
+            }
+            let updated = try await UtilisateurService.mettreAJourProfil(
+                userId: user.id,
+                favoriteLines: updatedLines
+            )
+            session.applyCurrentUserUpdate(updated)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } catch {
             loadError = (error as? APIError)?.errorDescription ?? error.localizedDescription
@@ -924,13 +1247,14 @@ struct ReportsView: View {
                 return isOfficial && matchesLine
             }
             .prefix(8)
-            .map { incident in
+            .compactMap { incident -> NetworkIssueCarouselItem? in
                 let line = incident.line?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let lines = line.map { [$0] } ?? Array(summary.affectedLines.prefix(4))
+                guard matchesSelectedMode(lines: lines) else { return nil }
                 return NetworkIssueCarouselItem(
                     id: "official-\(incident.id)",
-                    title: incident.type ?? "Information STIB",
-                    body: incident.description ?? summary.shortText,
+                    keyword: issueKeyword(from: incident.type ?? incident.description ?? summary.shortText),
+                    detail: incident.description ?? summary.shortText,
                     lines: lines,
                     location: incident.stop?.name,
                     sourceLabel: "Officiel STIB",
@@ -948,8 +1272,8 @@ struct ReportsView: View {
             items.append(
                 NetworkIssueCarouselItem(
                     id: "crowding",
-                    title: crowding.title,
-                    body: crowding.shortText,
+                    keyword: issueKeyword(from: crowding.title),
+                    detail: crowding.shortText,
                     lines: crowding.impactedLines.isEmpty ? summary.affectedLines : crowding.impactedLines,
                     location: crowding.zoneLabel,
                     sourceLabel: "Affluence",
@@ -962,8 +1286,8 @@ struct ReportsView: View {
         items += bullets.prefix(6).enumerated().map { index, bullet in
             NetworkIssueCarouselItem(
                 id: "summary-\(index)",
-                title: summary.title,
-                body: bullet,
+                keyword: issueKeyword(from: bullet),
+                detail: bullet,
                 lines: summary.affectedLines,
                 location: summary.affectedStops.first,
                 sourceLabel: sourcePreviewTitle(for: summary),
@@ -975,8 +1299,8 @@ struct ReportsView: View {
             items.append(
                 NetworkIssueCarouselItem(
                     id: "summary-fallback",
-                    title: summary.title,
-                    body: summary.shortText,
+                    keyword: issueKeyword(from: summary.shortText),
+                    detail: summary.shortText,
                     lines: summary.affectedLines,
                     location: summary.affectedStops.first,
                     sourceLabel: sourcePreviewTitle(for: summary),
@@ -986,6 +1310,18 @@ struct ReportsView: View {
         }
 
         return items
+    }
+
+    private func issueKeyword(from text: String) -> String {
+        let value = text.lowercased()
+        if value.contains("interrompu") || value.contains("interruption") { return "Interrompu" }
+        if value.contains("travaux") || value.contains("works") { return "Travaux" }
+        if value.contains("dévi") || value.contains("devi") { return "Dévié" }
+        if value.contains("retard") || value.contains("attente") { return "Retard" }
+        if value.contains("bondé") || value.contains("affluence") || value.contains("plein") { return "Affluence" }
+        if value.contains("accident") || value.contains("collision") { return "Accident" }
+        if value.contains("arrêt") || value.contains("halte") { return "Arrêt touché" }
+        return "À vérifier"
     }
 
     private func summaryDotColor(for summary: TransportPerturbationSummaryDTO) -> Color {
@@ -1107,7 +1443,7 @@ private struct NetworkIssueCarouselCard: View {
     let item: NetworkIssueCarouselItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Circle()
                     .fill(item.tint)
@@ -1120,8 +1456,8 @@ private struct NetworkIssueCarouselCard: View {
                         .tracking(1.4)
                         .foregroundStyle(DS.Color.inkMute)
 
-                    Text(item.title)
-                        .font(DS.Font.bodyBold)
+                    Text(item.keyword)
+                        .font(DS.Font.displayH3)
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
                 }
@@ -1134,12 +1470,12 @@ private struct NetworkIssueCarouselCard: View {
                     .padding(.top, 4)
             }
 
-            Text(item.body)
+            Text(item.detail)
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkSoft)
-                .lineLimit(3)
+                .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .frame(minHeight: 52, alignment: .topLeading)
+                .frame(minHeight: 38, alignment: .topLeading)
 
             VStack(alignment: .leading, spacing: 8) {
                 if !item.lines.isEmpty {
@@ -1167,9 +1503,9 @@ private struct NetworkIssueCarouselCard: View {
                 }
             }
         }
-        .padding(14)
-        .frame(width: 292, alignment: .topLeading)
-        .frame(minHeight: 174, alignment: .topLeading)
+        .padding(12)
+        .frame(width: 236, alignment: .topLeading)
+        .frame(minHeight: 146, alignment: .topLeading)
         .background(
             DS.Color.paper
                 .overlay(item.tint.opacity(0.06))
@@ -1183,11 +1519,96 @@ private struct NetworkIssueCarouselCard: View {
     }
 }
 
+private struct EditorialLineGroupCard<NestedContent: View>: View {
+    let group: EditorialLineGroup
+    let isExpanded: Bool
+    let isFavoriteLine: Bool
+    let onToggle: () -> Void
+    @ViewBuilder let nestedContent: NestedContent
+
+    private var officialCount: Int {
+        group.items.filter { $0.type == .official || $0.type == .mixed }.count
+    }
+
+    private var communityCount: Int {
+        group.items.filter { $0.type == .community || $0.type == .mixed }.count
+    }
+
+    private var headline: String {
+        let count = group.items.count
+        if count == 1 {
+            return group.items.first?.body ?? group.items.first?.title ?? "Information réseau"
+        }
+        return "\(count) infos à vérifier sur cette ligne"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: onToggle) {
+                HStack(alignment: .center, spacing: 12) {
+                    LineBadge(line: group.line, size: .lg)
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 6) {
+                            Text("Ligne \(group.line)")
+                                .font(DS.Font.bodyBold)
+                                .foregroundStyle(DS.Color.ink)
+                            if isFavoriteLine {
+                                ReportsMetaBadge(title: "Concerne ta ligne", tint: DS.Color.statusMinor.opacity(0.18))
+                            }
+                        }
+
+                        Text(headline)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        HStack(spacing: 6) {
+                            if officialCount > 0 {
+                                ReportsMetaBadge(title: "\(officialCount) officiel", tint: DS.Color.statusMajor.opacity(0.12))
+                            }
+                            if communityCount > 0 {
+                                ReportsMetaBadge(title: "\(communityCount) communauté", tint: DS.Color.community.opacity(0.12))
+                            }
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                nestedContent
+                    .padding(.top, 2)
+            }
+        }
+        .padding(14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                .stroke(isFavoriteLine ? DS.Color.statusMinor.opacity(0.42) : DS.Color.ink.opacity(0.14), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+        .shadow(DS.Shadow.raised)
+    }
+}
+
 private struct EditorialFeedCard: View {
     let item: EditorialFeedItem
+    var isFavoriteLine: Bool = false
     var isVoting: Bool = false
     var hasUpvoted: Bool = false
+    var isNotificationLoading: Bool = false
+    var isNotificationEnabled: Bool = false
     var onUpvote: ((SignalementDTO) -> Void)? = nil
+    var onNotifyLine: ((String) -> Void)? = nil
 
     private var meta: EditorialTypeMeta { .for(item.type) }
 
@@ -1351,6 +1772,17 @@ private struct EditorialFeedCard: View {
                             .tracking(1.4)
                     }
                     .foregroundStyle(sourceBadgeColor)
+
+                    if isFavoriteLine {
+                        HStack(spacing: 5) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("CONCERNE TA LIGNE")
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .tracking(1.2)
+                        }
+                        .foregroundStyle(DS.Color.statusMajor)
+                    }
                 }
 
                 Spacer()
@@ -1442,6 +1874,28 @@ private struct EditorialFeedCard: View {
                     }
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(item.type == .official ? DS.Color.statusMajor : DS.Color.statusMinor)
+                }
+
+                if (item.type == .official || item.type == .mixed),
+                   let line = item.lines.first {
+                    Button {
+                        onNotifyLine?(line)
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isNotificationLoading {
+                                ProgressView()
+                                    .scaleEffect(0.58)
+                            } else {
+                                Image(systemName: isNotificationEnabled ? "bell.fill" : "bell")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            Text(isNotificationEnabled ? "Suivie" : "Me prévenir")
+                        }
+                        .font(DS.Font.bodySmall.weight(.semibold))
+                        .foregroundStyle(isNotificationEnabled ? DS.Color.statusMinor : DS.Color.ink)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isNotificationLoading || isNotificationEnabled)
                 }
 
                 Spacer()
