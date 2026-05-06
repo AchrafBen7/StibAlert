@@ -44,67 +44,73 @@ enum LineWidgetStatus: String {
 
     var label: String {
         switch self {
-        case .ok:       return "OK"
+        case .ok:       return "Normal"
         case .warning:  return "Perturbé"
-        case .critical: return "Interrompu"
+        case .critical: return "Arrêté"
         case .unknown:  return "—"
-        }
-    }
-
-    var actionLabel: String {
-        switch self {
-        case .ok:       return "réseau normal"
-        case .warning:  return "prévoir marge"
-        case .critical: return "éviter ligne"
-        case .unknown:  return "horaire à vérifier"
         }
     }
 }
 
-private enum WidgetDesign {
-    static let paper = Color(red: 0.97, green: 0.94, blue: 0.90)
-    static let paperElevated = Color(red: 1.00, green: 0.98, blue: 0.94)
-    static let ink = Color(red: 0.06, green: 0.06, blue: 0.05)
-    static let inkSoft = Color(red: 0.43, green: 0.40, blue: 0.36)
-    static let inkMute = Color(red: 0.62, green: 0.58, blue: 0.52)
-    static let orange = Color(red: 0.94, green: 0.25, blue: 0.09)
-    static let lineBorder = Color.black.opacity(0.14)
-    static let mono = Font.system(.caption2, design: .monospaced).weight(.bold)
+// MARK: - Design tokens
 
+private enum WD {
+    // Backgrounds
+    static let bg          = Color(red: 0.07, green: 0.08, blue: 0.11)
+    static let card        = Color(red: 0.12, green: 0.14, blue: 0.18)
+    static let cardStroke  = Color.white.opacity(0.08)
+
+    // Text
+    static let ink         = Color.white
+    static let inkSoft     = Color.white.opacity(0.60)
+    static let inkMute     = Color.white.opacity(0.30)
+
+    // Brand
+    static let orange      = Color(red: 0.94, green: 0.38, blue: 0.09)
+
+    // Line colors (official STIB palette)
     static func lineColor(_ line: String) -> Color {
         switch line.uppercased() {
         case "1", "5": return Color(red: 0.66, green: 0.18, blue: 0.62)
         case "2", "6": return Color(red: 0.00, green: 0.44, blue: 0.72)
         case "3", "4": return Color(red: 0.76, green: 0.11, blue: 0.55)
-        case "7": return Color(red: 0.96, green: 0.90, blue: 0.13)
-        case "8": return Color(red: 0.56, green: 0.28, blue: 0.62)
-        case "9": return Color(red: 0.72, green: 0.52, blue: 0.18)
-        case "10": return Color(red: 0.61, green: 0.32, blue: 0.67)
+        case "7":      return Color(red: 0.96, green: 0.90, blue: 0.13)
+        case "8":      return Color(red: 0.56, green: 0.28, blue: 0.62)
+        case "9":      return Color(red: 0.72, green: 0.52, blue: 0.18)
+        case "10":     return Color(red: 0.61, green: 0.32, blue: 0.67)
         case "25", "55": return Color(red: 0.00, green: 0.45, blue: 0.72)
         case "36", "53": return Color(red: 0.31, green: 0.61, blue: 0.25)
-        case "37": return Color(red: 0.95, green: 0.88, blue: 0.16)
+        case "37":     return Color(red: 0.95, green: 0.88, blue: 0.16)
         case "47", "56": return Color(red: 1.00, green: 0.47, blue: 0.00)
-        case "71": return Color(red: 0.33, green: 0.55, blue: 0.25)
-        case "83": return Color(red: 0.70, green: 0.84, blue: 0.00)
-        default: return orange
+        case "71":     return Color(red: 0.33, green: 0.55, blue: 0.25)
+        case "83":     return Color(red: 0.70, green: 0.84, blue: 0.00)
+        default:       return orange
         }
     }
 
-    static func readableText(for line: String) -> Color {
-        // Yellow/bright lime STIB lines read better with dark text.
-        if ["7", "37", "83"].contains(line.uppercased()) {
-            return ink
-        }
-        return .white
+    static func textColor(for line: String) -> Color {
+        ["7", "37", "83"].contains(line.uppercased()) ? Color(red: 0.07, green: 0.08, blue: 0.11) : .white
     }
 
     static func modeIcon(for line: String) -> String {
-        let normalized = line.uppercased()
-        if normalized.hasPrefix("T") { return "tram.fill" }
-        guard let number = Int(normalized.filter(\.isNumber)) else { return "tram.fill" }
-        if (1...6).contains(number) { return "m.circle.fill" }
-        if number >= 90 || (12...89).contains(number) { return "bus.fill" }
-        return "tram.fill"
+        let n = line.uppercased()
+        if n.hasPrefix("T") { return "tram.fill" }
+        guard let num = Int(n.filter(\.isNumber)) else { return "tram.fill" }
+        if (1...6).contains(num) { return "m.circle.fill" }
+        return num >= 90 || (12...89).contains(num) ? "bus.fill" : "tram.fill"
+    }
+
+    /// Converts raw minutes into a human-readable string.
+    /// ≥ 60 minutes → actual arrival time "HH:mm" instead of absurd counts.
+    static func formatMinutes(_ minutes: Int) -> String {
+        guard minutes > 0 else { return "À quai" }
+        guard minutes < 60 else {
+            let arrival = Calendar.current.date(byAdding: .minute, value: minutes, to: Date()) ?? Date()
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return f.string(from: arrival)
+        }
+        return "\(minutes) min"
     }
 }
 
@@ -129,8 +135,6 @@ struct StibWidgetProvider: TimelineProvider {
             completion(Timeline(entries: [entry], policy: .after(next)))
         }
     }
-
-    // MARK: Private
 
     private func fetchEntry() async -> StibLineEntry {
         let favorites = loadFavoriteLines()
@@ -159,8 +163,8 @@ struct StibWidgetProvider: TimelineProvider {
             let decoded   = try JSONDecoder().decode(WidgetLineResponse.self, from: data)
             let status: LineWidgetStatus = {
                 switch decoded.severity?.lowercased() {
-                case "none", "low": return .ok
-                case "medium":      return .warning
+                case "none", "low":      return .ok
+                case "medium":           return .warning
                 case "high", "critical": return .critical
                 default: return .ok
                 }
@@ -182,7 +186,7 @@ private struct WidgetDeparture: Decodable {
     let minutes: Int
 }
 
-// MARK: - Views
+// MARK: - Entry View
 
 struct StibAlertWidgetEntryView: View {
     let entry: StibLineEntry
@@ -197,73 +201,77 @@ struct StibAlertWidgetEntryView: View {
     }
 }
 
+// MARK: - Small widget
+
 private struct SmallWidgetView: View {
     let entry: StibLineEntry
 
     var body: some View {
         if let line = entry.lines.first {
-            ZStack(alignment: .bottomLeading) {
-                WidgetBackgroundPattern()
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                HStack {
+                    Image(systemName: WD.modeIcon(for: line.lineNumber))
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(WD.inkMute)
+                    Text("StibAlert")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(WD.inkMute)
+                    Spacer()
+                    StatusPip(status: line.status)
+                }
 
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack {
-                        Text("STIBALERT")
-                            .font(WidgetDesign.mono)
-                            .tracking(1.4)
-                            .foregroundStyle(WidgetDesign.inkMute)
-                        Spacer()
-                        StatusDot(status: line.status)
-                    }
+                Spacer()
 
-                    Spacer(minLength: 0)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .center, spacing: 10) {
-                            WidgetLineBadge(line: line.lineNumber, size: 48)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(nextPassageTitle(for: line))
-                                    .font(.system(size: 30, weight: .black, design: .rounded))
-                                    .foregroundStyle(WidgetDesign.ink)
-                                    .minimumScaleFactor(0.75)
-                                    .lineLimit(1)
-                                Text(destinationTitle(for: line))
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .tracking(0.9)
-                                    .foregroundStyle(WidgetDesign.inkSoft)
-                                    .lineLimit(1)
-                            }
-                        }
-
-                        HStack(spacing: 6) {
-                            Image(systemName: WidgetDesign.modeIcon(for: line.lineNumber))
-                                .font(.system(size: 10, weight: .bold))
-                            Text(line.status.actionLabel)
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                // Line badge + time
+                HStack(alignment: .bottom, spacing: 10) {
+                    WLineBadge(line: line.lineNumber, size: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(WD.formatMinutes(line.nextPassageMinutes ?? -1))
+                            .font(.system(size: 26, weight: .black, design: .rounded))
+                            .foregroundStyle(timeColor(for: line.nextPassageMinutes))
+                            .minimumScaleFactor(0.70)
+                            .lineLimit(1)
+                        if let dest = line.destination, !dest.isEmpty {
+                            Text(dest.uppercased())
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
                                 .tracking(0.6)
+                                .foregroundStyle(WD.inkSoft)
+                                .lineLimit(1)
                         }
-                        .foregroundStyle(WidgetDesign.inkSoft)
                     }
                 }
-                .padding(13)
+
+                Spacer().frame(height: 8)
+
+                // Status label
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(line.status.color)
+                        .frame(width: 5, height: 5)
+                    Text(line.status.label)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(line.status.color)
+                }
             }
+            .padding(13)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .containerBackground(WidgetDesign.paper, for: .widget)
+            .containerBackground(WD.bg, for: .widget)
         } else {
             EmptyWidgetView()
         }
     }
 
-    private func nextPassageTitle(for line: StibLineSnapshot) -> String {
-        guard let minutes = line.nextPassageMinutes else { return "—" }
-        return minutes == 0 ? "À quai" : "\(minutes) min"
-    }
-
-    private func destinationTitle(for line: StibLineSnapshot) -> String {
-        guard let destination = line.destination, !destination.isEmpty else { return "VERS DESTINATION" }
-        return "VERS \(destination.uppercased())"
+    private func timeColor(for minutes: Int?) -> Color {
+        guard let m = minutes else { return WD.inkMute }
+        if m == 0 { return WD.orange }
+        if m <= 3 { return Color(red: 0.96, green: 0.65, blue: 0.14) }
+        return WD.ink
     }
 }
+
+// MARK: - Medium widget
 
 private struct MediumWidgetView: View {
     let entry: StibLineEntry
@@ -272,39 +280,28 @@ private struct MediumWidgetView: View {
         if entry.lines.isEmpty {
             EmptyWidgetView()
         } else {
-            ZStack {
-                WidgetBackgroundPattern()
+            VStack(alignment: .leading, spacing: 8) {
+                // Header
+                HStack {
+                    Text("StibAlert")
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(WD.orange)
+                    Spacer()
+                    Text(entry.date, style: .time)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(WD.inkMute)
+                }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("STIBALERT")
-                                .font(WidgetDesign.mono)
-                                .tracking(1.5)
-                                .foregroundStyle(WidgetDesign.inkMute)
-                            Text("Tes lignes · passages")
-                                .font(.system(size: 17, weight: .black, design: .rounded))
-                                .foregroundStyle(WidgetDesign.ink)
-                                .lineLimit(1)
-                        }
-
-                        Spacer()
-
-                        Text(entry.date, style: .time)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundStyle(WidgetDesign.inkMute)
-                    }
-
-                    HStack(spacing: 9) {
-                        ForEach(entry.lines.prefix(2)) { line in
-                            MediumLineCard(line: line)
-                        }
+                HStack(spacing: 8) {
+                    ForEach(entry.lines.prefix(2)) { line in
+                        MediumLineCard(line: line)
                     }
                 }
-                .padding(13)
             }
+            .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .containerBackground(WidgetDesign.paper, for: .widget)
+            .containerBackground(WD.bg, for: .widget)
         }
     }
 }
@@ -313,191 +310,128 @@ private struct MediumLineCard: View {
     let line: StibLineSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top, spacing: 8) {
-                WidgetLineBadge(line: line.lineNumber, size: 38)
+        VStack(alignment: .leading, spacing: 0) {
+            // Top row: badge + time
+            HStack(alignment: .top) {
+                WLineBadge(line: line.lineNumber, size: 36)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(nextPassageTitle)
-                        .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(WidgetDesign.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                    if line.nextPassageMinutes != nil {
-                        Text("prochain")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .tracking(0.7)
-                            .foregroundStyle(WidgetDesign.inkMute)
+                    if let minutes = line.nextPassageMinutes {
+                        Text(WD.formatMinutes(minutes))
+                            .font(.system(size: 22, weight: .black, design: .rounded))
+                            .foregroundStyle(timeColor(for: minutes))
+                            .minimumScaleFactor(0.65)
+                            .lineLimit(1)
+                        Text(minutes >= 60 ? "arrivée" : "prochain")
+                            .font(.system(size: 7, weight: .bold, design: .monospaced))
+                            .tracking(0.5)
+                            .foregroundStyle(WD.inkMute)
+                    } else {
+                        Text("—")
+                            .font(.system(size: 22, weight: .black, design: .rounded))
+                            .foregroundStyle(WD.inkMute)
                     }
                 }
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(destinationTitle)
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(WidgetDesign.inkSoft)
+            Spacer(minLength: 6)
+
+            // Destination
+            if let dest = line.destination, !dest.isEmpty {
+                Text(dest)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WD.inkSoft)
+                    .lineLimit(1)
+            } else {
+                Text("Aucune dest.")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WD.inkMute)
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 6)
 
-            HStack(spacing: 6) {
-                Image(systemName: WidgetDesign.modeIcon(for: line.lineNumber))
-                    .font(.system(size: 10, weight: .bold))
-                Text(line.status.actionLabel)
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .tracking(0.5)
-                Spacer(minLength: 0)
-                StatusDot(status: line.status, compact: true)
+            // Status
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(line.status.color)
+                    .frame(width: 5, height: 5)
+                Text(line.status.label)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(line.status.color)
+                Spacer()
+                Image(systemName: WD.modeIcon(for: line.lineNumber))
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(WD.inkMute)
             }
-            .foregroundStyle(WidgetDesign.inkSoft)
         }
         .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 94, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(WidgetDesign.paperElevated)
-                .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 5)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(WidgetDesign.lineBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(WD.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(WD.cardStroke, lineWidth: 1)
+                )
         )
     }
 
-    private var nextPassageTitle: String {
-        guard let minutes = line.nextPassageMinutes else { return "—" }
-        return minutes == 0 ? "À quai" : "\(minutes)"
-    }
-
-    private var destinationTitle: String {
-        guard let destination = line.destination, !destination.isEmpty else { return "VERS DESTINATION" }
-        return "VERS \(destination.uppercased())"
+    private func timeColor(for minutes: Int) -> Color {
+        if minutes == 0 { return WD.orange }
+        if minutes <= 3 { return Color(red: 0.96, green: 0.65, blue: 0.14) }
+        return WD.ink
     }
 }
 
-private struct WidgetLineBadge: View {
+// MARK: - Shared components
+
+private struct WLineBadge: View {
     let line: String
     let size: CGFloat
-
-    private var color: Color { WidgetDesign.lineColor(line) }
 
     var body: some View {
         Text(line)
             .font(.system(size: size * 0.38, weight: .black, design: .rounded))
-            .foregroundStyle(WidgetDesign.readableText(for: line))
-            .minimumScaleFactor(0.6)
+            .foregroundStyle(WD.textColor(for: line))
+            .minimumScaleFactor(0.55)
             .lineLimit(1)
             .frame(width: size, height: size)
             .background(
-                RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
-                    .fill(color)
+                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                    .fill(WD.lineColor(line))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
-                    .stroke(WidgetDesign.ink.opacity(0.22), lineWidth: 1.5)
-            )
-            .shadow(color: color.opacity(0.25), radius: 8, x: 0, y: 4)
     }
 }
 
-private struct StatusDot: View {
+private struct StatusPip: View {
     let status: LineWidgetStatus
-    var compact = false
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: status.icon)
-                .font(.system(size: compact ? 8 : 10, weight: .black))
-            Text(status.label.uppercased())
-                .font(.system(size: compact ? 8 : 9, weight: .black, design: .monospaced))
-                .tracking(0.7)
-        }
-        .foregroundStyle(status.color)
-        .padding(.horizontal, compact ? 6 : 8)
-        .frame(height: compact ? 20 : 24)
-        .background(status.color.opacity(0.12))
-        .overlay(Capsule().stroke(status.color.opacity(0.28), lineWidth: 1))
-        .clipShape(Capsule())
-    }
-}
-
-private struct WidgetNextPassagePill: View {
-    let minutes: Int?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: "clock.fill")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(WidgetDesign.orange)
-
-            if let minutes {
-                Text(minutes == 0 ? "À quai" : "\(minutes) min")
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundStyle(WidgetDesign.ink)
-                Text("prochain")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(WidgetDesign.inkMute)
-            } else {
-                Text("Horaire indispo")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(WidgetDesign.inkSoft)
-            }
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 28)
-        .background(.white.opacity(0.72))
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(WidgetDesign.lineBorder, lineWidth: 1))
-    }
-}
-
-private struct WidgetBackgroundPattern: View {
-    var body: some View {
-        ZStack {
-            WidgetDesign.paper
-            LinearGradient(
-                colors: [
-                    WidgetDesign.orange.opacity(0.18),
-                    .clear,
-                    Color(red: 0.97, green: 0.74, blue: 0.10).opacity(0.16)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        HStack(spacing: 3) {
             Circle()
-                .fill(WidgetDesign.orange.opacity(0.14))
-                .frame(width: 118, height: 118)
-                .offset(x: 92, y: -58)
-            Circle()
-                .stroke(WidgetDesign.ink.opacity(0.08), lineWidth: 18)
-                .frame(width: 128, height: 128)
-                .offset(x: -92, y: 72)
+                .fill(status.color)
+                .frame(width: 5, height: 5)
+            Text(status.label)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundStyle(status.color)
         }
     }
 }
 
 private struct EmptyWidgetView: View {
     var body: some View {
-        ZStack {
-            WidgetBackgroundPattern()
-            VStack(spacing: 8) {
-                Image(systemName: "tram.fill")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(WidgetDesign.orange)
-                Text("Ajoute une ligne\nen favoris")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(WidgetDesign.ink)
-                    .multilineTextAlignment(.center)
-                Text("StibAlert")
-                    .font(WidgetDesign.mono)
-                    .tracking(1.3)
-                    .foregroundStyle(WidgetDesign.inkMute)
-            }
+        VStack(spacing: 8) {
+            Image(systemName: "tram.fill")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(WD.orange)
+            Text("Ajoute une ligne\nen favoris")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(WD.ink)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(WidgetDesign.paper, for: .widget)
+        .containerBackground(WD.bg, for: .widget)
     }
 }
 

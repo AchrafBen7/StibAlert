@@ -514,9 +514,23 @@ struct ArretDetailPage: View {
         }
     }
 
+    /// Converts raw minutes to a display string.
+    /// < 60 min → "X min" ; ≥ 60 min → actual arrival time "HH:mm".
+    private func formatPassageMinutes(_ minutes: Int) -> String {
+        guard minutes > 0 else { return "‹1 min" }
+        guard minutes < 60 else {
+            let arrival = Calendar.current.date(byAdding: .minute, value: minutes, to: Date()) ?? Date()
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return f.string(from: arrival)
+        }
+        return "\(minutes) min"
+    }
+
     private func passageRow(_ group: GroupedStopPassage) -> some View {
         let next = group.departures.first
         let imminent = (next?.minutes ?? 99) <= 1
+        let isFarAway = (next?.minutes ?? 0) >= 60
 
         return HStack(spacing: 12) {
             LineBadge(line: group.line, size: .lg)
@@ -529,7 +543,8 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 if let next {
-                    Text(next.source == "scheduled" ? "prévu dans \(next.minutes) min" : "temps réel dans \(next.minutes) min")
+                    let source = next.source == "scheduled" ? "prévu" : "temps réel"
+                    Text("\(source) à \(formatPassageMinutes(next.minutes))")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -537,19 +552,26 @@ struct ArretDetailPage: View {
             Spacer()
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 if let next {
-                    Text(next.minutes == 0 ? "‹1" : "\(next.minutes)")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(imminent ? DS.Color.primary : DS.Color.ink)
-                        .monospacedDigit()
-                    Text("min")
-                        .font(.system(size: 10))
-                        .foregroundStyle(DS.Color.inkMute)
-                        .textCase(.uppercase)
-                        .tracking(1.2)
-                    ForEach(Array(group.departures.dropFirst().prefix(2)), id: \.id) { departure in
-                        Text("+\(departure.minutes)")
-                            .font(.system(size: 12, weight: .semibold))
+                    if isFarAway {
+                        // Show clock time instead of absurd minute count
+                        Text(formatPassageMinutes(next.minutes))
+                            .font(.system(size: 18, weight: .bold, design: .monospaced))
                             .foregroundStyle(DS.Color.inkMute)
+                    } else {
+                        Text(next.minutes == 0 ? "‹1" : "\(next.minutes)")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(imminent ? DS.Color.primary : DS.Color.ink)
+                            .monospacedDigit()
+                        Text("min")
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.inkMute)
+                            .textCase(.uppercase)
+                            .tracking(1.2)
+                        ForEach(Array(group.departures.dropFirst().prefix(2)), id: \.id) { departure in
+                            Text("+\(departure.minutes)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
                     }
                 } else {
                     Text("—")
