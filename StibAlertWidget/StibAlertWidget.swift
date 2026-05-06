@@ -50,6 +50,15 @@ enum LineWidgetStatus: String {
         case .unknown:  return "—"
         }
     }
+
+    var actionLabel: String {
+        switch self {
+        case .ok:       return "réseau normal"
+        case .warning:  return "prévoir marge"
+        case .critical: return "éviter ligne"
+        case .unknown:  return "horaire à vérifier"
+        }
+    }
 }
 
 private enum WidgetDesign {
@@ -87,6 +96,15 @@ private enum WidgetDesign {
             return ink
         }
         return .white
+    }
+
+    static func modeIcon(for line: String) -> String {
+        let normalized = line.uppercased()
+        if normalized.hasPrefix("T") { return "tram.fill" }
+        guard let number = Int(normalized.filter(\.isNumber)) else { return "tram.fill" }
+        if (1...6).contains(number) { return "m.circle.fill" }
+        if number >= 90 || (12...89).contains(number) { return "bus.fill" }
+        return "tram.fill"
     }
 }
 
@@ -199,24 +217,33 @@ private struct SmallWidgetView: View {
 
                     Spacer(minLength: 0)
 
-                    HStack(alignment: .bottom, spacing: 10) {
-                        WidgetLineBadge(line: line.lineNumber, size: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .center, spacing: 10) {
+                            WidgetLineBadge(line: line.lineNumber, size: 48)
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(line.status.label.uppercased())
-                                .font(.system(size: 13, weight: .black, design: .rounded))
-                                .foregroundStyle(WidgetDesign.ink)
-                                .lineLimit(1)
-                            Text(line.destination?.uppercased() ?? "RÉSEAU")
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .tracking(0.9)
-                                .foregroundStyle(WidgetDesign.inkSoft)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(nextPassageTitle(for: line))
+                                    .font(.system(size: 30, weight: .black, design: .rounded))
+                                    .foregroundStyle(WidgetDesign.ink)
+                                    .minimumScaleFactor(0.75)
+                                    .lineLimit(1)
+                                Text(destinationTitle(for: line))
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .tracking(0.9)
+                                    .foregroundStyle(WidgetDesign.inkSoft)
+                                    .lineLimit(1)
+                            }
                         }
-                    }
 
-                    WidgetNextPassagePill(minutes: line.nextPassageMinutes)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 6) {
+                            Image(systemName: WidgetDesign.modeIcon(for: line.lineNumber))
+                                .font(.system(size: 10, weight: .bold))
+                            Text(line.status.actionLabel)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .tracking(0.6)
+                        }
+                        .foregroundStyle(WidgetDesign.inkSoft)
+                    }
                 }
                 .padding(13)
             }
@@ -225,6 +252,16 @@ private struct SmallWidgetView: View {
         } else {
             EmptyWidgetView()
         }
+    }
+
+    private func nextPassageTitle(for line: StibLineSnapshot) -> String {
+        guard let minutes = line.nextPassageMinutes else { return "—" }
+        return minutes == 0 ? "À quai" : "\(minutes) min"
+    }
+
+    private func destinationTitle(for line: StibLineSnapshot) -> String {
+        guard let destination = line.destination, !destination.isEmpty else { return "VERS DESTINATION" }
+        return "VERS \(destination.uppercased())"
     }
 }
 
@@ -245,7 +282,7 @@ private struct MediumWidgetView: View {
                                 .font(WidgetDesign.mono)
                                 .tracking(1.5)
                                 .foregroundStyle(WidgetDesign.inkMute)
-                            Text("Tes lignes maintenant")
+                            Text("Tes lignes · passages")
                                 .font(.system(size: 17, weight: .black, design: .rounded))
                                 .foregroundStyle(WidgetDesign.ink)
                                 .lineLimit(1)
@@ -276,19 +313,27 @@ private struct MediumLineCard: View {
     let line: StibLineSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                WidgetLineBadge(line: line.lineNumber, size: 40)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 8) {
+                WidgetLineBadge(line: line.lineNumber, size: 38)
                 Spacer()
-                StatusDot(status: line.status)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(nextPassageTitle)
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .foregroundStyle(WidgetDesign.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    if line.nextPassageMinutes != nil {
+                        Text("prochain")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .tracking(0.7)
+                            .foregroundStyle(WidgetDesign.inkMute)
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(line.status.label)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundStyle(WidgetDesign.ink)
-                    .lineLimit(1)
-                Text(line.destination?.uppercased() ?? "DESTINATION")
+                Text(destinationTitle)
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(0.8)
                     .foregroundStyle(WidgetDesign.inkSoft)
@@ -297,7 +342,16 @@ private struct MediumLineCard: View {
 
             Spacer(minLength: 0)
 
-            WidgetNextPassagePill(minutes: line.nextPassageMinutes)
+            HStack(spacing: 6) {
+                Image(systemName: WidgetDesign.modeIcon(for: line.lineNumber))
+                    .font(.system(size: 10, weight: .bold))
+                Text(line.status.actionLabel)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .tracking(0.5)
+                Spacer(minLength: 0)
+                StatusDot(status: line.status, compact: true)
+            }
+            .foregroundStyle(WidgetDesign.inkSoft)
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 94, alignment: .topLeading)
@@ -310,6 +364,16 @@ private struct MediumLineCard: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(WidgetDesign.lineBorder, lineWidth: 1)
         )
+    }
+
+    private var nextPassageTitle: String {
+        guard let minutes = line.nextPassageMinutes else { return "—" }
+        return minutes == 0 ? "À quai" : "\(minutes)"
+    }
+
+    private var destinationTitle: String {
+        guard let destination = line.destination, !destination.isEmpty else { return "VERS DESTINATION" }
+        return "VERS \(destination.uppercased())"
     }
 }
 
@@ -327,12 +391,12 @@ private struct WidgetLineBadge: View {
             .lineLimit(1)
             .frame(width: size, height: size)
             .background(
-                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
                     .fill(color)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                    .stroke(.white.opacity(0.5), lineWidth: 1)
+                RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
+                    .stroke(WidgetDesign.ink.opacity(0.22), lineWidth: 1.5)
             )
             .shadow(color: color.opacity(0.25), radius: 8, x: 0, y: 4)
     }
@@ -340,19 +404,21 @@ private struct WidgetLineBadge: View {
 
 private struct StatusDot: View {
     let status: LineWidgetStatus
+    var compact = false
 
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: status.icon)
-                .font(.system(size: 10, weight: .black))
+                .font(.system(size: compact ? 8 : 10, weight: .black))
             Text(status.label.uppercased())
-                .font(.system(size: 9, weight: .black, design: .monospaced))
+                .font(.system(size: compact ? 8 : 9, weight: .black, design: .monospaced))
                 .tracking(0.7)
         }
         .foregroundStyle(status.color)
-        .padding(.horizontal, 8)
-        .frame(height: 24)
+        .padding(.horizontal, compact ? 6 : 8)
+        .frame(height: compact ? 20 : 24)
         .background(status.color.opacity(0.12))
+        .overlay(Capsule().stroke(status.color.opacity(0.28), lineWidth: 1))
         .clipShape(Capsule())
     }
 }

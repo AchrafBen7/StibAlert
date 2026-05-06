@@ -157,6 +157,10 @@ struct HomeView: View {
         return numbers
     }
 
+    private var widgetFavoriteLineNumbers: Set<String> {
+        Set(session.currentUser?.favoriteLines ?? [])
+    }
+
     private var trackedVehicleLineNumbers: Set<String> {
         guard let selectedRouteOption else { return [] }
         return Set(selectedRouteOption.displayLineCodes)
@@ -576,12 +580,13 @@ struct HomeView: View {
             locationManager.start()
             realtimeSignalements.connect()
             vehicleTracker.start(lines: trackedVehicleLineNumbers)
+            syncFavoritesToWidget(widgetFavoriteLineNumbers)
         }
         .onDisappear {
             realtimeSignalements.disconnect()
             vehicleTracker.stop()
         }
-        .onChange(of: visibleLineNumbers) { _, newLines in
+        .onChange(of: widgetFavoriteLineNumbers) { _, newLines in
             syncFavoritesToWidget(newLines)
         }
         .onChange(of: trackedVehicleLineNumbers) { _, newLines in
