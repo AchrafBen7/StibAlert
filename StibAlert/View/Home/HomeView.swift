@@ -856,50 +856,31 @@ struct HomeView: View {
             .zIndex(9)
         }
 
-        if shouldShowStopPreview, let stop = selectedMapStopPreview {
-            HomeStopPreviewCard(
-                stopSummary: stop,
-                stopDetail: selectedMapStopDetail,
-                isLoading: isLoadingMapStopDetail,
-                nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
-                onDismiss: {
-                    enterInteractionMode(.map)
-                },
-                onOpenDetail: {
-                    selectedMapStopSummary = stop
-                    enterInteractionMode(.stopDetail)
-                }
-            )
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(7)
-        }
-
-        if shouldShowStopDetail, let stop = selectedMapStopSummary {
-            ArretDetailPage(
-                stopSummary: stop,
-                stopDetail: selectedMapStopDetail,
-                isLoading: isLoadingMapStopDetail,
-                userCoordinate: locationManager.userCoordinate,
-                nearbyStops: nearbyStops(for: stop, detail: selectedMapStopDetail),
-                nearbyVilloStations: stopVilloStations(for: stop, detail: selectedMapStopDetail),
-                onDismiss: {
-                    enterInteractionMode(.map)
-                },
-                onOpenLine: { line in
-                    clearStopSelection()
-                    nav.pendingLineFocus = line
-                    nav.currentPage = .signalements
-                },
-                onOpenStop: { summary in
-                    openStopDetail(for: summary)
-                },
-                onReport: {
-                    openReportSheet(for: stop)
-                }
-            )
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
-            .zIndex(10)
-        }
+        HomeStopSurfaceOverlay(
+            previewStop: selectedMapStopPreview,
+            detailStop: selectedMapStopSummary,
+            stopDetail: selectedMapStopDetail,
+            isLoading: isLoadingMapStopDetail,
+            userCoordinate: locationManager.userCoordinate,
+            shouldShowStopPreview: shouldShowStopPreview,
+            shouldShowStopDetail: shouldShowStopDetail,
+            nearbyStops: { stop in
+                nearbyStops(for: stop, detail: selectedMapStopDetail)
+            },
+            nearbyVilloStations: { stop in
+                stopVilloStations(for: stop, detail: selectedMapStopDetail)
+            },
+            onDismiss: {
+                enterInteractionMode(.map)
+            },
+            onOpenDetail: { stop in
+                selectedMapStopSummary = stop
+                enterInteractionMode(.stopDetail)
+            },
+            onOpenLine: openLineFromStop(_:),
+            onOpenStop: openStopDetail(for:),
+            onReport: openReportSheet(for:)
+        )
 
         HomeRouteSurfaceOverlay(
             options: routeOptions,
@@ -966,6 +947,13 @@ struct HomeView: View {
         selectedMapStopSummary = nil
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = false
+    }
+
+    @MainActor
+    private func openLineFromStop(_ line: String) {
+        clearStopSelection()
+        nav.pendingLineFocus = line
+        nav.currentPage = .signalements
     }
 
     @MainActor
@@ -2424,6 +2412,61 @@ private struct HamburgerButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Ouvrir le menu")
         .accessibilityHint("Affiche les sections principales de l’application")
+    }
+}
+
+private struct HomeStopSurfaceOverlay: View {
+    let previewStop: TransportStopSummaryDTO?
+    let detailStop: TransportStopSummaryDTO?
+    let stopDetail: TransportStopDTO?
+    let isLoading: Bool
+    let userCoordinate: CLLocationCoordinate2D?
+    let shouldShowStopPreview: Bool
+    let shouldShowStopDetail: Bool
+    let nearbyStops: (TransportStopSummaryDTO) -> [TransportStopSummaryDTO]
+    let nearbyVilloStations: (TransportStopSummaryDTO) -> [(station: VilloStation, distanceMeters: Int)]
+    let onDismiss: () -> Void
+    let onOpenDetail: (TransportStopSummaryDTO) -> Void
+    let onOpenLine: (String) -> Void
+    let onOpenStop: (TransportStopSummaryDTO) -> Void
+    let onReport: (TransportStopSummaryDTO) -> Void
+
+    var body: some View {
+        Group {
+            if shouldShowStopPreview, let stop = previewStop {
+                HomeStopPreviewCard(
+                    stopSummary: stop,
+                    stopDetail: stopDetail,
+                    isLoading: isLoading,
+                    nearbyVilloStations: nearbyVilloStations(stop),
+                    onDismiss: onDismiss,
+                    onOpenDetail: {
+                        onOpenDetail(stop)
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(7)
+            }
+
+            if shouldShowStopDetail, let stop = detailStop {
+                ArretDetailPage(
+                    stopSummary: stop,
+                    stopDetail: stopDetail,
+                    isLoading: isLoading,
+                    userCoordinate: userCoordinate,
+                    nearbyStops: nearbyStops(stop),
+                    nearbyVilloStations: nearbyVilloStations(stop),
+                    onDismiss: onDismiss,
+                    onOpenLine: onOpenLine,
+                    onOpenStop: onOpenStop,
+                    onReport: {
+                        onReport(stop)
+                    }
+                )
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .zIndex(10)
+            }
+        }
     }
 }
 
