@@ -13,6 +13,17 @@ struct HomeView: View {
         case ar
     }
 
+    private enum HomeSurfaceMode: Equatable {
+        case unavailable
+        case stopDetail
+        case ar
+        case routeDetail
+        case routePreview
+        case stopPreview
+        case signalementPreview
+        case mapIdle
+    }
+
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var stibi: StibiCenter
     @EnvironmentObject private var session: AuthSession
@@ -361,31 +372,32 @@ struct HomeView: View {
         !routeOptions.isEmpty || selectedRouteDetail != nil || selectedARRoute != nil
     }
 
+    private var homeSurfaceMode: HomeSurfaceMode {
+        guard isHomeSurfaceInteractive else { return .unavailable }
+        if interactionMode == .stopDetail, selectedMapStopSummary != nil { return .stopDetail }
+        if interactionMode == .ar, selectedARRoute != nil { return .ar }
+        if interactionMode == .routeDetail, selectedRouteDetail != nil { return .routeDetail }
+        if interactionMode == .routePreview, !routeOptions.isEmpty { return .routePreview }
+        if interactionMode == .stopPreview, selectedMapStopPreview != nil, selectedMapStopSummary == nil { return .stopPreview }
+        if selectedSignalementPreview != nil, !showLegend, routeOptions.isEmpty { return .signalementPreview }
+        return .mapIdle
+    }
+
     private var shouldShowSearchHeader: Bool {
-        isHomeSurfaceInteractive
-        && !isStopDetailPresented
-        && selectedRouteDetail == nil
-        && selectedARRoute == nil
+        switch homeSurfaceMode {
+        case .mapIdle, .routePreview, .signalementPreview:
+            return true
+        case .unavailable, .stopPreview, .stopDetail, .routeDetail, .ar:
+            return false
+        }
     }
 
     private var shouldShowSignalementPreview: Bool {
-        selectedSignalementPreview != nil
-        && isHomeSurfaceInteractive
-        && !isStopDetailPresented
-        && !showLegend
-        && routeOptions.isEmpty
-        && selectedRouteDetail == nil
-        && selectedARRoute == nil
+        homeSurfaceMode == .signalementPreview
     }
 
     private var shouldShowPulseBar: Bool {
-        isHomeSurfaceInteractive
-        && !isStopDetailPresented
-        && selectedMapStopPreview == nil
-        && routeOptions.isEmpty
-        && selectedSignalementPreview == nil
-        && selectedRouteDetail == nil
-        && selectedARRoute == nil
+        homeSurfaceMode == .mapIdle
     }
 
     private var shouldShowTabBar: Bool {
@@ -395,23 +407,23 @@ struct HomeView: View {
     }
 
     private var shouldShowStopPreview: Bool {
-        interactionMode == .stopPreview && selectedMapStopPreview != nil && selectedMapStopSummary == nil
+        homeSurfaceMode == .stopPreview
     }
 
     private var shouldShowStopDetail: Bool {
-        interactionMode == .stopDetail && selectedMapStopSummary != nil
+        homeSurfaceMode == .stopDetail
     }
 
     private var shouldShowRouteSheet: Bool {
-        interactionMode == .routePreview && !routeOptions.isEmpty
+        homeSurfaceMode == .routePreview
     }
 
     private var shouldShowRouteDetail: Bool {
-        interactionMode == .routeDetail && selectedRouteDetail != nil
+        homeSurfaceMode == .routeDetail
     }
 
     private var shouldShowAR: Bool {
-        interactionMode == .ar && selectedARRoute != nil
+        homeSurfaceMode == .ar
     }
 
     private var transitionSpring: Animation {
