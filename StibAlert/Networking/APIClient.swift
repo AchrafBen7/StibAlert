@@ -42,11 +42,20 @@ struct APIClient {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         d.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
-            let s = try container.decode(String.self)
-            if let date = formatter.date(from: s) { return date }
-            let fallback = ISO8601DateFormatter()
-            if let date = fallback.date(from: s) { return date }
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Bad date: \(s)")
+            if let s = try? container.decode(String.self) {
+                if let date = formatter.date(from: s) { return date }
+                let fallback = ISO8601DateFormatter()
+                if let date = fallback.date(from: s) { return date }
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Bad date string: \(s)")
+            }
+            // Some backends ship Unix timestamps (Google Directions departure_time.value
+            // is in seconds, JS Date.getTime() is in milliseconds). Heuristic: > 10^12
+            // means milliseconds; smaller means seconds.
+            if let n = try? container.decode(Double.self) {
+                let interval = n > 1_000_000_000_000 ? n / 1000 : n
+                return Date(timeIntervalSince1970: interval)
+            }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Date is neither a string nor a number")
         }
         return d
     }()
