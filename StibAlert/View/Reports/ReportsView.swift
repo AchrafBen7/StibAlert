@@ -1227,15 +1227,21 @@ struct ReportsView: View {
         let items = networkIssueCarouselItems(for: summary)
 
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text("À SURVEILLER")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.8)
-                    .foregroundStyle(DS.Color.inkMute)
+            HStack {
+                HStack(spacing: 6) {
+                    PulsingDot(color: DS.Color.statusMajor)
+                    Text("DOSSIER EN COURS")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.8)
+                        .foregroundStyle(DS.Color.ink)
+                }
 
-                Rectangle()
-                    .fill(DS.Color.ink.opacity(0.18))
-                    .frame(height: 1)
+                Spacer()
+
+                Text("\(items.count) ouvert\(items.count > 1 ? "s" : "")")
+                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
             }
 
             TabView(selection: $activeNetworkCarouselIndex) {
@@ -1243,10 +1249,10 @@ struct ReportsView: View {
                     Button {
                         isShowingSummary = true
                     } label: {
-                        NetworkIssueCarouselCard(
+                        EditorialDossierCard(
                             item: item,
-                            itemCount: items.count,
-                            activeIndex: index
+                            index: index + 1,
+                            total: items.count
                         )
                     }
                     .buttonStyle(.plain)
@@ -1254,8 +1260,7 @@ struct ReportsView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 212)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .frame(height: 320)
             .onReceive(networkCarouselTimer) { _ in
                 guard !reduceMotion, items.count > 1 else { return }
                 withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
@@ -1269,16 +1274,17 @@ struct ReportsView: View {
             }
 
             if items.count > 1 {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     ForEach(items.indices, id: \.self) { index in
                         Button {
                             withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) {
                                 activeNetworkCarouselIndex = index
                             }
                         } label: {
-                            Capsule()
-                                .fill(index == activeNetworkCarouselIndex ? DS.Color.statusMajor : DS.Color.ink.opacity(0.16))
-                                .frame(width: index == activeNetworkCarouselIndex ? 22 : 7, height: 7)
+                            Rectangle()
+                                .fill(index == activeNetworkCarouselIndex ? DS.Color.ink : DS.Color.ink.opacity(0.25))
+                                .frame(width: index == activeNetworkCarouselIndex ? 28 : 8, height: 3)
+                                .animation(.easeInOut(duration: 0.2), value: activeNetworkCarouselIndex)
                         }
                         .buttonStyle(.plain)
                     }
@@ -3262,5 +3268,262 @@ private struct PulsingDot: View {
                 animate = true
             }
         }
+    }
+}
+
+// MARK: - Editorial dossier card
+
+private struct EditorialDossierCard: View {
+    let item: NetworkIssueCarouselItem
+    let index: Int
+    let total: Int
+
+    private var primaryLine: String { item.lines.first ?? "?" }
+
+    private var lineKind: String {
+        let trimmed = primaryLine.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let cleaned = trimmed.hasPrefix("T") || trimmed.hasPrefix("B")
+            ? String(trimmed.dropFirst())
+            : trimmed
+        if let n = Int(cleaned) {
+            if (1...6).contains(n) { return "Métro" }
+            if (7...99).contains(n) { return "Tram" }
+            return "Bus"
+        }
+        return "Ligne"
+    }
+
+    private var lineColor: Color {
+        item.lines.isEmpty ? item.tint : TransitLinePalette.fill(for: primaryLine)
+    }
+
+    private var lineForeground: Color {
+        item.lines.isEmpty ? .white : TransitLinePalette.foreground(for: primaryLine)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            DS.Color.paper
+
+            // Stripe couleur ligne
+            Rectangle()
+                .fill(lineColor)
+                .frame(width: 6)
+                .frame(maxHeight: .infinity)
+
+            // Étiquette dossier (top right)
+            Text("DOSSIER · \(String(format: "%02d", index))/\(String(format: "%02d", total))")
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .tracking(1.6)
+                .foregroundStyle(DS.Color.paper)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(DS.Color.ink)
+                .padding(.top, 10)
+                .padding(.trailing, 12)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .font(.system(size: 8, weight: .heavy))
+                        Text("LIVE")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.8)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(DS.Color.statusMajor)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+
+                    Text("\(lineKind.uppercased()) · STIB-MIVB")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    Spacer()
+                }
+                .padding(.top, 28)
+
+                HStack(alignment: .top, spacing: 10) {
+                    Text(primaryLine)
+                        .font(.system(size: 18, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(lineForeground)
+                        .frame(width: 48, height: 48)
+                        .background(lineColor)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(DS.Color.ink, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("⚠ PERTURBATION OFFICIELLE")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(1.4)
+                            .foregroundStyle(DS.Color.statusMajor)
+
+                        Text(item.keyword)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(2)
+
+                        if !item.detail.isEmpty {
+                            Text(item.detail)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.inkSoft)
+                                .lineLimit(2)
+                                .padding(.top, 2)
+                        }
+                    }
+                }
+
+                EditorialLineVisualizer(line: primaryLine, color: lineColor)
+                    .frame(height: 150)
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 12)
+            .padding(.bottom, 12)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(DS.Color.ink, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .shadow(color: DS.Color.ink.opacity(0.18), radius: 12, x: 0, y: 8)
+    }
+}
+
+// MARK: - Editorial line visualizer (stylized schematic)
+
+private struct EditorialLineVisualizer: View {
+    let line: String
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let pts = computePath(in: geo.size)
+            let disruptedIdx = max(1, pts.count / 2)
+            ZStack {
+                DS.Color.paper2.opacity(0.4)
+
+                Path { p in
+                    guard let first = pts.first else { return }
+                    p.move(to: first)
+                    for pt in pts.dropFirst() { p.addLine(to: pt) }
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                .shadow(color: color.opacity(0.6), radius: 6)
+
+                ForEach(Array(pts.enumerated()), id: \.offset) { i, pt in
+                    let isDisrupted = i == disruptedIdx
+                    let isTerminus = i == 0 || i == pts.count - 1
+                    Rectangle()
+                        .fill(isDisrupted ? DS.Color.statusMajor : (isTerminus ? DS.Color.ink : DS.Color.paper))
+                        .frame(width: isTerminus ? 11 : 9, height: isTerminus ? 11 : 9)
+                        .rotationEffect(.degrees(45))
+                        .overlay(
+                            Rectangle()
+                                .stroke(DS.Color.ink, lineWidth: 1)
+                                .rotationEffect(.degrees(45))
+                                .frame(width: isTerminus ? 11 : 9, height: isTerminus ? 11 : 9)
+                        )
+                        .position(pt)
+                }
+
+                if disruptedIdx < pts.count {
+                    EditorialPulsingHalo(color: DS.Color.statusMajor)
+                        .position(pts[disruptedIdx])
+                }
+
+                VStack {
+                    HStack {
+                        Text("◤ LIVE")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text("L\(line) ◥")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(color)
+                    }
+                    Spacer()
+                    HStack {
+                        Text("◣ \(pts.count) JALONS")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text("ZONE PERTURBÉE ◢")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
+                    }
+                }
+                .padding(6)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.1), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    private func computePath(in size: CGSize) -> [CGPoint] {
+        let n = 7
+        var seed: UInt32 = 2166136261
+        for c in line.unicodeScalars { seed ^= c.value; seed = seed &* 16777619 }
+        var rng = EditorialPRNG(seed: seed)
+
+        let padX: CGFloat = 16, padTop: CGFloat = 22, padBot: CGFloat = 30
+        let usableW = size.width - padX * 2
+        let usableH = size.height - padTop - padBot
+        var points: [CGPoint] = []
+        for i in 0..<n {
+            let t = CGFloat(i) / CGFloat(n - 1)
+            let x = padX + t * usableW
+            let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.6
+            points.append(CGPoint(x: x, y: y))
+        }
+        return points
+    }
+}
+
+private struct EditorialPulsingHalo: View {
+    let color: Color
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(color, lineWidth: 1.5)
+                .frame(width: 24, height: 24)
+                .scaleEffect(animate ? 2.4 : 0.5)
+                .opacity(animate ? 0 : 1)
+            Circle()
+                .fill(color.opacity(0.4))
+                .frame(width: 16, height: 16)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+                animate = true
+            }
+        }
+    }
+}
+
+private struct EditorialPRNG {
+    var state: UInt32
+    init(seed: UInt32) { self.state = seed == 0 ? 1 : seed }
+    mutating func next() -> CGFloat {
+        state = state &+ 0x6D2B79F5
+        var r = (state ^ (state >> 15)) &* (1 | state)
+        r = (r &+ ((r ^ (r >> 7)) &* (61 | r))) ^ r
+        return CGFloat((r ^ (r >> 14)) >> 0) / CGFloat(UInt32.max)
     }
 }
