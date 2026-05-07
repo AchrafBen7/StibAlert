@@ -1407,8 +1407,16 @@ struct ReportsView: View {
             }
             .prefix(8)
             .compactMap { incident -> NetworkIssueCarouselItem? in
-                let line = incident.line?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let lines = line.map { [$0] } ?? Array(summary.affectedLines.prefix(4))
+                let structuredLines = sanitizedLines([incident.line].compactMap { $0 })
+                let extractedLines = ReportsLineExtraction.extract(from: [
+                    incident.type,
+                    incident.description,
+                    incident.stop?.name,
+                ].compactMap { $0 }.joined(separator: " "))
+                let summaryLines = sanitizedLines(Array(summary.affectedLines.prefix(4)))
+                let lines = !structuredLines.isEmpty
+                    ? structuredLines
+                    : (!extractedLines.isEmpty ? extractedLines : summaryLines)
                 guard matchesSelectedMode(lines: lines) else { return nil }
                 return NetworkIssueCarouselItem(
                     id: "official-\(incident.id)",
@@ -1476,7 +1484,20 @@ struct ReportsView: View {
     /// Fall back to a regex-based scan over keyword + detail so the dossier
     /// card still renders the right badge / colour / stops.
     private func enrichLines(in item: NetworkIssueCarouselItem) -> NetworkIssueCarouselItem {
-        guard item.lines.isEmpty else { return item }
+        let cleaned = sanitizedLines(item.lines)
+        guard cleaned.isEmpty else {
+            guard cleaned != item.lines else { return item }
+            return NetworkIssueCarouselItem(
+                id: item.id,
+                keyword: item.keyword,
+                detail: item.detail,
+                lines: cleaned,
+                location: item.location,
+                sourceLabel: item.sourceLabel,
+                tint: item.tint
+            )
+        }
+
         let extracted = ReportsLineExtraction.extract(from: item.keyword + " " + item.detail)
         guard !extracted.isEmpty else { return item }
         return NetworkIssueCarouselItem(
@@ -1488,6 +1509,17 @@ struct ReportsView: View {
             sourceLabel: item.sourceLabel,
             tint: item.tint
         )
+    }
+
+    private func sanitizedLines(_ lines: [String]) -> [String] {
+        var seen = Set<String>()
+        return lines.compactMap { raw in
+            let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard !value.isEmpty, value != "?" else { return nil }
+            guard !seen.contains(value) else { return nil }
+            seen.insert(value)
+            return value
+        }
     }
 
     private func issueKeyword(from text: String) -> String {
