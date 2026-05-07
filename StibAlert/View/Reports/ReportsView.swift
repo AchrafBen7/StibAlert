@@ -905,15 +905,10 @@ struct ReportsView: View {
         Button {
             nav.showReportSheet = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .heavy))
-                Text("Signaler")
-                    .font(DS.Font.bodyBold)
-            }
+            Image(systemName: "plus")
+                .font(.system(size: 20, weight: .heavy))
             .foregroundStyle(DS.Color.primaryForeground)
-            .padding(.horizontal, 16)
-            .frame(height: 48)
+            .frame(width: 54, height: 54)
             .background(DS.Color.primary)
             .overlay(
                 RoundedRectangle(cornerRadius: DS.Radius.md)
@@ -1343,7 +1338,7 @@ struct ReportsView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 340)
+            .frame(height: 278)
             .onAppear {
                 for line in items.flatMap(\.lines).prefix(8) {
                     ensureLineDetail(for: line)
@@ -3573,13 +3568,13 @@ private struct EditorialDossierCard: View {
 
                     Spacer()
                 }
-                .padding(.top, 28)
+                .padding(.top, 24)
 
                 HStack(alignment: .top, spacing: 10) {
                     Text(primaryLine)
-                        .font(.system(size: 18, weight: .heavy, design: .monospaced))
+                        .font(.system(size: 17, weight: .heavy, design: .monospaced))
                         .foregroundStyle(lineForeground)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 44, height: 44)
                         .background(lineColor)
                         .overlay(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -3615,7 +3610,7 @@ private struct EditorialDossierCard: View {
                     disruptedIndices: disruptedIndices,
                     disruptedStopName: disruptedStopName
                 )
-                .frame(height: 170)
+                .frame(height: 132)
             }
             .padding(.leading, 18)
             .padding(.trailing, 12)
