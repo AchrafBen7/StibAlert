@@ -1436,7 +1436,26 @@ struct ReportsView: View {
             )
         }
 
-        return items
+        return items.map(enrichLines(in:))
+    }
+
+    /// Some upstream payloads omit `incident.line` (especially for "Travaux"-
+    /// type announcements where the line number lives only in the description).
+    /// Fall back to a regex-based scan over keyword + detail so the dossier
+    /// card still renders the right badge / colour / stops.
+    private func enrichLines(in item: NetworkIssueCarouselItem) -> NetworkIssueCarouselItem {
+        guard item.lines.isEmpty else { return item }
+        let extracted = ReportsLineExtraction.extract(from: item.keyword + " " + item.detail)
+        guard !extracted.isEmpty else { return item }
+        return NetworkIssueCarouselItem(
+            id: item.id,
+            keyword: item.keyword,
+            detail: item.detail,
+            lines: extracted,
+            location: item.location,
+            sourceLabel: item.sourceLabel,
+            tint: item.tint
+        )
     }
 
     private func issueKeyword(from text: String) -> String {
@@ -3387,15 +3406,16 @@ private struct EditorialDossierCard: View {
 
     private var lineKind: String {
         let trimmed = primaryLine.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let cleaned = trimmed.hasPrefix("T") || trimmed.hasPrefix("B")
-            ? String(trimmed.dropFirst())
-            : trimmed
-        if let n = Int(cleaned) {
-            if (1...6).contains(n) { return "Métro" }
-            if (7...99).contains(n) { return "Tram" }
-            return "Bus"
-        }
-        return "Ligne"
+        if trimmed.hasPrefix("T") { return "Tram" }
+        if trimmed.hasPrefix("B") { return "Bus" }
+        let cleaned = trimmed.allSatisfy(\.isNumber) ? trimmed : trimmed.filter(\.isNumber)
+        guard let n = Int(cleaned) else { return "Ligne" }
+        // STIB / MIVB Brussels classification
+        let metros: Set<Int> = [1, 2, 5, 6]
+        let trams: Set<Int> = [3, 4, 7, 8, 9, 10, 18, 19, 25, 32, 35, 39, 51, 55, 62, 81, 82, 92, 93, 97]
+        if metros.contains(n) { return "Métro" }
+        if trams.contains(n) { return "Tram" }
+        return "Bus"
     }
 
     private var lineColor: Color {
@@ -3711,5 +3731,34 @@ private enum ReportsStopMatching {
     static func normalize(_ value: String) -> String {
         value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private enum ReportsLineExtraction {
+    /// Extracts STIB line ids from a free-text description ("bus 47 dévié",
+    /// "tram 81", "ligne T7"). Used to populate NetworkIssueCarouselItem.lines
+    /// when the upstream incident does not carry a structured line code, so
+    /// the dossier card can still render the right badge / colour / stops.
+    static func extract(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+        let pattern = #"(?:\b(?:bus|tram|ligne|metro|métro|line)\b)\s*([TtBb]?\d{1,3})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        let nsText = text as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        var ordered: [String] = []
+        var seen = Set<String>()
+        regex.enumerateMatches(in: text, options: [], range: range) { match, _, _ in
+            guard let match, match.numberOfRanges >= 2 else { return }
+            let captureRange = match.range(at: 1)
+            guard captureRange.location != NSNotFound else { return }
+            let raw = nsText.substring(with: captureRange).uppercased()
+            let digits = raw.filter(\.isNumber)
+            guard let value = Int(digits), (1...999).contains(value) else { return }
+            if !seen.contains(raw) {
+                ordered.append(raw)
+                seen.insert(raw)
+            }
+        }
+        return ordered
     }
 }
