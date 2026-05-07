@@ -145,8 +145,62 @@ struct ReportsView: View {
     @State private var expandedFeedLineIds: Set<String> = []
     @State private var notificationLineInFlight: Set<String> = []
     @State private var activeNetworkCarouselIndex = 0
+    @State private var lineDetailCache: [String: TransportLineDTO] = [:]
+    @State private var lineDetailInFlight: Set<String> = []
 
     private let networkCarouselTimer = Timer.publish(every: 4.5, on: .main, in: .common).autoconnect()
+
+    private func ensureLineDetail(for line: String) {
+        let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !normalized.isEmpty else { return }
+        guard lineDetailCache[normalized] == nil else { return }
+        guard !lineDetailInFlight.contains(normalized) else { return }
+        lineDetailInFlight.insert(normalized)
+        Task {
+            do {
+                let detail = try await TransportService.line(id: normalized)
+                await MainActor.run {
+                    lineDetailCache[normalized] = detail
+                    lineDetailInFlight.remove(normalized)
+                }
+            } catch {
+                await MainActor.run { lineDetailInFlight.remove(normalized) }
+            }
+        }
+    }
+
+    private func dossierStopContext(for item: NetworkIssueCarouselItem) -> (stops: [String], disruptedIndices: Set<Int>, disruptedName: String?) {
+        guard let line = item.lines.first else { return ([], [], nil) }
+        let key = line.uppercased()
+        guard let detail = lineDetailCache[key] else { return ([], [], nil) }
+
+        let stopNames = detail.line.stops.map { $0.name }
+        let needles = ReportsStopMatching.normalize(item.keyword + " " + item.detail)
+        var disrupted: Set<Int> = []
+        var disruptedName: String? = item.location
+
+        for (idx, stop) in detail.line.stops.enumerated() {
+            let stopKey = ReportsStopMatching.normalize(stop.name)
+            guard stopKey.count >= 4 else { continue }
+            if needles.contains(stopKey) {
+                disrupted.insert(idx)
+                if disruptedName == nil { disruptedName = stop.name }
+            }
+        }
+
+        if disrupted.isEmpty {
+            for incident in detail.activeIncidents {
+                guard let stopName = incident.stop?.name else { continue }
+                let needle = ReportsStopMatching.normalize(stopName)
+                if let idx = detail.line.stops.firstIndex(where: { ReportsStopMatching.normalize($0.name) == needle }) {
+                    disrupted.insert(idx)
+                    if disruptedName == nil { disruptedName = stopName }
+                }
+            }
+        }
+
+        return (stopNames, disrupted, disruptedName)
+    }
 
     private var favoriteLines: Set<String> {
         Set(session.currentUser?.favoriteLines ?? [])
@@ -1247,13 +1301,17 @@ struct ReportsView: View {
 
             TabView(selection: $activeNetworkCarouselIndex) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    let context = dossierStopContext(for: item)
                     Button {
                         isShowingSummary = true
                     } label: {
                         EditorialDossierCard(
                             item: item,
                             index: index + 1,
-                            total: items.count
+                            total: items.count,
+                            stops: context.stops,
+                            disruptedIndices: context.disruptedIndices,
+                            disruptedStopName: context.disruptedName
                         )
                     }
                     .buttonStyle(.plain)
@@ -1261,7 +1319,17 @@ struct ReportsView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 320)
+            .frame(height: 340)
+            .onAppear {
+                for line in items.flatMap(\.lines).prefix(8) {
+                    ensureLineDetail(for: line)
+                }
+            }
+            .onChange(of: items.flatMap(\.lines).joined(separator: "|")) { _, _ in
+                for line in items.flatMap(\.lines).prefix(8) {
+                    ensureLineDetail(for: line)
+                }
+            }
             .onReceive(networkCarouselTimer) { _ in
                 guard !reduceMotion, items.count > 1 else { return }
                 withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
@@ -3311,6 +3379,9 @@ private struct EditorialDossierCard: View {
     let item: NetworkIssueCarouselItem
     let index: Int
     let total: Int
+    var stops: [String] = []
+    var disruptedIndices: Set<Int> = []
+    var disruptedStopName: String? = nil
 
     private var primaryLine: String { item.lines.first ?? "?" }
 
@@ -3414,8 +3485,14 @@ private struct EditorialDossierCard: View {
                     }
                 }
 
-                EditorialLineVisualizer(line: primaryLine, color: lineColor)
-                    .frame(height: 150)
+                EditorialLineVisualizer(
+                    line: primaryLine,
+                    color: lineColor,
+                    stops: stops,
+                    disruptedIndices: disruptedIndices,
+                    disruptedStopName: disruptedStopName
+                )
+                .frame(height: 170)
             }
             .padding(.leading, 18)
             .padding(.trailing, 12)
@@ -3430,16 +3507,58 @@ private struct EditorialDossierCard: View {
     }
 }
 
-// MARK: - Editorial line visualizer (stylized schematic)
+// MARK: - Editorial line visualizer (stops-aware schematic)
 
 private struct EditorialLineVisualizer: View {
     let line: String
     let color: Color
+    var stops: [String] = []
+    var disruptedIndices: Set<Int> = []
+    var disruptedStopName: String? = nil
+
+    private var hasRealStops: Bool { !stops.isEmpty }
+
+    /// When the line has many stops, sample around the disrupted ones so we still
+    /// show termini + perturbation context within the 7-waypoint budget.
+    private var sampled: (stops: [String], disrupted: Set<Int>) {
+        guard hasRealStops else { return ([], []) }
+        let maxSlots = 7
+        if stops.count <= maxSlots { return (stops, disruptedIndices) }
+
+        var indices = Set<Int>()
+        indices.insert(0)
+        indices.insert(stops.count - 1)
+        for di in disruptedIndices {
+            indices.insert(di)
+            if di > 0 { indices.insert(di - 1) }
+            if di < stops.count - 1 { indices.insert(di + 1) }
+        }
+        // fill with evenly distributed stops until we hit the budget
+        var step = 0
+        while indices.count < maxSlots {
+            let span = stops.count - 1
+            let denom = max(1, maxSlots - 1)
+            let candidate = Int(round(Double(step) * Double(span) / Double(denom)))
+            indices.insert(min(max(candidate, 0), stops.count - 1))
+            step += 1
+            if step > maxSlots * 2 { break }
+        }
+        let ordered = indices.sorted().prefix(maxSlots)
+        let sampledStops = ordered.map { stops[$0] }
+        let sampledDisrupted = Set(ordered.enumerated().compactMap { (offset, original) in
+            disruptedIndices.contains(original) ? offset : nil
+        })
+        return (Array(sampledStops), sampledDisrupted)
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let pts = computePath(in: geo.size)
-            let disruptedIdx = max(1, pts.count / 2)
+            let visibleStops = sampled.stops
+            let disrupted = sampled.disrupted
+            let pts = computePath(count: max(visibleStops.count, hasRealStops ? 1 : 7), in: geo.size)
+            let count = pts.count
+            let stylizedDisrupted = max(1, count / 2)
+
             ZStack {
                 DS.Color.paper2.opacity(0.4)
 
@@ -3452,24 +3571,42 @@ private struct EditorialLineVisualizer: View {
                 .shadow(color: color.opacity(0.6), radius: 6)
 
                 ForEach(Array(pts.enumerated()), id: \.offset) { i, pt in
-                    let isDisrupted = i == disruptedIdx
-                    let isTerminus = i == 0 || i == pts.count - 1
+                    let isDisrupted = hasRealStops
+                        ? disrupted.contains(i)
+                        : i == stylizedDisrupted
+                    let isTerminus = i == 0 || i == count - 1
+                    let size: CGFloat = isTerminus ? 11 : 9
                     Rectangle()
                         .fill(isDisrupted ? DS.Color.statusMajor : (isTerminus ? DS.Color.ink : DS.Color.paper))
-                        .frame(width: isTerminus ? 11 : 9, height: isTerminus ? 11 : 9)
+                        .frame(width: size, height: size)
                         .rotationEffect(.degrees(45))
                         .overlay(
                             Rectangle()
                                 .stroke(DS.Color.ink, lineWidth: 1)
                                 .rotationEffect(.degrees(45))
-                                .frame(width: isTerminus ? 11 : 9, height: isTerminus ? 11 : 9)
+                                .frame(width: size, height: size)
                         )
                         .position(pt)
+
+                    if hasRealStops, i < visibleStops.count {
+                        let labelOffset: CGFloat = (i % 2 == 0) ? -16 : 16
+                        Text(visibleStops[i].uppercased())
+                            .font(.system(size: 7, weight: .bold, design: .monospaced))
+                            .tracking(0.4)
+                            .foregroundStyle(isDisrupted ? DS.Color.statusMajor : DS.Color.inkMute)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: 70)
+                            .position(x: pt.x, y: pt.y + labelOffset)
+                    }
                 }
 
-                if disruptedIdx < pts.count {
+                if hasRealStops, let firstDisrupted = disrupted.sorted().first, firstDisrupted < pts.count {
                     EditorialPulsingHalo(color: DS.Color.statusMajor)
-                        .position(pts[disruptedIdx])
+                        .position(pts[firstDisrupted])
+                } else if !hasRealStops, stylizedDisrupted < pts.count {
+                    EditorialPulsingHalo(color: DS.Color.statusMajor)
+                        .position(pts[stylizedDisrupted])
                 }
 
                 VStack {
@@ -3486,16 +3623,24 @@ private struct EditorialLineVisualizer: View {
                     }
                     Spacer()
                     HStack {
-                        Text("◣ \(pts.count) JALONS")
+                        Text("◣ \(hasRealStops ? stops.count : count) ARRÊTS")
                             .font(.system(size: 8, weight: .semibold, design: .monospaced))
                             .tracking(1.6)
                             .foregroundStyle(DS.Color.inkMute)
                         Spacer()
-                        Text("ZONE PERTURBÉE ◢")
-                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                            .tracking(1.6)
-                            .foregroundStyle(DS.Color.inkMute)
-                            .lineLimit(1)
+                        if let disruptedStopName, !disruptedStopName.isEmpty {
+                            Text("\(disruptedStopName.uppercased()) ◢")
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .tracking(1.6)
+                                .foregroundStyle(DS.Color.statusMajor)
+                                .lineLimit(1)
+                        } else {
+                            Text("ZONE PERTURBÉE ◢")
+                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                                .tracking(1.6)
+                                .foregroundStyle(DS.Color.inkMute)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .padding(6)
@@ -3508,20 +3653,20 @@ private struct EditorialLineVisualizer: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
-    private func computePath(in size: CGSize) -> [CGPoint] {
-        let n = 7
+    private func computePath(count: Int, in size: CGSize) -> [CGPoint] {
+        let n = max(2, min(count, 9))
         var seed: UInt32 = 2166136261
         for c in line.unicodeScalars { seed ^= c.value; seed = seed &* 16777619 }
         var rng = EditorialPRNG(seed: seed)
 
-        let padX: CGFloat = 16, padTop: CGFloat = 22, padBot: CGFloat = 30
+        let padX: CGFloat = 16, padTop: CGFloat = 28, padBot: CGFloat = 32
         let usableW = size.width - padX * 2
         let usableH = size.height - padTop - padBot
         var points: [CGPoint] = []
         for i in 0..<n {
             let t = CGFloat(i) / CGFloat(n - 1)
             let x = padX + t * usableW
-            let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.6
+            let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.5
             points.append(CGPoint(x: x, y: y))
         }
         return points
@@ -3559,5 +3704,12 @@ private struct EditorialPRNG {
         var r = (state ^ (state >> 15)) &* (1 | state)
         r = (r &+ ((r ^ (r >> 7)) &* (61 | r))) ^ r
         return CGFloat((r ^ (r >> 14)) >> 0) / CGFloat(UInt32.max)
+    }
+}
+
+private enum ReportsStopMatching {
+    static func normalize(_ value: String) -> String {
+        value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
