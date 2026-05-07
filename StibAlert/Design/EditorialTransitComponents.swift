@@ -89,6 +89,16 @@ enum LineBadgeSize {
         case .lg: return DS.Font.monoLarge
         }
     }
+
+    func minWidth(for line: String) -> CGFloat {
+        let characterCount = line.trimmingCharacters(in: .whitespacesAndNewlines).count
+        switch self {
+        case .sm:
+            return characterCount >= 3 ? 38 : characterCount >= 2 ? 32 : height
+        case .lg:
+            return characterCount >= 3 ? 52 : characterCount >= 2 ? 44 : height
+        }
+    }
 }
 
 enum TransitLinePalette {
@@ -201,9 +211,12 @@ struct LineBadge: View {
         Text(line)
             .font(size.font)
             .fontWeight(.bold)
+            .lineLimit(1)
+            .minimumScaleFactor(0.82)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(foreground ?? TransitLinePalette.foreground(for: line))
             .padding(.horizontal, size.horizontalPadding)
-            .frame(minWidth: size.height, minHeight: size.height)
+            .frame(minWidth: size.minWidth(for: line), minHeight: size.height)
             .background(fill ?? TransitLinePalette.fill(for: line))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
             .overlay(
