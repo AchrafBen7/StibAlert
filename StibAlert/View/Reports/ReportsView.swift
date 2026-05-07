@@ -723,6 +723,7 @@ struct ReportsView: View {
             selectedLine: selectedLineFilter,
             selectedSort: selectedSortMode,
             lineFilters: visibleLineFilters,
+            segmentCounts: segmentCounts,
             helperText: scopeHelperText,
             updatedText: lastUpdatedAt.map { "Mis à jour \(relativeTimeLabel(from: $0))" },
             onSelectSegment: { selectedSegment = $0 },
@@ -1504,6 +1505,7 @@ private struct ReportsFilterDock: View {
     let selectedLine: String
     let selectedSort: ReportSortMode
     let lineFilters: [String]
+    let segmentCounts: [ReportSegment: Int]
     let helperText: String
     let updatedText: String?
     let onSelectSegment: (ReportSegment) -> Void
@@ -1511,12 +1513,50 @@ private struct ReportsFilterDock: View {
     let onSelectLine: (String) -> Void
     let onSelectSort: (ReportSortMode) -> Void
 
+    private var totalCount: Int { segmentCounts[.all] ?? 0 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("SOMMAIRE")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.8)
+                    .foregroundStyle(DS.Color.ink)
+
+                Spacer()
+
+                Text("\(String(format: "%02d", totalCount)) DÉPÊCHES")
+                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 2)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.bottom, 10)
+
             if showsReportFilters {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(visibleSegments, id: \.self) { segment in
+                            EditorialSegmentChip(
+                                label: segment.label,
+                                count: segmentCounts[segment] ?? 0,
+                                active: selectedSegment == segment,
+                                action: { onSelectSegment(segment) }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.xl)
+                }
+                .padding(.bottom, 8)
+
                 HStack(spacing: 8) {
-                    compactSegmentControl
-                    Spacer(minLength: 8)
                     filterMenuButton(
                         icon: "arrow.up.arrow.down",
                         title: selectedSort.label
@@ -1525,9 +1565,6 @@ private struct ReportsFilterDock: View {
                             Button(mode.label) { onSelectSort(mode) }
                         }
                     }
-                }
-
-                HStack(spacing: 8) {
                     filterMenuButton(
                         icon: selectedMode.iconSystemName ?? "square.grid.2x2",
                         title: selectedMode.label
@@ -1536,10 +1573,9 @@ private struct ReportsFilterDock: View {
                             Button(mode.label) { onSelectMode(mode) }
                         }
                     }
-
                     filterMenuButton(
-                        icon: selectedLine == "Tout" ? "line.3.horizontal.decrease.circle" : "tram.fill",
-                        title: selectedLine == "Tout" ? "Toutes lignes" : "Ligne \(selectedLine)"
+                        icon: selectedLine == "Tout" ? "line.3.horizontal.decrease" : "tram.fill",
+                        title: selectedLine == "Tout" ? "Toutes lignes" : "L \(selectedLine)"
                     ) {
                         ForEach(lineFilters, id: \.self) { line in
                             Button(line == "Tout" ? "Toutes lignes" : "Ligne \(line)") {
@@ -1547,13 +1583,10 @@ private struct ReportsFilterDock: View {
                             }
                         }
                     }
-
-                    if selectedLine != "Tout" {
-                        LineBadge(line: selectedLine, size: .sm)
-                    }
-
                     Spacer(minLength: 0)
                 }
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.bottom, 10)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1571,53 +1604,24 @@ private struct ReportsFilterDock: View {
                         .lineLimit(1)
                 }
             }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal, DS.Spacing.xl)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
         .background(
-            DS.Color.paper.opacity(0.84)
+            DS.Color.background.opacity(0.95)
                 .background(.ultraThinMaterial)
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(DS.Color.ink.opacity(0.08))
+                        .fill(DS.Color.ink.opacity(0.10))
                         .frame(height: 1)
                 }
         )
     }
 
-    private var compactSegmentControl: some View {
-        HStack(spacing: 4) {
-            ForEach([ReportSegment.all, .official, .community], id: \.self) { segment in
-                Button {
-                    onSelectSegment(segment)
-                } label: {
-                    HStack(spacing: 5) {
-                        if let icon = segment.iconSystemName {
-                            Image(systemName: icon)
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        Text(segment.label)
-                            .font(DS.Font.monoSmall.weight(.bold))
-                            .tracking(0.8)
-                    }
-                    .foregroundStyle(selectedSegment == segment ? DS.Color.paper : DS.Color.ink)
-                    .padding(.horizontal, 10)
-                    .frame(height: 32)
-                    .background(selectedSegment == segment ? DS.Color.ink : Color.clear)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(DS.Color.paper.opacity(0.78))
-        .overlay(
-            Capsule()
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(Capsule())
-        .shadow(color: DS.Color.ink.opacity(0.06), radius: 14, x: 0, y: 8)
+    private var visibleSegments: [ReportSegment] {
+        showsReportFilters
+            ? [.all, .official, .community, .events]
+            : [.events]
     }
 
     private func filterMenuButton<Content: View>(
@@ -1628,24 +1632,54 @@ private struct ReportsFilterDock: View {
         Menu(content: content) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                 Text(title)
-                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(0.6)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .black))
+                    .font(.system(size: 8, weight: .black))
                     .foregroundStyle(DS.Color.inkMute)
             }
             .foregroundStyle(DS.Color.ink)
-            .padding(.horizontal, 11)
-            .frame(height: 34)
-            .background(DS.Color.paper.opacity(0.86))
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(DS.Color.paper)
             .overlay(
-                Capsule()
-                    .stroke(DS.Color.ink.opacity(0.13), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1)
             )
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
+    }
+}
+
+private struct EditorialSegmentChip: View {
+    let label: String
+    let count: Int
+    let active: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(active ? DS.Color.paper.opacity(0.7) : DS.Color.inkMute)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
+            .background(active ? DS.Color.ink : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
