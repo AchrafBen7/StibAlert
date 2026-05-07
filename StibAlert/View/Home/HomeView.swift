@@ -166,7 +166,7 @@ struct HomeView: View {
 
     private var visibleLineShapes: [LineShape] {
         guard selectedRouteOption == nil else { return [] }
-        guard cameraLatitudeDelta <= 0.08 else { return [] }
+        guard cameraLatitudeDelta <= 0.05 else { return [] }
         return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
     }
 
@@ -245,7 +245,7 @@ struct HomeView: View {
     }
 
     private var baseMapStops: [TransportStopSummaryDTO] {
-        guard cameraLatitudeDelta <= 0.12 else { return [] }
+        guard cameraLatitudeDelta <= 0.07 else { return [] }
 
         let catalogStops = catalogMapStops.compactMap { stop -> TransportStopSummaryDTO? in
             guard let coordinate = stop.coordinate else { return nil }
@@ -343,7 +343,7 @@ struct HomeView: View {
     }
 
     private var mapVilloStations: [VilloStation] {
-        guard showVilloStations, cameraLatitudeDelta <= 0.06 else { return [] }
+        guard showVilloStations, cameraLatitudeDelta <= 0.03 else { return [] }
         return VilloStationService.nearbyStations(
             around: locationManager.displayCoordinate,
             radiusMeters: 2200,
@@ -352,7 +352,7 @@ struct HomeView: View {
     }
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
-        guard showEventImpacts, cameraLatitudeDelta <= 0.18 else { return [] }
+        guard showEventImpacts, cameraLatitudeDelta <= 0.14 else { return [] }
         return eventImpacts
             .filter(isRelevantMapEvent(_:))
             .filter { $0.latitude != nil && $0.longitude != nil }
@@ -519,7 +519,9 @@ struct HomeView: View {
                 shouldShowPulseBar: shouldShowPulseBar,
                 shouldShowTabBar: shouldShowTabBar,
                 totalActiveSignalementsCount: totalActiveSignalementsCount,
+                favoriteAffectedCount: favoriteAffectedCount,
                 highlightedEventCount: highlightedEventCount,
+                refreshedAt: lastHomeRefreshAt,
                 onOpenReports: openReportsFromHome,
                 onOpenReportSheet: openQuickReportFromHome,
                 onSelectTab: selectTab(_:)
@@ -2341,33 +2343,36 @@ private struct HomeBottomChromeOverlay: View {
     let shouldShowPulseBar: Bool
     let shouldShowTabBar: Bool
     let totalActiveSignalementsCount: Int
+    let favoriteAffectedCount: Int
     let highlightedEventCount: Int
+    let refreshedAt: Date?
     let onOpenReports: () -> Void
     let onOpenReportSheet: () -> Void
     let onSelectTab: (AppTab) -> Void
 
     var body: some View {
         Group {
-            if shouldShowPulseBar, totalActiveSignalementsCount > 0 {
-                HomePulseBar(
-                    totalActive: totalActiveSignalementsCount,
-                    eventCount: highlightedEventCount,
-                    refreshedAt: lastHomeRefreshAt,
-                    onOpenReports: onOpenReports,
-                    onReport: onOpenReportSheet
-                )
-                .padding(.trailing, 14)
-                .padding(.leading, 14)
-                .padding(.bottom, 80)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(6)
-            } else if shouldShowPulseBar {
-                HStack {
-                    Spacer()
-                    HomeReportFloatingButton(action: onOpenReportSheet)
+            if shouldShowPulseBar {
+                VStack(spacing: 8) {
+                    if totalActiveSignalementsCount > 0 {
+                        HomePulseBar(
+                            totalActive: totalActiveSignalementsCount,
+                            favoriteAffectedCount: favoriteAffectedCount,
+                            eventCount: highlightedEventCount,
+                            refreshedAt: refreshedAt,
+                            onOpenReports: onOpenReports
+                        )
+                        .padding(.horizontal, 14)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    HStack {
+                        Spacer()
+                        HomeReportFloatingButton(action: onOpenReportSheet)
+                            .padding(.trailing, 14)
+                    }
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 126)
+                .padding(.bottom, 80)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
@@ -2551,33 +2556,42 @@ private struct HomeSearchHeaderOverlay: View {
                     .padding(.horizontal, 18)
                 }
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        HomeEditorialActionChip(
-                            icon: "location.viewfinder",
-                            title: "Autour de moi",
-                            count: nil,
-                            isActive: hasUserCoordinate,
-                            action: onAroundMe
-                        )
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Explorer la carte")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .padding(.leading, 22)
 
-                        HomeEditorialActionChip(
-                            icon: "star",
-                            title: "Favoris",
-                            count: favoriteLineCount,
-                            isActive: favoriteLineCount > 0,
-                            action: onOpenFavorites
-                        )
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            HomeEditorialActionChip(
+                                icon: "location.viewfinder",
+                                title: "Autour de moi",
+                                count: nil,
+                                isActive: hasUserCoordinate,
+                                action: onAroundMe
+                            )
 
-                        HomeEditorialActionChip(
-                            icon: "exclamationmark.triangle",
-                            title: "Perturbations",
-                            count: totalActiveSignalementsCount,
-                            isActive: totalActiveSignalementsCount > 0,
-                            action: onOpenReports
-                        )
+                            HomeEditorialActionChip(
+                                icon: "star",
+                                title: "Favoris",
+                                count: favoriteLineCount,
+                                isActive: favoriteLineCount > 0,
+                                action: onOpenFavorites
+                            )
+
+                            HomeEditorialActionChip(
+                                icon: "exclamationmark.triangle",
+                                title: "Perturbations",
+                                count: totalActiveSignalementsCount,
+                                isActive: totalActiveSignalementsCount > 0,
+                                action: onOpenReports
+                            )
+                        }
+                        .padding(.horizontal, 18)
                     }
-                    .padding(.horizontal, 18)
                 }
             }
         }
@@ -2658,81 +2672,65 @@ private struct HomeEditorialActionChip: View {
 
 private struct HomePulseBar: View {
     let totalActive: Int
+    let favoriteAffectedCount: Int
     let eventCount: Int
     let refreshedAt: Date?
     let onOpenReports: () -> Void
-    let onReport: () -> Void
+
+    private var titleText: String {
+        if favoriteAffectedCount > 0 {
+            return favoriteAffectedCount == 1
+                ? "1 incident sur tes lignes"
+                : "\(favoriteAffectedCount) incidents sur tes lignes"
+        }
+        return totalActive == 1 ? "1 signalement actif" : "\(totalActive) signalements actifs"
+    }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button(action: onOpenReports) {
-                HStack(spacing: 12) {
-                    Circle()
-                        .fill(totalActive > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
-                        .frame(width: 12, height: 12)
+        Button(action: onOpenReports) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(favoriteAffectedCount > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
+                    .frame(width: 12, height: 12)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
-                            .font(DS.Font.bodyBold)
-                            .foregroundStyle(DS.Color.ink)
-                        if let refreshedAt {
-                            (Text("\(eventCount) evt · actualisé ")
-                                + Text(refreshedAt, style: .relative))
-                                .font(DS.Font.monoSmall)
-                                .tracking(1.0)
-                                .textCase(.uppercase)
-                                .foregroundStyle(DS.Color.inkMute)
-                        } else {
-                            Text("\(eventCount) événements ce soir")
-                                .font(DS.Font.monoSmall)
-                                .tracking(1.2)
-                                .textCase(.uppercase)
-                                .foregroundStyle(DS.Color.inkMute)
-                        }
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-                .padding(.horizontal, 16)
-                .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(DS.Color.paper.opacity(0.98))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(DS.Shadow.overlay)
-            }
-            .buttonStyle(.plain)
-
-            Button(action: {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                onReport()
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .heavy))
-                    Text("Signaler")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(titleText)
                         .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                    if let refreshedAt {
+                        (Text("\(eventCount) evt · actualisé ")
+                            + Text(refreshedAt, style: .relative))
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.0)
+                            .textCase(.uppercase)
+                            .foregroundStyle(DS.Color.inkMute)
+                    } else {
+                        Text("\(eventCount) événements ce soir")
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
                 }
-                .foregroundStyle(DS.Color.primaryForeground)
-                .padding(.horizontal, 14)
-                .frame(height: 60)
-                .background(DS.Color.primary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(DS.Shadow.overlay)
+
+                Spacer()
+
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .frame(height: 60)
+            .background(DS.Color.paper.opacity(0.98))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(DS.Shadow.overlay)
         }
+        .buttonStyle(.plain)
     }
 }
 
