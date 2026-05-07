@@ -74,7 +74,7 @@ private struct OnboardingLinesStep: View {
                 .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Stibi surveille les perturbations en temps réel et te prévient avant que ça bloque ton trajet.")
+            Text("StibAlert surveille les perturbations en temps réel et te prévient avant que ça bloque ton trajet.")
                 .font(.custom("Montserrat-Regular", size: 15))
                 .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -287,7 +287,7 @@ private struct OnboardingPushStep: View {
 
     private var pushHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Stibi prévient.\nToi, tu prends le bon tram.")
+            Text("StibAlert prévient.\nToi, tu prends le bon tram.")
                 .font(.custom("DelaGothicOne-Regular", size: 26))
                 .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
                 .fixedSize(horizontal: false, vertical: true)

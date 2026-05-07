@@ -4,7 +4,6 @@ import CoreLocation
 struct FavoritesView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
-    @EnvironmentObject private var stibi: StibiCenter
     @State private var selectedFilter: FavoriteTransportFilter = .all
     @State private var query = ""
     @State private var selectedItem: FavoriteTransitItem?
@@ -113,9 +112,7 @@ struct FavoritesView: View {
             .modifier(PaperGrainBackground())
             .toolbar(.hidden, for: .navigationBar)
             .task {
-                stibi.setCurrentScreen("favorites")
                 await loadFavoris()
-                await loadStibiContext()
             }
             .onChange(of: session.currentUser?.favorisDetails?.map(\.id) ?? []) { _, _ in
                 syncRemoteItemsFromSession()
@@ -226,16 +223,6 @@ struct FavoritesView: View {
             return
         }
         remoteItems = mapFavoriteItems(from: user.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
-    }
-
-    private func loadStibiContext() async {
-        guard AppConfig.isBackendEnabled else { return }
-        do {
-            let context = try await AssistantService.context()
-            stibi.pushContextInsight(for: "favorites", context: context)
-        } catch {
-            print("Favorites Stibi context failed: \(error.localizedDescription)")
-        }
     }
 
     private func removeFavori(_ item: FavoriteTransitItem) async {
@@ -1352,7 +1339,7 @@ private struct FavoriteStopDecisionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Décision Stibi")
+                Text("Analyse réseau")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
 

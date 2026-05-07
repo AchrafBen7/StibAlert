@@ -6,8 +6,8 @@ import OneSignalFramework
 #endif
 
 extension Notification.Name {
-    static let stibiPushOpened = Notification.Name("stibiPushOpened")
-    static let stibiRouteDeepLink = Notification.Name("stibiRouteDeepLink")
+    static let pushOpened = Notification.Name("pushOpened")
+    static let routeDeepLink = Notification.Name("routeDeepLink")
 }
 
 final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -73,7 +73,7 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        NotificationCenter.default.post(name: .stibiPushOpened, object: nil, userInfo: response.notification.request.content.userInfo)
+        NotificationCenter.default.post(name: .pushOpened, object: nil, userInfo: response.notification.request.content.userInfo)
         completionHandler()
     }
 
@@ -121,7 +121,7 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
 extension PushNotificationManager: OSNotificationClickListener {
     func onClick(event: OSNotificationClickEvent) {
         let additionalData = event.notification.additionalData ?? [:]
-        NotificationCenter.default.post(name: .stibiPushOpened, object: nil, userInfo: additionalData)
+        NotificationCenter.default.post(name: .pushOpened, object: nil, userInfo: additionalData)
     }
 }
 #endif

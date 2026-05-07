@@ -18,7 +18,6 @@ final class SearchViewState: ObservableObject {
     @Published var useCurrentLocation = true
     @Published var isResolvingSuggestion = false
     @Published var transportRecommendation: TransportRecommendationDTO?
-    @Published var stibiRouteBrief: AssistantBriefDTO?
 
     func clearSearchUI() {
         activeField = .none
@@ -58,13 +57,11 @@ final class SearchViewState: ObservableObject {
         isLoadingRoute = false
         routeNote = nil
         transportRecommendation = nil
-        stibiRouteBrief = nil
     }
 
     func applyBuildResult(_ result: SearchJourneyBuildResult) {
         journey = result.journey
         transportRecommendation = result.recommendation
-        stibiRouteBrief = result.assistantBrief
         isLoadingRoute = false
         routeNote = result.routeNote
     }

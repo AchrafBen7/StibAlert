@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SignalementsView: View {
     @EnvironmentObject private var nav: AppNavigation
-    @EnvironmentObject private var stibi: StibiCenter
     @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFilter: LineFilter = .all
@@ -113,10 +112,8 @@ struct SignalementsView: View {
         .modifier(PaperGrainBackground())
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            stibi.setCurrentScreen("signalements")
             await loadRemoteLines()
             applyPendingLineFocusIfPossible()
-            await loadStibiContext()
         }
         .onChange(of: displayLines.count) { _, _ in
             applyPendingLineFocusIfPossible()
@@ -446,18 +443,6 @@ struct SignalementsView: View {
         case .all:
             let numeric = Int(line) ?? 0
             return numeric % 2 == 0 ? (Color(hex: "#0066A3"), .white) : (Color(hex: "#8F4199"), .white)
-        }
-    }
-
-    @MainActor
-    private func loadStibiContext() async {
-        guard session.isSignedIn else { return }
-        guard AppConfig.isBackendEnabled else { return }
-        do {
-            let context = try await AssistantService.context()
-            stibi.pushContextInsight(for: "signalements", context: context)
-        } catch {
-            print("Signalements Stibi context failed: \(error.localizedDescription)")
         }
     }
 

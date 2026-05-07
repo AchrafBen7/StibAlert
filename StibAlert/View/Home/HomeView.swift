@@ -26,7 +26,6 @@ struct HomeView: View {
     }
 
     @EnvironmentObject private var nav: AppNavigation
-    @EnvironmentObject private var stibi: StibiCenter
     @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var locationManager = HomeLocationManager()
@@ -66,8 +65,6 @@ struct HomeView: View {
     @State private var transportOverview: TransportOverviewDTO?
     @State private var currentTransportRecommendation: TransportRecommendationDTO?
     @State private var isLoadingTransportOverview = false
-    @State private var stibiBrief: AssistantBriefDTO?
-    @State private var isLoadingStibiBrief = false
     @State private var selectedAlternativeDetail: TransportAlternativeDTO?
     @State private var selectedMapStopPreview: TransportStopSummaryDTO?
     @State private var selectedMapStopSummary: TransportStopSummaryDTO?
@@ -521,7 +518,6 @@ struct HomeView: View {
                 currentPage: nav.currentPage,
                 shouldShowPulseBar: shouldShowPulseBar,
                 shouldShowTabBar: shouldShowTabBar,
-                hasStibiBrief: stibi.brief != nil,
                 totalActiveSignalementsCount: totalActiveSignalementsCount,
                 highlightedEventCount: highlightedEventCount,
                 onOpenReports: openReportsFromHome,
@@ -577,7 +573,6 @@ struct HomeView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            stibi.setCurrentScreen("home")
             locationManager.start()
             realtimeSignalements.connect()
             vehicleTracker.start(lines: trackedVehicleLineNumbers)
@@ -614,14 +609,6 @@ struct HomeView: View {
             mergeIncomingSignalement(signalement)
         }
         .onChange(of: nav.currentPage) { _, newValue in
-            switch newValue {
-            case .home: stibi.setCurrentScreen("home")
-            case .signalements: stibi.setCurrentScreen("signalements")
-            case .reports: stibi.setCurrentScreen("reports")
-            case .favorites:   stibi.setCurrentScreen("favorites")
-            case .profile:     stibi.setCurrentScreen("profile")
-            case .profileMain: stibi.setCurrentScreen("profile_main")
-            }
             if newValue == .home, nav.pendingMapStopFocusBackendId != nil {
                 Task { await applyPendingMapStopFocusIfPossible() }
             }
@@ -883,11 +870,6 @@ struct HomeView: View {
         }
     }
 
-    private var currentCommuteBrief: AssistantBriefDTO? {
-        guard let brief = stibi.brief, brief.type == "commute_brief" else { return nil }
-        return brief
-    }
-
     @MainActor
     private func enterInteractionMode(_ mode: InteractionMode) {
         interactionMode = mode
@@ -1002,9 +984,7 @@ struct HomeView: View {
     private var homeDashboardData: HomeDashboardData {
         HomeDecisionAdapter.makeDashboardData(
             transportOverview: transportOverview,
-            remoteSignalements: remoteSignalements,
-            stibiBrief: currentCommuteBrief,
-            stibiContext: stibi.context
+            remoteSignalements: remoteSignalements
         )
     }
 
@@ -1215,11 +1195,6 @@ struct HomeView: View {
             signalementsTotalPages = response.pagination?.totalPages ?? 1
             lastFetchedAt = Date()
             signalementLoadError = nil
-            if let stibiBrief {
-                let enriched = enrichHomeBriefWithCommunity(stibiBrief)
-                self.stibiBrief = enriched
-                stibi.consume(enriched)
-            }
         } catch {
             signalementLoadError = "Impossible de charger les signalements."
         }
@@ -1716,27 +1691,6 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func loadStibiBrief(lat: Double? = nil, lng: Double? = nil) async {
-        guard AppConfig.isBackendEnabled else { return }
-        guard session.isSignedIn else {
-            stibiBrief = nil
-            return
-        }
-        guard !isLoadingStibiBrief else { return }
-        isLoadingStibiBrief = true
-        defer { isLoadingStibiBrief = false }
-
-        do {
-            let brief = try await AssistantService.homeBrief(lat: lat, lng: lng)
-            let enriched = enrichHomeBriefWithCommunity(brief)
-            stibiBrief = enriched
-            stibi.consume(enriched)
-        } catch {
-            print("Stibi home brief failed: \(error.localizedDescription)")
-        }
-    }
-
-    @MainActor
     private func refreshHomeSurface(reason: String, force: Bool = false) async {
         guard AppConfig.isBackendEnabled else { return }
 
@@ -1750,12 +1704,7 @@ struct HomeView: View {
         let lng = locationManager.userCoordinate?.longitude
 
         homeRefreshTask = Task {
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { await loadTransportOverview(lat: lat, lng: lng) }
-                if session.isSignedIn {
-                    group.addTask { await loadStibiBrief(lat: lat, lng: lng) }
-                }
-            }
+            await loadTransportOverview(lat: lat, lng: lng)
         }
 
         await homeRefreshTask?.value
@@ -2210,41 +2159,6 @@ struct HomeView: View {
         }
     }
 
-    private func enrichHomeBriefWithCommunity(_ brief: AssistantBriefDTO) -> AssistantBriefDTO {
-        let confirmationCount = remoteSignalements.reduce(0) { partialResult, signalement in
-            partialResult + (signalement.community?.confirmations ?? 0)
-        }
-        let stillBlockedCount = remoteSignalements.reduce(0) { partialResult, signalement in
-            partialResult + (signalement.community?.stillBlocked ?? 0)
-        }
-
-        guard confirmationCount > 0 || stillBlockedCount > 0 else { return brief }
-
-        let terrainNote: String
-        if stillBlockedCount > 0 {
-            terrainNote = "\(confirmationCount + stillBlockedCount) retours terrain confirment encore des zones bloquées."
-        } else {
-            terrainNote = "\(confirmationCount) confirmation(s) terrain récentes soutiennent cette lecture."
-        }
-
-        guard !brief.message.localizedCaseInsensitiveContains(terrainNote) else { return brief }
-
-        return AssistantBriefDTO(
-            assistant: brief.assistant,
-            context: brief.context,
-            type: brief.type,
-            priority: brief.priority,
-            severity: brief.severity,
-            confidence: brief.confidence,
-            title: brief.title,
-            message: "\(brief.message) \(terrainNote)",
-            shortMessage: brief.shortMessage,
-            actions: brief.actions,
-            source: brief.source,
-            assistantContext: brief.assistantContext,
-            supporting: brief.supporting
-        )
-    }
 }
 
 // MARK: - Waze overlay
@@ -2426,7 +2340,6 @@ private struct HomeBottomChromeOverlay: View {
     let currentPage: AppPage
     let shouldShowPulseBar: Bool
     let shouldShowTabBar: Bool
-    let hasStibiBrief: Bool
     let totalActiveSignalementsCount: Int
     let highlightedEventCount: Int
     let onOpenReports: () -> Void
@@ -2443,7 +2356,7 @@ private struct HomeBottomChromeOverlay: View {
                     onReport: onOpenReportSheet
                 )
                 .padding(.trailing, 14)
-                .padding(.leading, hasStibiBrief ? 92 : 14)
+                .padding(.leading, 14)
                 .padding(.bottom, 80)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
@@ -4502,121 +4415,6 @@ private struct HomeAlternativeDetailsSheet: View {
             parts.append("vers \(destination)")
         }
         return parts.joined(separator: " • ")
-    }
-}
-
-struct MorningCommuteStatusCard: View {
-    let brief: AssistantBriefDTO
-    let onOpenStibi: () -> Void
-    let onPrimaryAction: () -> Void
-
-    private var glowColor: Color {
-        AssistantViewAdapters.glowColor(for: brief.assistant.visualState)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(glowColor.opacity(0.2))
-                    .frame(width: 34, height: 34)
-                    .overlay(
-                        Circle()
-                            .fill(glowColor)
-                            .frame(width: 12, height: 12)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Stibi • Trajet du matin")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
-
-                    Text(brief.title)
-                        .font(AppTheme.Fonts.title3)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                }
-
-                Spacer()
-
-                if let decision = brief.supporting?.commuteDecision {
-                    Text(localizedDecision(decision))
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 6)
-                        .background(glowColor)
-                        .clipShape(Capsule())
-                }
-            }
-
-            Text(brief.message)
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let departureTime = brief.supporting?.departureTime, !departureTime.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(AppTheme.Palette.info)
-                    Text("Départ habituel \(departureTime)")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.info)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            HStack(spacing: 10) {
-                Button(action: onPrimaryAction) {
-                    Text(brief.actions.first?.label ?? "Agir")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textOnBrand)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: AppTheme.ButtonHeight.secondary)
-                        .background(glowColor)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                Button(action: onOpenStibi) {
-                    Text("Ouvrir Stibi")
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: AppTheme.ButtonHeight.secondary)
-                        .background(AppTheme.Palette.surfaceMuted)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [glowColor.opacity(0.14), AppTheme.Palette.screenElevated.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(glowColor.opacity(0.22), lineWidth: 1)
-        )
-    }
-
-    private func localizedDecision(_ decision: String) -> String {
-        switch decision {
-        case "leave_now": return "Pars"
-        case "prepare": return "Prépare"
-        case "wait": return "Attends"
-        case "detour": return "Détour"
-        default: return "Suivi"
-        }
     }
 }
 

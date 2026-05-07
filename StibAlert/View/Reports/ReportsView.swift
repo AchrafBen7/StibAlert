@@ -118,7 +118,6 @@ struct ReportsView: View {
     }
 
     @EnvironmentObject private var nav: AppNavigation
-    @EnvironmentObject private var stibi: StibiCenter
     @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -403,7 +402,6 @@ struct ReportsView: View {
             }
         }
         .task {
-            stibi.setCurrentScreen("reports")
             applyPendingScopeIfPossible()
             await loadData()
             applyPendingReportFocusIfPossible()
@@ -2758,7 +2756,6 @@ private struct ReportsSummarySheet: View {
     let summary: TransportPerturbationSummaryDTO
     let lineLabel: String?
 
-    @StateObject private var speech = StibiSpeechSynthesizer()
     @State private var didCopy = false
 
     var body: some View {
@@ -2790,24 +2787,6 @@ private struct ReportsSummarySheet: View {
                             Spacer()
 
                             HStack(spacing: 8) {
-                                Button {
-                                    toggleSpeech()
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: speech.isSpeaking ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                            .font(.system(size: 12, weight: .semibold))
-                                        Text(speech.isSpeaking ? "Stop" : "Lire")
-                                            .font(DS.Font.monoSmall.weight(.bold))
-                                    }
-                                    .foregroundStyle(DS.Color.ink)
-                                    .padding(.horizontal, 10)
-                                    .frame(height: 30)
-                                    .background(DS.Color.secondary)
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(DS.Color.border, lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-
                                 Button {
                                     copySummary()
                                 } label: {
@@ -2963,9 +2942,6 @@ private struct ReportsSummarySheet: View {
             }
         }
         .modifier(PaperGrainBackground())
-        .onDisappear {
-            speech.stop()
-        }
     }
 
     private var sourceBadgeTitle: String {
@@ -3012,14 +2988,6 @@ private struct ReportsSummarySheet: View {
         }
     }
 
-    private func toggleSpeech() {
-        if speech.isSpeaking {
-            speech.stop()
-            return
-        }
-        speech.speak(spokenSummary)
-    }
-
     private func copySummary() {
         UIPasteboard.general.string = copyableSummary
         didCopy = true
@@ -3027,18 +2995,6 @@ private struct ReportsSummarySheet: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             didCopy = false
         }
-    }
-
-    private var spokenSummary: String {
-        var parts: [String] = []
-        parts.append(lineLabel.map { "Résumé de la ligne \($0)." } ?? "Résumé des perturbations.")
-        parts.append(summary.longText)
-
-        if !summary.bullets.isEmpty {
-            parts.append(summary.bullets.joined(separator: " "))
-        }
-
-        return parts.joined(separator: " ")
     }
 
     private var copyableSummary: String {

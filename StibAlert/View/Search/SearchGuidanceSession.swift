@@ -1,11 +1,33 @@
 import Foundation
 import Combine
 import CoreLocation
+import AVFoundation
+
+/// Minimal speech synthesizer wrapper used by SearchGuidanceSession.
+final class AVSpeechSynthesizerWrapper: NSObject, ObservableObject {
+    private let synthesizer = AVSpeechSynthesizer()
+
+    @Published private(set) var isSpeaking = false
+
+    func speak(_ text: String) {
+        synthesizer.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "fr-BE") ?? AVSpeechSynthesisVoice(language: "fr-FR")
+        utterance.rate = 0.5
+        isSpeaking = true
+        synthesizer.speak(utterance)
+    }
+
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+}
 
 @MainActor
 final class SearchGuidanceSession: ObservableObject {
     let guidance = GuidanceCoordinator()
-    let speechSynthesizer = StibiSpeechSynthesizer()
+    let speechSynthesizer = AVSpeechSynthesizerWrapper()
     @Published private(set) var rerouteRequestID = 0
     @Published private(set) var isRerouting = false
 

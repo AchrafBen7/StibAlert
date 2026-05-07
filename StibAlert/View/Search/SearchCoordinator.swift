@@ -29,9 +29,8 @@ final class SearchCoordinator: ObservableObject {
     func rebuildJourney(
         state: SearchViewState,
         effectiveOrigin: SearchPlace,
-        stibi: StibiCenter,
         guidance: GuidanceCoordinator,
-        speechSynthesizer: StibiSpeechSynthesizer,
+        speechSynthesizer: AVSpeechSynthesizerWrapper,
         showLoading: Bool = true
     ) async {
         guard let destination = state.destination, destination.id != effectiveOrigin.id else {
@@ -43,7 +42,6 @@ final class SearchCoordinator: ObservableObject {
         if showLoading {
             state.isLoadingRoute = true
             state.routeNote = nil
-            state.stibiRouteBrief = nil
         }
 
         let result = await SearchJourneyBuilder.build(
@@ -52,7 +50,6 @@ final class SearchCoordinator: ObservableObject {
         )
 
         state.applyBuildResult(result)
-        stibi.consume(result.assistantBrief)
         let didReroute = guidance.refresh(using: result.journey.alternatives)
         if didReroute, let currentStep = guidance.currentStep {
             speechSynthesizer.speak(currentStep.instruction)
@@ -62,9 +59,8 @@ final class SearchCoordinator: ObservableObject {
     func runGuidanceRefreshLoop(
         state: SearchViewState,
         effectiveOrigin: SearchPlace,
-        stibi: StibiCenter,
         guidance: GuidanceCoordinator,
-        speechSynthesizer: StibiSpeechSynthesizer
+        speechSynthesizer: AVSpeechSynthesizerWrapper
     ) async {
         guard guidance.isGuiding else { return }
         while guidance.isGuiding && !Task.isCancelled {
@@ -73,7 +69,6 @@ final class SearchCoordinator: ObservableObject {
             await rebuildJourney(
                 state: state,
                 effectiveOrigin: effectiveOrigin,
-                stibi: stibi,
                 guidance: guidance,
                 speechSynthesizer: speechSynthesizer,
                 showLoading: false
@@ -86,8 +81,7 @@ final class SearchCoordinator: ObservableObject {
         state: SearchViewState,
         guidance: GuidanceCoordinator,
         effectiveOrigin: SearchPlace,
-        stibi: StibiCenter,
-        speechSynthesizer: StibiSpeechSynthesizer
+        speechSynthesizer: AVSpeechSynthesizerWrapper
     ) async {
         guard guidance.isGuiding else { return }
 
@@ -107,7 +101,6 @@ final class SearchCoordinator: ObservableObject {
         await rebuildJourney(
             state: state,
             effectiveOrigin: effectiveOrigin,
-            stibi: stibi,
             guidance: guidance,
             speechSynthesizer: speechSynthesizer,
             showLoading: false

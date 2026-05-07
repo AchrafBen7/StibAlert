@@ -1,7 +1,6 @@
 import Foundation
 
 struct HomeDashboardData {
-    let commuteBrief: AssistantBriefDTO?
     let decision: TransportHomeDecisionData?
     let recommendedAlternative: HomeRecommendedAlternativeItem?
     let recommendedAlternativeDetail: TransportAlternativeDTO?
@@ -42,42 +41,30 @@ struct HomeFavoriteLineItem: Identifiable {
 enum HomeDecisionAdapter {
     static func makeDashboardData(
         transportOverview: TransportOverviewDTO?,
-        remoteSignalements: [SignalementDTO],
-        stibiBrief: AssistantBriefDTO?,
-        stibiContext: AssistantContextDTO?
+        remoteSignalements: [SignalementDTO]
     ) -> HomeDashboardData {
-        let monitoredLines = monitoredLines(
-            from: transportOverview,
-            context: stibiContext
-        )
+        let monitoredLines = monitoredLines(from: transportOverview)
         let nearbyAlerts = nearbyAlerts(from: remoteSignalements)
         let recommendedAlternative = recommendedAlternative(from: transportOverview)
 
         return HomeDashboardData(
-            commuteBrief: stibiBrief?.type == "commute_brief" ? stibiBrief : nil,
             decision: transportOverview.map(TransportViewAdapters.homeDecisionData(from:)),
             recommendedAlternative: recommendedAlternative,
             recommendedAlternativeDetail: transportOverview?.recommendedAlternatives.first,
             monitoredLines: monitoredLines,
             nearbyAlerts: nearbyAlerts,
-            favoriteLines: favoriteLines(from: transportOverview, context: stibiContext)
+            favoriteLines: favoriteLines(from: transportOverview)
         )
     }
 
     private static func monitoredLines(
-        from overview: TransportOverviewDTO?,
-        context: AssistantContextDTO?
+        from overview: TransportOverviewDTO?
     ) -> [HomeMonitoredLineItem] {
         guard let overview else { return [] }
 
-        let favoriteLines = context?.favorites.stops
-            .flatMap(\.lines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty } ?? []
-
         let departureMap = Dictionary(grouping: overview.nextDepartures, by: \.line)
         let incidentMap = Dictionary(grouping: overview.activeIncidents, by: { $0.line ?? "" })
-        let candidateLines = Array(NSOrderedSet(array: favoriteLines + overview.nextDepartures.map(\.line))) as? [String] ?? []
+        let candidateLines = Array(NSOrderedSet(array: overview.nextDepartures.map(\.line))) as? [String] ?? []
 
         return candidateLines.prefix(4).map { line in
             let nextDeparture = departureMap[line]?.min(by: { $0.minutes < $1.minutes })
@@ -132,18 +119,8 @@ enum HomeDecisionAdapter {
     }
 
     private static func favoriteLines(
-        from overview: TransportOverviewDTO?,
-        context: AssistantContextDTO?
+        from overview: TransportOverviewDTO?
     ) -> [HomeFavoriteLineItem] {
-        let lines = context?.favorites.lines ?? []
-        guard !lines.isEmpty else { return [] }
-        let incidentMap = Dictionary(grouping: overview?.activeIncidents ?? [], by: { $0.line ?? "" })
-        return lines.prefix(4).map { line in
-            let incidents = incidentMap[line] ?? []
-            let status = incidents.first?.severity.flatMap {
-                TransportViewAdapters.localizedSeverityLabel(severity: $0, fallback: nil)
-            } ?? "Surveillée"
-            return HomeFavoriteLineItem(id: line, line: line, statusText: status)
-        }
+        return []
     }
 }

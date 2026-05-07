@@ -79,12 +79,10 @@ struct SplashView: View {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(DS.Color.paper)
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
-
-                            StibiMascotView(visualState: "speaking")
-                                .frame(width: 58, height: 58)
+                                .fill(DS.Color.primary.opacity(0.15))
+                            Image(systemName: "tram.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundStyle(DS.Color.primary)
                         }
                         .frame(width: 88, height: 88)
                         .shadow(color: DS.Color.ink.opacity(0.08), radius: 10, y: 5)

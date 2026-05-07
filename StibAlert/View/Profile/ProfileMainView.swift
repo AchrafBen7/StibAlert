@@ -3,7 +3,6 @@ import SwiftUI
 struct ProfileMainView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
-    @EnvironmentObject private var stibi: StibiCenter
     @State private var isLoggingOut = false
     @State private var remoteActivities: [ProfileActivityItem] = []
     @State private var detailSignalement: SignalementDTO? = nil
@@ -149,9 +148,7 @@ struct ProfileMainView: View {
                 .presentationDragIndicator(.visible)
             }
             .task {
-                stibi.setCurrentScreen("profile_main")
                 await loadProfileData()
-                await loadStibiContext()
             }
         } // end else (guest check)
     }
@@ -235,7 +232,7 @@ struct ProfileMainView: View {
                 badges.append(
                     .init(
                         title: "Guardian de la ligne \(topLine)",
-                        subtitle: "Stibi surveille cette ligne avec toi en priorité.",
+                        subtitle: "Tu surveilles cette ligne en priorité.",
                         accent: Color(hex: "#7CB2FF"),
                         icon: "tram.fill"
                     )
@@ -353,15 +350,6 @@ struct ProfileMainView: View {
         }
     }
 
-    private func loadStibiContext() async {
-        guard AppConfig.isBackendEnabled else { return }
-        do {
-            let context = try await AssistantService.context()
-            stibi.pushContextInsight(for: "profile_main", context: context)
-        } catch {
-            print("ProfileMain Stibi context failed: \(error.localizedDescription)")
-        }
-    }
 }
 
 private struct ProfileStatCard: View {

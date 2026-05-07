@@ -3,7 +3,6 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
-    @EnvironmentObject private var stibi: StibiCenter
     @Environment(\.openURL) private var openURL
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
@@ -51,9 +50,7 @@ struct ProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            stibi.setCurrentScreen("profile")
             syncFromSession()
-            await loadStibiContext()
         }
         .onChange(of: session.currentUser?.id) { _, _ in
             syncFromSession()
@@ -496,15 +493,6 @@ struct ProfileView: View {
         }
     }
 
-    private func loadStibiContext() async {
-        guard AppConfig.isBackendEnabled else { return }
-        do {
-            let context = try await AssistantService.context()
-            stibi.pushContextInsight(for: "profile", context: context)
-        } catch {
-            print("Profile Stibi context failed: \(error.localizedDescription)")
-        }
-    }
 }
 
 private struct ProfileRootRowPressableStyle: ButtonStyle {

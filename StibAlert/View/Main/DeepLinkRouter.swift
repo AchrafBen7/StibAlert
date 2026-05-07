@@ -8,8 +8,6 @@ enum DeepLink: Equatable {
     case report(signalementId: String?)
     case line(number: String)
     case signalementDetail(id: String)
-    case stibiCommute
-    case stibi
     case route(fromName: String, fromLat: Double, fromLng: Double, toName: String, toLat: Double, toLng: Double)
 }
 
@@ -40,9 +38,6 @@ enum DeepLinkRouter {
         case "signalement":
             guard let id = segments.first else { return nil }
             return .signalementDetail(id: id)
-        case "stibi":
-            if segments.first == "commute" { return .stibiCommute }
-            return .stibi
         case "route":
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
             let qis = comps?.queryItems ?? []

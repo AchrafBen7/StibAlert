@@ -3,7 +3,6 @@ import Foundation
 struct SearchJourneyBuildResult {
     let journey: SearchJourney
     let recommendation: TransportRecommendationDTO?
-    let assistantBrief: AssistantBriefDTO?
     let routeNote: String
 }
 
@@ -21,18 +20,12 @@ enum SearchJourneyBuilder {
                 depart: origin.name,
                 destination: destination.name
             )
-            let assistantBrief = try? await AssistantService.routeBrief(
-                depart: origin.name,
-                destination: destination.name
-            )
             let merged = mergeJourney(calculated, with: recommendation)
             return SearchJourneyBuildResult(
                 journey: merged,
                 recommendation: recommendation,
-                assistantBrief: assistantBrief,
                 routeNote: buildRouteNote(
                     recommendation: recommendation,
-                    assistantBrief: assistantBrief,
                     fallback: "Real route via Apple Maps"
                 )
             )
@@ -42,18 +35,12 @@ enum SearchJourneyBuilder {
                 depart: origin.name,
                 destination: destination.name
             )
-            let assistantBrief = try? await AssistantService.routeBrief(
-                depart: origin.name,
-                destination: destination.name
-            )
             let merged = mergeJourney(fallback, with: recommendation)
             return SearchJourneyBuildResult(
                 journey: merged,
                 recommendation: recommendation,
-                assistantBrief: assistantBrief,
                 routeNote: buildRouteNote(
                     recommendation: recommendation,
-                    assistantBrief: assistantBrief,
                     fallback: "Fallback preview used"
                 )
             )
@@ -78,15 +65,13 @@ enum SearchJourneyBuilder {
 
     private static func buildRouteNote(
         recommendation: TransportRecommendationDTO?,
-        assistantBrief: AssistantBriefDTO?,
         fallback: String
     ) -> String {
-        assistantBrief.map(AssistantViewAdapters.routeNote(from:))
-            ?? recommendation.map {
-                let reliability = TransportViewAdapters.reliabilityText(from: $0)
-                let explanation = TransportViewAdapters.routeNote(from: $0) ?? "Alternative calculée avec les données STIB."
-                return "\(reliability) • \(explanation)"
-            }
-            ?? fallback
+        recommendation.map {
+            let reliability = TransportViewAdapters.reliabilityText(from: $0)
+            let explanation = TransportViewAdapters.routeNote(from: $0) ?? "Alternative calculée avec les données STIB."
+            return "\(reliability) • \(explanation)"
+        }
+        ?? fallback
     }
 }

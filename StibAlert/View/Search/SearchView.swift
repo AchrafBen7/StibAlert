@@ -3,7 +3,6 @@ import CoreLocation
 
 struct SearchView: View {
     @EnvironmentObject private var nav: AppNavigation
-    @EnvironmentObject private var stibi: StibiCenter
     @StateObject private var locationManager = SearchLocationManager()
     @StateObject private var autocompleteManager = SearchAutocompleteManager()
     @StateObject private var viewState = SearchViewState()
@@ -217,7 +216,6 @@ struct SearchView: View {
         .background(DesignSystem.Colors.background)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            stibi.setCurrentScreen("route")
             realtimeSignalements.connect()
         }
         .onDisappear {
@@ -232,7 +230,6 @@ struct SearchView: View {
             await coordinator.runGuidanceRefreshLoop(
                 state: viewState,
                 effectiveOrigin: effectiveOrigin,
-                stibi: stibi,
                 guidance: guidanceSession.guidance,
                 speechSynthesizer: guidanceSession.speechSynthesizer
             )
@@ -244,15 +241,8 @@ struct SearchView: View {
                     state: viewState,
                     guidance: guidanceSession.guidance,
                     effectiveOrigin: effectiveOrigin,
-                    stibi: stibi,
                     speechSynthesizer: guidanceSession.speechSynthesizer
                 )
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .stibiPushOpened)) { _ in
-            guard guidanceSession.guidance.isGuiding else { return }
-            Task {
-                await rebuildJourney(showLoading: false)
             }
         }
         .onChange(of: viewState.query) { _, newValue in
@@ -289,7 +279,6 @@ struct SearchView: View {
         await coordinator.rebuildJourney(
             state: viewState,
             effectiveOrigin: effectiveOrigin,
-            stibi: stibi,
             guidance: guidanceSession.guidance,
             speechSynthesizer: guidanceSession.speechSynthesizer,
             showLoading: showLoading
