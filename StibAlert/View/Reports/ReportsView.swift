@@ -127,6 +127,7 @@ struct ReportsView: View {
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
+    @State private var lineCatalog: [LigneCatalogDTO] = []
     @State private var isLoading = false
     @State private var hasLoaded = false
     @State private var lastUpdatedAt: Date? = nil
@@ -239,11 +240,14 @@ struct ReportsView: View {
     }
 
     private var availableLineFilters: [String] {
-        let reportLines = reports.map(\.ligne)
-        let eventLines = events.flatMap(\.impactedLines)
-        let officialLines = (transportOverview?.activeIncidents ?? []).compactMap(\.line)
-        let summaryLines = transportOverview?.perturbationSummary?.affectedLines ?? []
-        let lines = Set(reportLines + eventLines + officialLines + summaryLines).sorted {
+        let catalogLines = lineCatalog.map(\.lineid)
+        let fallbackLines = reports.map(\.ligne)
+            + events.flatMap(\.impactedLines)
+            + (transportOverview?.activeIncidents ?? []).compactMap(\.line)
+            + (transportOverview?.perturbationSummary?.affectedLines ?? [])
+
+        let source = catalogLines.isEmpty ? fallbackLines : catalogLines
+        let lines = Set(sanitizedLines(source)).sorted {
             $0.compare($1, options: .numeric) == .orderedAscending
         }
         return ["Tout"] + lines
@@ -298,7 +302,7 @@ struct ReportsView: View {
         }
     }
 
-    private var feedItems: [EditorialFeedItem] {
+    private var reportFeedItems: [EditorialFeedItem] {
         let reportItems = reports.compactMap { report -> EditorialFeedItem? in
             guard selectedLineFilter == "Tout" || report.ligne == selectedLineFilter else { return nil }
             return EditorialFeedItem(
@@ -320,6 +324,12 @@ struct ReportsView: View {
 
         let officialTransportItems = shouldHideOfficialFeedDuplicates ? [] : officialTransportFeedItems
 
+        return (reportItems + officialTransportItems)
+            .filter(matchesCurrentFilters)
+            .sorted(by: sortFeedItems)
+    }
+
+    private var eventFeedItems: [EditorialFeedItem] {
         let eventItems = events.compactMap { event -> EditorialFeedItem? in
             guard selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter) else { return nil }
             return EditorialFeedItem(
@@ -339,10 +349,16 @@ struct ReportsView: View {
             )
         }
 
+        return eventItems
+            .filter(matchesCurrentFilters)
+            .sorted(by: sortFeedItems)
+    }
+
+    private var feedItems: [EditorialFeedItem] {
         let scopedItems: [EditorialFeedItem]
         switch selectedScope {
         case .reports:
-            scopedItems = (reportItems + officialTransportItems).filter { item in
+            scopedItems = reportFeedItems.filter { item in
                 switch selectedSegment {
                 case .all: return true
                 case .official: return item.type == .official || item.type == .mixed
@@ -351,23 +367,23 @@ struct ReportsView: View {
                 }
             }
         case .events:
-            scopedItems = eventItems
+            scopedItems = eventFeedItems
         }
 
-        return scopedItems
-            .filter { item in
-                guard matchesSelectedMode(lines: item.lines) else { return false }
-                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return true }
-                let haystack = [
-                    item.title,
-                    item.body ?? "",
-                    item.location ?? "",
-                    item.lines.joined(separator: " ")
-                ].joined(separator: " ")
-                return haystack.localizedCaseInsensitiveContains(trimmed)
-            }
-            .sorted(by: sortFeedItems)
+        return scopedItems.sorted(by: sortFeedItems)
+    }
+
+    private func matchesCurrentFilters(_ item: EditorialFeedItem) -> Bool {
+        guard matchesSelectedMode(lines: item.lines) else { return false }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        let haystack = [
+            item.title,
+            item.body ?? "",
+            item.location ?? "",
+            item.lines.joined(separator: " ")
+        ].joined(separator: " ")
+        return haystack.localizedCaseInsensitiveContains(trimmed)
     }
 
     private var shouldHideOfficialFeedDuplicates: Bool {
@@ -399,12 +415,19 @@ struct ReportsView: View {
     }
 
     private var segmentCounts: [ReportSegment: Int] {
-        [
-            .all: feedItems.count,
-            .official: feedItems.filter { $0.type == .official || $0.type == .mixed }.count,
-            .community: feedItems.filter { $0.type == .community || $0.type == .mixed }.count,
-            .events: feedItems.filter { $0.type == .event }.count
-        ]
+        let reportItems = reportFeedItems
+        let officialCount = reportItems.reduce(0) { partial, item in
+            partial + ((item.type == .official || item.type == .mixed) ? 1 : 0)
+        }
+        let communityCount = reportItems.reduce(0) { partial, item in
+            partial + ((item.type == .community || item.type == .mixed) ? 1 : 0)
+        }
+        var counts: [ReportSegment: Int] = [:]
+        counts[.all] = reportItems.count
+        counts[.official] = officialCount
+        counts[.community] = communityCount
+        counts[.events] = eventFeedItems.count
+        return counts
     }
 
     private var visibleLineFilters: [String] {
@@ -506,6 +529,11 @@ struct ReportsView: View {
             Task { await loadSummary(force: true) }
         }
         .onChange(of: selectedScope) { _, _ in
+            if selectedScope == .events {
+                selectedSegment = .events
+            } else if selectedSegment == .events {
+                selectedSegment = .all
+            }
             Task { await loadData(force: true) }
         }
         .onChange(of: selectedModeFilter) { _, _ in
@@ -812,7 +840,15 @@ struct ReportsView: View {
             segmentCounts: segmentCounts,
             helperText: scopeHelperText,
             updatedText: lastUpdatedAt.map { "Mis à jour \(relativeTimeLabel(from: $0))" },
-            onSelectSegment: { selectedSegment = $0 },
+            onSelectSegment: { segment in
+                if segment == .events {
+                    selectedScope = .events
+                    selectedSegment = .events
+                } else {
+                    selectedScope = .reports
+                    selectedSegment = segment
+                }
+            },
             onSelectMode: { selectedModeFilter = $0 },
             onSelectLine: { selectedLineFilter = $0 },
             onSelectSort: { selectedSortMode = $0 }
@@ -986,10 +1022,22 @@ struct ReportsView: View {
 
     @MainActor
     private func loadData(force: Bool = false) async {
+        await loadLineCatalog(force: force)
         await loadReports(force: force)
         await loadEvents(force: force)
         await loadSummary(force: force)
         lastUpdatedAt = Date()
+    }
+
+    @MainActor
+    private func loadLineCatalog(force: Bool = false) async {
+        guard AppConfig.isBackendEnabled else { return }
+        if !force, !lineCatalog.isEmpty { return }
+        do {
+            lineCatalog = try await LigneService.toutesLesLignes()
+        } catch {
+            print("ReportsView line catalog failed: \(error.localizedDescription)")
+        }
     }
 
     @MainActor
@@ -1691,54 +1739,43 @@ private struct ReportsFilterDock: View {
                 .padding(.horizontal, DS.Spacing.xl)
                 .padding(.bottom, 10)
 
-            if showsReportFilters {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(visibleSegments, id: \.self) { segment in
-                            EditorialSegmentChip(
-                                label: segment.label,
-                                count: segmentCounts[segment] ?? 0,
-                                active: selectedSegment == segment,
-                                action: { onSelectSegment(segment) }
-                            )
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(visibleSegments, id: \.self) { segment in
+                        EditorialSegmentChip(
+                            label: segment.label,
+                            count: segmentCounts[segment] ?? 0,
+                            active: selectedSegment == segment,
+                            action: { onSelectSegment(segment) }
+                        )
                     }
-                    .padding(.horizontal, DS.Spacing.xl)
-                }
-                .padding(.bottom, 8)
-
-                HStack(spacing: 8) {
-                    filterMenuButton(
-                        icon: "arrow.up.arrow.down",
-                        title: selectedSort.label
-                    ) {
-                        ForEach(ReportSortMode.allCases) { mode in
-                            Button(mode.label) { onSelectSort(mode) }
-                        }
-                    }
-                    filterMenuButton(
-                        icon: selectedMode.iconSystemName ?? "square.grid.2x2",
-                        title: selectedMode.label
-                    ) {
-                        ForEach(ReportTransportMode.allCases) { mode in
-                            Button(mode.label) { onSelectMode(mode) }
-                        }
-                    }
-                    filterMenuButton(
-                        icon: selectedLine == "Tout" ? "line.3.horizontal.decrease" : "tram.fill",
-                        title: selectedLine == "Tout" ? "Toutes lignes" : "L \(selectedLine)"
-                    ) {
-                        ForEach(lineFilters, id: \.self) { line in
-                            Button(line == "Tout" ? "Toutes lignes" : "Ligne \(line)") {
-                                onSelectLine(line)
-                            }
-                        }
-                    }
-                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, DS.Spacing.xl)
-                .padding(.bottom, 10)
             }
+            .padding(.bottom, 8)
+
+            HStack(spacing: 8) {
+                filterMenuButton(
+                    icon: "arrow.up.arrow.down",
+                    title: selectedSort.label
+                ) {
+                    ForEach(ReportSortMode.allCases) { mode in
+                        Button(mode.label) { onSelectSort(mode) }
+                    }
+                }
+                filterMenuButton(
+                    icon: selectedMode.iconSystemName ?? "square.grid.2x2",
+                    title: selectedMode.label
+                ) {
+                    ForEach(ReportTransportMode.allCases) { mode in
+                        Button(mode.label) { onSelectMode(mode) }
+                    }
+                }
+                lineFilterMenuButton
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.bottom, 10)
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(helperText)
@@ -1759,14 +1796,15 @@ private struct ReportsFilterDock: View {
             .padding(.bottom, 12)
         }
         .background(
-            DS.Color.background.opacity(0.95)
-                .background(.ultraThinMaterial)
+            DS.Color.paper
+                .overlay(DS.Color.background.opacity(0.98))
                 .overlay(alignment: .bottom) {
                     Rectangle()
                         .fill(DS.Color.ink.opacity(0.10))
                         .frame(height: 1)
                 }
         )
+        .zIndex(20)
     }
 
     private var visibleSegments: [ReportSegment] {
@@ -1788,6 +1826,54 @@ private struct ReportsFilterDock: View {
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(0.6)
                     .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .foregroundStyle(DS.Color.ink)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+    }
+
+    private var lineFilterMenuButton: some View {
+        Menu {
+            ForEach(lineFilters, id: \.self) { line in
+                Button {
+                    onSelectLine(line)
+                } label: {
+                    if line == "Tout" {
+                        Label("Toutes lignes", systemImage: "line.3.horizontal.decrease")
+                    } else {
+                        HStack(spacing: 10) {
+                            LineBadge(line: line, size: .sm)
+                            Text("Ligne \(line)")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if selectedLine == "Tout" {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Toutes lignes")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .tracking(0.6)
+                        .lineLimit(1)
+                } else {
+                    LineBadge(line: selectedLine, size: .sm)
+                    Text("L \(selectedLine)")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .tracking(0.6)
+                        .lineLimit(1)
+                }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .black))
                     .foregroundStyle(DS.Color.inkMute)
