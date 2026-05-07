@@ -3544,14 +3544,15 @@ private struct HomeStopPreviewCard: View {
         stopDetail?.stop ?? stopSummary
     }
 
-    private var allowedLineNumbers: Set<String> {
-        Set(effectiveStop.lines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
-    }
-
     private var displayedLines: [String] {
         var seen = Set<String>()
-        let merged = effectiveStop.lines + (stopDetail?.nextDepartures.map(\.line) ?? [])
-        return merged.compactMap { line in
+        // Realtime departures are the ground truth for this specific physical stop.
+        // Arret.lignesDesservies in the backend is the UNION of lines across merged
+        // sub-stops with the same name, so it shows lines that don't actually pass here.
+        // Only fall back to catalog lines when no departures are available yet.
+        let departureLines = stopDetail?.nextDepartures.map(\.line) ?? []
+        let source = departureLines.isEmpty ? effectiveStop.lines : departureLines
+        return source.compactMap { line in
             let normalized = Self.normalizedLineNumber(line)
             guard !normalized.isEmpty, seen.insert(normalized).inserted else { return nil }
             return normalized
@@ -3563,9 +3564,8 @@ private struct HomeStopPreviewCard: View {
     }
 
     private var departures: [TransportDepartureDTO] {
-        Array((stopDetail?.nextDepartures ?? [])
-            .filter { allowedLineNumbers.isEmpty || allowedLineNumbers.contains(Self.normalizedLineNumber($0.line)) }
-            .prefix(2))
+        // Backend already scoped departures to this stop_id — no extra line filter needed.
+        Array((stopDetail?.nextDepartures ?? []).prefix(2))
     }
 
     private var villoSummary: String? {
@@ -3601,14 +3601,11 @@ private struct HomeStopPreviewCard: View {
                             .lineLimit(2)
 
                         if !displayedLines.isEmpty {
-                            HStack(spacing: 6) {
-                                ForEach(displayedLines.prefix(8), id: \.self) { line in
-                                    LineBadge(line: line, size: .sm)
-                                }
-                                if displayedLines.count > 8 {
-                                    Text("+\(displayedLines.count - 8)")
-                                        .font(DS.Font.monoSmall.weight(.bold))
-                                        .foregroundStyle(DS.Color.inkMute)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(displayedLines, id: \.self) { line in
+                                        LineBadge(line: line, size: .sm)
+                                    }
                                 }
                             }
                             .padding(.top, 2)
@@ -3738,6 +3735,7 @@ private struct HomeStopPreviewCard: View {
                     .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
             )
             .shadow(color: DS.Color.ink.opacity(0.16), radius: 18, y: 10)
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.72)
             .padding(.horizontal, 16)
             .padding(.bottom, 130)
         }
@@ -4011,6 +4009,27 @@ private struct HomeStopDetailSheet: View {
         stopDetail?.stop ?? stopSummary
     }
 
+    private static func normalizedLineNumber(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if trimmed.hasPrefix("T"), trimmed.dropFirst().allSatisfy(\.isNumber) { return String(trimmed.dropFirst()) }
+        return trimmed
+    }
+
+    private var sheetDisplayedLines: [String] {
+        var seen = Set<String>()
+        let departureLines = stopDetail?.nextDepartures.map(\.line) ?? []
+        let source = departureLines.isEmpty ? effectiveStop.lines : departureLines
+        return source.compactMap { line in
+            let normalized = Self.normalizedLineNumber(line)
+            guard !normalized.isEmpty, seen.insert(normalized).inserted else { return nil }
+            return normalized
+        }
+        .sorted { l, r in
+            if let li = Int(l), let ri = Int(r) { return li < ri }
+            return l.localizedStandardCompare(r) == .orderedAscending
+        }
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
@@ -4052,7 +4071,7 @@ private struct HomeStopDetailSheet: View {
                     }
                 }
 
-                if !effectiveStop.lines.isEmpty {
+                if !sheetDisplayedLines.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Lignes")
                             .font(.custom("Montserrat-SemiBold", size: 12))
@@ -4060,7 +4079,7 @@ private struct HomeStopDetailSheet: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(effectiveStop.lines, id: \.self) { line in
+                                ForEach(sheetDisplayedLines, id: \.self) { line in
                                     Text(line)
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
