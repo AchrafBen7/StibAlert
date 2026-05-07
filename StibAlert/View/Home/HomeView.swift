@@ -3548,6 +3548,20 @@ private struct HomeStopPreviewCard: View {
         Set(effectiveStop.lines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
     }
 
+    private var displayedLines: [String] {
+        var seen = Set<String>()
+        let merged = effectiveStop.lines + (stopDetail?.nextDepartures.map(\.line) ?? [])
+        return merged.compactMap { line in
+            let normalized = Self.normalizedLineNumber(line)
+            guard !normalized.isEmpty, seen.insert(normalized).inserted else { return nil }
+            return normalized
+        }
+        .sorted { left, right in
+            if let leftInt = Int(left), let rightInt = Int(right) { return leftInt < rightInt }
+            return left.localizedStandardCompare(right) == .orderedAscending
+        }
+    }
+
     private var departures: [TransportDepartureDTO] {
         Array((stopDetail?.nextDepartures ?? [])
             .filter { allowedLineNumbers.isEmpty || allowedLineNumbers.contains(Self.normalizedLineNumber($0.line)) }
@@ -3586,10 +3600,15 @@ private struct HomeStopPreviewCard: View {
                             .foregroundStyle(DS.Color.ink)
                             .lineLimit(2)
 
-                        if !effectiveStop.lines.isEmpty {
+                        if !displayedLines.isEmpty {
                             HStack(spacing: 6) {
-                                ForEach(effectiveStop.lines.prefix(4), id: \.self) { line in
+                                ForEach(displayedLines.prefix(8), id: \.self) { line in
                                     LineBadge(line: line, size: .sm)
+                                }
+                                if displayedLines.count > 8 {
+                                    Text("+\(displayedLines.count - 8)")
+                                        .font(DS.Font.monoSmall.weight(.bold))
+                                        .foregroundStyle(DS.Color.inkMute)
                                 }
                             }
                             .padding(.top, 2)

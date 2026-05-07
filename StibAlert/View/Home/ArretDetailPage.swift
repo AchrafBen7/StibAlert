@@ -38,11 +38,11 @@ private enum StopDetailCatalogStore {
     static func destinations(stopBackendId: String, stopId: String?, lineIds: [String]) -> [GroupedStopPassage] {
         guard let catalog = loadCatalog() else { return [] }
 
-        let normalizedLines = Set(lineIds.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() })
+        let normalizedLines = Set(lineIds.map(normalizedLineNumber))
         guard !normalizedLines.isEmpty else { return [] }
 
         let rows = catalog.lines.values.compactMap { route -> GroupedStopPassage? in
-            let normalizedLine = route.lineId.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let normalizedLine = normalizedLineNumber(route.lineId)
             guard normalizedLines.contains(normalizedLine) else { return nil }
 
             let servesStop = route.stops.contains { stop in
@@ -67,7 +67,15 @@ private enum StopDetailCatalogStore {
                     return left < right
                 }
                 return lhs.line.localizedStandardCompare(rhs.line) == .orderedAscending
-            }
+        }
+    }
+
+    private static func normalizedLineNumber(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if trimmed.hasPrefix("T"), trimmed.dropFirst().allSatisfy(\.isNumber) {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
     }
 
     private static func loadCatalog() -> StopDetailMergedCatalog? {
@@ -106,6 +114,7 @@ struct ArretDetailPage: View {
     @State private var selectedLineFilter: String? = nil
     @State private var isFavorite = false
     @State private var isUpdatingFavorite = false
+    @State private var selectedDisruption: TransportIncidentDTO?
 
     private var effectiveStop: TransportStopSummaryDTO {
         stopDetail?.stop ?? stopSummary
@@ -141,9 +150,25 @@ struct ArretDetailPage: View {
         return "ARRÊT"
     }
 
+    private var servedLines: [String] {
+        var seen = Set<String>()
+        let merged = effectiveStop.lines
+            + (stopDetail?.nextDepartures.map(\.line) ?? [])
+            + (stopDetail?.activeIncidents.compactMap(\.line) ?? [])
+        return merged.compactMap { line in
+            let normalized = Self.normalizedLineNumber(line)
+            guard !normalized.isEmpty, seen.insert(normalized).inserted else { return nil }
+            return normalized
+        }
+        .sorted { left, right in
+            if let leftInt = Int(left), let rightInt = Int(right) { return leftInt < rightInt }
+            return left.localizedStandardCompare(right) == .orderedAscending
+        }
+    }
+
     private var groupedPassages: [GroupedStopPassage] {
         guard let stopDetail else { return [] }
-        let allowedLines = Set(effectiveStop.lines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
+        let allowedLines = Set(servedLines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
         let filtered = stopDetail.nextDepartures.filter { departure in
             let line = Self.normalizedLineNumber(departure.line)
             guard allowedLines.isEmpty || allowedLines.contains(line) else { return false }
@@ -215,20 +240,20 @@ struct ArretDetailPage: View {
     }
 
     private var lineDestinations: [GroupedStopPassage] {
-        if !groupedPassages.isEmpty {
-            return groupedPassages
-        }
-
         let catalogDestinations = StopDetailCatalogStore.destinations(
             stopBackendId: effectiveStop.id,
             stopId: effectiveStop.stopId,
-            lineIds: effectiveStop.lines
+            lineIds: servedLines
         )
         if !catalogDestinations.isEmpty {
             return catalogDestinations
         }
 
-        return effectiveStop.lines.map {
+        if !groupedPassages.isEmpty {
+            return groupedPassages
+        }
+
+        return servedLines.map {
             GroupedStopPassage(line: $0, destination: "Destination à confirmer", departures: [])
         }
     }
@@ -280,6 +305,18 @@ struct ArretDetailPage: View {
         }
         .task(id: session.currentUser?.id) {
             syncFavoriteState()
+        }
+        .sheet(item: $selectedDisruption) { disruption in
+            StopIncidentDetailSheet(
+                incident: disruption,
+                stopName: effectiveStop.name,
+                onOpenLine: { line in
+                    selectedDisruption = nil
+                    onOpenLine(line)
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -402,15 +439,25 @@ struct ArretDetailPage: View {
             .foregroundStyle(DS.Color.statusMajor)
 
             ForEach(disruptions.prefix(3)) { disruption in
-                HStack(alignment: .top, spacing: 8) {
-                    if let line = disruption.line, !line.isEmpty {
-                        LineBadge(line: line, size: .sm)
+                Button {
+                    selectedDisruption = disruption
+                } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        if let line = disruption.line, !line.isEmpty {
+                            LineBadge(line: line, size: .sm)
+                        }
+                        Text(disruption.description ?? disruption.type ?? "Perturbation en cours")
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(2)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Color.inkMute)
                     }
-                    Text(disruption.description ?? disruption.type ?? "Perturbation en cours")
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(2)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 12)
@@ -466,13 +513,13 @@ struct ArretDetailPage: View {
 
     private var liveTab: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !effectiveStop.lines.isEmpty {
+            if !servedLines.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         filterChip(label: "Tout", active: selectedLineFilter == nil) {
                             selectedLineFilter = nil
                         }
-                        ForEach(effectiveStop.lines, id: \.self) { line in
+                        ForEach(servedLines, id: \.self) { line in
                             filterChip(label: line, active: selectedLineFilter == line) {
                                 selectedLineFilter = selectedLineFilter == line ? nil : line
                             }
@@ -806,7 +853,7 @@ struct ArretDetailPage: View {
         case .live:
             return "Temps réel"
         case .lines:
-            return "Lignes · \(effectiveStop.lines.count)"
+            return "Lignes · \(servedLines.count)"
         case .around:
             return "Autour"
         }
@@ -963,6 +1010,136 @@ struct ArretDetailPage: View {
             isFavorite = previous
             print("Stop favorite toggle failed: \(error.localizedDescription)")
         }
+    }
+}
+
+private struct StopIncidentDetailSheet: View {
+    let incident: TransportIncidentDTO
+    let stopName: String
+    let onOpenLine: (String) -> Void
+
+    private var title: String {
+        if let type = incident.type, !type.isEmpty { return type }
+        return "Perturbation"
+    }
+
+    private var bodyText: String {
+        if let description = incident.description, !description.isEmpty { return description }
+        return "Information active sur cet arrêt."
+    }
+
+    private var dateText: String? {
+        guard let date = incident.date else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private var severityColor: Color {
+        switch incident.severity?.lowercased() {
+        case "major", "high", "critical":
+            return DS.Color.statusMajor
+        case "minor", "medium", "warning":
+            return DS.Color.statusMinor
+        case "ok", "low":
+            return DS.Color.statusOK
+        default:
+            return DS.Color.primary
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 12) {
+                if let line = incident.line, !line.isEmpty {
+                    LineBadge(line: line, size: .lg)
+                } else {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(DS.Color.primaryForeground)
+                        .frame(width: 44, height: 44)
+                        .background(severityColor)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(DS.Font.displayH3)
+                        .foregroundStyle(DS.Color.ink)
+                    Text(stopName)
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+
+                Spacer()
+            }
+
+            Text(bodyText)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                metaPill(icon: "checkmark.seal.fill", text: incident.sourceLabel)
+                if let dateText {
+                    metaPill(icon: "clock", text: dateText)
+                }
+                if let confidence = incident.confidenceLabel {
+                    metaPill(icon: "location.fill", text: confidence)
+                }
+            }
+
+            if let line = incident.line, !line.isEmpty {
+                Button {
+                    onOpenLine(line)
+                } label: {
+                    HStack {
+                        Text("Voir la ligne \(line)")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .textCase(.uppercase)
+                            .tracking(1.4)
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(DS.Color.primaryForeground)
+                    .padding(.horizontal, 16)
+                    .frame(height: 48)
+                    .background(DS.Color.primary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md)
+                            .stroke(DS.Color.ink, lineWidth: 1.5)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper)
+        .modifier(PaperGrainBackground())
+    }
+
+    private func metaPill(icon: String, text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .font(DS.Font.monoSmall.weight(.bold))
+                .textCase(.uppercase)
+                .tracking(1.0)
+                .lineLimit(1)
+        }
+        .foregroundStyle(DS.Color.ink)
+        .padding(.horizontal, 9)
+        .frame(height: 28)
+        .background(DS.Color.paper2)
+        .overlay(Capsule().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.2))
+        .clipShape(Capsule())
     }
 }
 
