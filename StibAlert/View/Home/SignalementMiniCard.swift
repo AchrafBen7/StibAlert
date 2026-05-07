@@ -16,11 +16,11 @@ struct SignalementMiniCard: View {
 
     private var accentColor: Color {
         switch signalement.typeProbleme {
-        case "Accident", "Agression": return AppTheme.Palette.alert
-        case "Retard", "Panne": return AppTheme.Palette.warning
-        case "Incivilité": return AppTheme.Palette.info
-        case "Propreté": return AppTheme.Palette.success
-        default: return AppTheme.Palette.brandStrong
+        case "Accident", "Agression": return DS.Color.statusCritical
+        case "Retard", "Panne": return DS.Color.statusMinor
+        case "Incivilité": return DS.Color.community
+        case "Propreté": return DS.Color.statusOK
+        default: return DS.Color.primary
         }
     }
 
@@ -30,21 +30,18 @@ struct SignalementMiniCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Text(signalement.ligne)
-                    .font(.custom("DelaGothicOne-Regular", size: 14))
-                    .foregroundStyle(.black)
-                    .frame(width: 34, height: 34)
-                    .background(accentColor)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
+                LineBadge(line: signalement.ligne, size: .lg)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(signalement.typeProbleme)
-                        .font(.custom("DelaGothicOne-Regular", size: 16))
-                        .foregroundStyle(.white)
+                        .font(DS.Font.displayH3)
+                        .foregroundStyle(DS.Color.ink)
                     if let arretName {
                         Text(arretName)
-                            .font(.custom("Montserrat-Regular", size: 12))
-                            .foregroundStyle(Color.white.opacity(0.7))
+                            .font(DS.Font.monoSmall)
+                            .tracking(1.0)
+                            .textCase(.uppercase)
+                            .foregroundStyle(DS.Color.inkMute)
                             .lineLimit(1)
                     }
                 }
@@ -53,19 +50,21 @@ struct SignalementMiniCard: View {
 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 26, height: 26)
-                        .background(Color.white.opacity(0.1))
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 34, height: 34)
+                        .background(DS.Color.paper2.opacity(0.8))
                         .clipShape(Circle())
+                        .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }
 
             Text(signalement.description)
-                .font(.custom("Montserrat-Regular", size: 13))
-                .foregroundStyle(Color.white.opacity(0.88))
-                .lineLimit(2)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkSoft)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
 
             HStack(spacing: 10) {
@@ -94,10 +93,11 @@ struct SignalementMiniCard: View {
                             Image(systemName: "questionmark.circle")
                                 .font(.system(size: 10, weight: .semibold))
                         }
-                        .foregroundStyle(AppTheme.Palette.textSecondary)
+                        .foregroundStyle(DS.Color.inkSoft)
                         .padding(.horizontal, 10)
                         .frame(height: 24)
-                        .background(AppTheme.Palette.surfaceMuted)
+                        .background(DS.Color.paper2.opacity(0.7))
+                        .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -111,7 +111,7 @@ struct SignalementMiniCard: View {
 
             if let feedback {
                 Text(feedback)
-                    .font(.custom("Montserrat-Regular", size: 12))
+                    .font(DS.Font.caption)
                     .foregroundStyle(accentColor)
                     .padding(.top, 10)
             }
@@ -120,14 +120,14 @@ struct SignalementMiniCard: View {
                 actionButton(
                     label: "Toujours bloqué",
                     icon: "exclamationmark.circle.fill",
-                    background: AppTheme.Palette.warning,
+                    tint: DS.Color.statusMinor,
                     isActive: userAction == "stillBlocked",
                     action: triggerStillBlocked
                 )
                 actionButton(
                     label: "C'est résolu",
                     icon: "checkmark.circle.fill",
-                    background: AppTheme.Palette.success,
+                    tint: DS.Color.statusOK,
                     isActive: userAction == "resolved",
                     action: triggerResolved
                 )
@@ -139,23 +139,29 @@ struct SignalementMiniCard: View {
                     Image(systemName: reportedFake ? "flag.fill" : "flag")
                         .font(.system(size: 11, weight: .semibold))
                     Text(reportedFake ? "Signalé comme faux" : "Signaler comme faux / abus")
-                        .font(.custom("Montserrat-Regular", size: 12))
+                        .font(DS.Font.caption)
                 }
-                .foregroundStyle(reportedFake ? AppTheme.Palette.textSecondary : AppTheme.Palette.alert.opacity(0.8))
+                .foregroundStyle(reportedFake ? DS.Color.inkMute : DS.Color.statusCritical)
             }
             .buttonStyle(.plain)
             .disabled(reportedFake || isSubmitting)
             .padding(.top, 6)
         }
-        .padding(16)
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .padding(DS.Spacing.lg)
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .stroke(accentColor.opacity(0.45), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.2)
         )
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(accentColor)
+                .frame(width: 4)
+                .padding(.vertical, DS.Spacing.lg)
+        }
         .opacity(signalement.isStale ? 0.7 : 1)
-        .shadow(color: .black.opacity(0.35), radius: 16, x: 0, y: 8)
+        .shadow(DS.Shadow.floating)
         .alert("Pourquoi cette confiance ?", isPresented: $showConfidenceExplanation) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -170,36 +176,41 @@ struct SignalementMiniCard: View {
             Text(text)
                 .font(AppTheme.Fonts.caption)
         }
-        .foregroundStyle(AppTheme.Palette.textSecondary)
+        .foregroundStyle(DS.Color.inkSoft)
         .padding(.horizontal, 10)
         .frame(height: 24)
-        .background(AppTheme.Palette.surfaceMuted)
+        .background(DS.Color.paper2.opacity(0.7))
+        .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
         .clipShape(Capsule())
     }
 
     private func actionButton(
         label: String,
         icon: String,
-        background: Color,
+        tint: Color,
         isActive: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if isSubmitting && isActive {
-                    ProgressView().tint(.black)
+                    ProgressView().tint(DS.Color.ink)
                 } else {
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
                     Text(label)
-                        .font(.custom("Montserrat-SemiBold", size: 13))
+                        .font(DS.Font.bodyBold)
                 }
             }
-            .foregroundStyle(.black)
+            .foregroundStyle(DS.Color.ink)
             .frame(maxWidth: .infinity)
-            .frame(height: AppTheme.ButtonHeight.secondary)
-            .background(isActive ? background : background.opacity(0.85))
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
+            .frame(height: 48)
+            .background(isActive ? tint.opacity(0.24) : tint.opacity(0.14))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .stroke(isActive ? tint.opacity(0.7) : tint.opacity(0.35), lineWidth: 1.2)
+            )
         }
         .buttonStyle(.plain)
         .disabled(isSubmitting || userAction != nil)
