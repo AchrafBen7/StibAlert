@@ -8,7 +8,6 @@ struct QuickReportSheetView: View {
     let userLongitude: Double?
     let activeSignalements: [SignalementDTO]
 
-    @State private var currentStep: Int = 1
     @State private var selectedStop: NearbyStop? = nil
     @State private var selectedLine: NearbyIssueLine? = nil
     @State private var selectedProblem: ReportProblemType? = nil
@@ -17,10 +16,10 @@ struct QuickReportSheetView: View {
     @State private var submitError: String? = nil
     @State private var submitSuccess: Bool = false
     @State private var confirmingExistingId: String? = nil
-
     @State private var showConfetti: Bool = false
     @State private var nearbyStops: [NearbyStop] = []
     @State private var isLoadingStops = false
+    @State private var isStopPickerExpanded = false
     @State private var stopSearchQuery = ""
 
     private let screen = UIScreen.main.bounds.height
@@ -42,13 +41,6 @@ struct QuickReportSheetView: View {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
-    private var autoDetectedStop: Bool {
-        guard let selectedStop, let stopCoord = selectedStop.coordinate, let userCoordinate else { return false }
-        let dx = stopCoord.latitude - userCoordinate.latitude
-        let dy = stopCoord.longitude - userCoordinate.longitude
-        return dx * dx + dy * dy < 0.0001
-    }
-
     private var matchingActiveSignalements: [SignalementDTO] {
         guard let stop = selectedStop else { return [] }
         return activeSignalements.filter { s in
@@ -65,42 +57,10 @@ struct QuickReportSheetView: View {
     private var filteredNearbyStops: [NearbyStop] {
         let trimmed = stopSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nearbyStops }
-        return nearbyStops.filter { stop in
-            stop.name.localizedCaseInsensitiveContains(trimmed)
-            || stop.issueLines.contains(where: { $0.number.localizedCaseInsensitiveContains(trimmed) })
-            || stop.issueLines.contains(where: { $0.direction.localizedCaseInsensitiveContains(trimmed) })
-        }
-    }
-
-    private var displayedStops: [NearbyStop] {
-        Array(filteredNearbyStops.prefix(8))
-    }
-
-    private var sheetTitle: String {
-        switch currentStep {
-        case 1: return "Arrêts à proximité"
-        case 2: return "Lignes desservies"
-        default: return "Signaler le problème"
-        }
-    }
-
-    private var sheetSubtitle: String {
-        switch currentStep {
-        case 1: return "Choisissez un arrêt proche"
-        case 2: return selectedStop?.name ?? "Choisissez la ligne desservie"
-        default:
-            if let stop = selectedStop, let line = selectedLine {
-                return "\(stop.name) · ligne \(line.number)"
-            }
-            return "Type de problème et description"
-        }
-    }
-
-    private var canGoNext: Bool {
-        switch currentStep {
-        case 1: return selectedStop != nil
-        case 2: return selectedLine != nil
-        default: return false
+        return nearbyStops.filter {
+            $0.name.localizedCaseInsensitiveContains(trimmed)
+            || $0.issueLines.contains(where: { $0.number.localizedCaseInsensitiveContains(trimmed) })
+            || $0.issueLines.contains(where: { $0.direction.localizedCaseInsensitiveContains(trimmed) })
         }
     }
 
@@ -128,19 +88,33 @@ struct QuickReportSheetView: View {
         .onAppear(perform: bootstrap)
     }
 
+    // MARK: - Sheet layout
+
     private var sheetContent: some View {
         VStack(spacing: 0) {
             handleBar
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
-                    progressHeader
-                    currentStepContent
-                    if let submitError {
-                        Text(submitError)
-                            .font(DS.Font.bodySmall)
-                            .foregroundStyle(DS.Color.statusMajor)
-                            .padding(.horizontal, 18)
+                    sheetHeader
+                    stopSection
+                    if !isStopPickerExpanded {
+                        if let stop = selectedStop, !stop.issueLines.isEmpty {
+                            lineChipsSection(stop)
+                        }
+                        if !matchingActiveSignalements.isEmpty {
+                            activeHereSection
+                        }
+                        typeSection
+                        if selectedProblem != nil {
+                            optionalDescriptionField
+                        }
+                        if let submitError {
+                            Text(submitError)
+                                .font(DS.Font.bodySmall)
+                                .foregroundStyle(DS.Color.statusMajor)
+                                .padding(.horizontal, 18)
+                        }
                     }
                     Spacer(minLength: 12)
                 }
@@ -153,59 +127,21 @@ struct QuickReportSheetView: View {
         .frame(maxHeight: screen - safeTop - 24)
     }
 
-    @ViewBuilder
-    private var currentStepContent: some View {
-        switch currentStep {
-        case 1:
-            stopStepContent
-        case 2:
-            lineStepContent
-        default:
-            problemStepContent
-        }
-    }
+    // MARK: - Header
 
-    private var progressHeader: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 0) {
-                ForEach(1...3, id: \.self) { step in
-                    HStack(spacing: 0) {
-                        ZStack {
-                            Circle()
-                                .fill(step <= currentStep ? DS.Color.paper : DS.Color.paper)
-                                .frame(width: 34, height: 34)
-                            Circle()
-                                .stroke(step <= currentStep ? DS.Color.ink : DS.Color.ink.opacity(0.25), lineWidth: 1.5)
-                                .frame(width: 34, height: 34)
-                            Text("\(step)")
-                                .font(DS.Font.mono.weight(.bold))
-                                .foregroundStyle(step <= currentStep ? DS.Color.ink : DS.Color.inkMute)
-                        }
-
-                        if step < 3 {
-                            Rectangle()
-                                .fill(DS.Color.ink.opacity(0.18))
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 1.5)
-                        }
-                    }
-                }
-            }
-            .frame(height: 34)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(sheetTitle)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(sheetSubtitle)
-                    .font(.system(size: 14))
-                    .foregroundStyle(DS.Color.inkSoft)
-            }
+    private var sheetHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Signaler un problème")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+            Text("Arrêt détecté automatiquement")
+                .font(.system(size: 14))
+                .foregroundStyle(DS.Color.inkSoft)
         }
         .padding(.horizontal, 18)
     }
 
-    // MARK: - Handle
+    // MARK: - Handle bar
 
     private var handleBar: some View {
         HStack {
@@ -227,62 +163,125 @@ struct QuickReportSheetView: View {
                     .padding(.trailing, 14)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Fermer le signalement rapide")
-            .accessibilityHint("Ferme cette feuille sans envoyer de signalement.")
-        }
-        .overlay(alignment: .leading) {
-            if currentStep > 1 {
-                Button(action: goBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-                        .frame(width: 30, height: 30)
-                        .background(DS.Color.secondary)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
-                        .padding(.leading, 14)
-                }
-                .buttonStyle(.plain)
-            }
+            .accessibilityLabel("Fermer")
         }
         .padding(.top, 14)
         .padding(.bottom, 10)
     }
 
-    private var stopStepContent: some View {
+    // MARK: - Stop section
+
+    private var stopSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "mappin.and.ellipse", text: "1 · Arrêt")
+            sectionTitle(icon: "mappin.and.ellipse", text: "Arrêt")
+
+            if isLoadingStops {
+                stopSkeleton
+            } else if isStopPickerExpanded {
+                stopPickerExpanded
+            } else if let stop = selectedStop {
+                stopCompactCard(stop)
+            } else {
+                Text("Aucun arrêt détecté à proximité.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.horizontal, 18)
+            }
+        }
+    }
+
+    private var stopSkeleton: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 18)
+                .fill(DS.Color.paper2)
+                .frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 3).fill(DS.Color.paper2).frame(width: 140, height: 12)
+                RoundedRectangle(cornerRadius: 3).fill(DS.Color.paper2).frame(width: 80, height: 10)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16).stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
+        )
+        .padding(.horizontal, 18)
+    }
+
+    private func stopCompactCard(_ stop: NearbyStop) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DS.Color.community)
+                .frame(width: 36, height: 36)
+                .background(DS.Color.community.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stop.name)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("\(stop.distanceMeters)m · \(stop.lines.count) ligne\(stop.lines.count > 1 ? "s" : "")")
+                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Spacer()
+
+            Button("Changer") {
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                    isStopPickerExpanded = true
+                }
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(DS.Color.community)
+        }
+        .padding(14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(DS.Color.community.opacity(0.35), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 18)
+    }
+
+    private var stopPickerExpanded: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Choisir un autre arrêt")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Spacer()
+                Button(action: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                        isStopPickerExpanded = false
+                        stopSearchQuery = ""
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 28, height: 28)
+                        .background(DS.Color.paper2)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 18)
 
             stopSearchField
 
-            if isLoadingStops {
-                HStack(spacing: 8) {
-                    ProgressView().scaleEffect(0.85)
-                    Text("Recherche des arrêts à proximité…")
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(DS.Color.inkMute)
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                ForEach(Array(filteredNearbyStops.prefix(8))) { stop in
+                    stopCard(stop)
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 6)
-            } else if displayedStops.isEmpty {
-                Text("Aucun arrêt trouvé pour cette recherche.")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 6)
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(displayedStops) { stop in
-                        stopCard(stop)
-                    }
-                }
-                .padding(.horizontal, 16)
             }
-
-            Text("8 arrêts proches maximum pour garder le choix simple.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(DS.Color.inkMute)
-                .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
         }
     }
 
@@ -299,9 +298,7 @@ struct QuickReportSheetView: View {
                 .autocorrectionDisabled()
 
             if !stopSearchQuery.isEmpty {
-                Button {
-                    stopSearchQuery = ""
-                } label: {
+                Button { stopSearchQuery = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 15))
                         .foregroundStyle(DS.Color.inkMute.opacity(0.7))
@@ -312,10 +309,7 @@ struct QuickReportSheetView: View {
         .padding(.horizontal, 14)
         .frame(height: 48)
         .background(DS.Color.paper2.opacity(0.55))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.Color.ink.opacity(0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 18)
     }
@@ -326,21 +320,20 @@ struct QuickReportSheetView: View {
         let direction = stop.issueLines.first?.direction ?? "Direction à confirmer"
         let borderColor = isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.08)
         let selectedFill = LinearGradient(
-            colors: [
-                DS.Color.primary.opacity(0.16),
-                DS.Color.statusMinor.opacity(0.10),
-                DS.Color.paper
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            colors: [DS.Color.primary.opacity(0.16), DS.Color.statusMinor.opacity(0.10), DS.Color.paper],
+            startPoint: .topLeading, endPoint: .bottomTrailing
         )
 
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedStop = stop
-            selectedLine = nil
+            selectedLine = stop.issueLines.first
             selectedProblem = nil
             description = ""
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                isStopPickerExpanded = false
+                stopSearchQuery = ""
+            }
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
@@ -353,7 +346,6 @@ struct QuickReportSheetView: View {
 
                 HStack(spacing: 6) {
                     LineBadge(line: primaryLine, size: .sm)
-
                     ForEach(Array(stop.lines.dropFirst().prefix(2))) { line in
                         LineBadge(line: line.number, size: .sm)
                     }
@@ -376,11 +368,7 @@ struct QuickReportSheetView: View {
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 146, alignment: .topLeading)
             .background {
-                if isSelected {
-                    selectedFill
-                } else {
-                    DS.Color.paper
-                }
+                if isSelected { selectedFill } else { DS.Color.paper }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
@@ -393,60 +381,21 @@ struct QuickReportSheetView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Lines
+    // MARK: - Line chips (inline horizontal)
 
-    private var lineStepContent: some View {
+    private func lineChipsSection(_ stop: NearbyStop) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "tram.fill", text: "2 · Ligne")
+            sectionTitle(icon: "tram.fill", text: "Ligne concernée")
 
-            if let stop = selectedStop {
-                selectedStopSummary(stop)
-            }
-
-            if let stop = selectedStop, !stop.issueLines.isEmpty {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
                     ForEach(stop.issueLines) { line in
                         lineChip(line)
                     }
                 }
                 .padding(.horizontal, 18)
-            } else {
-                Text("Sélectionnez un arrêt pour voir les lignes")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .padding(.horizontal, 18)
             }
         }
-    }
-
-    private func selectedStopSummary(_ stop: NearbyStop) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Color.community)
-                .frame(width: 30, height: 30)
-                .background(DS.Color.community.opacity(0.12))
-                .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stop.name)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 18)
     }
 
     private func lineChip(_ line: NearbyIssueLine) -> some View {
@@ -455,136 +404,53 @@ struct QuickReportSheetView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedLine = line
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 10) {
-                    LineBadge(line: line.number, size: .lg)
-                    Spacer(minLength: 4)
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(DS.Color.paper)
-                            .frame(width: 20, height: 20)
-                            .background(DS.Color.ink)
-                            .clipShape(Circle())
-                    }
-                }
-
+            HStack(spacing: 8) {
+                LineBadge(line: line.number, size: .sm)
                 Text(line.direction.uppercased())
-                    .font(.system(size: 12.5, weight: .bold))
+                    .font(.system(size: 10.5, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                    .lineLimit(2)
-                    .padding(.top, 14)
-
-                HStack(spacing: 6) {
-                    crowdingTag(for: line.crowding)
-                    reliabilityTag(line.reliability)
+                    .lineLimit(1)
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.Color.paper)
+                        .frame(width: 18, height: 18)
+                        .background(DS.Color.ink)
+                        .clipShape(Circle())
                 }
-                .padding(.top, 10)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
-            .background(isSelected ? DS.Color.paper2.opacity(0.75) : DS.Color.paper)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(isSelected ? DS.Color.paper2 : DS.Color.paper)
             .overlay(
-                RoundedRectangle(cornerRadius: 18)
+                RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
     }
 
-    private func crowdingTag(for crowding: IssueLineCrowding) -> some View {
-        let color: Color
-        switch crowding {
-        case .low:
-            color = DS.Color.statusOK
-        case .medium:
-            color = DS.Color.statusMinor
-        case .high:
-            color = DS.Color.statusMajor
-        }
+    // MARK: - Type grid
 
-        return Text(crowding.label.uppercased())
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .foregroundStyle(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.12))
-            .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
-            .clipShape(Capsule())
-    }
-
-    private func reliabilityTag(_ reliability: Int) -> some View {
-        Text("\(max(0, reliability))% FIABLE")
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .foregroundStyle(DS.Color.inkMute)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .overlay(Capsule().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
-            .clipShape(Capsule())
-    }
-
-    // MARK: - Problems
-
-    private var problemStepContent: some View {
+    private var typeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "exclamationmark.triangle.fill", text: "3 · Type de problème")
+            sectionTitle(icon: "exclamationmark.triangle.fill", text: "Type de problème")
 
-            if let stop = selectedStop, let line = selectedLine {
-                selectedLineSummary(stop: stop, line: line)
-            }
-
-            if !matchingActiveSignalements.isEmpty {
-                activeHereSection
-            }
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
                 ForEach(ReportProblemType.allCases) { type in
                     problemCard(type)
                 }
             }
             .padding(.horizontal, 18)
-
-            optionalDescriptionField
-
-            Text("Le signalement sera publié sans photo.")
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkMute)
-                .padding(.horizontal, 18)
         }
-    }
-
-    private func selectedLineSummary(stop: NearbyStop, line: NearbyIssueLine) -> some View {
-        HStack(spacing: 10) {
-            LineBadge(line: line.number, size: .lg)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stop.name)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(line.direction)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 18)
     }
 
     private func problemCard(_ type: ReportProblemType) -> some View {
         let isSelected = selectedProblem == type
-        let titleColor = DS.Color.ink
-        let descriptionColor = DS.Color.inkSoft
-        let iconColor = type.accentColor
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedProblem = type
@@ -593,10 +459,10 @@ struct QuickReportSheetView: View {
                 HStack {
                     Image(systemName: typeIcon(type))
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(iconColor)
+                        .foregroundStyle(type.accentColor)
                     Text(type.title)
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(titleColor)
+                        .foregroundStyle(DS.Color.ink)
                     Spacer()
                     Circle()
                         .fill(type.accentColor)
@@ -604,7 +470,7 @@ struct QuickReportSheetView: View {
                 }
                 Text(type.descriptionLines.first ?? "")
                     .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(descriptionColor)
+                    .foregroundStyle(DS.Color.inkSoft)
                     .lineLimit(2)
                     .padding(.top, 10)
             }
@@ -623,22 +489,16 @@ struct QuickReportSheetView: View {
 
     private func typeIcon(_ type: ReportProblemType) -> String {
         switch type {
-        case .accident:
-            return "exclamationmark.triangle.fill"
-        case .delay:
-            return "clock.fill"
-        case .breakdown:
-            return "wrench.and.screwdriver.fill"
-        case .incivility:
-            return "person.2.slash.fill"
-        case .cleanliness:
-            return "sparkles"
-        case .aggression:
-            return "shield.lefthalf.filled"
+        case .accident:   return "exclamationmark.triangle.fill"
+        case .delay:      return "clock.fill"
+        case .breakdown:  return "wrench.and.screwdriver.fill"
+        case .incivility: return "person.2.slash.fill"
+        case .cleanliness: return "sparkles"
+        case .aggression: return "shield.lefthalf.filled"
         }
     }
 
-    // MARK: - Active here
+    // MARK: - Already reported here
 
     private var activeHereSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -646,7 +506,6 @@ struct QuickReportSheetView: View {
                 icon: "bubble.left.and.bubble.right.fill",
                 text: "Déjà signalé ici (\(matchingActiveSignalements.count))"
             )
-
             VStack(spacing: 8) {
                 ForEach(matchingActiveSignalements.prefix(3)) { signalement in
                     activeHereCard(signalement)
@@ -685,11 +544,9 @@ struct QuickReportSheetView: View {
                     if isConfirming {
                         ProgressView().tint(DS.Color.paper).scaleEffect(0.7)
                     } else {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold))
                     }
-                    Text("Confirmer")
-                        .font(.system(size: 12, weight: .bold))
+                    Text("Confirmer").font(.system(size: 12, weight: .bold))
                 }
                 .foregroundStyle(DS.Color.paper)
                 .padding(.horizontal, 10)
@@ -699,8 +556,6 @@ struct QuickReportSheetView: View {
             }
             .buttonStyle(.plain)
             .disabled(confirmingExistingId != nil)
-            .accessibilityLabel("Confirmer ce signalement")
-            .accessibilityHint("Ajoute votre confirmation à ce problème déjà signalé.")
         }
         .padding(10)
         .background(DS.Color.paper)
@@ -710,6 +565,8 @@ struct QuickReportSheetView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
+
+    // MARK: - Optional description
 
     private var optionalDescriptionField: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -721,14 +578,14 @@ struct QuickReportSheetView: View {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $description)
                     .scrollContentBackground(.hidden)
-                    .frame(minHeight: 104)
+                    .frame(minHeight: 88)
                     .padding(10)
                     .background(DS.Color.paper2.opacity(0.35))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(DS.Color.ink)
                     .font(.system(size: 13))
                 if description.isEmpty {
-                    Text("Ex : Tram bloqué depuis 5 min au feu, impossible de monter.")
+                    Text("Ex : Tram bloqué depuis 5 min au feu.")
                         .font(.system(size: 13))
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.horizontal, 14)
@@ -751,87 +608,37 @@ struct QuickReportSheetView: View {
         }
     }
 
-
-
-    
     // MARK: - Submit bar
 
     private var submitBar: some View {
-        HStack(spacing: 10) {
-            if currentStep > 1 {
-                Button(action: goBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-                        .frame(width: 48, height: 48)
-                        .background(DS.Color.paper)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
-                        )
+        Button(action: submit) {
+            HStack(spacing: 10) {
+                if isSubmitting {
+                    ProgressView().tint(DS.Color.primaryForeground)
+                } else if submitSuccess {
+                    Image(systemName: "checkmark").font(.system(size: 18, weight: .bold))
+                    Text("Envoyé")
+                } else {
+                    Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
+                    Text("Signaler")
                 }
-                .buttonStyle(.plain)
             }
-
-            Button(action: primaryAction) {
-                HStack(spacing: 10) {
-                    if isSubmitting {
-                        ProgressView().tint(DS.Color.primaryForeground)
-                    } else if submitSuccess {
-                        Image(systemName: "checkmark").font(.system(size: 18, weight: .bold))
-                        Text("Envoyé")
-                    } else {
-                        Image(systemName: primaryIcon).font(.system(size: 14, weight: .semibold))
-                        Text(primaryButtonTitle)
-                    }
-                }
-                .font(DS.Font.bodyBold)
-                .foregroundStyle(primaryButtonEnabled || submitSuccess ? DS.Color.primaryForeground : DS.Color.primaryForeground.opacity(0.4))
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(primaryButtonEnabled || submitSuccess ? DS.Color.primary : DS.Color.primary.opacity(0.4))
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(!primaryButtonEnabled)
+            .font(DS.Font.bodyBold)
+            .foregroundStyle(canSubmit || submitSuccess ? DS.Color.primaryForeground : DS.Color.primaryForeground.opacity(0.4))
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(canSubmit || submitSuccess ? DS.Color.primary : DS.Color.primary.opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
         }
+        .buttonStyle(.plain)
+        .disabled(!canSubmit)
         .padding(.horizontal, 18)
         .padding(.bottom, safeBottom + 8)
         .padding(.top, 10)
-    }
-
-    private var primaryButtonEnabled: Bool {
-        switch currentStep {
-        case 1, 2:
-            return canGoNext
-        default:
-            return canSubmit
-        }
-    }
-
-    private var primaryButtonTitle: String {
-        switch currentStep {
-        case 1:
-            return "Continuer vers les lignes"
-        case 2:
-            return "Continuer vers le problème"
-        default:
-            return "Publier le signalement"
-        }
-    }
-
-    private var primaryIcon: String {
-        switch currentStep {
-        case 1, 2:
-            return "arrow.right"
-        default:
-            return "paperplane.fill"
-        }
     }
 
     // MARK: - Helpers
@@ -849,29 +656,6 @@ struct QuickReportSheetView: View {
         .padding(.horizontal, 18)
     }
 
-    private func bootstrap() {
-        guard let lat = userLatitude, let lng = userLongitude else { return }
-        isLoadingStops = true
-        Task {
-            defer { isLoadingStops = false }
-            do {
-                let stops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
-                nearbyStops = stops
-                selectedStop = NearestStopFinder.nearest(
-                    to: userCoordinate,
-                    in: stops,
-                    maxMeters: 120
-                ) ?? NearestStopFinder.closest(
-                    to: userCoordinate,
-                    in: stops
-                ) ?? stops.first
-                selectedLine = selectedStop?.issueLines.first
-            } catch {
-                print("NearbyStopService failed: \(error.localizedDescription)")
-            }
-        }
-    }
-
     private func relativeTime(from date: Date?) -> String {
         guard let date else { return "À l'instant" }
         let seconds = Int(Date().timeIntervalSince(date))
@@ -887,28 +671,29 @@ struct QuickReportSheetView: View {
         }
     }
 
-    private func goBack() {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-            currentStep = max(1, currentStep - 1)
+    // MARK: - Bootstrap
+
+    private func bootstrap() {
+        guard let lat = userLatitude, let lng = userLongitude else { return }
+        isLoadingStops = true
+        Task {
+            defer { isLoadingStops = false }
+            do {
+                let stops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
+                nearbyStops = stops
+                selectedStop = NearestStopFinder.nearest(
+                    to: userCoordinate, in: stops, maxMeters: 120
+                ) ?? NearestStopFinder.closest(
+                    to: userCoordinate, in: stops
+                ) ?? stops.first
+                selectedLine = selectedStop?.issueLines.first
+            } catch {
+                print("NearbyStopService failed: \(error.localizedDescription)")
+            }
         }
     }
 
-    private func primaryAction() {
-        switch currentStep {
-        case 1:
-            guard selectedStop != nil else { return }
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                currentStep = 2
-            }
-        case 2:
-            guard selectedLine != nil else { return }
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                currentStep = 3
-            }
-        default:
-            submit()
-        }
-    }
+    // MARK: - Submit
 
     private func submit() {
         guard canSubmit,
@@ -1032,9 +817,6 @@ private struct ConfettiParticle: View {
                 y: animate ? screenHeight / 2 + 100 : -screenHeight / 2 - 50
             )
             .opacity(animate ? 0 : 1)
-            .animation(
-                .easeIn(duration: duration).delay(delay),
-                value: animate
-            )
+            .animation(.easeIn(duration: duration).delay(delay), value: animate)
     }
 }
