@@ -2388,7 +2388,7 @@ private struct HomeBottomChromeOverlay: View {
     let onSelectTab: (AppTab) -> Void
 
     var body: some View {
-        Group {
+        VStack(spacing: 8) {
             if shouldShowPulseBar {
                 HStack(alignment: .center, spacing: 10) {
                     if totalActiveSignalementsCount > 0 {
@@ -2405,9 +2405,7 @@ private struct HomeBottomChromeOverlay: View {
                     HomeReportFloatingButton(action: onOpenReportSheet)
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 104)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(6)
+                .transition(.opacity)
             }
 
             if shouldShowTabBar {
@@ -2415,11 +2413,11 @@ private struct HomeBottomChromeOverlay: View {
                     get: { AppTab.from(page: currentPage) },
                     set: onSelectTab
                 ))
-                .padding(.bottom, 6)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
+                .transition(.opacity)
             }
         }
+        .padding(.bottom, 6)
+        .zIndex(8)
     }
 }
 
