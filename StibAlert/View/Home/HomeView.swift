@@ -3020,19 +3020,58 @@ private struct OfficialSignalMarker: View {
     let problemType: String
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(Color(hex: "#0055A4"))
-                .frame(width: 28, height: 20)
-                .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
-            Text("STIB")
-                .font(.system(size: 8, weight: .black))
-                .foregroundStyle(.white)
-                .kerning(0.5)
+        VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color(hex: "#F0441F"))
+                        .frame(width: 34, height: 32)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .stroke(Color.white, lineWidth: 2)
+                        )
+                        .shadow(color: Color(hex: "#F0441F").opacity(0.35), radius: 8, x: 0, y: 3)
+                        .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 2)
+
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(.white)
+                }
+
+                Text("STIB")
+                    .font(.system(size: 6, weight: .black, design: .rounded))
+                    .kerning(0.35)
+                    .foregroundStyle(Color(hex: "#0055A4"))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .offset(x: 7, y: -6)
+            }
+
+            TrianglePointer()
+                .fill(Color(hex: "#F0441F"))
+                .frame(width: 12, height: 7)
+                .overlay(
+                    TrianglePointer()
+                        .stroke(Color.white, lineWidth: 1.5)
+                )
+                .offset(y: -1)
         }
         .accessibilityElement()
         .accessibilityLabel("Alerte officielle STIB — \(problemType)")
         .accessibilityHint("Ouvre le détail de la perturbation officielle")
+    }
+}
+
+private struct TrianglePointer: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.closeSubpath()
+        return path
     }
 }
 
