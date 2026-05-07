@@ -336,6 +336,10 @@ struct ReportsView: View {
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.md)
 
+                    statusHUD
+                        .padding(.horizontal, DS.Spacing.xl)
+                        .padding(.top, DS.Spacing.md)
+
                     if let summary = currentSummary {
                         summaryCarousel(summary)
                             .padding(.horizontal, DS.Spacing.xl)
@@ -522,23 +526,139 @@ struct ReportsView: View {
     }
 
     private var editorialHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    PageHeader(
-                        title: "Reports",
-                        eyebrow: "Bruxelles · temps réel",
-                        large: true
-                    )
-                    Text("Perturbations, signalements et événements, en direct.")
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.inkSoft)
-                }
+        editorialMasthead
+    }
 
+    private var editorialMasthead: some View {
+        let now = lastUpdatedAt ?? Date()
+        let editionNum = Calendar.current.ordinality(of: .day, in: .year, for: now) ?? 1
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "fr_BE")
+        dateFormatter.dateFormat = "EEEE d MMMM yyyy"
+        let timeFormatter = DateFormatter()
+        timeFormatter.locale = Locale(identifier: "fr_BE")
+        timeFormatter.dateFormat = "HH:mm"
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("N° \(String(format: "%03d", editionNum)) · ÉDITION CONTINUE")
+                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
                 Spacer()
+                HStack(spacing: 6) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("ALERTES")
+                        .font(DS.Font.monoSmall.weight(.semibold))
+                        .tracking(1.6)
+                    Circle()
+                        .fill(DS.Color.primary)
+                        .frame(width: 5, height: 5)
+                        .offset(x: -4, y: -6)
+                }
+                .foregroundStyle(DS.Color.ink)
             }
 
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 3)
+                .padding(.top, 6)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text("Reports")
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-1)
+                    .foregroundStyle(DS.Color.ink)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(timeFormatter.string(from: now))
+                        .font(DS.Font.monoSmall.weight(.semibold))
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.ink)
+                    Text("Bruxelles · CET")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+            .padding(.top, 8)
+
+            Text("\(dateFormatter.string(from: now).uppercased()) · STIB-MIVB · COMMUNAUTÉ · ÉVÉNEMENTS")
+                .font(DS.Font.monoSmall)
+                .tracking(1.5)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 4)
+
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.15))
+                .frame(height: 1)
+                .padding(.top, 8)
+
             contentScopeSwitch
+                .padding(.top, 12)
+        }
+    }
+
+    private var statusHUD: some View {
+        let perturbed = nowItems.count
+        let total = max(60, perturbed + 50) // STIB ≈ 4 métros + ~20 trams + ~50 bus actifs
+        let ok = max(0, total - perturbed)
+        let severity: (label: String, color: Color) = {
+            switch perturbed {
+            case 0:    return ("NOMINAL", DS.Color.statusOK)
+            case 1...2: return ("MINEUR", DS.Color.statusMinor)
+            case 3...5: return ("MODÉRÉ", DS.Color.statusMajor)
+            default:    return ("MAJEUR", DS.Color.statusCritical)
+            }
+        }()
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 0) {
+                StatusCell(
+                    label: "État",
+                    value: severity.label,
+                    valueColor: severity.color,
+                    pulse: true
+                )
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.15))
+                    .frame(width: 1)
+                StatusCell(
+                    label: "Lignes OK",
+                    value: "\(ok)",
+                    sublabel: "/ \(total)"
+                )
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.15))
+                    .frame(width: 1)
+                StatusCell(
+                    label: "Perturbées",
+                    value: "\(perturbed)",
+                    valueColor: perturbed > 0 ? DS.Color.statusMajor : DS.Color.ink
+                )
+            }
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(DS.Color.statusOK)
+                        .frame(width: total > 0 ? CGFloat(ok) / CGFloat(total) * geo.size.width : 0)
+                    Rectangle()
+                        .fill(DS.Color.statusMajor)
+                }
+                .overlay(
+                    Rectangle()
+                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+                )
+            }
+            .frame(height: 6)
         }
     }
 
@@ -3080,6 +3200,67 @@ private struct SourceBreakdownRow: View {
             Text("\(value)")
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
+        }
+    }
+}
+
+// MARK: - Editorial status HUD components
+
+private struct StatusCell: View {
+    let label: String
+    let value: String
+    var sublabel: String? = nil
+    var valueColor: Color = DS.Color.ink
+    var pulse: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                if pulse {
+                    PulsingDot(color: valueColor, size: 4)
+                }
+                Text(label.uppercased())
+                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundStyle(valueColor)
+                if let sublabel {
+                    Text(sublabel)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct PulsingDot: View {
+    let color: Color
+    var size: CGFloat = 8
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.6))
+                .frame(width: size, height: size)
+                .scaleEffect(animate ? 2.2 : 1)
+                .opacity(animate ? 0 : 0.7)
+            Circle()
+                .fill(color)
+                .frame(width: size, height: size)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
+                animate = true
+            }
         }
     }
 }
