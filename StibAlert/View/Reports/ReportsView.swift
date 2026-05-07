@@ -461,10 +461,6 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
-                    editorialSearchSection
-                        .padding(.horizontal, DS.Spacing.xl)
-                        .padding(.top, DS.Spacing.lg)
-
                     Section(header: editorialStickySegments) {
                         editorialFeedSection
                     }
@@ -1743,15 +1739,6 @@ private struct ReportsFilterDock: View {
                         .frame(height: 1)
                 }
         )
-        .overlay(alignment: .top) {
-            // The pinned header floats below the Dynamic Island; this masks scrolled feed
-            // cells that would otherwise remain visible above the filters.
-            DS.Color.paper
-                .frame(height: 120)
-                .offset(y: -120)
-                .ignoresSafeArea(edges: .top)
-                .allowsHitTesting(false)
-        }
         .zIndex(20)
     }
 
