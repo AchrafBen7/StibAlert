@@ -143,8 +143,11 @@ struct ArretDetailPage: View {
 
     private var groupedPassages: [GroupedStopPassage] {
         guard let stopDetail else { return [] }
+        let allowedLines = Set(effectiveStop.lines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
         let filtered = stopDetail.nextDepartures.filter { departure in
-            selectedLineFilter == nil || selectedLineFilter == departure.line
+            let line = Self.normalizedLineNumber(departure.line)
+            guard allowedLines.isEmpty || allowedLines.contains(line) else { return false }
+            return selectedLineFilter == nil || Self.normalizedLineNumber(selectedLineFilter ?? "") == line
         }
         let groups = Dictionary(grouping: filtered) { departure in
             "\(departure.line)::\(departure.destination ?? "Direction inconnue")"
@@ -164,6 +167,14 @@ struct ArretDetailPage: View {
                 }
                 return lhs.line.localizedStandardCompare(rhs.line) == .orderedAscending
             }
+    }
+
+    private static func normalizedLineNumber(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if trimmed.hasPrefix("T"), trimmed.dropFirst().allSatisfy(\.isNumber) {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
     }
 
     private var passagesAvailabilityText: String {

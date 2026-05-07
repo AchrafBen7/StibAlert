@@ -3544,8 +3544,14 @@ private struct HomeStopPreviewCard: View {
         stopDetail?.stop ?? stopSummary
     }
 
+    private var allowedLineNumbers: Set<String> {
+        Set(effectiveStop.lines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
+    }
+
     private var departures: [TransportDepartureDTO] {
-        Array((stopDetail?.nextDepartures ?? []).prefix(2))
+        Array((stopDetail?.nextDepartures ?? [])
+            .filter { allowedLineNumbers.isEmpty || allowedLineNumbers.contains(Self.normalizedLineNumber($0.line)) }
+            .prefix(2))
     }
 
     private var villoSummary: String? {
@@ -3553,6 +3559,14 @@ private struct HomeStopPreviewCard: View {
         let bikes = nearbyVilloStations.reduce(0) { $0 + $1.station.availableBikes }
         let label = nearbyVilloStations.count == 1 ? "1 Villo! à proximité" : "\(nearbyVilloStations.count) Villo! à proximité"
         return "\(label) · \(bikes) vélos"
+    }
+
+    private static func normalizedLineNumber(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if trimmed.hasPrefix("T"), trimmed.dropFirst().allSatisfy(\.isNumber) {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
     }
 
     var body: some View {
