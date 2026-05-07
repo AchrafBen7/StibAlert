@@ -43,7 +43,6 @@ struct HomeView: View {
     )
     @State private var showSearch = false
     @State private var showLegend = false
-    @State private var showRoutePlanner = false
     @State private var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -469,33 +468,6 @@ struct HomeView: View {
                     .zIndex(5)
             }
         }
-        .overlay(alignment: .bottom) {
-            if showRoutePlanner {
-                HomeRoutePlannerSheet(
-                    userCoordinate: locationManager.userCoordinate,
-                    isRouting: isRouting,
-                    onClose: {
-                        withAnimation(transitionSpring) {
-                            showRoutePlanner = false
-                        }
-                    },
-                    onBuildRoute: { departure, destination in
-                        Task {
-                            await buildRoute(from: departure, to: destination)
-                            await MainActor.run {
-                                withAnimation(transitionSpring) {
-                                    showRoutePlanner = false
-                                }
-                            }
-                        }
-                    }
-                )
-                .padding(.horizontal, 18)
-                .padding(.bottom, 104)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(4)
-            }
-        }
         .overlay(alignment: .top) {
             if shouldShowSearchHeader {
                 HomeSearchHeaderOverlay(
@@ -513,9 +485,7 @@ struct HomeView: View {
                         }
                     },
                     onAroundMe: {
-                        withAnimation(transitionSpring) {
-                            showRoutePlanner = true
-                        }
+                        aroundMe()
                         activeMapFilter = .none
                     },
                     onOpenFavorites: {
