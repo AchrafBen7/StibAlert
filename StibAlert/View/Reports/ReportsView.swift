@@ -644,70 +644,14 @@ struct ReportsView: View {
     }
 
     private var editorialMasthead: some View {
-        let now = lastUpdatedAt ?? Date()
-        let editionNum = Calendar.current.ordinality(of: .day, in: .year, for: now) ?? 1
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "fr_BE")
-        dateFormatter.dateFormat = "EEEE d MMMM yyyy"
-        let timeFormatter = DateFormatter()
-        timeFormatter.locale = Locale(identifier: "fr_BE")
-        timeFormatter.dateFormat = "HH:mm"
-
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("N° \(String(format: "%03d", editionNum)) · ÉDITION CONTINUE")
-                    .font(DS.Font.monoSmall.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(DS.Color.inkMute)
-                Spacer()
-                HStack(spacing: 6) {
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 9, weight: .bold))
-                    Text("ALERTES")
-                        .font(DS.Font.monoSmall.weight(.semibold))
-                        .tracking(1.6)
-                    Circle()
-                        .fill(DS.Color.primary)
-                        .frame(width: 5, height: 5)
-                        .offset(x: -4, y: -6)
-                }
-                .foregroundStyle(DS.Color.ink)
-            }
-
-            Rectangle()
-                .fill(DS.Color.ink)
-                .frame(height: 3)
-                .padding(.top, 6)
-
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Reports")
                     .font(.system(size: 32, weight: .bold))
                     .tracking(-1)
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(timeFormatter.string(from: now))
-                        .font(DS.Font.monoSmall.weight(.semibold))
-                        .tracking(1.4)
-                        .foregroundStyle(DS.Color.ink)
-                    Text("Bruxelles · CET")
-                        .font(DS.Font.monoSmall)
-                        .tracking(1.4)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
             }
-            .padding(.top, 8)
-
-            Text("\(dateFormatter.string(from: now).uppercased()) · STIB-MIVB · COMMUNAUTÉ · ÉVÉNEMENTS")
-                .font(DS.Font.monoSmall)
-                .tracking(1.5)
-                .foregroundStyle(DS.Color.inkMute)
-                .padding(.top, 4)
-
-            Rectangle()
-                .fill(DS.Color.ink.opacity(0.15))
-                .frame(height: 1)
-                .padding(.top, 8)
 
             contentScopeSwitch
                 .padding(.top, 12)
@@ -1804,6 +1748,15 @@ private struct ReportsFilterDock: View {
                         .frame(height: 1)
                 }
         )
+        .overlay(alignment: .top) {
+            // The pinned header floats below the Dynamic Island; this masks scrolled feed
+            // cells that would otherwise remain visible above the filters.
+            DS.Color.paper
+                .frame(height: 120)
+                .offset(y: -120)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+        }
         .zIndex(20)
     }
 
