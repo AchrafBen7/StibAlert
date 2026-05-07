@@ -590,7 +590,6 @@ struct HomeView: View {
             .presentationDragIndicator(.visible)
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.currentPage == .home)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             locationManager.start()
