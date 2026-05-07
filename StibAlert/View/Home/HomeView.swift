@@ -3593,9 +3593,36 @@ private struct HomeStopPreviewCard: View {
         }
     }
 
-    private var departures: [TransportDepartureDTO] {
-        // Backend already scoped departures to this stop_id — no extra line filter needed.
-        Array((stopDetail?.nextDepartures ?? []).prefix(2))
+    private struct DepartureGroup: Identifiable {
+        let id: String
+        let line: String
+        let destination: String?
+        let primary: TransportDepartureDTO
+        let secondary: TransportDepartureDTO?
+    }
+
+    private var departureGroups: [DepartureGroup] {
+        // Show the next 2 departures per (line, destination) so users see both
+        // directions of every line, not just the soonest few across the whole stop.
+        let all = (stopDetail?.nextDepartures ?? [])
+            .sorted { $0.minutes < $1.minutes }
+        var buckets: [String: [TransportDepartureDTO]] = [:]
+        var order: [String] = []
+        for dep in all {
+            let key = "\(dep.line)|\(dep.destination ?? "")"
+            if buckets[key] == nil { order.append(key) }
+            buckets[key, default: []].append(dep)
+        }
+        return order.compactMap { key in
+            guard let arr = buckets[key], let first = arr.first else { return nil }
+            return DepartureGroup(
+                id: key,
+                line: first.line,
+                destination: first.destination,
+                primary: first,
+                secondary: arr.dropFirst().first
+            )
+        }
     }
 
     private var villoSummary: String? {
@@ -3693,40 +3720,48 @@ private struct HomeStopPreviewCard: View {
                             }
                             .buttonStyle(.plain)
                         }
-                    } else if departures.isEmpty {
+                    } else if departureGroups.isEmpty {
                         Text("Aucun passage prévu pour le moment.")
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     } else {
-                        VStack(spacing: 10) {
-                            ForEach(departures) { departure in
-                                HStack(spacing: 12) {
-                                    LineBadge(line: departure.line, size: .sm)
-                                    Text("→ \(departure.destination ?? "Direction en cours")")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(DS.Color.ink)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .lineLimit(1)
-
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(departure.minutes <= 0 ? "Imminent" : "\(departure.minutes) min")
-                                            .font(DS.Font.displayH3)
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 10) {
+                                ForEach(departureGroups) { group in
+                                    HStack(spacing: 12) {
+                                        LineBadge(line: group.line, size: .sm)
+                                        Text("→ \(group.destination ?? "Direction en cours")")
+                                            .font(.system(size: 15, weight: .medium))
                                             .foregroundStyle(DS.Color.ink)
-                                        if let delay = departure.delayMinutes, delay > 2 {
-                                            Text("+\(delay) min")
-                                                .font(DS.Font.monoSmall.weight(.bold))
-                                                .tracking(0.8)
-                                                .foregroundStyle(DS.Color.statusMajor)
-                                        } else if departure.source == "scheduled" {
-                                            Text("théorique")
-                                                .font(DS.Font.monoSmall.weight(.bold))
-                                                .tracking(0.8)
-                                                .foregroundStyle(DS.Color.inkMute)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .lineLimit(1)
+
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(group.primary.minutes <= 0 ? "Imminent" : "\(group.primary.minutes) min")
+                                                .font(DS.Font.displayH3)
+                                                .foregroundStyle(DS.Color.ink)
+                                            if let secondary = group.secondary {
+                                                Text("puis \(secondary.minutes) min")
+                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .tracking(0.8)
+                                                    .foregroundStyle(DS.Color.inkMute)
+                                            } else if let delay = group.primary.delayMinutes, delay > 2 {
+                                                Text("+\(delay) min")
+                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .tracking(0.8)
+                                                    .foregroundStyle(DS.Color.statusMajor)
+                                            } else if group.primary.source == "scheduled" {
+                                                Text("théorique")
+                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .tracking(0.8)
+                                                    .foregroundStyle(DS.Color.inkMute)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+                        .frame(maxHeight: 220)
                     }
 
                     if let villoSummary {
@@ -4117,6 +4152,36 @@ private struct HomeStopDetailSheet: View {
         }
     }
 
+    private struct DepartureGroup: Identifiable {
+        let id: String
+        let line: String
+        let destination: String?
+        let primary: TransportDepartureDTO
+        let secondary: TransportDepartureDTO?
+    }
+
+    private var sheetDepartureGroups: [DepartureGroup] {
+        let all = (stopDetail?.nextDepartures ?? [])
+            .sorted { $0.minutes < $1.minutes }
+        var buckets: [String: [TransportDepartureDTO]] = [:]
+        var order: [String] = []
+        for dep in all {
+            let key = "\(dep.line)|\(dep.destination ?? "")"
+            if buckets[key] == nil { order.append(key) }
+            buckets[key, default: []].append(dep)
+        }
+        return order.compactMap { key in
+            guard let arr = buckets[key], let first = arr.first else { return nil }
+            return DepartureGroup(
+                id: key,
+                line: first.line,
+                destination: first.destination,
+                primary: first,
+                secondary: arr.dropFirst().first
+            )
+        }
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
@@ -4185,10 +4250,10 @@ private struct HomeStopDetailSheet: View {
                         .font(.custom("DelaGothicOne-Regular", size: 15))
                         .foregroundStyle(.white)
 
-                    if let stopDetail, !stopDetail.nextDepartures.isEmpty {
-                        ForEach(stopDetail.nextDepartures.prefix(4)) { departure in
+                    if !sheetDepartureGroups.isEmpty {
+                        ForEach(sheetDepartureGroups) { group in
                             HStack(spacing: 10) {
-                                Text(departure.line)
+                                Text(group.line)
                                     .font(.custom("Montserrat-SemiBold", size: 13))
                                     .foregroundStyle(.black)
                                     .frame(minWidth: 36, minHeight: 28)
@@ -4196,16 +4261,23 @@ private struct HomeStopDetailSheet: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(departure.destination ?? "Direction en cours")
+                                    Text(group.destination ?? "Direction en cours")
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
                                         .lineLimit(2)
-                                    if let delay = departure.delayMinutes, delay > 2 {
-                                        Text("Dans \(departure.minutes) min · retard +\(delay) min")
+
+                                    let primaryText = "Dans \(group.primary.minutes) min"
+                                    let secondaryText = group.secondary.map { " · puis \($0.minutes) min" } ?? ""
+                                    if let delay = group.primary.delayMinutes, delay > 2 {
+                                        Text("\(primaryText) · retard +\(delay) min\(secondaryText)")
                                             .font(.custom("Montserrat-Regular", size: 12))
                                             .foregroundStyle(Color(hex: "#FF6B6B"))
+                                    } else if group.primary.source == "scheduled" {
+                                        Text("\(primaryText) · horaire théorique\(secondaryText)")
+                                            .font(.custom("Montserrat-Regular", size: 12))
+                                            .foregroundStyle(.white.opacity(0.72))
                                     } else {
-                                        Text(departure.source == "scheduled" ? "Dans \(departure.minutes) min · horaire théorique" : "Dans \(departure.minutes) min")
+                                        Text("\(primaryText)\(secondaryText)")
                                             .font(.custom("Montserrat-Regular", size: 12))
                                             .foregroundStyle(.white.opacity(0.72))
                                     }
