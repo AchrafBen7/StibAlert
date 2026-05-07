@@ -153,18 +153,21 @@ struct ReportsView: View {
     private func ensureLineDetail(for line: String) {
         let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalized.isEmpty else { return }
-        guard lineDetailCache[normalized] == nil else { return }
-        guard !lineDetailInFlight.contains(normalized) else { return }
-        lineDetailInFlight.insert(normalized)
-        Task {
-            do {
-                let detail = try await TransportService.line(id: normalized)
-                await MainActor.run {
-                    lineDetailCache[normalized] = detail
-                    lineDetailInFlight.remove(normalized)
+
+        for variant in [normalized, "\(normalized):City", "\(normalized):Suburb"] {
+            guard lineDetailCache[variant] == nil else { continue }
+            guard !lineDetailInFlight.contains(variant) else { continue }
+            lineDetailInFlight.insert(variant)
+            Task {
+                do {
+                    let detail = try await TransportService.line(id: variant)
+                    await MainActor.run {
+                        lineDetailCache[variant] = detail
+                        lineDetailInFlight.remove(variant)
+                    }
+                } catch {
+                    await MainActor.run { lineDetailInFlight.remove(variant) }
                 }
-            } catch {
-                await MainActor.run { lineDetailInFlight.remove(normalized) }
             }
         }
     }
@@ -172,34 +175,63 @@ struct ReportsView: View {
     private func dossierStopContext(for item: NetworkIssueCarouselItem) -> (stops: [String], disruptedIndices: Set<Int>, disruptedName: String?) {
         guard let line = item.lines.first else { return ([], [], nil) }
         let key = line.uppercased()
-        guard let detail = lineDetailCache[key] else { return ([], [], nil) }
+        let candidates = [
+            lineDetailCache["\(key):City"],
+            lineDetailCache["\(key):Suburb"],
+            lineDetailCache[key],
+        ].compactMap { $0 }
+        guard !candidates.isEmpty else { return ([], [], nil) }
 
-        let stopNames = detail.line.stops.map { $0.name }
-        let needles = ReportsStopMatching.normalize(item.keyword + " " + item.detail)
-        var disrupted: Set<Int> = []
-        var disruptedName: String? = item.location
+        let structuredNeedles = [item.location]
+            .compactMap { $0 }
+            .map(ReportsStopMatching.normalize)
+            .filter { $0.count >= 4 }
+        let textNeedles = ReportsStopMatching.normalize(item.keyword + " " + item.detail)
 
-        for (idx, stop) in detail.line.stops.enumerated() {
-            let stopKey = ReportsStopMatching.normalize(stop.name)
-            guard stopKey.count >= 4 else { continue }
-            if needles.contains(stopKey) {
-                disrupted.insert(idx)
-                if disruptedName == nil { disruptedName = stop.name }
-            }
-        }
+        func context(for detail: TransportLineDTO) -> (stops: [String], disruptedIndices: Set<Int>, disruptedName: String?, score: Int) {
+            let stopNames = detail.line.stops.map { $0.name }
+            var disrupted: Set<Int> = []
+            var disruptedName: String? = item.location
+            var score = 0
 
-        if disrupted.isEmpty {
-            for incident in detail.activeIncidents {
-                guard let stopName = incident.stop?.name else { continue }
-                let needle = ReportsStopMatching.normalize(stopName)
-                if let idx = detail.line.stops.firstIndex(where: { ReportsStopMatching.normalize($0.name) == needle }) {
+            for (idx, stop) in detail.line.stops.enumerated() {
+                let stopKey = ReportsStopMatching.normalize(stop.name)
+                guard stopKey.count >= 4 else { continue }
+                if structuredNeedles.contains(stopKey) {
                     disrupted.insert(idx)
-                    if disruptedName == nil { disruptedName = stopName }
+                    disruptedName = stop.name
+                    score += 100
+                } else if textNeedles.contains(stopKey) {
+                    disrupted.insert(idx)
+                    if disruptedName == nil { disruptedName = stop.name }
+                    score += 10
                 }
             }
+
+            if disrupted.isEmpty {
+                for incident in detail.activeIncidents {
+                    guard let stopName = incident.stop?.name else { continue }
+                    let needle = ReportsStopMatching.normalize(stopName)
+                    if let idx = detail.line.stops.firstIndex(where: { ReportsStopMatching.normalize($0.name) == needle }) {
+                        disrupted.insert(idx)
+                        if disruptedName == nil { disruptedName = stopName }
+                        score += 50
+                    }
+                }
+            }
+
+            return (stopNames, disrupted, disruptedName, score)
         }
 
-        return (stopNames, disrupted, disruptedName)
+        guard let best = candidates
+            .map(context(for:))
+            .sorted(by: { left, right in
+                if left.score != right.score { return left.score > right.score }
+                return left.stops.count > right.stops.count
+            })
+            .first else { return ([], [], nil) }
+
+        return (best.stops, best.disruptedIndices, best.disruptedName)
     }
 
     private var favoriteLines: Set<String> {
