@@ -895,7 +895,7 @@ struct HomeView: View {
 
         if nav.currentPage != .home {
             pageOverlay
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.opacity.animation(.easeInOut(duration: 0.12)))
                 .zIndex(6)
         }
     }
@@ -952,9 +952,10 @@ struct HomeView: View {
 
     @MainActor
     private func selectTab(_ tab: AppTab) {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-            nav.currentPage = tab.page
-        }
+        // Tab switching should feel instant, like a native UITabBar — no
+        // slide-from-the-side or spring. The pageOverlay still cross-fades
+        // briefly via its own transition for polish.
+        nav.currentPage = tab.page
     }
 
     @MainActor
@@ -2405,7 +2406,7 @@ private struct HomeBottomChromeOverlay: View {
                     HomeReportFloatingButton(action: onOpenReportSheet)
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 80)
+                .padding(.bottom, 104)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
             }
