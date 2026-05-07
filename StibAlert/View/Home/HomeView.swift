@@ -865,6 +865,7 @@ struct HomeView: View {
             },
             onOpenLine: openLineFromStop(_:),
             onOpenStop: openStopDetail(for:),
+            onSelectSiblingStop: openStopPreview(for:),
             onReport: openReportSheet(for:),
             onRetry: {
                 if let stop = selectedMapStopPreview ?? selectedMapStopSummary {
@@ -2438,6 +2439,7 @@ private struct HomeStopSurfaceOverlay: View {
     let onOpenDetail: (TransportStopSummaryDTO) -> Void
     let onOpenLine: (String) -> Void
     let onOpenStop: (TransportStopSummaryDTO) -> Void
+    let onSelectSiblingStop: (TransportStopSummaryDTO) -> Void
     let onReport: (TransportStopSummaryDTO) -> Void
     let onRetry: () -> Void
 
@@ -2449,11 +2451,13 @@ private struct HomeStopSurfaceOverlay: View {
                     stopDetail: stopDetail,
                     isLoading: isLoading,
                     detailError: detailError,
+                    nearbyStops: nearbyStops(stop),
                     nearbyVilloStations: nearbyVilloStations(stop),
                     onDismiss: onDismiss,
                     onOpenDetail: {
                         onOpenDetail(stop)
                     },
+                    onSelectSiblingStop: onSelectSiblingStop,
                     onRetry: onRetry
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -3535,10 +3539,36 @@ private struct HomeStopPreviewCard: View {
     let stopDetail: TransportStopDTO?
     let isLoading: Bool
     let detailError: String?
+    let nearbyStops: [TransportStopSummaryDTO]
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
     let onDismiss: () -> Void
     let onOpenDetail: () -> Void
+    let onSelectSiblingStop: (TransportStopSummaryDTO) -> Void
     let onRetry: () -> Void
+
+    private var siblingStops: [TransportStopSummaryDTO] {
+        let originLat = effectiveStop.latitude
+        let originLng = effectiveStop.longitude
+        guard let originLat, let originLng else { return [] }
+        let origin = CLLocation(latitude: originLat, longitude: originLng)
+        return nearbyStops
+            .filter { stop in
+                guard let lat = stop.latitude, let lng = stop.longitude else { return false }
+                return origin.distance(from: CLLocation(latitude: lat, longitude: lng)) <= 90
+            }
+            .prefix(4)
+            .map { $0 }
+    }
+
+    private func distanceMeters(to stop: TransportStopSummaryDTO) -> Int? {
+        guard
+            let lat = stop.latitude, let lng = stop.longitude,
+            let originLat = effectiveStop.latitude, let originLng = effectiveStop.longitude
+        else { return nil }
+        let dist = CLLocation(latitude: originLat, longitude: originLng)
+            .distance(from: CLLocation(latitude: lat, longitude: lng))
+        return Int(dist.rounded())
+    }
 
     private var effectiveStop: TransportStopSummaryDTO {
         stopDetail?.stop ?? stopSummary
@@ -3711,6 +3741,63 @@ private struct HomeStopPreviewCard: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 16)
+
+                if !siblingStops.isEmpty {
+                    Rectangle()
+                        .fill(DS.Color.ink.opacity(0.12))
+                        .frame(height: 1)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(DS.Color.inkMute)
+                            Text("AUTRES QUAIS ICI")
+                                .font(DS.Font.mono.weight(.bold))
+                                .tracking(2)
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+
+                        VStack(spacing: 6) {
+                            ForEach(siblingStops) { stop in
+                                Button {
+                                    onSelectSiblingStop(stop)
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "arrow.triangle.swap")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(DS.Color.inkMute)
+                                            .frame(width: 18)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(stop.name)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundStyle(DS.Color.ink)
+                                                .lineLimit(1)
+                                            if let dist = distanceMeters(to: stop) {
+                                                Text("\(dist) m · ARRÊT \(stop.stopId ?? stop.id)")
+                                                    .font(DS.Font.monoSmall)
+                                                    .foregroundStyle(DS.Color.inkMute)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(DS.Color.inkMute)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background(DS.Color.ink.opacity(0.04))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                }
 
                 Button(action: onOpenDetail) {
                     HStack {
