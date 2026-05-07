@@ -3538,132 +3538,76 @@ private struct EditorialLineVisualizer: View {
 
     private var hasRealStops: Bool { !stops.isEmpty }
 
-    /// When the line has many stops, sample around the disrupted ones so we still
-    /// show termini + perturbation context within the 7-waypoint budget.
-    private var sampled: (stops: [String], disrupted: Set<Int>) {
-        guard hasRealStops else { return ([], []) }
-        let maxSlots = 7
-        if stops.count <= maxSlots { return (stops, disruptedIndices) }
+    /// Each waypoint keeps its position along the line (originalIndex / total - 1)
+    /// so the rendered diamond sits at the correct *relative* spot on the X axis.
+    /// We only sample once we exceed `maxWaypoints` — and we always preserve the
+    /// termini, every disrupted stop, and the immediate neighbours of any
+    /// disrupted stop so the viewer can read the perturbation in context.
+    private struct Waypoint: Identifiable {
+        let id: Int
+        let originalIndex: Int
+        let total: Int
+        let name: String
+        let isDisrupted: Bool
+        let isTerminus: Bool
+        let isLabeled: Bool
+    }
 
-        var indices = Set<Int>()
-        indices.insert(0)
-        indices.insert(stops.count - 1)
+    private var waypoints: [Waypoint] {
+        guard hasRealStops else { return [] }
+        let total = stops.count
+        let maxWaypoints = 30 // beyond this we sample, but we still fix X by originalIndex
+
+        var keepSet = Set<Int>()
+        keepSet.insert(0)
+        keepSet.insert(total - 1)
         for di in disruptedIndices {
-            indices.insert(di)
-            if di > 0 { indices.insert(di - 1) }
-            if di < stops.count - 1 { indices.insert(di + 1) }
+            keepSet.insert(di)
+            if di > 0 { keepSet.insert(di - 1) }
+            if di < total - 1 { keepSet.insert(di + 1) }
         }
-        // fill with evenly distributed stops until we hit the budget
-        var step = 0
-        while indices.count < maxSlots {
-            let span = stops.count - 1
-            let denom = max(1, maxSlots - 1)
-            let candidate = Int(round(Double(step) * Double(span) / Double(denom)))
-            indices.insert(min(max(candidate, 0), stops.count - 1))
-            step += 1
-            if step > maxSlots * 2 { break }
+
+        var allKept = Array(0..<total)
+        if total > maxWaypoints {
+            // Sample evenly while preserving keepSet
+            var picked = keepSet
+            let denom = max(1, maxWaypoints - 1)
+            for step in 0..<maxWaypoints {
+                let candidate = Int(round(Double(step) * Double(total - 1) / Double(denom)))
+                picked.insert(min(max(candidate, 0), total - 1))
+            }
+            allKept = picked.sorted()
         }
-        let ordered = indices.sorted().prefix(maxSlots)
-        let sampledStops = ordered.map { stops[$0] }
-        let sampledDisrupted = Set(ordered.enumerated().compactMap { (offset, original) in
-            disruptedIndices.contains(original) ? offset : nil
-        })
-        return (Array(sampledStops), sampledDisrupted)
+
+        return allKept.map { idx in
+            let isDisrupted = disruptedIndices.contains(idx)
+            let isTerminus = idx == 0 || idx == total - 1
+            let isAdjacent = disruptedIndices.contains { di in abs(di - idx) == 1 }
+            let labeled = isTerminus || isDisrupted || isAdjacent
+            return Waypoint(
+                id: idx,
+                originalIndex: idx,
+                total: total,
+                name: stops[idx],
+                isDisrupted: isDisrupted,
+                isTerminus: isTerminus,
+                isLabeled: labeled
+            )
+        }
     }
 
     var body: some View {
         GeometryReader { geo in
-            let visibleStops = sampled.stops
-            let disrupted = sampled.disrupted
-            let pts = computePath(count: max(visibleStops.count, hasRealStops ? 1 : 7), in: geo.size)
-            let count = pts.count
-            let stylizedDisrupted = max(1, count / 2)
-
             ZStack {
                 DS.Color.paper2.opacity(0.4)
 
-                Path { p in
-                    guard let first = pts.first else { return }
-                    p.move(to: first)
-                    for pt in pts.dropFirst() { p.addLine(to: pt) }
-                }
-                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-                .shadow(color: color.opacity(0.6), radius: 6)
-
-                ForEach(Array(pts.enumerated()), id: \.offset) { i, pt in
-                    let isDisrupted = hasRealStops
-                        ? disrupted.contains(i)
-                        : i == stylizedDisrupted
-                    let isTerminus = i == 0 || i == count - 1
-                    let size: CGFloat = isTerminus ? 11 : 9
-                    Rectangle()
-                        .fill(isDisrupted ? DS.Color.statusMajor : (isTerminus ? DS.Color.ink : DS.Color.paper))
-                        .frame(width: size, height: size)
-                        .rotationEffect(.degrees(45))
-                        .overlay(
-                            Rectangle()
-                                .stroke(DS.Color.ink, lineWidth: 1)
-                                .rotationEffect(.degrees(45))
-                                .frame(width: size, height: size)
-                        )
-                        .position(pt)
-
-                    if hasRealStops, i < visibleStops.count {
-                        let labelOffset: CGFloat = (i % 2 == 0) ? -16 : 16
-                        Text(visibleStops[i].uppercased())
-                            .font(.system(size: 7, weight: .bold, design: .monospaced))
-                            .tracking(0.4)
-                            .foregroundStyle(isDisrupted ? DS.Color.statusMajor : DS.Color.inkMute)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .frame(maxWidth: 70)
-                            .position(x: pt.x, y: pt.y + labelOffset)
-                    }
+                if hasRealStops {
+                    realPathLayer(in: geo.size)
+                } else {
+                    stylizedFallback(in: geo.size)
                 }
 
-                if hasRealStops, let firstDisrupted = disrupted.sorted().first, firstDisrupted < pts.count {
-                    EditorialPulsingHalo(color: DS.Color.statusMajor)
-                        .position(pts[firstDisrupted])
-                } else if !hasRealStops, stylizedDisrupted < pts.count {
-                    EditorialPulsingHalo(color: DS.Color.statusMajor)
-                        .position(pts[stylizedDisrupted])
-                }
-
-                VStack {
-                    HStack {
-                        Text("◤ LIVE")
-                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                            .tracking(1.6)
-                            .foregroundStyle(DS.Color.inkMute)
-                        Spacer()
-                        Text("L\(line) ◥")
-                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                            .tracking(1.6)
-                            .foregroundStyle(color)
-                    }
-                    Spacer()
-                    HStack {
-                        Text("◣ \(hasRealStops ? stops.count : count) ARRÊTS")
-                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                            .tracking(1.6)
-                            .foregroundStyle(DS.Color.inkMute)
-                        Spacer()
-                        if let disruptedStopName, !disruptedStopName.isEmpty {
-                            Text("\(disruptedStopName.uppercased()) ◢")
-                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                                .tracking(1.6)
-                                .foregroundStyle(DS.Color.statusMajor)
-                                .lineLimit(1)
-                        } else {
-                            Text("ZONE PERTURBÉE ◢")
-                                .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                                .tracking(1.6)
-                                .foregroundStyle(DS.Color.inkMute)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .padding(6)
+                cornerHUD(in: geo.size)
             }
         }
         .overlay(
@@ -3673,23 +3617,150 @@ private struct EditorialLineVisualizer: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
-    private func computePath(count: Int, in size: CGSize) -> [CGPoint] {
-        let n = max(2, min(count, 9))
-        var seed: UInt32 = 2166136261
-        for c in line.unicodeScalars { seed ^= c.value; seed = seed &* 16777619 }
-        var rng = EditorialPRNG(seed: seed)
-
-        let padX: CGFloat = 16, padTop: CGFloat = 28, padBot: CGFloat = 32
+    private func position(for originalIndex: Int, total: Int, in size: CGSize, rng: inout EditorialPRNG) -> CGPoint {
+        let padX: CGFloat = 18, padTop: CGFloat = 30, padBot: CGFloat = 34
         let usableW = size.width - padX * 2
         let usableH = size.height - padTop - padBot
-        var points: [CGPoint] = []
-        for i in 0..<n {
-            let t = CGFloat(i) / CGFloat(n - 1)
-            let x = padX + t * usableW
-            let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.5
-            points.append(CGPoint(x: x, y: y))
+        let t = total <= 1 ? 0 : CGFloat(originalIndex) / CGFloat(total - 1)
+        let x = padX + t * usableW
+        let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.45
+        return CGPoint(x: x, y: y)
+    }
+
+    private func seededRNG(for total: Int) -> EditorialPRNG {
+        var seed: UInt32 = 2166136261
+        for c in line.unicodeScalars { seed ^= c.value; seed = seed &* 16777619 }
+        seed ^= UInt32(truncatingIfNeeded: total) &* 0x9E3779B9
+        return EditorialPRNG(seed: seed)
+    }
+
+    @ViewBuilder
+    private func realPathLayer(in size: CGSize) -> some View {
+        let pts: [(Waypoint, CGPoint)] = {
+            var rng = seededRNG(for: stops.count)
+            return waypoints.map { wp in
+                (wp, position(for: wp.originalIndex, total: stops.count, in: size, rng: &rng))
+            }
+        }()
+
+        // Path through all waypoints (so the line geometry mirrors the real spacing)
+        Path { p in
+            guard let first = pts.first?.1 else { return }
+            p.move(to: first)
+            for (_, pt) in pts.dropFirst() { p.addLine(to: pt) }
         }
-        return points
+        .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+        .shadow(color: color.opacity(0.55), radius: 6)
+
+        ForEach(pts, id: \.0.id) { wp, pt in
+            let baseSize: CGFloat = wp.isTerminus ? 11 : (wp.isDisrupted ? 11 : 7)
+            Rectangle()
+                .fill(wp.isDisrupted ? DS.Color.statusMajor : (wp.isTerminus ? DS.Color.ink : DS.Color.paper))
+                .frame(width: baseSize, height: baseSize)
+                .rotationEffect(.degrees(45))
+                .overlay(
+                    Rectangle()
+                        .stroke(DS.Color.ink, lineWidth: 1)
+                        .rotationEffect(.degrees(45))
+                        .frame(width: baseSize, height: baseSize)
+                )
+                .position(pt)
+
+            if wp.isLabeled {
+                Text(wp.name.uppercased())
+                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .tracking(0.4)
+                    .foregroundStyle(wp.isDisrupted ? DS.Color.statusMajor : DS.Color.inkMute)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: 80)
+                    .position(x: pt.x, y: pt.y + ((wp.originalIndex % 2 == 0) ? -16 : 16))
+            }
+        }
+
+        if let firstDisrupted = pts.first(where: { $0.0.isDisrupted }) {
+            EditorialPulsingHalo(color: DS.Color.statusMajor)
+                .position(firstDisrupted.1)
+        }
+    }
+
+    @ViewBuilder
+    private func stylizedFallback(in size: CGSize) -> some View {
+        var rng = seededRNG(for: 7)
+        let count = 7
+        let pts: [CGPoint] = (0..<count).map { i in
+            position(for: i, total: count, in: size, rng: &rng)
+        }
+        let stylizedDisrupted = max(1, count / 2)
+
+        Path { p in
+            guard let first = pts.first else { return }
+            p.move(to: first)
+            for pt in pts.dropFirst() { p.addLine(to: pt) }
+        }
+        .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+        .shadow(color: color.opacity(0.55), radius: 6)
+
+        ForEach(Array(pts.enumerated()), id: \.offset) { i, pt in
+            let isDisrupted = i == stylizedDisrupted
+            let isTerminus = i == 0 || i == count - 1
+            let size: CGFloat = isTerminus ? 11 : 9
+            Rectangle()
+                .fill(isDisrupted ? DS.Color.statusMajor : (isTerminus ? DS.Color.ink : DS.Color.paper))
+                .frame(width: size, height: size)
+                .rotationEffect(.degrees(45))
+                .overlay(
+                    Rectangle()
+                        .stroke(DS.Color.ink, lineWidth: 1)
+                        .rotationEffect(.degrees(45))
+                        .frame(width: size, height: size)
+                )
+                .position(pt)
+        }
+
+        if stylizedDisrupted < pts.count {
+            EditorialPulsingHalo(color: DS.Color.statusMajor)
+                .position(pts[stylizedDisrupted])
+        }
+    }
+
+    @ViewBuilder
+    private func cornerHUD(in size: CGSize) -> some View {
+        VStack {
+            HStack {
+                Text("◤ LIVE")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer()
+                Text("L\(line) ◥")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(color)
+            }
+            Spacer()
+            HStack {
+                Text("◣ \(hasRealStops ? stops.count : 7) ARRÊTS")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer()
+                if let disruptedStopName, !disruptedStopName.isEmpty {
+                    Text("\(disruptedStopName.uppercased()) ◢")
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.statusMajor)
+                        .lineLimit(1)
+                } else {
+                    Text("ZONE PERTURBÉE ◢")
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .tracking(1.6)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(6)
     }
 }
 
