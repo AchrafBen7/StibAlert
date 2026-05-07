@@ -2415,8 +2415,7 @@ private struct HomeBottomChromeOverlay: View {
                     get: { AppTab.from(page: currentPage) },
                     set: onSelectTab
                 ))
-                .padding(.bottom, 0)
-                .offset(y: 46)
+                .padding(.bottom, 6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(8)
             }
