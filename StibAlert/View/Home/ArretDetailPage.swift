@@ -154,7 +154,6 @@ struct ArretDetailPage: View {
         var seen = Set<String>()
         let merged = effectiveStop.lines
             + (stopDetail?.nextDepartures.map(\.line) ?? [])
-            + (stopDetail?.activeIncidents.compactMap(\.line) ?? [])
         return merged.compactMap { line in
             let normalized = Self.normalizedLineNumber(line)
             guard !normalized.isEmpty, seen.insert(normalized).inserted else { return nil }
