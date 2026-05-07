@@ -15,9 +15,9 @@ struct SignalementMiniCard: View {
     @State private var reportedFake = false
 
     private var accentColor: Color {
-        switch signalement.typeProbleme {
+        switch signalement.displayTypeProbleme {
         case "Accident", "Agression": return DS.Color.statusCritical
-        case "Retard", "Panne": return DS.Color.statusMinor
+        case "Retard", "Panne", "Travaux", "Déviation", "Interruption", "Arrêt non desservi": return DS.Color.statusMinor
         case "Incivilité": return DS.Color.community
         case "Propreté": return DS.Color.statusOK
         default: return DS.Color.primary
@@ -33,7 +33,7 @@ struct SignalementMiniCard: View {
                 LineBadge(line: signalement.ligne, size: .lg)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(signalement.typeProbleme)
+                    Text(signalement.displayTypeProbleme)
                         .font(DS.Font.displayH3)
                         .foregroundStyle(DS.Color.ink)
                     if let arretName {

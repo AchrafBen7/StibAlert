@@ -263,7 +263,7 @@ struct ReportsView: View {
 
             let stopName = arretName(for: report) ?? ""
             return report.ligne.localizedCaseInsensitiveContains(trimmed)
-                || report.typeProbleme.localizedCaseInsensitiveContains(trimmed)
+                || report.displayTypeProbleme.localizedCaseInsensitiveContains(trimmed)
                 || report.description.localizedCaseInsensitiveContains(trimmed)
                 || stopName.localizedCaseInsensitiveContains(trimmed)
         }
@@ -308,7 +308,7 @@ struct ReportsView: View {
             return EditorialFeedItem(
                 id: "report-\(report.id)",
                 type: feedType(for: report),
-                title: "Ligne \(report.ligne) — \(report.typeProbleme)",
+                title: "Ligne \(report.ligne) — \(report.displayTypeProbleme)",
                 body: report.description,
                 timeLabel: relativeTimeLabel(from: report.dateSignalement),
                 lines: [report.ligne],

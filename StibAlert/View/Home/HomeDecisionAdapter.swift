@@ -97,7 +97,7 @@ enum HomeDecisionAdapter {
                 HomeNearbyAlertItem(
                     id: signalement.id,
                     line: signalement.ligne,
-                    title: signalement.typeProbleme,
+                    title: signalement.displayTypeProbleme,
                     detail: signalement.description,
                     confirmationText: {
                         let count = signalement.community?.confirmations ?? 0

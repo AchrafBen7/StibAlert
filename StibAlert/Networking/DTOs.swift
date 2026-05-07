@@ -161,6 +161,34 @@ struct SignalementCommunityDTO: Codable, Equatable {
 }
 
 extension SignalementDTO {
+    var displayTypeProbleme: String {
+        let raw = typeProbleme.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard sourceLabel == "Source STIB", raw.localizedCaseInsensitiveCompare("Autre") == .orderedSame else {
+            return raw
+        }
+
+        let normalized = description
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+
+        if normalized.contains("interrompu") || normalized.contains("interruption") || normalized.contains("supprime") {
+            return "Interruption"
+        }
+        if normalized.contains("non desservi") || normalized.contains("ne dessert pas") {
+            return "Arrêt non desservi"
+        }
+        if normalized.contains("travaux") {
+            return "Travaux"
+        }
+        if normalized.contains("devi") || normalized.contains("deviation") {
+            return "Déviation"
+        }
+        if normalized.contains("retard") || normalized.contains("attente") {
+            return "Retard"
+        }
+        return "Information STIB"
+    }
+
     var effectiveFreshnessMinutes: Int? {
         if let freshness = community?.freshnessMinutes {
             return freshness
@@ -676,4 +704,3 @@ struct TransportRecommendationDTO: Codable, Equatable {
     let recommendedAlternatives: [TransportAlternativeDTO]
     let fallback: TransportRecommendationFallbackDTO?
 }
-

@@ -504,7 +504,7 @@ private struct ProfileActivityItem: Identifiable {
             line: signalement.ligne,
             lineColor: lineColor(for: signalement.ligne),
             lineTextColor: lineTextColor(for: signalement.ligne),
-            title: signalement.typeProbleme,
+            title: signalement.displayTypeProbleme,
             when: relativeTimestamp(from: signalement.dateSignalement),
             description: signalement.description,
             location: {

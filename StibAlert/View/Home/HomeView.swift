@@ -129,7 +129,7 @@ struct HomeView: View {
             return LiveSignalPoint(
                 id: s.id,
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                typeProbleme: s.typeProbleme,
+                typeProbleme: s.displayTypeProbleme,
                 source: s.source
             )
         }
