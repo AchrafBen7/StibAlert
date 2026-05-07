@@ -127,6 +127,10 @@ struct APIClient {
         do {
             return try decoder.decode(Response.self, from: data)
         } catch {
+            #if DEBUG
+            let preview = String(data: data.prefix(800), encoding: .utf8) ?? "<binary>"
+            print("⚠️ Decode failure for \(Response.self): \(error)\nJSON preview: \(preview)")
+            #endif
             throw APIError.decoding(error)
         }
     }
