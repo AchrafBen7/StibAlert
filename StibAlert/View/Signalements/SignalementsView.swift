@@ -10,6 +10,7 @@ struct SignalementsView: View {
     @State private var remoteLines: [LineStatusItem] = []
     @State private var isLoadingRemote = false
     @State private var hasLoadedLines = false
+    @State private var linesLoadedAt: Date? = nil
 
     private var displayLines: [LineStatusItem] {
         AppConfig.isBackendEnabled ? remoteLines : (remoteLines.isEmpty ? LineStatusMockData.all : remoteLines)
@@ -86,11 +87,21 @@ struct SignalementsView: View {
                             DS.Rule(thick: true)
                             searchAndFiltersSection
 
+                            if let loadedAt = linesLoadedAt, !isLoadingRemote {
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text(loadedAt, style: .relative)
+                                        .font(DS.Font.monoSmall)
+                                }
+                                .foregroundStyle(DS.Color.inkMute)
+                                .padding(.top, 2)
+                            }
+
                             if isLoadingRemote && !hasLoadedLines {
-                                ProgressView()
-                                    .tint(DS.Color.ink)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.top, 48)
+                                LineListSkeleton()
+                                    .padding(.top, 8)
                             } else if AppConfig.isBackendEnabled && displayLines.isEmpty {
                                 linesEmptyState
                             } else if filteredLines.isEmpty {
@@ -256,6 +267,7 @@ struct SignalementsView: View {
         defer {
             isLoadingRemote = false
             hasLoadedLines = true
+            linesLoadedAt = Date()
         }
 
         async let etatTask: [LigneEtatDTO] = LigneService.etatLignes()
@@ -1632,6 +1644,44 @@ enum LineHealthStatus {
         case .fluid: return "Fluide"
         case .disrupted: return "Perturbé"
         case .critical: return "Critique"
+        }
+    }
+}
+
+// MARK: - Skeleton
+
+private struct LineListSkeleton: View {
+    @State private var pulse = false
+    private let rowWidths: [CGFloat] = [130, 160, 110, 150, 125]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rowWidths.enumerated()), id: \.offset) { _, width in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(DS.Color.paper2)
+                        .frame(width: 36, height: 36)
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(DS.Color.paper2)
+                            .frame(width: width, height: 12)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(DS.Color.paper2)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 10)
+                    }
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(DS.Color.paper2)
+                        .frame(width: 52, height: 22)
+                }
+                .opacity(pulse ? 0.45 : 1.0)
+                .padding(.vertical, 12)
+                Rectangle().fill(DS.Color.ink.opacity(0.10)).frame(height: 0.5)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever()) { pulse.toggle() }
         }
     }
 }

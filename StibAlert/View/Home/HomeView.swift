@@ -2352,6 +2352,7 @@ private struct HomeBottomChromeOverlay: View {
                 HomePulseBar(
                     totalActive: totalActiveSignalementsCount,
                     eventCount: highlightedEventCount,
+                    refreshedAt: lastHomeRefreshAt,
                     onOpenReports: onOpenReports,
                     onReport: onOpenReportSheet
                 )
@@ -2658,6 +2659,7 @@ private struct HomeEditorialActionChip: View {
 private struct HomePulseBar: View {
     let totalActive: Int
     let eventCount: Int
+    let refreshedAt: Date?
     let onOpenReports: () -> Void
     let onReport: () -> Void
 
@@ -2673,11 +2675,20 @@ private struct HomePulseBar: View {
                         Text(totalActive == 0 ? "0 lignes perturbées" : "\(totalActive) signalements actifs")
                             .font(DS.Font.bodyBold)
                             .foregroundStyle(DS.Color.ink)
-                        Text("\(eventCount) événements ce soir")
-                            .font(DS.Font.monoSmall)
-                            .tracking(1.2)
-                            .textCase(.uppercase)
-                            .foregroundStyle(DS.Color.inkMute)
+                        if let refreshedAt {
+                            (Text("\(eventCount) evt · actualisé ")
+                                + Text(refreshedAt, style: .relative))
+                                .font(DS.Font.monoSmall)
+                                .tracking(1.0)
+                                .textCase(.uppercase)
+                                .foregroundStyle(DS.Color.inkMute)
+                        } else {
+                            Text("\(eventCount) événements ce soir")
+                                .font(DS.Font.monoSmall)
+                                .tracking(1.2)
+                                .textCase(.uppercase)
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
                     }
 
                     Spacer()
@@ -2699,7 +2710,10 @@ private struct HomePulseBar: View {
             }
             .buttonStyle(.plain)
 
-            Button(action: onReport) {
+            Button(action: {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onReport()
+            }) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .heavy))
@@ -2726,7 +2740,10 @@ private struct HomeReportFloatingButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            action()
+        }) {
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .heavy))
