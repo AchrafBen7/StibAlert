@@ -4,6 +4,8 @@ import Combine
 import AVFoundation
 import WidgetKit
 
+private enum MapFilter { case none, favorites, perturbations }
+
 struct HomeView: View {
     private enum InteractionMode: Equatable {
         case map
@@ -76,6 +78,7 @@ struct HomeView: View {
     @State private var showEventImpacts = true
     @State private var selectedVilloStation: VilloStation?
     @State private var problemFilter: ReportProblemType? = nil
+    @State private var activeMapFilter: MapFilter = .none
     @State private var cameraLatitudeDelta: Double = 0.04
     @State private var showReportAuthGate = false
     @State private var guestGateReason: GuestAuthReason = .report
@@ -280,7 +283,18 @@ struct HomeView: View {
             merged.append(stop)
         }
 
-        return merged
+        switch activeMapFilter {
+        case .favorites:
+            let favLines = Set(session.currentUser?.favoriteLines ?? [])
+            guard !favLines.isEmpty else { return merged }
+            return merged.filter { !$0.lines.filter { favLines.contains($0) }.isEmpty }
+        case .perturbations:
+            let affectedLines = Set(remoteSignalements.filter { $0.status != "resolved" }.map { $0.ligne })
+            guard !affectedLines.isEmpty else { return merged }
+            return merged.filter { !$0.lines.filter { affectedLines.contains($0) }.isEmpty }
+        case .none:
+            return merged
+        }
     }
 
     private var selectedRouteOption: HomeRouteOption? {
@@ -462,6 +476,8 @@ struct HomeView: View {
                     hasUserCoordinate: locationManager.userCoordinate != nil,
                     favoriteLineCount: favoriteLineCount,
                     totalActiveSignalementsCount: totalActiveSignalementsCount,
+                    isFavoritesFilterActive: activeMapFilter == .favorites,
+                    isPerturbationsFilterActive: activeMapFilter == .perturbations,
                     onShowLegend: {
                         withAnimation(transitionSpring) {
                             showLegend = true
@@ -469,15 +485,16 @@ struct HomeView: View {
                     },
                     onAroundMe: {
                         aroundMe()
+                        activeMapFilter = .none
                     },
                     onOpenFavorites: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.currentPage = .favorites
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                            activeMapFilter = activeMapFilter == .favorites ? .none : .favorites
                         }
                     },
                     onOpenReports: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                            nav.currentPage = .reports
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                            activeMapFilter = activeMapFilter == .perturbations ? .none : .perturbations
                         }
                     },
                     onSelectSuggestion: { item in
@@ -660,9 +677,9 @@ struct HomeView: View {
                         style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
                     )
             }
-            MapCircle(center: locationManager.displayCoordinate, radius: 400)
-                .foregroundStyle(AppTheme.Palette.screen.opacity(0.10))
-                .stroke(AppTheme.Palette.info, lineWidth: 1)
+            MapCircle(center: locationManager.displayCoordinate, radius: 200)
+                .foregroundStyle(AppTheme.Palette.screen.opacity(0.07))
+                .stroke(AppTheme.Palette.info.opacity(0.6), lineWidth: 1)
             Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
                 UserLocationDotView(heading: locationManager.heading)
             }
@@ -2353,7 +2370,7 @@ private struct HomeBottomChromeOverlay: View {
     var body: some View {
         Group {
             if shouldShowPulseBar {
-                VStack(spacing: 8) {
+                HStack(alignment: .center, spacing: 10) {
                     if totalActiveSignalementsCount > 0 {
                         HomePulseBar(
                             totalActive: totalActiveSignalementsCount,
@@ -2362,16 +2379,12 @@ private struct HomeBottomChromeOverlay: View {
                             refreshedAt: refreshedAt,
                             onOpenReports: onOpenReports
                         )
-                        .padding(.horizontal, 14)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
-
-                    HStack {
-                        Spacer()
-                        HomeReportFloatingButton(action: onOpenReportSheet)
-                            .padding(.trailing, 14)
-                    }
+                    Spacer()
+                    HomeReportFloatingButton(action: onOpenReportSheet)
                 }
+                .padding(.horizontal, 14)
                 .padding(.bottom, 80)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(6)
@@ -2512,6 +2525,8 @@ private struct HomeSearchHeaderOverlay: View {
     let hasUserCoordinate: Bool
     let favoriteLineCount: Int
     let totalActiveSignalementsCount: Int
+    let isFavoritesFilterActive: Bool
+    let isPerturbationsFilterActive: Bool
     let onShowLegend: () -> Void
     let onAroundMe: () -> Void
     let onOpenFavorites: () -> Void
@@ -2575,18 +2590,18 @@ private struct HomeSearchHeaderOverlay: View {
                             )
 
                             HomeEditorialActionChip(
-                                icon: "star",
+                                icon: "star.fill",
                                 title: "Favoris",
                                 count: favoriteLineCount,
-                                isActive: favoriteLineCount > 0,
+                                isActive: isFavoritesFilterActive,
                                 action: onOpenFavorites
                             )
 
                             HomeEditorialActionChip(
-                                icon: "exclamationmark.triangle",
+                                icon: "exclamationmark.triangle.fill",
                                 title: "Perturbations",
                                 count: totalActiveSignalementsCount,
-                                isActive: totalActiveSignalementsCount > 0,
+                                isActive: isPerturbationsFilterActive,
                                 action: onOpenReports
                             )
                         }
@@ -2688,40 +2703,32 @@ private struct HomePulseBar: View {
 
     var body: some View {
         Button(action: onOpenReports) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Circle()
                     .fill(favoriteAffectedCount > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 10, height: 10)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(titleText)
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
                     if let refreshedAt {
-                        (Text("\(eventCount) evt · actualisé ")
-                            + Text(refreshedAt, style: .relative))
+                        (Text("Actualisé ") + Text(refreshedAt, style: .relative))
                             .font(DS.Font.monoSmall)
-                            .tracking(1.0)
+                            .tracking(0.8)
                             .textCase(.uppercase)
                             .foregroundStyle(DS.Color.inkMute)
-                    } else {
-                        Text("\(eventCount) événements ce soir")
-                            .font(DS.Font.monoSmall)
-                            .tracking(1.2)
-                            .textCase(.uppercase)
-                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
                     }
                 }
 
-                Spacer()
-
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(DS.Color.inkMute)
             }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
-            .frame(height: 60)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(DS.Color.paper.opacity(0.98))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -2731,6 +2738,7 @@ private struct HomePulseBar: View {
             .shadow(DS.Shadow.overlay)
         }
         .buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
