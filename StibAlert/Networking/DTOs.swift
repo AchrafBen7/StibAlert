@@ -314,12 +314,16 @@ struct ArretDTO: Codable, Equatable {
     let nextPassageMinutes: Int?
     let nextPassages: [Int]?
     let nextPassageSource: String?
+    let delayMinutes: Int?
+    let scheduledDepartureAt: Date?
+    let realtimeDepartureAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case stopId = "stop_id"
         case nom, latitude, longitude, lignesDesservies
         case nextPassageMinutes, nextPassages, nextPassageSource
+        case delayMinutes, scheduledDepartureAt, realtimeDepartureAt
     }
 }
 
@@ -357,6 +361,9 @@ struct TransportDepartureDTO: Codable, Identifiable, Equatable {
     let destination: String?
     let minutes: Int
     let source: String?
+    let delayMinutes: Int?
+    let scheduledDepartureAt: Date?
+    let realtimeDepartureAt: Date?
 }
 
 struct TransportAlternativeDTO: Codable, Identifiable, Equatable {

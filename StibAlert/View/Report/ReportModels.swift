@@ -10,11 +10,22 @@ struct StopLine: Identifiable {
 struct NearbyStop: Identifiable {
     let id = UUID()
     let backendId: String?
+    let stopId: String?
     let name: String
     let lines: [StopLine]
     let distanceMeters: Int
     let issueLines: [NearbyIssueLine]
     var coordinate: CLLocationCoordinate2D? = nil
+
+    init(backendId: String?, stopId: String? = nil, name: String, lines: [StopLine], distanceMeters: Int, issueLines: [NearbyIssueLine], coordinate: CLLocationCoordinate2D? = nil) {
+        self.backendId = backendId
+        self.stopId = stopId
+        self.name = name
+        self.lines = lines
+        self.distanceMeters = distanceMeters
+        self.issueLines = issueLines
+        self.coordinate = coordinate
+    }
 }
 
 struct NearbyIssueLine: Identifiable {

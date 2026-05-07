@@ -72,6 +72,7 @@ struct HomeView: View {
     @State private var selectedMapStopSummary: TransportStopSummaryDTO?
     @State private var selectedMapStopDetail: TransportStopDTO?
     @State private var isLoadingMapStopDetail = false
+    @State private var mapStopDetailError: String?
     @State private var eventImpacts: [TransportEventImpactDTO] = []
     @State private var selectedEventImpact: TransportEventImpactDTO?
     @State private var showVilloStations = true
@@ -255,7 +256,7 @@ struct HomeView: View {
             guard let backendId = stop.backendId else { return nil }
             return TransportStopSummaryDTO(
                 id: backendId,
-                stopId: nil,
+                stopId: stop.stopId,
                 name: stop.name,
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude,
@@ -733,7 +734,10 @@ struct HomeView: View {
             ForEach(mapVehicles) { vehicle in
                 if let lat = vehicle.latitude, let lng = vehicle.longitude {
                     Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
-                        VehicleMarker(vehicle: vehicle)
+                        VehicleMarker(
+                            vehicle: vehicle,
+                            bearing: vehicle.vehicleId.flatMap { vehicleTracker.vehicleBearings[$0] }
+                        )
                     }
                 }
             }
@@ -842,6 +846,7 @@ struct HomeView: View {
             detailStop: selectedMapStopSummary,
             stopDetail: selectedMapStopDetail,
             isLoading: isLoadingMapStopDetail,
+            detailError: mapStopDetailError,
             userCoordinate: locationManager.userCoordinate,
             shouldShowStopPreview: shouldShowStopPreview,
             shouldShowStopDetail: shouldShowStopDetail,
@@ -860,7 +865,12 @@ struct HomeView: View {
             },
             onOpenLine: openLineFromStop(_:),
             onOpenStop: openStopDetail(for:),
-            onReport: openReportSheet(for:)
+            onReport: openReportSheet(for:),
+            onRetry: {
+                if let stop = selectedMapStopPreview ?? selectedMapStopSummary {
+                    loadStopDetail(for: stop)
+                }
+            }
         )
 
         HomeRouteSurfaceOverlay(
@@ -1277,10 +1287,12 @@ struct HomeView: View {
     private func loadStopDetail(for stop: TransportStopSummaryDTO) {
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = true
+        mapStopDetailError = nil
 
         Task {
             do {
-                let detail = try await TransportService.stop(id: stop.id)
+                let lookupId = stop.stopId ?? stop.id
+                let detail = try await TransportService.stop(id: lookupId)
                 await MainActor.run {
                     let matchesPreview = selectedMapStopPreview?.id == stop.id
                     let matchesDetail = selectedMapStopSummary?.id == stop.id
@@ -1290,6 +1302,13 @@ struct HomeView: View {
                 }
             } catch {
                 print("Transport stop detail failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    let matchesPreview = selectedMapStopPreview?.id == stop.id
+                    let matchesDetail = selectedMapStopSummary?.id == stop.id
+                    if matchesPreview || matchesDetail {
+                        mapStopDetailError = error.localizedDescription
+                    }
+                }
             }
 
             await MainActor.run {
@@ -1346,7 +1365,7 @@ struct HomeView: View {
            let coordinate = nearby.coordinate {
             let summary = TransportStopSummaryDTO(
                 id: stopId,
-                stopId: nil,
+                stopId: nearby.stopId,
                 name: nearby.name,
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude,
@@ -2409,6 +2428,7 @@ private struct HomeStopSurfaceOverlay: View {
     let detailStop: TransportStopSummaryDTO?
     let stopDetail: TransportStopDTO?
     let isLoading: Bool
+    let detailError: String?
     let userCoordinate: CLLocationCoordinate2D?
     let shouldShowStopPreview: Bool
     let shouldShowStopDetail: Bool
@@ -2419,6 +2439,7 @@ private struct HomeStopSurfaceOverlay: View {
     let onOpenLine: (String) -> Void
     let onOpenStop: (TransportStopSummaryDTO) -> Void
     let onReport: (TransportStopSummaryDTO) -> Void
+    let onRetry: () -> Void
 
     var body: some View {
         Group {
@@ -2427,11 +2448,13 @@ private struct HomeStopSurfaceOverlay: View {
                     stopSummary: stop,
                     stopDetail: stopDetail,
                     isLoading: isLoading,
+                    detailError: detailError,
                     nearbyVilloStations: nearbyVilloStations(stop),
                     onDismiss: onDismiss,
                     onOpenDetail: {
                         onOpenDetail(stop)
-                    }
+                    },
+                    onRetry: onRetry
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(7)
@@ -3511,9 +3534,11 @@ private struct HomeStopPreviewCard: View {
     let stopSummary: TransportStopSummaryDTO
     let stopDetail: TransportStopDTO?
     let isLoading: Bool
+    let detailError: String?
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
     let onDismiss: () -> Void
     let onOpenDetail: () -> Void
+    let onRetry: () -> Void
 
     private var effectiveStop: TransportStopSummaryDTO {
         stopDetail?.stop ?? stopSummary
@@ -3537,7 +3562,7 @@ private struct HomeStopPreviewCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("ARRÊT · \(effectiveStop.id)")
+                        Text("ARRÊT" + (effectiveStop.stopId.map { " · \($0)" } ?? ""))
                             .font(DS.Font.monoSmall.weight(.bold))
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
@@ -3546,12 +3571,6 @@ private struct HomeStopPreviewCard: View {
                             .font(DS.Font.displayH2)
                             .foregroundStyle(DS.Color.ink)
                             .lineLimit(2)
-
-                        if let latitude = effectiveStop.latitude, let longitude = effectiveStop.longitude {
-                            Label("\(latitude.formatted(.number.precision(.fractionLength(4)))), \(longitude.formatted(.number.precision(.fractionLength(4))))", systemImage: "mappin")
-                                .font(DS.Font.mono)
-                                .foregroundStyle(DS.Color.inkMute)
-                        }
 
                         if !effectiveStop.lines.isEmpty {
                             HStack(spacing: 6) {
@@ -3601,8 +3620,21 @@ private struct HomeStopPreviewCard: View {
                         Text("Chargement des prochains passages…")
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
+                    } else if detailError != nil {
+                        HStack(spacing: 10) {
+                            Text("Impossible de charger les passages.")
+                                .font(DS.Font.body)
+                                .foregroundStyle(DS.Color.inkMute)
+                            Spacer()
+                            Button(action: onRetry) {
+                                Label("Réessayer", systemImage: "arrow.clockwise")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(DS.Color.primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     } else if departures.isEmpty {
-                        Text("Aucun passage fiable pour le moment.")
+                        Text("Aucun passage prévu pour le moment.")
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     } else {
@@ -3620,7 +3652,12 @@ private struct HomeStopPreviewCard: View {
                                         Text(departure.minutes <= 0 ? "Imminent" : "\(departure.minutes) min")
                                             .font(DS.Font.displayH3)
                                             .foregroundStyle(DS.Color.ink)
-                                        if departure.source == "scheduled" {
+                                        if let delay = departure.delayMinutes, delay > 2 {
+                                            Text("+\(delay) min")
+                                                .font(DS.Font.monoSmall.weight(.bold))
+                                                .tracking(0.8)
+                                                .foregroundStyle(DS.Color.statusMajor)
+                                        } else if departure.source == "scheduled" {
                                             Text("théorique")
                                                 .font(DS.Font.monoSmall.weight(.bold))
                                                 .tracking(0.8)
@@ -4024,9 +4061,15 @@ private struct HomeStopDetailSheet: View {
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
                                         .lineLimit(2)
-                                    Text(departure.source == "scheduled" ? "Dans \(departure.minutes) min · horaire théorique" : "Dans \(departure.minutes) min")
-                                        .font(.custom("Montserrat-Regular", size: 12))
-                                        .foregroundStyle(.white.opacity(0.72))
+                                    if let delay = departure.delayMinutes, delay > 2 {
+                                        Text("Dans \(departure.minutes) min · retard +\(delay) min")
+                                            .font(.custom("Montserrat-Regular", size: 12))
+                                            .foregroundStyle(Color(hex: "#FF6B6B"))
+                                    } else {
+                                        Text(departure.source == "scheduled" ? "Dans \(departure.minutes) min · horaire théorique" : "Dans \(departure.minutes) min")
+                                            .font(.custom("Montserrat-Regular", size: 12))
+                                            .foregroundStyle(.white.opacity(0.72))
+                                    }
                                 }
 
                                 Spacer()

@@ -135,12 +135,10 @@ struct ArretDetailPage: View {
     }
 
     private var stopSubline: String {
-        let coordinates = [effectiveStop.latitude, effectiveStop.longitude]
-            .compactMap { $0 }
-            .map { String(format: "%.4f", $0) }
-            .joined(separator: ", ")
-        guard !coordinates.isEmpty else { return effectiveStop.id }
-        return "\(coordinates) · \(effectiveStop.id)"
+        if let stopId = effectiveStop.stopId {
+            return "ARRÊT · \(stopId)"
+        }
+        return "ARRÊT"
     }
 
     private var groupedPassages: [GroupedStopPassage] {
@@ -547,6 +545,11 @@ struct ArretDetailPage: View {
                     Text("\(source) à \(formatPassageMinutes(next.minutes))")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
+                    if let delay = next.delayMinutes, delay > 2 {
+                        Text("retard +\(delay) min")
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.statusMajor)
+                    }
                 }
             }
             Spacer()

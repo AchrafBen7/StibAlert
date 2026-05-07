@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VehicleMarker: View {
     let vehicle: TransportVehicleDTO
+    var bearing: Double? = nil
 
     private var lineColor: Color {
         guard let line = vehicle.line else { return DS.Color.primary }
@@ -23,6 +24,17 @@ struct VehicleMarker: View {
 
     var body: some View {
         ZStack {
+            if let bearing {
+                ZStack {
+                    Circle()
+                        .fill(lineColor)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: lineColor.opacity(0.5), radius: 2)
+                        .offset(y: -22)
+                }
+                .rotationEffect(.degrees(bearing))
+            }
+
             Circle()
                 .fill(lineColor.opacity(0.18))
                 .frame(width: 38, height: 38)
@@ -44,6 +56,6 @@ struct VehicleMarker: View {
                     .foregroundStyle(.white)
             }
         }
-        .frame(width: 38, height: 38)
+        .frame(width: 46, height: 46)
     }
 }

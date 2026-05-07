@@ -327,6 +327,7 @@ enum NearbyStopService {
 
                 return NearbyStop(
                     backendId: entry.stop.id,
+                    stopId: entry.stop.stopId,
                     name: entry.stop.name,
                     lines: uniqueStopLines(from: issueLines),
                     distanceMeters: Int(entry.distance.rounded()),
@@ -370,6 +371,7 @@ enum NearbyStopService {
 
             return NearbyStop(
                 backendId: stop.backendId,
+                stopId: catalogStop.stopId ?? stop.stopId,
                 name: stop.name,
                 lines: uniqueStopLines(from: issueLines),
                 distanceMeters: stop.distanceMeters,

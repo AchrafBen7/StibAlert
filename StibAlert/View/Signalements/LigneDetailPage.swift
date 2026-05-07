@@ -26,7 +26,10 @@ final class LigneDetailViewModel: ObservableObject {
         let waits: [Int]
         let waitsSource: String?
         let disruption: String?
+        let incidentType: String?
+        let disruptionSeverity: String?
         let reportsCount: Int
+        let delayMinutes: Int?
     }
 
     let line: LineStatusItem
@@ -114,7 +117,10 @@ final class LigneDetailViewModel: ObservableObject {
                 waits: dto.nextPassages ?? dto.nextPassageMinutes.map { [$0] } ?? [],
                 waitsSource: dto.nextPassageSource,
                 disruption: nil,
-                reportsCount: 0
+                incidentType: nil,
+                disruptionSeverity: nil,
+                reportsCount: 0,
+                delayMinutes: dto.delayMinutes
             )
         }
     }
@@ -213,7 +219,10 @@ final class LigneDetailViewModel: ObservableObject {
             waits: waits.sorted(),
             waitsSource: catalog?.nextPassageSource,
             disruption: disruption,
-            reportsCount: incidents.count
+            incidentType: incidents.first?.type,
+            disruptionSeverity: incidents.first?.severity,
+            reportsCount: incidents.count,
+            delayMinutes: catalog?.delayMinutes
         )
     }
 }
@@ -221,6 +230,8 @@ final class LigneDetailViewModel: ObservableObject {
 struct LigneDetailPage: View {
     @StateObject private var viewModel: LigneDetailViewModel
     @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedStopForDetail: LigneDetailViewModel.StopSnapshot?
 
     private let onBackOverride: (() -> Void)?
 
@@ -254,6 +265,9 @@ struct LigneDetailPage: View {
             await viewModel.load()
         }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $selectedStopForDetail) { stop in
+            LigneStopDetailSheet(stop: stop)
+        }
     }
 
     private var header: some View {
@@ -427,12 +441,15 @@ struct LigneDetailPage: View {
     }
 
     private var timeline: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(viewModel.orderedStops.enumerated()), id: \.element.id) { index, stop in
+        let stops = viewModel.orderedStops
+        return VStack(spacing: 0) {
+            ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
                 LigneTimelineRow(
                     stop: stop,
                     isFirst: index == 0,
-                    isLast: index == viewModel.orderedStops.count - 1
+                    isLast: index == stops.count - 1,
+                    nextStopDisrupted: index < stops.count - 1 && stops[index + 1].disruption != nil,
+                    onTap: { selectedStopForDetail = stop }
                 )
             }
         }
@@ -499,25 +516,74 @@ private struct LigneTimelineRow: View {
     let stop: LigneDetailViewModel.StopSnapshot
     let isFirst: Bool
     let isLast: Bool
+    var nextStopDisrupted: Bool = false
+    var onTap: (() -> Void)? = nil
+
+    @State private var blinkPhase = false
 
     private var isTerminus: Bool { isFirst || isLast }
+
+    private var segmentIsFullyDisrupted: Bool {
+        stop.disruption != nil && nextStopDisrupted
+    }
+
+    private var hasSignificantDelay: Bool {
+        (stop.delayMinutes ?? 0) > 10
+    }
+
+    private var segmentColor: Color {
+        guard stop.disruption != nil || nextStopDisrupted || hasSignificantDelay else {
+            return DS.Color.ink.opacity(0.2)
+        }
+        if segmentIsFullyDisrupted {
+            switch stop.disruptionSeverity {
+            case "critical": return DS.Color.statusMajor
+            case "major":    return DS.Color.statusMajor.opacity(0.85)
+            case "minor":    return DS.Color.statusMinor
+            default:         return DS.Color.statusMajor.opacity(0.75)
+            }
+        }
+        if stop.disruption != nil {
+            return DS.Color.statusMajor.opacity(0.4)
+        }
+        if nextStopDisrupted {
+            return DS.Color.statusMajor.opacity(0.2)
+        }
+        return DS.Color.statusMinor.opacity(0.45)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             ZStack(alignment: .top) {
                 if !isLast {
                     Rectangle()
-                        .fill(DS.Color.ink.opacity(0.2))
+                        .fill(segmentColor)
+                        .opacity(segmentIsFullyDisrupted && blinkPhase ? 0.35 : 1.0)
                         .frame(width: 2)
                         .padding(.top, 24)
                         .frame(maxHeight: .infinity, alignment: .top)
+                        .onAppear {
+                            guard segmentIsFullyDisrupted else { return }
+                            withAnimation(
+                                .easeInOut(duration: 0.9)
+                                .repeatForever(autoreverses: true)
+                            ) { blinkPhase = true }
+                        }
                 }
 
-                Circle()
-                    .fill(dotFill)
-                    .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(DS.Color.ink, lineWidth: 2))
-                    .padding(.top, 12)
+                ZStack {
+                    Circle()
+                        .fill(dotFill)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(DS.Color.ink, lineWidth: 2))
+
+                    if let icon = incidentIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: 6, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(.top, 12)
             }
             .frame(width: 24)
 
@@ -535,25 +601,31 @@ private struct LigneTimelineRow: View {
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
+
+                        if onTap != nil {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
                     }
 
                     if let disruption = stop.disruption, !disruption.isEmpty {
                         HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
+                            Image(systemName: incidentIcon ?? "exclamationmark.triangle.fill")
                                 .font(.system(size: 10))
-                                .foregroundStyle(DS.Color.statusMajor)
+                                .foregroundStyle(disruptionColor)
                                 .padding(.top, 2)
                             Text(disruption)
                                 .font(DS.Font.bodySmall)
-                                .foregroundStyle(DS.Color.statusMajor)
+                                .foregroundStyle(disruptionColor)
                                 .lineLimit(3)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
-                        .background(DS.Color.statusMajor.opacity(0.08))
+                        .background(disruptionColor.opacity(0.08))
                         .overlay(alignment: .leading) {
                             Rectangle()
-                                .fill(DS.Color.statusMajor)
+                                .fill(disruptionColor)
                                 .frame(width: 2)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
@@ -567,7 +639,11 @@ private struct LigneTimelineRow: View {
                         Text("\(stop.waits[0]) min")
                             .font(DS.Font.monoLarge)
                             .foregroundStyle(DS.Color.ink)
-                        if stop.waitsSource == "scheduled" {
+                        if let delay = stop.delayMinutes, delay > 2 {
+                            Text("+\(delay) min")
+                                .font(DS.Font.monoSmall)
+                                .foregroundStyle(DS.Color.statusMajor)
+                        } else if stop.waitsSource == "scheduled" {
                             Text("théorique")
                                 .font(DS.Font.monoSmall)
                                 .foregroundStyle(DS.Color.inkMute)
@@ -586,12 +662,82 @@ private struct LigneTimelineRow: View {
             }
             .padding(.vertical, 10)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap?() }
     }
 
     private var dotFill: Color {
-        if stop.disruption != nil { return DS.Color.statusMajor }
-        if isTerminus { return DS.Color.ink }
-        return DS.Color.paper
+        guard stop.disruption != nil else {
+            return isTerminus ? DS.Color.ink : DS.Color.paper
+        }
+        switch stop.disruptionSeverity {
+        case "critical": return DS.Color.statusMajor
+        case "major":    return DS.Color.statusMajor
+        case "minor":    return DS.Color.statusMinor
+        default:         return DS.Color.statusMajor
+        }
+    }
+
+    private var disruptionColor: Color {
+        switch stop.disruptionSeverity {
+        case "minor": return DS.Color.statusMinor
+        default:      return DS.Color.statusMajor
+        }
+    }
+
+    private var incidentIcon: String? {
+        switch stop.incidentType?.lowercased() {
+        case "accident": return "car.fill"
+        case "breakdown", "panne": return "bolt.slash.fill"
+        case "works", "travaux", "construction": return "wrench.and.screwdriver.fill"
+        case "demonstration", "manifestation", "event": return "person.3.fill"
+        case "police", "intervention": return "staroflife.fill"
+        case "delay", "retard": return "clock.badge.exclamationmark.fill"
+        case let t where t != nil: return "exclamationmark.triangle.fill"
+        default: return nil
+        }
+    }
+}
+
+private struct LigneStopDetailSheet: View {
+    @EnvironmentObject private var session: AuthSession
+    @Environment(\.dismiss) private var dismiss
+    let stop: LigneDetailViewModel.StopSnapshot
+
+    @State private var stopDetail: TransportStopDTO?
+    @State private var isLoading = false
+
+    private var stopSummary: TransportStopSummaryDTO {
+        TransportStopSummaryDTO(
+            id: stop.backendId ?? stop.id,
+            stopId: stop.stopId,
+            name: stop.name,
+            latitude: nil,
+            longitude: nil,
+            lines: []
+        )
+    }
+
+    var body: some View {
+        ArretDetailPage(
+            stopSummary: stopSummary,
+            stopDetail: stopDetail,
+            isLoading: isLoading,
+            userCoordinate: nil,
+            nearbyStops: [],
+            nearbyVilloStations: [],
+            onDismiss: { dismiss() },
+            onOpenLine: { _ in },
+            onOpenStop: { _ in },
+            onReport: {}
+        )
+        .task {
+            guard AppConfig.isBackendEnabled else { return }
+            isLoading = true
+            let lookupId = stop.stopId ?? stop.backendId ?? stop.id
+            stopDetail = try? await TransportService.stop(id: lookupId)
+            isLoading = false
+        }
     }
 }
 
