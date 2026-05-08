@@ -82,10 +82,10 @@ struct SignalementsView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 12)
 
-                        VStack(alignment: .leading, spacing: 20) {
-                            healthMeterSection
+                        VStack(alignment: .leading, spacing: 16) {
+                            modeTabsSection
+                            searchField
                             DS.Rule(thick: true)
-                            searchAndFiltersSection
 
                             if let loadedAt = linesLoadedAt, !isLoadingRemote {
                                 HStack {
@@ -132,106 +132,98 @@ struct SignalementsView: View {
     }
 
     private var topBar: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 19) {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(DS.Color.inkSoft)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Lignes")
+                    .font(.system(size: 34, weight: .black))
+                    .foregroundStyle(DS.Color.ink)
 
-                    TextField("", text: $query, prompt: Text("Rechercher une ligne, une destination…").foregroundStyle(DS.Color.inkMute))
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.ink)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(disruptedGlobalCount == 0 ? "RÉSEAU OK" : "\(disruptedGlobalCount) ALERTES")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.4)
+                        .foregroundStyle(disruptedGlobalCount == 0 ? DS.Color.statusOK : DS.Color.statusMajor)
+
+                    Text("\(displayLines.count) LIGNES · STIB")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Color.inkMute)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 40)
-                .background(DS.Color.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous))
-                .shadow(DS.Shadow.raised)
-                .frame(maxWidth: .infinity)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                PageHeader(
-                    title: "Lignes",
-                    eyebrow: "Réseau STIB · Bruxelles",
-                    large: true
-                )
-            }
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 3)
         }
     }
 
-    private var healthMeterSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionTitle("État par mode")
-            VStack(spacing: 10) {
-                ForEach(healthRows, id: \.filter.id) { row in
-                    EditorialHealthRow(
-                        filter: row.filter,
-                        ok: row.ok,
-                        ko: row.ko,
-                        isSelected: selectedFilter == row.filter
-                    ) {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            selectedFilter = selectedFilter == row.filter ? .all : row.filter
-                        }
+    private var disruptedGlobalCount: Int {
+        displayLines.filter { $0.status != .fluid }.count
+    }
+
+    private var modeTabsSection: some View {
+        HStack(spacing: 7) {
+            ForEach(LineFilter.allCases) { filter in
+                LignesModeTabButton(
+                    filter: filter,
+                    active: selectedFilter == filter,
+                    total: displayLines.filter { filter == .all || $0.filter == filter }.count,
+                    ko: displayLines.filter { (filter == .all || $0.filter == filter) && $0.status != .fluid }.count
+                ) {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        selectedFilter = filter
+                        query = ""
                     }
                 }
             }
         }
     }
 
-    private var searchAndFiltersSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            filtersRow
-        }
-    }
+    private var searchField: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(DS.Color.inkMute)
 
-    private var filtersRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(LineFilter.allCases) { filter in
-                    Chip(
-                        label: filter.label,
-                        active: selectedFilter == filter,
-                        icon: {
-                            if filter != .all {
-                                Image(systemName: filter.iconName)
-                            }
-                        }
-                    ) {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            selectedFilter = filter
-                        }
-                    }
+            TextField("", text: $query, prompt: Text("Chercher dans \(selectedFilter.searchLabel)…").foregroundStyle(DS.Color.inkMute))
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
                 }
+                .buttonStyle(.plain)
             }
-        }.padding(.horizontal, 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 42)
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.20), lineWidth: 1.4)
+        )
     }
 
     private var disruptedSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(DS.Color.statusMajor)
-                SectionTitle("À surveiller · \(disruptedLines.count)")
-            }
-
+        LignesSection(
+            title: "Perturbations",
+            icon: "exclamationmark.triangle.fill",
+            iconColor: DS.Color.statusMajor,
+            count: disruptedLines.count
+        ) {
             VStack(spacing: 0) {
-                Rectangle()
-                    .fill(DS.Color.ink)
-                    .frame(height: 2)
                 ForEach(disruptedLines) { line in
-                    DisruptedEditorialRow(
-                        line: line
-                    ) {
+                    LignesDisruptedRow(line: line) {
                         withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
                             selectedLine = line
                         }
@@ -242,14 +234,18 @@ struct SignalementsView: View {
     }
 
     private var allLinesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionTitle("Toutes les lignes")
-            VStack(alignment: .leading, spacing: 20) {
-                ForEach(healthyByMode, id: \.filter.id) { group in
-                    EditorialModeLineGroup(
-                        filter: group.filter,
-                        lines: group.lines
-                    ) { line in
+        LignesSection(
+            title: "En service",
+            icon: "bolt.fill",
+            iconColor: DS.Color.statusOK,
+            count: healthyLines.count
+        ) {
+            VStack(spacing: 0) {
+                ForEach(healthyLines) { line in
+                    LignesLineRow(
+                        line: line,
+                        compact: selectedFilter == .bus || line.filter == .bus
+                    ) {
                         withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
                             selectedLine = line
                         }
@@ -491,6 +487,239 @@ struct SignalementsView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct LignesSection<Content: View>: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    let count: Int
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label {
+                    Text(title.uppercased())
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.5)
+                } icon: {
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(iconColor)
+                }
+                .foregroundStyle(DS.Color.ink)
+
+                Spacer()
+
+                Text("\(count) LIGNE\(count > 1 ? "S" : "")")
+                    .font(DS.Font.monoSmall)
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Rectangle()
+                .fill(DS.Color.ink)
+                .frame(height: 2)
+
+            content
+        }
+    }
+}
+
+private struct LignesModeTabButton: View {
+    let filter: LineFilter
+    let active: Bool
+    let total: Int
+    let ko: Int
+    let action: () -> Void
+
+    private var okRatio: CGFloat {
+        guard total > 0 else { return 1 }
+        return CGFloat(max(total - ko, 0)) / CGFloat(total)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(active ? DS.Color.paper : filter.modeAccent)
+                    .frame(height: 3)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: filter.iconName)
+                            .font(.system(size: 13, weight: .bold))
+                        Spacer()
+                        if ko > 0 {
+                            HStack(spacing: 3) {
+                                Circle().fill(DS.Color.statusMajor).frame(width: 6, height: 6)
+                                Text("\(ko)")
+                                    .font(DS.Font.monoSmall.weight(.bold))
+                                    .foregroundStyle(active ? DS.Color.paper : DS.Color.statusMajor)
+                            }
+                        } else {
+                            Circle().fill(DS.Color.statusOK).frame(width: 6, height: 6)
+                        }
+                    }
+
+                    Text(filter.label.uppercased())
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.15)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.74)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text("\(total)")
+                            .font(.system(size: 17, weight: .bold, design: .monospaced))
+                        Text("LIGNES")
+                            .font(DS.Font.monoSmall)
+                            .tracking(0.8)
+                            .foregroundStyle(active ? DS.Color.paper.opacity(0.62) : DS.Color.inkMute)
+                    }
+
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(active ? DS.Color.paper.opacity(0.20) : DS.Color.paper2)
+                            Rectangle()
+                                .fill(DS.Color.statusOK)
+                                .frame(width: geo.size.width * okRatio)
+                        }
+                    }
+                    .frame(height: 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(active ? DS.Color.ink : DS.Color.paper)
+            .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(active ? DS.Color.ink : DS.Color.ink.opacity(0.20), lineWidth: 1.4)
+            )
+            .shadow(color: active ? DS.Color.ink.opacity(0.18) : .clear, radius: 0, x: 2, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct LignesLineRow: View {
+    let line: LineStatusItem
+    let compact: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                LineBadge(
+                    line: line.line,
+                    size: compact ? .sm : .lg,
+                    fill: line.lineColor,
+                    foreground: line.lineTextColor
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(line.origin)
+                        Text("⇄")
+                            .foregroundStyle(DS.Color.inkMute)
+                        Text(line.destination)
+                    }
+                    .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                    if line.reportsCount > 0 {
+                        Text("\(line.reportsCount) signalement\(line.reportsCount > 1 ? "s" : "")")
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Text(line.status.label.uppercased())
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .foregroundStyle(DS.Color.statusOK)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                    )
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.vertical, compact ? 8 : 10)
+            .overlay(
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1),
+                alignment: .bottom
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct LignesDisruptedRow: View {
+    let line: LineStatusItem
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                Rectangle()
+                    .fill(DS.Color.statusMajor)
+                    .frame(width: 2)
+
+                LineBadge(line: line.line, size: .lg, fill: line.lineColor, foreground: line.lineTextColor)
+                    .padding(.top, 1)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Text(line.origin)
+                        Text("⇄")
+                            .foregroundStyle(DS.Color.inkMute)
+                        Text(line.destination)
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+
+                    Text(line.confidenceText ?? "\(line.reportsCount) signalements")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.statusMajor)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.top, 7)
+            }
+            .padding(.vertical, 12)
+            .overlay(
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.15))
+                    .frame(height: 1),
+                alignment: .bottom
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -1609,12 +1838,30 @@ enum LineFilter: CaseIterable, Identifiable {
         }
     }
 
+    var searchLabel: String {
+        switch self {
+        case .all: return "le réseau"
+        case .tram: return "Tram"
+        case .bus: return "Bus"
+        case .metro: return "Métro"
+        }
+    }
+
     var iconName: String {
         switch self {
         case .all: return "square.grid.2x2"
         case .tram: return "tram.fill"
         case .bus: return "bus.fill"
         case .metro: return "tram.fill.tunnel"
+        }
+    }
+
+    var modeAccent: Color {
+        switch self {
+        case .all: return DS.Color.ink
+        case .metro: return DS.Color.metro
+        case .tram: return DS.Color.tram
+        case .bus: return DS.Color.bus
         }
     }
 
