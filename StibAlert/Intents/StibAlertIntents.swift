@@ -114,7 +114,7 @@ struct SignalerArretIntent: AppIntent {
 struct NextPassageIntent: AppIntent {
     static let title: LocalizedStringResource = "Prochain passage STIB"
     static let description = IntentDescription(
-        "Consulte l'heure du prochain passage d'une ligne STIB.",
+        "Consulte l'heure du prochain passage d'une ligne STIB à un arrêt précis.",
         categoryName: "Transport"
     )
     static let openAppWhenRun = false
@@ -122,47 +122,117 @@ struct NextPassageIntent: AppIntent {
     @Parameter(title: "Numéro de ligne", default: "")
     var lineNumber: String
 
+    @Parameter(title: "Arrêt", description: "Nom de l'arrêt, ex: Buissonets", default: "")
+    var stopName: String
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Prochain passage ligne \(\.$lineNumber)")
+        Summary("Prochain passage ligne \(\.$lineNumber) à \(\.$stopName)")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let line = lineNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        let line = normalizedLine(lineNumber)
         guard !line.isEmpty else {
             return .result(dialog: "Précisez un numéro de ligne, par exemple 92.")
         }
 
-        guard let encoded = line.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "\(AppConfig.backendBaseURL)/api/transport/line/\(encoded)") else {
-            return .result(dialog: "Ligne \(line) introuvable.")
+        let stopQuery = stopName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !stopQuery.isEmpty else {
+            return .result(dialog: "Précisez aussi l'arrêt, par exemple Buissonets.")
         }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try JSONDecoder().decode(NextPassageResponse.self, from: data)
-            if let first = response.nextDepartures?.first {
-                let dest = first.destination.map { " vers \($0)" } ?? ""
-                let mins = first.minutes
-                if mins == 0 {
-                    return .result(dialog: "Le \(line)\(dest) est à l'arrêt maintenant.")
-                }
-                return .result(dialog: "Le \(line)\(dest) arrive dans \(mins) minute\(mins > 1 ? "s" : "").")
+            let stops: [ArretDTO] = try await APIClient.shared.request("/api/arrets")
+            guard let matchedStop = bestStopMatch(for: stopQuery, line: line, in: stops) else {
+                return .result(dialog: "Je n'ai pas trouvé l'arrêt \(stopQuery). Essayez avec le nom exact de l'arrêt.")
             }
-            return .result(dialog: "Aucun passage imminent pour la ligne \(line).")
+
+            let stopDetail = try await TransportService.stop(id: matchedStop.id)
+            let departures = stopDetail.nextDepartures
+                .filter { normalizedLine($0.line) == line }
+                .sorted { $0.minutes < $1.minutes }
+
+            guard let first = departures.first else {
+                let servedLines = stopLines(from: matchedStop, stopDetail: stopDetail)
+                if !servedLines.contains(line) {
+                    let shownLines = servedLines.prefix(5).joined(separator: ", ")
+                    let suffix = shownLines.isEmpty ? "" : " Lignes connues à cet arrêt: \(shownLines)."
+                    return .result(dialog: "La ligne \(line) ne semble pas desservir \(matchedStop.nom).\(suffix)")
+                }
+                return .result(dialog: "Aucun passage fiable pour la ligne \(line) à \(matchedStop.nom) pour le moment.")
+            }
+
+            let dest = first.destination.map { " vers \($0)" } ?? ""
+            let source = first.source == "scheduled" ? " selon l'horaire prévu" : ""
+            if first.minutes == 0 {
+                return .result(dialog: "Le \(line)\(dest) est à \(matchedStop.nom) maintenant\(source).")
+            }
+            return .result(dialog: "Le \(line)\(dest) arrive à \(matchedStop.nom) dans \(first.minutes) minute\(first.minutes > 1 ? "s" : "")\(source).")
         } catch {
-            return .result(dialog: "Impossible de récupérer les données STIB pour la ligne \(line).")
+            return .result(dialog: "Impossible de récupérer les passages STIB pour la ligne \(line) à \(stopQuery).")
         }
     }
-}
 
-private struct NextPassageResponse: Decodable {
-    let nextDepartures: [NextDeparture]?
-}
+    private func bestStopMatch(for query: String, line: String, in stops: [ArretDTO]) -> ArretDTO? {
+        let normalizedQuery = normalizedStopName(query)
+        guard !normalizedQuery.isEmpty else { return nil }
 
-private struct NextDeparture: Decodable {
-    let line: String
-    let destination: String?
-    let minutes: Int
+        let scored = stops.compactMap { stop -> (stop: ArretDTO, score: Int)? in
+            let name = normalizedStopName(stop.nom)
+            guard !name.isEmpty else { return nil }
+
+            var score = 0
+            if name == normalizedQuery {
+                score += 100
+            } else if name.hasPrefix(normalizedQuery) {
+                score += 70
+            } else if name.contains(normalizedQuery) || normalizedQuery.contains(name) {
+                score += 45
+            } else {
+                return nil
+            }
+
+            let lines = (stop.lignesDesservies ?? []).map(normalizedLine)
+            if lines.contains(line) {
+                score += 35
+            }
+
+            return (stop, score)
+        }
+
+        return scored.sorted { lhs, rhs in
+            if lhs.score == rhs.score {
+                return lhs.stop.nom.count < rhs.stop.nom.count
+            }
+            return lhs.score > rhs.score
+        }.first?.stop
+    }
+
+    private func stopLines(from stop: ArretDTO, stopDetail: TransportStopDTO) -> [String] {
+        let lines = (stop.lignesDesservies ?? []) + stopDetail.stop.lines + stopDetail.nextDepartures.map(\.line)
+        return Array(Set(lines.map(normalizedLine).filter { !$0.isEmpty })).sorted()
+    }
+
+    private func normalizedLine(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .replacingOccurrences(of: "LIGNE", with: "")
+            .replacingOccurrences(of: "TRAM", with: "")
+            .replacingOccurrences(of: "BUS", with: "")
+            .replacingOccurrences(of: "METRO", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func normalizedStopName(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_BE"))
+            .lowercased()
+            .replacingOccurrences(of: "-", with: " ")
+            .components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted)
+            .joined(separator: " ")
+            .split(separator: " ")
+            .joined(separator: " ")
+    }
 }
 
 // MARK: - Ouvrir la carte live
