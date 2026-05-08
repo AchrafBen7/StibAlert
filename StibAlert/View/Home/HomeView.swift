@@ -43,6 +43,7 @@ struct HomeView: View {
     )
     @State private var showSearch = false
     @State private var showLegend = false
+    @State private var showRoutePlanner = false
     @State private var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -484,8 +485,8 @@ struct HomeView: View {
                             showLegend = true
                         }
                     },
-                    onAroundMe: {
-                        aroundMe()
+                    onOpenItineraryPlanner: {
+                        showRoutePlanner = true
                         activeMapFilter = .none
                     },
                     onOpenFavorites: {
@@ -566,6 +567,24 @@ struct HomeView: View {
             )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showRoutePlanner) {
+            HomeRoutePlannerSheet(
+                isPresented: $showRoutePlanner,
+                userCoordinate: locationManager.userCoordinate ?? locationManager.displayCoordinate,
+                isRouting: isRouting,
+                onPlanRoute: { source, destination, originName in
+                    Task {
+                        await buildRoute(
+                            from: source,
+                            to: destination,
+                            originName: originName
+                        )
+                    }
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedVilloStation) { station in
             HomeVilloStationSheet(station: station)
@@ -1806,9 +1825,18 @@ struct HomeView: View {
 
     @MainActor
     private func buildRoute(to destination: MKMapItem) async {
+        let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
+        await buildRoute(from: source, to: destination, originName: "Votre position")
+    }
+
+    @MainActor
+    private func buildRoute(
+        from source: MKMapItem,
+        to destination: MKMapItem,
+        originName: String
+    ) async {
         isRouting = true
         defer { isRouting = false }
-        let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
         async let recommendationTask = fetchBackendRecommendation(source: source, destination: destination)
         async let transitRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .transit)
         async let walkingRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .walking)
@@ -1819,14 +1847,14 @@ struct HomeView: View {
         let fallbackOptions = buildFallbackRouteOptions(
             transitRoutes: transitRoutes,
             walkingRoutes: walkingRoutes,
-            originName: "Votre position",
+            originName: originName,
             destinationName: destination.name ?? "Destination"
         )
 
         let finalOptions = buildBackendFirstRouteOptions(
             recommendation: recommendation,
             fallbackOptions: fallbackOptions,
-            originName: "Votre position",
+            originName: originName,
             destinationName: destination.name ?? "Destination"
         )
 
@@ -2552,7 +2580,7 @@ private struct HomeSearchHeaderOverlay: View {
     let isFavoritesFilterActive: Bool
     let isPerturbationsFilterActive: Bool
     let onShowLegend: () -> Void
-    let onAroundMe: () -> Void
+    let onOpenItineraryPlanner: () -> Void
     let onOpenFavorites: () -> Void
     let onOpenReports: () -> Void
     let onSelectSuggestion: (MKMapItem) -> Void
@@ -2606,11 +2634,11 @@ private struct HomeSearchHeaderOverlay: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             HomeEditorialActionChip(
-                                icon: "location.viewfinder",
-                                title: "Autour de moi",
+                                icon: "arrow.triangle.turn.up.right.diamond.fill",
+                                title: "Itinéraires",
                                 count: nil,
-                                isActive: hasUserCoordinate,
-                                action: onAroundMe
+                                isActive: isRouting,
+                                action: onOpenItineraryPlanner
                             )
 
                             HomeEditorialActionChip(
