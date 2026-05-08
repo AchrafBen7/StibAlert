@@ -86,7 +86,7 @@ struct FavoritesView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 16)
 
-                            if isLoadingRemote && !hasLoadedFavorites {
+                            if isLoadingRemote && displayItems.isEmpty {
                                 ProgressView()
                                     .tint(DS.Color.inkMute)
                                     .frame(maxWidth: .infinity)
@@ -111,7 +111,7 @@ struct FavoritesView: View {
             }
             .modifier(PaperGrainBackground())
             .toolbar(.hidden, for: .navigationBar)
-            .task {
+            .task(id: session.currentUser?.id) {
                 await loadFavoris()
             }
             .onChange(of: session.currentUser?.favorisDetails?.map(\.id) ?? []) { _, _ in
@@ -201,6 +201,7 @@ struct FavoritesView: View {
             return
         }
 
+        syncRemoteItemsFromSession()
         isLoadingRemote = true
         defer {
             isLoadingRemote = false
@@ -210,7 +211,13 @@ struct FavoritesView: View {
         do {
             let remoteUser = try await UtilisateurService.me()
             session.applyCurrentUserUpdate(remoteUser)
-            remoteItems = mapFavoriteItems(from: remoteUser.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
+            let fallbackStops = user.favorisDetails ?? []
+            let favoriteDetails = await resolvedFavoriteDetails(
+                remoteUser: remoteUser,
+                fallbackStops: fallbackStops,
+                fallbackIds: user.favoris ?? []
+            )
+            remoteItems = mapFavoriteItems(from: favoriteDetails, fallbackStops: fallbackStops)
         } catch {
             print("Favorites load failed: \(error.localizedDescription)")
             syncRemoteItemsFromSession()
@@ -223,6 +230,65 @@ struct FavoritesView: View {
             return
         }
         remoteItems = mapFavoriteItems(from: user.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
+    }
+
+    private func resolvedFavoriteDetails(
+        remoteUser: UtilisateurDTO,
+        fallbackStops: [FavoriDetailDTO],
+        fallbackIds: [String]
+    ) async -> [FavoriDetailDTO] {
+        if let details = remoteUser.favorisDetails, !details.isEmpty {
+            return details
+        }
+
+        let ids = remoteUser.favoris?.isEmpty == false ? (remoteUser.favoris ?? []) : fallbackIds
+        guard !ids.isEmpty else { return fallbackStops }
+
+        return await hydrateFavoriteDetails(ids: ids, fallbackStops: fallbackStops)
+    }
+
+    private func hydrateFavoriteDetails(
+        ids: [String],
+        fallbackStops: [FavoriDetailDTO]
+    ) async -> [FavoriDetailDTO] {
+        let fallbackById = Dictionary(uniqueKeysWithValues: fallbackStops.map { ($0.id, $0) })
+        var hydrated: [FavoriDetailDTO] = []
+
+        for id in ids {
+            if let fallback = fallbackById[id] {
+                hydrated.append(fallback)
+                continue
+            }
+
+            if let stopDetail = try? await TransportService.stop(id: id) {
+                hydrated.append(favoriteDetail(from: stopDetail))
+            }
+        }
+
+        return hydrated
+    }
+
+    private func favoriteDetail(from stopDetail: TransportStopDTO) -> FavoriDetailDTO {
+        let stop = stopDetail.stop
+        let primaryLine = stop.lines.first ?? stopDetail.nextDepartures.first?.line
+        let status = stopDetail.label?.fr ?? stopDetail.severity
+        let nextPassage = stopDetail.nextDepartures.map(\.minutes).min()
+
+        return FavoriDetailDTO(
+            id: stop.id,
+            nom: stop.name,
+            latitude: stop.latitude,
+            longitude: stop.longitude,
+            lignesDesservies: stop.lines.isEmpty ? nil : stop.lines,
+            status: status,
+            crowding: nil,
+            signalementCount: stopDetail.activeIncidents.count,
+            primaryLine: primaryLine,
+            lastProblemType: stopDetail.activeIncidents.first?.type,
+            lastConfidence: stopDetail.realtimeStatus,
+            nextPassageMinutes: nextPassage,
+            lastUpdatedAt: Date()
+        )
     }
 
     private func removeFavori(_ item: FavoriteTransitItem) async {
