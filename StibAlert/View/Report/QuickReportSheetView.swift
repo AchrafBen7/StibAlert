@@ -21,8 +21,11 @@ struct QuickReportSheetView: View {
     @State private var isLoadingStops = false
     @State private var isStopPickerExpanded = false
     @State private var stopSearchQuery = ""
+    @State private var keyboardHeight: CGFloat = 0
+    @FocusState private var focusedField: FocusedField?
 
     private let screen = UIScreen.main.bounds.height
+    private enum FocusedField { case description }
 
     private var safeTop: CGFloat {
         UIApplication.shared.connectedScenes
@@ -52,6 +55,14 @@ struct QuickReportSheetView: View {
 
     private var canSubmit: Bool {
         selectedStop != nil && selectedLine != nil && selectedProblem != nil && !isSubmitting && !submitSuccess
+    }
+
+    private var submitBottomPadding: CGFloat {
+        keyboardHeight > 0 ? max(12, keyboardHeight - safeBottom + 12) : safeBottom + 8
+    }
+
+    private var scrollBottomPadding: CGFloat {
+        keyboardHeight > 0 ? keyboardHeight + 92 : 20
     }
 
     private var filteredNearbyStops: [NearbyStop] {
@@ -86,6 +97,12 @@ struct QuickReportSheetView: View {
             }
         }
         .onAppear(perform: bootstrap)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification), perform: handleKeyboardChange)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.22)) {
+                keyboardHeight = 0
+            }
+        }
     }
 
     // MARK: - Sheet layout
@@ -94,37 +111,50 @@ struct QuickReportSheetView: View {
         VStack(spacing: 0) {
             handleBar
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    sheetHeader
-                    stopSection
-                    if !isStopPickerExpanded {
-                        if let stop = selectedStop, !stop.issueLines.isEmpty {
-                            lineChipsSection(stop)
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        sheetHeader
+                        stopSection
+                        if !isStopPickerExpanded {
+                            if let stop = selectedStop, !stop.issueLines.isEmpty {
+                                lineChipsSection(stop)
+                            }
+                            if !matchingActiveSignalements.isEmpty {
+                                activeHereSection
+                            }
+                            typeSection
+                            if selectedProblem != nil {
+                                optionalDescriptionField
+                            }
+                            if let submitError {
+                                Text(submitError)
+                                    .font(DS.Font.bodySmall)
+                                    .foregroundStyle(DS.Color.statusMajor)
+                                    .padding(.horizontal, 18)
+                                    .id("submitError")
+                            }
                         }
-                        if !matchingActiveSignalements.isEmpty {
-                            activeHereSection
-                        }
-                        typeSection
-                        if selectedProblem != nil {
-                            optionalDescriptionField
-                        }
-                        if let submitError {
-                            Text(submitError)
-                                .font(DS.Font.bodySmall)
-                                .foregroundStyle(DS.Color.statusMajor)
-                                .padding(.horizontal, 18)
-                        }
+                        Spacer(minLength: 12)
                     }
-                    Spacer(minLength: 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, scrollBottomPadding)
                 }
-                .padding(.top, 4)
-                .padding(.bottom, 20)
+                .scrollDismissesKeyboard(.interactively)
+                .onChange(of: focusedField) { _, newValue in
+                    guard newValue == .description else { return }
+                    scrollToDescription(proxy)
+                }
+                .onChange(of: selectedProblem) { _, newValue in
+                    guard newValue != nil else { return }
+                    scrollToDescription(proxy)
+                }
             }
 
             submitBar
         }
         .frame(maxHeight: screen - safeTop - 24)
+        .animation(.easeOut(duration: 0.22), value: keyboardHeight)
     }
 
     // MARK: - Header
@@ -578,12 +608,23 @@ struct QuickReportSheetView: View {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $description)
                     .scrollContentBackground(.hidden)
-                    .frame(minHeight: 88)
+                    .focused($focusedField, equals: .description)
+                    .frame(minHeight: 118, maxHeight: 118)
                     .padding(10)
                     .background(DS.Color.paper2.opacity(0.35))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(DS.Color.ink)
                     .font(.system(size: 13))
+                    .submitLabel(.done)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Terminé") {
+                                focusedField = nil
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                        }
+                    }
                 if description.isEmpty {
                     Text("Ex : Tram bloqué depuis 5 min au feu.")
                         .font(.system(size: 13))
@@ -594,6 +635,12 @@ struct QuickReportSheetView: View {
                 }
             }
             .padding(.horizontal, 18)
+            .id("descriptionField")
+            .onChange(of: description) { _, newValue in
+                if newValue.count > 280 {
+                    description = String(newValue.prefix(280))
+                }
+            }
 
             HStack {
                 Text("Facultatif")
@@ -637,8 +684,9 @@ struct QuickReportSheetView: View {
         .buttonStyle(.plain)
         .disabled(!canSubmit)
         .padding(.horizontal, 18)
-        .padding(.bottom, safeBottom + 8)
+        .padding(.bottom, submitBottomPadding)
         .padding(.top, 10)
+        .background(DS.Color.paper)
     }
 
     // MARK: - Helpers
@@ -666,6 +714,7 @@ struct QuickReportSheetView: View {
     }
 
     private func handleClose() {
+        focusedField = nil
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             isShowing = false
         }
@@ -696,6 +745,7 @@ struct QuickReportSheetView: View {
     // MARK: - Submit
 
     private func submit() {
+        focusedField = nil
         guard canSubmit,
               let stop = selectedStop,
               let line = selectedLine,
@@ -731,6 +781,23 @@ struct QuickReportSheetView: View {
                 submitError = (error as? APIError)?.errorDescription ?? error.localizedDescription
             }
             isSubmitting = false
+        }
+    }
+
+    private func handleKeyboardChange(_ notification: Notification) {
+        guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        let screenHeight = UIScreen.main.bounds.height
+        let overlap = max(0, screenHeight - frame.minY)
+        withAnimation(.easeOut(duration: 0.22)) {
+            keyboardHeight = overlap
+        }
+    }
+
+    private func scrollToDescription(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.easeOut(duration: 0.22)) {
+                proxy.scrollTo("descriptionField", anchor: .center)
+            }
         }
     }
 
