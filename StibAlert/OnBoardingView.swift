@@ -9,7 +9,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.Colors.onboardingBackground.ignoresSafeArea()
+            DS.Color.background.ignoresSafeArea()
             switch step {
             case .lines:
                 OnboardingLinesStep(
@@ -29,7 +29,6 @@ struct OnboardingView: View {
             }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.88), value: step)
-        .preferredColorScheme(.dark)
     }
 
     private enum OnboardingStep { case lines, push }
@@ -38,122 +37,84 @@ struct OnboardingView: View {
 // MARK: - Step 1 — Lignes
 
 private struct OnboardingLinesStep: View {
-    @ScaledMetric(relativeTo: .body) private var chipHeight: CGFloat = AppTheme.ButtonHeight.secondary
     @ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = AppTheme.ButtonHeight.primary
 
-    @State private var selectedLines: Set<String> = Set(OnboardingPreferenceStore.load().favoriteLines)
+    @State private var selectedLines: Set<String> = Set(OnboardingPreferenceStore.load().favoriteLines.map(Self.normalizedLineId))
     @State private var availableLines: [String] = [
-        "1","2","3","4","5","6","7","8","9","10","12","19","25","38","46","71","81","92","95"
+        "1","2","3","4","5","6","7","8","9","10","12","19","25","38","46","47","53","55","56","58","59","71","81","92","95"
     ]
     @State private var isLoading = false
 
     let onContinue: ([String]) -> Void
     let onSkip: () -> Void
 
+    private let maxSelection = 4
     private var canContinue: Bool { !selectedLines.isEmpty }
+    private var sortedSelectedLines: [String] { selectedLines.sorted(by: Self.lineSort) }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
-                header
-                linesCard
+        ZStack(alignment: .bottom) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 22) {
+                    OnboardingLinesHeader()
+                    OnboardingSelectedLinesCard(
+                        selectedLines: sortedSelectedLines,
+                        maxSelection: maxSelection,
+                        onRemove: removeLine
+                    )
+                    OnboardingLinePickerCard(
+                        lines: availableLines,
+                        selectedLines: selectedLines,
+                        maxSelection: maxSelection,
+                        isLoading: isLoading,
+                        onToggle: toggleLine
+                    )
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 56)
+                .padding(.bottom, 154)
+            }
+
+            VStack(spacing: 10) {
                 continueButton
                 skipButton
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 64)
-            .padding(.bottom, 40)
+            .padding(.horizontal, 22)
+            .padding(.top, 22)
+            .padding(.bottom, 34)
+            .background(
+                LinearGradient(
+                    colors: [DS.Color.background.opacity(0), DS.Color.background, DS.Color.background],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea(edges: .bottom)
+            )
         }
+        .background(DS.Color.background)
         .task { await loadLines() }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Quelle ligne tu prends tous les jours ?")
-                .font(.custom("DelaGothicOne-Regular", size: 26))
-                .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("StibAlert surveille les perturbations en temps réel et te prévient avant que ça bloque ton trajet.")
-                .font(.custom("Montserrat-Regular", size: 15))
-                .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var linesCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tes lignes")
-                    .font(DesignSystem.Typography.title2)
-                    .foregroundStyle(.white)
-                Text("Jusqu'à 4 lignes · tu pourras en ajouter d'autres.")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundStyle(Color.white.opacity(0.45))
-            }
-
-            if isLoading && availableLines.isEmpty {
-                ProgressView()
-                    .tint(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 10)], spacing: 10) {
-                    ForEach(availableLines, id: \.self) { line in
-                        let isSelected = selectedLines.contains(line)
-                        Button {
-                            if isSelected {
-                                selectedLines.remove(line)
-                            } else if selectedLines.count < 4 {
-                                selectedLines.insert(line)
-                            }
-                            AppHaptics.soft()
-                        } label: {
-                            Text(line)
-                                .font(DesignSystem.Typography.title3)
-                                .foregroundStyle(isSelected ? .black : .white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: chipHeight)
-                                .background(
-                                    isSelected
-                                    ? AppTheme.Colors.onboardingTitleSand
-                                    : Color.white.opacity(0.07)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.md, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Ligne \(line)")
-                        .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
-                    }
-                }
-            }
-        }
-        .padding(18)
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
-        )
     }
 
     private var continueButton: some View {
         Button {
             saveLines()
             AppHaptics.success()
-            onContinue(selectedLines.sorted())
+            onContinue(sortedSelectedLines)
         } label: {
-            Text("Continuer")
-                .font(DesignSystem.Typography.bodyStrong)
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: buttonHeight)
-                .background(
-                    canContinue
-                    ? AppTheme.Colors.onboardingTitleSand
-                    : Color.white.opacity(0.16)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            HStack(spacing: 10) {
+                Text(canContinue ? "Continuer avec \(selectedLines.count) ligne\(selectedLines.count > 1 ? "s" : "")" : "Choisis au moins une ligne")
+                Image(systemName: "arrow.right")
+            }
+            .font(DesignSystem.Typography.bodyStrong)
+            .foregroundStyle(DS.Color.primaryForeground)
+            .frame(maxWidth: .infinity)
+            .frame(height: buttonHeight)
+            .background(canContinue ? DS.Color.primary : DS.Color.ink.opacity(0.16))
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(canContinue ? 0.95 : 0.18), lineWidth: 1.4)
+            )
         }
         .buttonStyle(.plain)
         .disabled(!canContinue)
@@ -165,11 +126,27 @@ private struct OnboardingLinesStep: View {
             onSkip()
         } label: {
             Text("Je découvre d'abord")
-                .font(DesignSystem.Typography.caption)
-                .foregroundStyle(Color.white.opacity(0.38))
+                .font(DS.Font.mono)
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+    }
+
+    private func toggleLine(_ line: String) {
+        if selectedLines.contains(line) {
+            selectedLines.remove(line)
+        } else if selectedLines.count < maxSelection {
+            selectedLines.insert(line)
+        }
+        AppHaptics.soft()
+    }
+
+    private func removeLine(_ line: String) {
+        selectedLines.remove(line)
+        AppHaptics.soft()
     }
 
     private func saveLines() {
@@ -181,6 +158,19 @@ private struct OnboardingLinesStep: View {
         ))
     }
 
+    private static func normalizedLineId(_ rawValue: String) -> String {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = trimmed.split(separator: ":").first.map(String.init) ?? trimmed
+        return base.uppercased().replacingOccurrences(of: "BUS", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func lineSort(_ lhs: String, _ rhs: String) -> Bool {
+        let left = Int(lhs.filter(\.isNumber)) ?? 999
+        let right = Int(rhs.filter(\.isNumber)) ?? 999
+        if left == right { return lhs < rhs }
+        return left < right
+    }
+
     @MainActor
     private func loadLines() async {
         guard AppConfig.isBackendEnabled else { return }
@@ -190,13 +180,214 @@ private struct OnboardingLinesStep: View {
             let lignes = try await LigneService.etatLignes()
             let ids = lignes
                 .map(\.lineid)
+                .map(Self.normalizedLineId)
                 .filter { !$0.isEmpty }
-                .sorted { (Int($0) ?? 999) < (Int($1) ?? 999) }
-            if !ids.isEmpty {
-                availableLines = ids
+            let uniqueIds = Array(Set(ids)).sorted(by: Self.lineSort)
+            if !uniqueIds.isEmpty {
+                availableLines = uniqueIds
                 selectedLines = selectedLines.filter { availableLines.contains($0) }
             }
         } catch {}
+    }
+}
+
+private struct OnboardingLinesHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("STIBALERT")
+                    .font(DS.Font.mono)
+                    .tracking(2.4)
+                    .foregroundStyle(DS.Color.inkMute)
+
+                Spacer()
+
+                Text("BRUXELLES")
+                    .font(DS.Font.monoSmall)
+                    .tracking(2)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Tes lignes importantes.")
+                    .font(DesignSystem.Typography.display)
+                    .foregroundStyle(DS.Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Choisis jusqu’à 4 lignes. On te prévient quand une perturbation officielle ou un signalement fiable touche ton réseau.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private struct OnboardingSelectedLinesCard: View {
+    let selectedLines: [String]
+    let maxSelection: Int
+    let onRemove: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Réseau personnel")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    Text("\(selectedLines.count)/\(maxSelection) lignes")
+                        .font(DesignSystem.Typography.title3)
+                        .foregroundStyle(DS.Color.ink)
+                }
+
+                Spacer()
+
+                Image(systemName: selectedLines.isEmpty ? "plus" : "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(selectedLines.isEmpty ? DS.Color.inkMute : DS.Color.primary)
+            }
+
+            if selectedLines.isEmpty {
+                Text("Ajoute tes lignes habituelles pour recevoir des alertes utiles, pas du bruit.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
+                    ForEach(selectedLines, id: \.self) { line in
+                        Button {
+                            onRemove(line)
+                        } label: {
+                            HStack(spacing: 8) {
+                                LineBadge(line: line, size: .sm)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            .padding(.trailing, 10)
+                            .background(DS.Color.paper2)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(DS.Color.border, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Retirer la ligne \(line)")
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(DS.Color.border, lineWidth: 1)
+        )
+        .shadow(color: DS.Color.ink.opacity(0.06), radius: 24, x: 0, y: 14)
+    }
+}
+
+private struct OnboardingLinePickerCard: View {
+    let lines: [String]
+    let selectedLines: Set<String>
+    let maxSelection: Int
+    let isLoading: Bool
+    let onToggle: (String) -> Void
+
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: 72), spacing: 10)]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Toutes les lignes STIB")
+                        .font(DS.Font.monoSmall)
+                        .tracking(1.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(DS.Color.inkMute)
+
+                    Text("Appuie sur les lignes que tu prends vraiment.")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundStyle(DS.Color.inkSoft)
+                }
+
+                Spacer()
+
+                if isLoading {
+                    ProgressView()
+                        .tint(DS.Color.primary)
+                }
+            }
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(lines, id: \.self) { line in
+                    OnboardingLineButton(
+                        line: line,
+                        isSelected: selectedLines.contains(line),
+                        isDisabled: !selectedLines.contains(line) && selectedLines.count >= maxSelection,
+                        onTap: { onToggle(line) }
+                    )
+                }
+            }
+        }
+        .padding(18)
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(DS.Color.border, lineWidth: 1)
+        )
+    }
+}
+
+private struct OnboardingLineButton: View {
+    let line: String
+    let isSelected: Bool
+    let isDisabled: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                LineBadge(line: line, size: .lg)
+                    .opacity(isDisabled ? 0.32 : 1)
+
+                Text(isSelected ? "Choisie" : modeLabel)
+                    .font(DS.Font.monoSmall)
+                    .tracking(0.8)
+                    .foregroundStyle(isSelected ? DS.Color.primary : DS.Color.inkMute)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 78)
+            .background(isSelected ? DS.Color.primary.opacity(0.10) : DS.Color.paper2.opacity(0.78))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? DS.Color.primary : DS.Color.border, lineWidth: isSelected ? 1.6 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .accessibilityLabel("Ligne \(line)")
+        .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
+    }
+
+    private var modeLabel: String {
+        guard let number = Int(line.filter(\.isNumber)) else { return "Tram" }
+        if (1...6).contains(number) { return "Métro" }
+        if number >= 12 && number < 20 { return "Bus" }
+        if number >= 90 { return "Tram" }
+        return number >= 50 ? "Bus" : "Tram"
     }
 }
 
