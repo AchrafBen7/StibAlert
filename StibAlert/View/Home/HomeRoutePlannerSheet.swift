@@ -48,6 +48,7 @@ struct HomeRoutePlannerSheet: View {
                 focusedField = .arrival
             }
         }
+        .preferredColorScheme(.light)
     }
 
     private var header: some View {
