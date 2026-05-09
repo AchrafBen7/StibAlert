@@ -72,6 +72,7 @@ struct HomeView: View {
     @State private var selectedMapStopPreview: TransportStopSummaryDTO?
     @State private var selectedMapStopSummary: TransportStopSummaryDTO?
     @State private var selectedMapStopDetail: TransportStopDTO?
+    @State private var selectedStopLineNumber: String?
     @State private var isLoadingMapStopDetail = false
     @State private var mapStopDetailError: String?
     @State private var eventImpacts: [TransportEventImpactDTO] = []
@@ -171,8 +172,14 @@ struct HomeView: View {
 
     private var visibleLineShapes: [LineShape] {
         guard selectedRouteOption == nil else { return [] }
+        guard selectedStopLineNumber == nil else { return [] }
         guard cameraLatitudeDelta <= 0.05 else { return [] }
         return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
+    }
+
+    private var selectedStopLineShapes: [LineShape] {
+        guard selectedRouteOption == nil, let selectedStopLineNumber else { return [] }
+        return lineShapesLoader.shapes(matchingNumbers: [selectedStopLineNumber])
     }
 
     private var mapVehicles: [TransportVehicleDTO] {
@@ -696,6 +703,13 @@ struct HomeView: View {
                         style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
                     )
             }
+            ForEach(selectedStopLineShapes) { shape in
+                MapPolyline(coordinates: shape.coordinates)
+                    .stroke(
+                        shape.color,
+                        style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round)
+                    )
+            }
             MapCircle(center: locationManager.displayCoordinate, radius: 200)
                 .foregroundStyle(AppTheme.Palette.screen.opacity(0.07))
                 .stroke(AppTheme.Palette.info.opacity(0.6), lineWidth: 1)
@@ -882,6 +896,8 @@ struct HomeView: View {
                 enterInteractionMode(.stopDetail)
             },
             onOpenLine: openLineFromStop(_:),
+            selectedLineRoute: selectedStopLineNumber,
+            onSelectLineRoute: selectStopLineRoute(_:),
             onOpenStop: openStopDetail(for:),
             onSelectSiblingStop: openStopPreview(for:),
             onReport: openReportSheet(for:),
@@ -951,6 +967,7 @@ struct HomeView: View {
         selectedMapStopPreview = nil
         selectedMapStopSummary = nil
         selectedMapStopDetail = nil
+        selectedStopLineNumber = nil
         isLoadingMapStopDetail = false
     }
 
@@ -981,6 +998,14 @@ struct HomeView: View {
         clearStopSelection()
         nav.pendingLineFocus = line
         nav.currentPage = .signalements
+    }
+
+    @MainActor
+    private func selectStopLineRoute(_ line: String) {
+        let normalized = normalizedLineNumber(line)
+        guard !normalized.isEmpty else { return }
+        selectedStopLineNumber = normalized
+        focusMap(onLineShapesFor: normalized)
     }
 
     @MainActor
@@ -1231,6 +1256,44 @@ struct HomeView: View {
         }
     }
 
+    private func focusMap(onLineShapesFor line: String) {
+        let shapes = lineShapesLoader.shapes(matchingNumbers: [line])
+        let coordinates = shapes.flatMap(\.coordinates)
+        guard coordinates.count >= 2 else { return }
+
+        var rect = MKMapRect.null
+        for coordinate in coordinates {
+            let point = MKMapPoint(coordinate)
+            let pointRect = MKMapRect(x: point.x, y: point.y, width: 0, height: 0)
+            rect = rect.isNull ? pointRect : rect.union(pointRect)
+        }
+
+        guard !rect.isNull else { return }
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+        withAnimation(.easeInOut(duration: 0.65)) {
+            mapPosition = .rect(rect.insetBy(dx: -max(rect.width * 0.18, 450), dy: -max(rect.height * 0.18, 450)))
+        }
+    }
+
+    private func firstDisplayableLine(from lines: [String]) -> String? {
+        var seen = Set<String>()
+        for line in lines {
+            let normalized = normalizedLineNumber(line)
+            guard !normalized.isEmpty, seen.insert(normalized).inserted else { continue }
+            return normalized
+        }
+        return nil
+    }
+
+    private func normalizedLineNumber(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if trimmed.hasPrefix("T"), trimmed.dropFirst().allSatisfy(\.isNumber) {
+            return String(trimmed.dropFirst())
+        }
+        return trimmed
+    }
+
     @MainActor
     private func loadRemoteSignalements() async {
         guard AppConfig.isBackendEnabled else { hasLoadedSignalements = true; return }
@@ -1318,6 +1381,7 @@ struct HomeView: View {
                     let matchesDetail = selectedMapStopSummary?.id == stop.id
                     if matchesPreview || matchesDetail {
                         selectedMapStopDetail = detail
+                        selectDefaultStopLineIfNeeded(from: detail)
                     }
                 }
             } catch {
@@ -1344,15 +1408,33 @@ struct HomeView: View {
     @MainActor
     private func openStopPreview(for stop: TransportStopSummaryDTO) {
         selectedMapStopPreview = stop
+        selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
         enterInteractionMode(.stopPreview)
         loadStopDetail(for: stop)
+        if let selectedStopLineNumber {
+            focusMap(onLineShapesFor: selectedStopLineNumber)
+        }
     }
 
     @MainActor
     private func openStopDetail(for stop: TransportStopSummaryDTO) {
         selectedMapStopSummary = stop
+        selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
         enterInteractionMode(.stopDetail)
         loadStopDetail(for: stop)
+        if let selectedStopLineNumber {
+            focusMap(onLineShapesFor: selectedStopLineNumber)
+        }
+    }
+
+    @MainActor
+    private func selectDefaultStopLineIfNeeded(from detail: TransportStopDTO) {
+        let lines = detail.nextDepartures.map(\.line) + detail.stop.lines
+        guard let first = firstDisplayableLine(from: lines) else { return }
+        if selectedStopLineNumber == nil || !lines.map(normalizedLineNumber).contains(selectedStopLineNumber ?? "") {
+            selectedStopLineNumber = first
+            focusMap(onLineShapesFor: first)
+        }
     }
 
     @MainActor
@@ -2463,50 +2545,65 @@ private struct HomeStopSurfaceOverlay: View {
     let onDismiss: () -> Void
     let onOpenDetail: (TransportStopSummaryDTO) -> Void
     let onOpenLine: (String) -> Void
+    let selectedLineRoute: String?
+    let onSelectLineRoute: (String) -> Void
     let onOpenStop: (TransportStopSummaryDTO) -> Void
     let onSelectSiblingStop: (TransportStopSummaryDTO) -> Void
     let onReport: (TransportStopSummaryDTO) -> Void
     let onRetry: () -> Void
 
     var body: some View {
-        Group {
-            if shouldShowStopPreview, let stop = previewStop {
-                HomeStopPreviewCard(
-                    stopSummary: stop,
-                    stopDetail: stopDetail,
-                    isLoading: isLoading,
-                    detailError: detailError,
-                    nearbyStops: nearbyStops(stop),
-                    nearbyVilloStations: nearbyVilloStations(stop),
-                    onDismiss: onDismiss,
-                    onOpenDetail: {
-                        onOpenDetail(stop)
-                    },
-                    onSelectSiblingStop: onSelectSiblingStop,
-                    onRetry: onRetry
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(7)
-            }
+        ZStack {
+            stopPreviewLayer
+            stopDetailLayer
+        }
+    }
 
-            if shouldShowStopDetail, let stop = detailStop {
-                ArretDetailPage(
-                    stopSummary: stop,
-                    stopDetail: stopDetail,
-                    isLoading: isLoading,
-                    userCoordinate: userCoordinate,
-                    nearbyStops: nearbyStops(stop),
-                    nearbyVilloStations: nearbyVilloStations(stop),
-                    onDismiss: onDismiss,
-                    onOpenLine: onOpenLine,
-                    onOpenStop: onOpenStop,
-                    onReport: {
-                        onReport(stop)
-                    }
-                )
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .zIndex(10)
-            }
+    @ViewBuilder
+    private var stopPreviewLayer: some View {
+        if shouldShowStopPreview, let stop = previewStop {
+            HomeStopPreviewCard(
+                stopSummary: stop,
+                stopDetail: stopDetail,
+                isLoading: isLoading,
+                detailError: detailError,
+                nearbyStops: nearbyStops(stop),
+                nearbyVilloStations: nearbyVilloStations(stop),
+                onDismiss: onDismiss,
+                onOpenDetail: {
+                    onOpenDetail(stop)
+                },
+                selectedLineRoute: selectedLineRoute,
+                onSelectLineRoute: onSelectLineRoute,
+                onSelectSiblingStop: onSelectSiblingStop,
+                onRetry: onRetry
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(7)
+        }
+    }
+
+    @ViewBuilder
+    private var stopDetailLayer: some View {
+        if shouldShowStopDetail, let stop = detailStop {
+            ArretDetailPage(
+                stopSummary: stop,
+                stopDetail: stopDetail,
+                isLoading: isLoading,
+                userCoordinate: userCoordinate,
+                nearbyStops: nearbyStops(stop),
+                nearbyVilloStations: nearbyVilloStations(stop),
+                onDismiss: onDismiss,
+                onOpenLine: onOpenLine,
+                selectedLineRoute: selectedLineRoute,
+                onSelectLineRoute: onSelectLineRoute,
+                onOpenStop: onOpenStop,
+                onReport: {
+                    onReport(stop)
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .zIndex(10)
         }
     }
 }
@@ -3607,6 +3704,8 @@ private struct HomeStopPreviewCard: View {
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
     let onDismiss: () -> Void
     let onOpenDetail: () -> Void
+    let selectedLineRoute: String?
+    let onSelectLineRoute: (String) -> Void
     let onSelectSiblingStop: (TransportStopSummaryDTO) -> Void
     let onRetry: () -> Void
 
@@ -3725,7 +3824,16 @@ private struct HomeStopPreviewCard: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 6) {
                                     ForEach(displayedLines, id: \.self) { line in
-                                        LineBadge(line: line, size: .sm)
+                                        Button {
+                                            onSelectLineRoute(line)
+                                        } label: {
+                                            LineBadge(line: line, size: .sm)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                                        .stroke(selectedLineRoute == line ? DS.Color.ink : Color.clear, lineWidth: 2)
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }

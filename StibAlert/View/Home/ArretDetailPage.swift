@@ -107,6 +107,8 @@ struct ArretDetailPage: View {
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
     let onDismiss: () -> Void
     let onOpenLine: (String) -> Void
+    let selectedLineRoute: String?
+    let onSelectLineRoute: (String) -> Void
     let onOpenStop: (TransportStopSummaryDTO) -> Void
     let onReport: () -> Void
 
@@ -519,8 +521,12 @@ struct ArretDetailPage: View {
                             selectedLineFilter = nil
                         }
                         ForEach(servedLines, id: \.self) { line in
-                            filterChip(label: line, active: selectedLineFilter == line) {
+                            filterChip(
+                                label: line,
+                                active: selectedLineFilter == line || (selectedLineFilter == nil && selectedLineRoute == line)
+                            ) {
                                 selectedLineFilter = selectedLineFilter == line ? nil : line
+                                onSelectLineRoute(line)
                             }
                         }
                     }

@@ -826,6 +826,8 @@ private struct LigneStopDetailSheet: View {
             nearbyVilloStations: [],
             onDismiss: { dismiss() },
             onOpenLine: { _ in },
+            selectedLineRoute: nil,
+            onSelectLineRoute: { _ in },
             onOpenStop: { _ in },
             onReport: {}
         )
