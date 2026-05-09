@@ -258,8 +258,11 @@ struct LigneDetailPage: View {
                         .padding(.top, DS.Spacing.lg)
                         .padding(.bottom, 120)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .modifier(PaperGrainBackground())
         .task {
             await viewModel.load()
@@ -271,7 +274,7 @@ struct LigneDetailPage: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack {
                 Button(action: goBack) {
                     HStack(spacing: DS.Spacing.sm) {
@@ -317,11 +320,6 @@ struct LigneDetailPage: View {
                 .buttonStyle(.plain)
             }
 
-            PageHeader(
-                title: "",
-                eyebrow: "Ligne \(viewModel.line.line)",
-                large: false
-            )
         }
         .padding(.horizontal, DS.Spacing.xl)
         .padding(.top, DS.Spacing.md)
@@ -423,9 +421,7 @@ struct LigneDetailPage: View {
                     DS.StatusPill(confidenceLabel, level: statusLevel)
                 }
 
-                Text(viewModel.summaryDetails)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkSoft)
+                departuresPreview
 
                 if let alternative = viewModel.alternativeSummary, !alternative.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
@@ -438,6 +434,75 @@ struct LigneDetailPage: View {
                 }
             }
         }
+    }
+
+    private var departuresPreview: some View {
+        let departures = Array((viewModel.activeLine?.nextDepartures ?? []).prefix(3))
+
+        return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            if departures.isEmpty {
+                Text(viewModel.summaryDetails)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(Array(departures.enumerated()), id: \.offset) { _, departure in
+                    departureRow(departure)
+                }
+            }
+        }
+    }
+
+    private func departureRow(_ departure: TransportDepartureDTO) -> some View {
+        HStack(spacing: DS.Spacing.sm) {
+            LineBadge(
+                line: departure.line,
+                size: .sm,
+                fill: TransitLinePalette.fill(for: departure.line),
+                foreground: TransitLinePalette.foreground(for: departure.line)
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(departure.destination.map { "vers \($0)" } ?? "Prochain départ")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(departure.source == "scheduled" ? "Horaire prévu" : "Temps réel STIB")
+                    if let time = departure.realtimeDepartureAt ?? departure.scheduledDepartureAt {
+                        Text("· \(Self.departureTimeFormatter.string(from: time))")
+                    }
+                    if let delay = departure.delayMinutes, delay > 0 {
+                        Text("+\(delay) min")
+                            .foregroundStyle(DS.Color.statusMajor)
+                    }
+                }
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(DS.Color.inkMute)
+                .lineLimit(1)
+            }
+
+            Spacer(minLength: DS.Spacing.sm)
+
+            Text(Self.minutesLabel(departure.minutes))
+                .font(DS.Font.displayH3)
+                .foregroundStyle(DS.Color.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private static let departureTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private static func minutesLabel(_ minutes: Int) -> String {
+        minutes <= 0 ? "Imminent" : "\(minutes) min"
     }
 
     private var timeline: some View {

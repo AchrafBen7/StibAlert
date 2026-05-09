@@ -69,12 +69,11 @@ struct SignalementsView: View {
                 LigneDetailPage(
                     line: selectedLine,
                     onBack: {
-                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
-                            self.selectedLine = nil
-                        }
+                        self.selectedLine = nil
                     }
                 )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -224,9 +223,7 @@ struct SignalementsView: View {
             VStack(spacing: 0) {
                 ForEach(disruptedLines) { line in
                     LignesDisruptedRow(line: line) {
-                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
-                            selectedLine = line
-                        }
+                        selectedLine = line
                     }
                 }
             }
@@ -246,9 +243,7 @@ struct SignalementsView: View {
                         line: line,
                         compact: selectedFilter == .bus || line.filter == .bus
                     ) {
-                        withAnimation(AppMotion.spring(reduceMotion: reduceMotion, response: 0.35, dampingFraction: 0.86)) {
-                            selectedLine = line
-                        }
+                        selectedLine = line
                     }
                 }
             }
