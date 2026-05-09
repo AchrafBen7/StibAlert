@@ -184,6 +184,11 @@ final class LigneDetailViewModel: ObservableObject {
         selectedVariant = values[(currentIndex + 1) % values.count]
     }
 
+    func selectVariant(_ variant: DirectionVariant) {
+        guard availableVariants.contains(variant) else { return }
+        selectedVariant = variant
+    }
+
     private func variantDestination(_ variant: DirectionVariant) -> String? {
         let candidate: TransportLineDTO?
         switch variant {
@@ -378,28 +383,45 @@ struct LigneDetailPage: View {
     }
 
     private var directionToggle: some View {
-        Button {
-            viewModel.toggleDirection()
-        } label: {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             HStack(spacing: DS.Spacing.sm) {
-                Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 12, weight: .bold))
-                Text("Direction · \(viewModel.selectedVariant.label)")
-                    .font(DS.Font.bodyBold)
-                Spacer()
-                Text(activeDestination)
+                ForEach(viewModel.availableVariants) { variant in
+                    directionVariantButton(variant)
+                }
+            }
+
+            Text("Vers \(activeDestination)")
+                .font(DS.Font.monoSmall)
+                .tracking(0.8)
+                .foregroundStyle(DS.Color.inkMute)
+                .lineLimit(1)
+        }
+    }
+
+    private func directionVariantButton(_ variant: LigneDetailViewModel.DirectionVariant) -> some View {
+        let isSelected = viewModel.selectedVariant == variant
+
+        return Button {
+            viewModel.selectVariant(variant)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(variant.label.uppercased())
                     .font(DS.Font.monoSmall)
-                    .foregroundStyle(DS.Color.inkMute)
+                    .tracking(1.2)
+                Text(directionDestination(for: variant))
+                    .font(DS.Font.bodySmall.weight(.semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(DS.Color.ink)
+            .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, DS.Spacing.md)
-            .frame(height: 40)
-            .background(DS.Color.paper)
+            .frame(height: 54)
+            .background(isSelected ? DS.Color.ink : DS.Color.paper)
             .overlay(
                 RoundedRectangle(cornerRadius: DS.Radius.md)
-                    .stroke(DS.Color.border, lineWidth: 1)
+                    .stroke(isSelected ? DS.Color.ink : DS.Color.border, lineWidth: 1)
             )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -522,6 +544,17 @@ struct LigneDetailPage: View {
 
     private var activeDestination: String {
         viewModel.activeLine?.line.stops.last?.name ?? viewModel.line.destination
+    }
+
+    private func directionDestination(for variant: LigneDetailViewModel.DirectionVariant) -> String {
+        switch variant {
+        case .city:
+            return viewModel.cityLine?.line.stops.last?.name ?? "Centre"
+        case .suburb:
+            return viewModel.suburbLine?.line.stops.last?.name ?? "Retour"
+        case .base:
+            return viewModel.baseLine?.line.stops.last?.name ?? viewModel.line.destination
+        }
     }
 
     private var confidenceLabel: String {
