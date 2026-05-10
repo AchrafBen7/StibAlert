@@ -11,9 +11,9 @@ final class LigneDetailViewModel: ObservableObject {
 
         var label: String {
             switch self {
-            case .city: return "Aller"
-            case .suburb: return "Retour"
-            case .base: return "Ligne"
+            case .city: return "City"
+            case .suburb: return "Suburb"
+            case .base: return "Base"
             }
         }
     }
@@ -135,10 +135,11 @@ final class LigneDetailViewModel: ObservableObject {
     var summaryDetails: String {
         guard let activeLine else { return "Chargement des données de ligne…" }
         let departures = activeLine.nextDepartures.prefix(3).map {
-            "\($0.line) \($0.minutes) min\($0.source == "scheduled" ? " · théorique" : "")"
+            let minutes = $0.minutes <= 0 ? "Imminent" : "\($0.minutes) min"
+            return "\(minutes)\($0.source == "scheduled" ? " · prévu" : " · temps réel")"
         }
         if departures.isEmpty {
-            return activeLine.realtimeStatus
+            return "Aucun prochain départ fiable pour cette direction."
         }
         return departures.joined(separator: " • ")
     }
@@ -265,6 +266,7 @@ struct LigneDetailPage: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
@@ -390,7 +392,7 @@ struct LigneDetailPage: View {
                 }
             }
 
-            Text("Vers \(activeDestination)")
+            Text("Direction \(viewModel.selectedVariant.label) · vers \(activeDestination)")
                 .font(DS.Font.monoSmall)
                 .tracking(0.8)
                 .foregroundStyle(DS.Color.inkMute)
@@ -431,11 +433,15 @@ struct LigneDetailPage: View {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Temps réel")
+                        Text("ÉTAT DE LA DIRECTION")
                             .eyebrow()
                         Text(viewModel.summaryTitle)
                             .font(DS.Font.displayH3)
                             .foregroundStyle(DS.Color.ink)
+                        Text("Direction \(viewModel.selectedVariant.label) · vers \(activeDestination)")
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .lineLimit(1)
                     }
 
                     Spacer()
@@ -462,6 +468,8 @@ struct LigneDetailPage: View {
         let departures = Array((viewModel.activeLine?.nextDepartures ?? []).prefix(3))
 
         return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("Prochains départs")
+                .sectionTitle()
             if departures.isEmpty {
                 Text(viewModel.summaryDetails)
                     .font(DS.Font.bodySmall)
@@ -477,13 +485,6 @@ struct LigneDetailPage: View {
 
     private func departureRow(_ departure: TransportDepartureDTO) -> some View {
         HStack(spacing: DS.Spacing.sm) {
-            LineBadge(
-                line: departure.line,
-                size: .sm,
-                fill: TransitLinePalette.fill(for: departure.line),
-                foreground: TransitLinePalette.foreground(for: departure.line)
-            )
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(departure.destination.map { "vers \($0)" } ?? "Prochain départ")
                     .font(DS.Font.bodyBold)
@@ -507,13 +508,21 @@ struct LigneDetailPage: View {
 
             Spacer(minLength: DS.Spacing.sm)
 
-            Text(Self.minutesLabel(departure.minutes))
-                .font(DS.Font.displayH3)
-                .foregroundStyle(DS.Color.ink)
-                .monospacedDigit()
-                .lineLimit(1)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(Self.minutesLabel(departure.minutes))
+                    .font(DS.Font.displayH3)
+                    .foregroundStyle(DS.Color.ink)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                Text(departure.source == "scheduled" ? "prévu" : "live")
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(departure.source == "scheduled" ? DS.Color.inkMute : DS.Color.statusOK)
+            }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, DS.Spacing.sm)
+        .background(DS.Color.paper2.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }
 
     private static let departureTimeFormatter: DateFormatter = {

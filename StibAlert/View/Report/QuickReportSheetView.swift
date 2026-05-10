@@ -58,11 +58,11 @@ struct QuickReportSheetView: View {
     }
 
     private var submitBottomPadding: CGFloat {
-        keyboardHeight > 0 ? max(12, keyboardHeight - safeBottom + 12) : safeBottom + 8
+        keyboardHeight > 0 ? keyboardHeight + 10 : safeBottom + 8
     }
 
     private var scrollBottomPadding: CGFloat {
-        keyboardHeight > 0 ? keyboardHeight + 92 : 20
+        keyboardHeight > 0 ? keyboardHeight + 150 : 20
     }
 
     private var filteredNearbyStops: [NearbyStop] {
@@ -147,7 +147,14 @@ struct QuickReportSheetView: View {
                 }
                 .onChange(of: selectedProblem) { _, newValue in
                     guard newValue != nil else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        focusedField = .description
+                    }
                     scrollToDescription(proxy)
+                }
+                .onChange(of: keyboardHeight) { _, newValue in
+                    guard newValue > 0, focusedField == .description else { return }
+                    scrollToDescription(proxy, delay: 0.04)
                 }
             }
 
@@ -605,42 +612,39 @@ struct QuickReportSheetView: View {
                 .foregroundStyle(DS.Color.ink)
                 .padding(.horizontal, 18)
 
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $description)
-                    .scrollContentBackground(.hidden)
-                    .focused($focusedField, equals: .description)
-                    .frame(minHeight: 118, maxHeight: 118)
-                    .padding(10)
-                    .background(DS.Color.paper2.opacity(0.35))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .foregroundStyle(DS.Color.ink)
-                    .font(.system(size: 13))
-                    .submitLabel(.done)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Terminé") {
-                                focusedField = nil
-                            }
-                            .font(.system(size: 15, weight: .semibold))
+            TextField("Ex : Tram bloqué depuis 5 min au feu.", text: $description, axis: .vertical)
+                .focused($focusedField, equals: .description)
+                .lineLimit(4...6)
+                .padding(14)
+                .frame(minHeight: 118, alignment: .topLeading)
+                .background(DS.Color.paper2.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(focusedField == .description ? DS.Color.primary.opacity(0.55) : DS.Color.ink.opacity(0.08), lineWidth: 1.2)
+                )
+                .foregroundStyle(DS.Color.ink)
+                .font(.system(size: 15))
+                .submitLabel(.done)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Terminé") {
+                            focusedField = nil
                         }
+                        .font(.system(size: 15, weight: .semibold))
                     }
-                if description.isEmpty {
-                    Text("Ex : Tram bloqué depuis 5 min au feu.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(DS.Color.inkMute)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 18)
-                        .allowsHitTesting(false)
                 }
-            }
-            .padding(.horizontal, 18)
-            .id("descriptionField")
-            .onChange(of: description) { _, newValue in
-                if newValue.count > 280 {
-                    description = String(newValue.prefix(280))
+                .padding(.horizontal, 18)
+                .id("descriptionField")
+                .onTapGesture {
+                    focusedField = .description
                 }
-            }
+                .onChange(of: description) { _, newValue in
+                    if newValue.count > 280 {
+                        description = String(newValue.prefix(280))
+                    }
+                }
 
             HStack {
                 Text("Facultatif")
@@ -793,10 +797,10 @@ struct QuickReportSheetView: View {
         }
     }
 
-    private func scrollToDescription(_ proxy: ScrollViewProxy) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+    private func scrollToDescription(_ proxy: ScrollViewProxy, delay: Double = 0.12) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             withAnimation(.easeOut(duration: 0.22)) {
-                proxy.scrollTo("descriptionField", anchor: .center)
+                proxy.scrollTo("descriptionField", anchor: .top)
             }
         }
     }
