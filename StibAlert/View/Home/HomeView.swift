@@ -5711,6 +5711,11 @@ private struct RouteOptionCard: View {
                             .foregroundStyle(DS.Color.inkMute.opacity(0.82))
                     }
 
+                    if let nextDeparture = option.nextDepartureInsight {
+                        RouteNextDepartureBanner(insight: nextDeparture, arrivalText: option.arrivalSummaryText)
+                            .padding(.top, 2)
+                    }
+
                     HStack(spacing: 8) {
                         ForEach(option.displayLineCodes, id: \.self) { code in
                             RouteLineMiniBadge(line: code)
@@ -5749,6 +5754,13 @@ private struct RouteOptionCard: View {
                     Text(timingSecondaryText)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(DS.Color.inkMute.opacity(0.72))
+                        .lineLimit(1)
+                }
+                if let nextDeparture = option.nextDepartureInsight {
+                    Text("\(nextDeparture.lineCode) · \(nextDeparture.waitText)")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1.1)
+                        .foregroundStyle(DS.Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -5802,12 +5814,88 @@ private struct RouteVisualSegment {
     let weight: CGFloat
 }
 
+private struct RouteDepartureInsight {
+    let lineCode: String
+    let modeText: String
+    let waitText: String
+    let departureText: String
+    let arrivalText: String?
+    let stopText: String?
+    let isRealtime: Bool
+
+    var titleText: String {
+        "\(modeText) \(lineCode)"
+    }
+
+    var detailText: String {
+        let destinationPart = stopText.map { "vers \($0)" }
+        let arrivalPart = arrivalText.map { "arrivée \($0)" }
+        return [destinationPart, "départ \(departureText)", arrivalPart]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+}
+
+private struct RouteNextDepartureBanner: View {
+    let insight: RouteDepartureInsight
+    let arrivalText: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            RouteLineMiniBadge(line: insight.lineCode)
+                .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("PROCHAIN DÉPART")
+                        .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(DS.Color.inkMute)
+                    Text(insight.isRealtime ? "temps réel" : "prévu")
+                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(insight.isRealtime ? DS.Color.primary : DS.Color.inkMute)
+                }
+                Text(insight.titleText)
+                    .font(.system(size: 13.5, weight: .black))
+                    .foregroundStyle(DS.Color.ink)
+                Text(insight.detailText)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(insight.waitText)
+                    .font(.system(size: 17, weight: .black))
+                    .tracking(-0.35)
+                    .foregroundStyle(DS.Color.primary)
+                Text(arrivalText)
+                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                    .tracking(0.8)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(DS.Color.primary.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(DS.Color.primary.opacity(0.22), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
 private struct InlineRouteStepItem: Identifiable {
     let id = UUID()
     let icon: String?
     let title: String
     let meta: String
     let lineCode: String?
+    let timingBadge: String?
+    let timingDetail: String?
 }
 
 private struct RouteModeSummaryTile: View {
@@ -5925,14 +6013,31 @@ private struct InlineRouteDetails: View {
                     }
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(item.title)
-                            .font(.system(size: 12.5, weight: .bold))
-                            .foregroundStyle(DS.Color.ink)
-                            .lineLimit(2)
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(item.title)
+                                .font(.system(size: 12.5, weight: .bold))
+                                .foregroundStyle(DS.Color.ink)
+                                .lineLimit(2)
+                            Spacer(minLength: 6)
+                            if let timingBadge = item.timingBadge {
+                                Text(timingBadge)
+                                    .font(.system(size: 10.5, weight: .black))
+                                    .tracking(-0.1)
+                                    .foregroundStyle(DS.Color.primary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        if let timingDetail = item.timingDetail {
+                            Text(timingDetail)
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundStyle(DS.Color.ink)
+                                .lineLimit(1)
+                        }
                         Text(item.meta)
                             .font(DS.Font.monoSmall)
                             .tracking(1.2)
                             .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
@@ -6242,6 +6347,37 @@ private struct HomeRouteOption: Identifiable {
         return "Prévu \(scheduledDepartureTimeText) → \(scheduledArrivalTimeText)"
     }
 
+    var arrivalSummaryText: String {
+        "Arrivée \(arrivalTimeText)"
+    }
+
+    var nextDepartureInsight: RouteDepartureInsight? {
+        guard let step = backendAlternative?.steps?
+            .sorted(by: { $0.order < $1.order })
+            .first(where: { step in
+                guard let line = step.line else { return false }
+                return !line.isEmpty && !["walk", "bike"].contains(step.mode.lowercased())
+            }),
+            let line = step.line else { return nil }
+
+        let departureDate = step.realtimeDepartureAt ?? step.scheduledDepartureAt
+        let departureText = departureDate.map(Self.timeFormatter.string(from:)) ?? departureTimeText
+        let arrivalText = (step.realtimeArrivalAt ?? step.scheduledArrivalAt).map(Self.timeFormatter.string(from:))
+        let waitText = step.realtimeDepartureMinutes.map(Self.waitText)
+            ?? departureDate.map(Self.waitText)
+            ?? "À \(departureText)"
+
+        return RouteDepartureInsight(
+            lineCode: line,
+            modeText: Self.modeText(for: step),
+            waitText: waitText,
+            departureText: departureText,
+            arrivalText: arrivalText,
+            stopText: step.destination ?? step.arrivalStopName,
+            isRealtime: step.realtimeDepartureAt != nil || step.realtimeDepartureMinutes != nil
+        )
+    }
+
     var primaryModeKey: String {
         if let backendAlternative {
             return Self.primaryMode(for: backendAlternative)
@@ -6339,7 +6475,9 @@ private struct HomeRouteOption: Identifiable {
                     icon: Self.inlineIcon(for: step),
                     title: Self.inlineTitle(for: step),
                     meta: Self.inlineMeta(for: step),
-                    lineCode: step.line
+                    lineCode: step.line,
+                    timingBadge: Self.inlineTimingBadge(for: step),
+                    timingDetail: Self.inlineTimingDetail(for: step)
                 )
             }
         }
@@ -6350,7 +6488,9 @@ private struct HomeRouteOption: Identifiable {
                 icon: segment.icon,
                 title: stepCard.title,
                 meta: [segment.stopCountText, segment.durationBadge].compactMap { $0 }.joined(separator: " · "),
-                lineCode: stepCard.lineBadge
+                lineCode: stepCard.lineBadge,
+                timingBadge: nil,
+                timingDetail: nil
             )
         }
     }
@@ -6380,6 +6520,28 @@ private struct HomeRouteOption: Identifiable {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+
+    private static func modeText(for step: TransportRouteStepDTO) -> String {
+        switch step.mode.lowercased() {
+        case "bus": return "Bus"
+        case "metro": return "Métro"
+        case "tram": return "Tram"
+        default: return "Ligne"
+        }
+    }
+
+    private static func waitText(_ minutes: Int) -> String {
+        if minutes <= 0 { return "Maintenant" }
+        if minutes == 1 { return "Dans 1 min" }
+        return "Dans \(minutes) min"
+    }
+
+    private static func waitText(for date: Date) -> String {
+        let minutes = Int(ceil(date.timeIntervalSince(Date()) / 60))
+        if minutes <= 0 { return "Maintenant" }
+        if minutes <= 90 { return waitText(minutes) }
+        return "À \(timeFormatter.string(from: date))"
+    }
 
     private static func extractLineCode(from instruction: String) -> String? {
         let pattern = #"\b(T?\d{1,3})\b"#
@@ -6700,6 +6862,33 @@ private struct HomeRouteOption: Identifiable {
             }
         }
         return parts.joined(separator: " · ")
+    }
+
+    private static func inlineTimingBadge(for step: TransportRouteStepDTO) -> String? {
+        guard step.line != nil else { return nil }
+        if let minutes = step.realtimeDepartureMinutes {
+            return waitText(minutes)
+        }
+        if let realtimeDepartureAt = step.realtimeDepartureAt {
+            return waitText(for: realtimeDepartureAt)
+        }
+        if let scheduledDepartureAt = step.scheduledDepartureAt {
+            return "Prévu \(timeFormatter.string(from: scheduledDepartureAt))"
+        }
+        return nil
+    }
+
+    private static func inlineTimingDetail(for step: TransportRouteStepDTO) -> String? {
+        let departureDate = step.realtimeDepartureAt ?? step.scheduledDepartureAt
+        let arrivalDate = step.realtimeArrivalAt ?? step.scheduledArrivalAt
+        guard let departureDate else { return nil }
+
+        let source = (step.realtimeDepartureAt != nil || step.realtimeDepartureMinutes != nil) ? "Temps réel" : "Horaire prévu"
+        let departure = timeFormatter.string(from: departureDate)
+        if let arrivalDate {
+            return "\(source) · \(departure) → \(timeFormatter.string(from: arrivalDate))"
+        }
+        return "\(source) · départ \(departure)"
     }
 
     private func nextCoordinate(from current: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> CLLocationCoordinate2D? {
