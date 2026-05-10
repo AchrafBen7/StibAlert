@@ -8,12 +8,13 @@ struct HomeRoutePlannerSheet: View {
     let isRouting: Bool
     let onPlanRoute: (MKMapItem, MKMapItem, String) -> Void
 
-    @State private var departureQuery = "Ma position"
+    @State private var departureQuery = "Votre position"
     @State private var arrivalQuery = ""
     @State private var departureSuggestions: [MKMapItem] = []
     @State private var arrivalSuggestions: [MKMapItem] = []
     @State private var selectedDeparture: MKMapItem?
     @State private var selectedArrival: MKMapItem?
+    @State private var recentPlaces: [HomeRouteRecentPlace] = HomeRouteRecentStore.load()
     @State private var searchTask: Task<Void, Never>?
     @State private var isResolving = false
     @State private var errorMessage: String?
@@ -26,20 +27,40 @@ struct HomeRoutePlannerSheet: View {
 
     private let brussels = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
 
+    private var activeSuggestions: [MKMapItem] {
+        focusedField == .departure ? departureSuggestions : arrivalSuggestions
+    }
+
+    private var isEditingDestination: Bool {
+        focusedField == .arrival && !arrivalQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    header
-                    routeFields
-                    suggestionsBlock
-                    infoCard
+                    topSearchBar
+                    quickPlaces
+                    routeFieldsCard
+
+                    if !activeSuggestions.isEmpty {
+                        suggestionsSection
+                    } else if !isEditingDestination {
+                        recentSection
+                    }
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.statusMajor)
+                            .padding(.horizontal, 4)
+                    }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 110)
+                .padding(.top, 16)
+                .padding(.bottom, 128)
             }
-            .background(DS.Color.background.ignoresSafeArea())
+            .background(DS.Color.paper.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 bottomAction
             }
@@ -51,107 +72,186 @@ struct HomeRoutePlannerSheet: View {
         .preferredColorScheme(.light)
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Itinéraires")
-                        .displayH1()
+    private var topSearchBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                isPresented = false
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
 
-                    Text("Choisis un départ et une arrivée pour calculer une route précise.")
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.inkSoft)
-                        .fixedSize(horizontal: false, vertical: true)
+            TextField("", text: $arrivalQuery, prompt: Text("Votre recherche").foregroundStyle(DS.Color.inkMute))
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(DS.Color.ink)
+                .focused($focusedField, equals: .arrival)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit {
+                    Task { await submit() }
+                }
+                .onChange(of: arrivalQuery) { _, newValue in
+                    selectedArrival = nil
+                    handleQueryChange(newValue, for: .arrival)
                 }
 
-                Spacer()
+            Button {
+                focusedField = .arrival
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 62)
+        .background(DS.Color.paper2.opacity(0.72))
+        .clipShape(Capsule())
+    }
 
-                Button {
-                    isPresented = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .bold))
+    private var quickPlaces: some View {
+        HStack(spacing: 18) {
+            quickPlaceButton(icon: "house.fill", title: "Domicile", subtitle: "Ajouter") {
+                focusedField = .arrival
+                arrivalQuery = "Domicile"
+            }
+            quickPlaceButton(icon: "briefcase.fill", title: "Travail", subtitle: "Ajouter") {
+                focusedField = .arrival
+                arrivalQuery = "Travail"
+            }
+            quickPlaceButton(icon: "ellipsis", title: "Plus", subtitle: "Adresses") {
+                focusedField = .arrival
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    private func quickPlaceButton(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 42, height: 42)
+                    .background(DS.Color.community.opacity(0.14))
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
-                        .frame(width: 44, height: 44)
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var routeFieldsCard: some View {
+        VStack(spacing: 0) {
+            routeFieldRow(
+                field: .departure,
+                icon: "location.fill",
+                text: $departureQuery,
+                placeholder: "Adresse de départ",
+                tint: DS.Color.community
+            )
+
+            HStack(spacing: 12) {
+                VStack(spacing: 4) {
+                    Circle().fill(DS.Color.inkMute.opacity(0.35)).frame(width: 3, height: 3)
+                    Circle().fill(DS.Color.inkMute.opacity(0.35)).frame(width: 3, height: 3)
+                    Circle().fill(DS.Color.inkMute.opacity(0.35)).frame(width: 3, height: 3)
+                }
+                .frame(width: 42)
+
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.10))
+                    .frame(height: 1)
+
+                Button(action: swapRouteFields) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 17, weight: .black))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 42, height: 42)
                         .background(DS.Color.paper)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .stroke(DS.Color.border, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.leading, 6)
+            .padding(.trailing, 10)
 
-            Rectangle()
-                .fill(DS.Color.ink)
-                .frame(height: 3)
-        }
-    }
-
-    private var routeFields: some View {
-        VStack(spacing: 10) {
-            plannerField(
-                title: "Départ",
-                icon: "location.fill",
-                text: $departureQuery,
-                focused: .departure,
-                placeholder: "Adresse de départ"
-            )
-
-            plannerField(
-                title: "Arrivée",
-                icon: "mappin.and.ellipse",
+            routeFieldRow(
+                field: .arrival,
+                icon: "mappin.circle.fill",
                 text: $arrivalQuery,
-                focused: .arrival,
-                placeholder: "Où vas-tu ?"
+                placeholder: "Destination",
+                tint: DS.Color.primary
             )
         }
-        .padding(14)
+        .padding(.vertical, 10)
         .background(DS.Color.paper)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(DS.Color.border, lineWidth: 1)
         )
-        .shadow(DS.Shadow.raised)
+        .shadow(DS.Shadow.floating)
     }
 
-    private func plannerField(
-        title: String,
+    private func routeFieldRow(
+        field: PlannerField,
         icon: String,
         text: Binding<String>,
-        focused: PlannerField,
-        placeholder: String
+        placeholder: String,
+        tint: Color
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(focused == .departure ? DS.Color.community : DS.Color.primary)
-                .frame(width: 34, height: 34)
-                .background((focused == .departure ? DS.Color.community : DS.Color.primary).opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 42, height: 42)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(DS.Font.monoSmall)
-                    .tracking(1.4)
-                    .textCase(.uppercase)
-                    .foregroundStyle(DS.Color.inkMute)
-
-                TextField(placeholder, text: text)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .focused($focusedField, equals: focused)
-                    .submitLabel(.search)
-                    .onChange(of: text.wrappedValue) { _, newValue in
-                        handleQueryChange(newValue, for: focused)
+            TextField("", text: text, prompt: Text(placeholder).foregroundStyle(DS.Color.inkMute))
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .focused($focusedField, equals: field)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit {
+                    if field == .departure {
+                        focusedField = .arrival
+                    } else {
+                        Task { await submit() }
                     }
-            }
+                }
+                .onChange(of: text.wrappedValue) { _, newValue in
+                    if field == .departure {
+                        selectedDeparture = nil
+                    } else {
+                        selectedArrival = nil
+                    }
+                    handleQueryChange(newValue, for: field)
+                }
 
-            if !text.wrappedValue.isEmpty && !(focused == .departure && text.wrappedValue == "Ma position") {
+            if !text.wrappedValue.isEmpty && !(field == .departure && text.wrappedValue == "Votre position") {
                 Button {
-                    clearField(focused)
+                    clearField(field)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 18, weight: .semibold))
@@ -161,45 +261,57 @@ struct HomeRoutePlannerSheet: View {
             }
         }
         .padding(.horizontal, 12)
-        .frame(height: 66)
-        .background(focusedField == focused ? DS.Color.secondary : DS.Color.background)
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(focusedField == focused ? DS.Color.ink.opacity(0.28) : DS.Color.border, lineWidth: 1)
-        )
+        .frame(height: 58)
     }
 
-    @ViewBuilder
-    private var suggestionsBlock: some View {
-        let suggestions = focusedField == .departure ? departureSuggestions : arrivalSuggestions
+    private var suggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Résultats")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+                .padding(.bottom, 8)
 
-        if focusedField == .departure || !suggestions.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                if focusedField == .departure {
-                    Button {
-                        selectedDeparture = nil
-                        departureQuery = "Ma position"
-                        departureSuggestions = []
-                        focusedField = .arrival
-                    } label: {
-                        suggestionRow(
-                            icon: "location.viewfinder",
-                            title: "Ma position actuelle",
-                            subtitle: "Utiliser ta position comme départ"
-                        )
-                    }
-                    .buttonStyle(.plain)
+            ForEach(activeSuggestions, id: \.self) { item in
+                Button {
+                    selectSuggestion(item)
+                } label: {
+                    placeRow(
+                        icon: "mappin.and.ellipse",
+                        iconTint: DS.Color.primary,
+                        title: item.name ?? "Adresse",
+                        subtitle: item.placemark.title ?? "Bruxelles"
+                    )
                 }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 
-                ForEach(suggestions, id: \.self) { item in
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Récent")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+                .padding(.bottom, 8)
+
+            if recentPlaces.isEmpty {
+                placeRow(
+                    icon: "clock",
+                    iconTint: DS.Color.inkMute,
+                    title: "Aucune recherche récente",
+                    subtitle: "Tes derniers itinéraires apparaîtront ici."
+                )
+                .opacity(0.72)
+            } else {
+                ForEach(recentPlaces) { place in
                     Button {
-                        selectSuggestion(item)
+                        selectRecent(place)
                     } label: {
-                        suggestionRow(
-                            icon: "mappin.circle.fill",
-                            title: item.name ?? "Adresse",
-                            subtitle: item.placemark.title ?? "Bruxelles"
+                        placeRow(
+                            icon: place.kind == .stop ? "tram.fill" : "clock",
+                            iconTint: place.kind == .stop ? DS.Color.community : DS.Color.inkMute,
+                            title: place.title,
+                            subtitle: place.subtitle
                         )
                     }
                     .buttonStyle(.plain)
@@ -208,62 +320,35 @@ struct HomeRoutePlannerSheet: View {
         }
     }
 
-    private func suggestionRow(icon: String, title: String, subtitle: String) -> some View {
-        HStack(spacing: 12) {
+    private func placeRow(icon: String, iconTint: Color, title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(DS.Color.primary)
-                .frame(width: 40, height: 40)
-                .background(DS.Color.primary.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .foregroundStyle(iconTint)
+                .frame(width: 42, height: 42)
+                .background(DS.Color.paper2)
+                .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(DS.Font.bodyBold)
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
-
                 Text(subtitle)
-                    .font(DS.Font.caption)
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
 
             Spacer()
-
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(DS.Color.inkMute)
         }
-        .padding(12)
-        .background(DS.Color.paper)
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(DS.Color.border, lineWidth: 1)
-        )
-    }
-
-    private var infoCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Calcul STIB + carte")
-                .sectionTitle()
-
-            Text("Le calcul réutilise les itinéraires transport existants, avec alternatives transport, vélo et marche quand elles sont disponibles.")
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkSoft)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.statusMajor)
-            }
+        .padding(.vertical, 13)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DS.Color.ink.opacity(0.10))
+                .frame(height: 1)
+                .padding(.leading, 56)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Color.paper2.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
     }
 
     private var bottomAction: some View {
@@ -303,15 +388,9 @@ struct HomeRoutePlannerSheet: View {
     }
 
     private func handleQueryChange(_ value: String, for field: PlannerField) {
-        if field == .departure {
-            selectedDeparture = nil
-        } else {
-            selectedArrival = nil
-        }
-
         searchTask?.cancel()
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 2, !(field == .departure && trimmed == "Ma position") else {
+        guard trimmed.count >= 2, !(field == .departure && trimmed == "Votre position") else {
             if field == .departure {
                 departureSuggestions = []
             } else {
@@ -321,7 +400,7 @@ struct HomeRoutePlannerSheet: View {
         }
 
         searchTask = Task {
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            try? await Task.sleep(nanoseconds: 230_000_000)
             guard !Task.isCancelled else { return }
             let results = await searchSuggestions(for: trimmed)
             await MainActor.run {
@@ -344,6 +423,7 @@ struct HomeRoutePlannerSheet: View {
             selectedArrival = nil
             arrivalSuggestions = []
         }
+        focusedField = field
     }
 
     private func selectSuggestion(_ item: MKMapItem) {
@@ -357,7 +437,27 @@ struct HomeRoutePlannerSheet: View {
             arrivalQuery = item.name ?? item.placemark.title ?? ""
             arrivalSuggestions = []
             focusedField = nil
+            saveRecent(item)
         }
+    }
+
+    private func selectRecent(_ place: HomeRouteRecentPlace) {
+        let item = place.mapItem
+        selectedArrival = item
+        arrivalQuery = place.title
+        arrivalSuggestions = []
+        focusedField = nil
+    }
+
+    private func swapRouteFields() {
+        guard arrivalQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
+        let oldDepartureQuery = departureQuery
+        let oldDeparture = selectedDeparture
+        departureQuery = arrivalQuery
+        selectedDeparture = selectedArrival
+        arrivalQuery = oldDepartureQuery == "Votre position" ? "" : oldDepartureQuery
+        selectedArrival = oldDeparture
+        focusedField = arrivalQuery.isEmpty ? .arrival : nil
     }
 
     @MainActor
@@ -372,19 +472,20 @@ struct HomeRoutePlannerSheet: View {
         } else {
             resolvedArrival = await resolve(query: arrivalQuery)
         }
-
         guard let destination = resolvedArrival else {
             errorMessage = "Adresse d’arrivée introuvable."
+            focusedField = .arrival
             return
         }
 
         let source: MKMapItem
         let originName: String
+        let trimmedDeparture = departureQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if departureQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || departureQuery.trimmingCharacters(in: .whitespacesAndNewlines) == "Ma position" {
+        if trimmedDeparture.isEmpty || trimmedDeparture == "Votre position" {
             guard let userCoordinate else {
                 errorMessage = "Position actuelle indisponible."
+                focusedField = .departure
                 return
             }
             source = MKMapItem(placemark: MKPlacemark(coordinate: userCoordinate))
@@ -398,9 +499,11 @@ struct HomeRoutePlannerSheet: View {
             originName = resolvedDeparture.name ?? resolvedDeparture.placemark.title ?? "Départ"
         } else {
             errorMessage = "Adresse de départ introuvable."
+            focusedField = .departure
             return
         }
 
+        saveRecent(destination)
         isPresented = false
         onPlanRoute(source, destination, originName)
     }
@@ -426,12 +529,72 @@ struct HomeRoutePlannerSheet: View {
                 unique.append(item)
             }
         }
-        return Array(unique.prefix(6))
+        return Array(unique.prefix(8))
     }
 
     private func resolve(query: String) async -> MKMapItem? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return await searchSuggestions(for: trimmed).first
+    }
+
+    private func saveRecent(_ item: MKMapItem) {
+        let recent = HomeRouteRecentPlace(item: item)
+        recentPlaces = HomeRouteRecentStore.prepending(recent, to: recentPlaces)
+        HomeRouteRecentStore.save(recentPlaces)
+    }
+}
+
+private struct HomeRouteRecentPlace: Codable, Identifiable, Equatable {
+    enum Kind: String, Codable {
+        case place
+        case stop
+    }
+
+    let id: String
+    let title: String
+    let subtitle: String
+    let latitude: Double
+    let longitude: Double
+    let kind: Kind
+
+    init(item: MKMapItem) {
+        let coordinate = item.placemark.coordinate
+        self.id = "\(coordinate.latitude)-\(coordinate.longitude)-\(item.name ?? item.placemark.title ?? "place")"
+        self.title = item.name ?? item.placemark.title ?? "Adresse"
+        self.subtitle = item.placemark.title ?? "Bruxelles"
+        self.latitude = coordinate.latitude
+        self.longitude = coordinate.longitude
+        self.kind = .place
+    }
+
+    var mapItem: MKMapItem {
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        item.name = title
+        return item
+    }
+}
+
+private enum HomeRouteRecentStore {
+    private static let key = "home.route.recent.places.v1"
+
+    static func load() -> [HomeRouteRecentPlace] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([HomeRouteRecentPlace].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    static func save(_ places: [HomeRouteRecentPlace]) {
+        guard let data = try? JSONEncoder().encode(Array(places.prefix(12))) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+
+    static func prepending(_ place: HomeRouteRecentPlace, to places: [HomeRouteRecentPlace]) -> [HomeRouteRecentPlace] {
+        var next = places.filter { $0.id != place.id }
+        next.insert(place, at: 0)
+        return Array(next.prefix(12))
     }
 }

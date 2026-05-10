@@ -628,7 +628,7 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showRoutePlanner) {
+        .fullScreenCover(isPresented: $showRoutePlanner) {
             HomeRoutePlannerSheet(
                 isPresented: $showRoutePlanner,
                 userCoordinate: locationManager.userCoordinate ?? locationManager.displayCoordinate,
@@ -643,8 +643,6 @@ struct HomeView: View {
                     }
                 }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedVilloStation) { station in
             HomeVilloStationSheet(station: station)
@@ -2728,7 +2726,7 @@ private struct HomeSearchHeaderOverlay: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                HomeEditorialSearchField(query: $searchQuery)
+                HomeEditorialSearchField(query: $searchQuery, action: onOpenItineraryPlanner)
 
                 Button(action: onShowLegend) {
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
@@ -2803,19 +2801,22 @@ private struct HomeSearchHeaderOverlay: View {
 
 private struct HomeEditorialSearchField: View {
     @Binding var query: String
+    let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(DS.Color.inkSoft)
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkSoft)
 
-            TextField("", text: $query, prompt: Text("Où vas-tu ?").foregroundStyle(DS.Color.inkMute))
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.ink)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
+                Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Où vas-tu ?" : query)
+                    .font(DS.Font.body)
+                    .foregroundStyle(query.isEmpty ? DS.Color.inkMute : DS.Color.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 14)
         .frame(height: 48)
         .background(DS.Color.paper.opacity(0.96))
