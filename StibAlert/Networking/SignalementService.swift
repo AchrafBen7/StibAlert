@@ -74,24 +74,21 @@ enum SignalementService {
     static func confirmer(signalementId: String) async throws -> SignalementCommunityActionResponse {
         try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/confirm",
-            method: .POST,
-            requiresAuth: true
+            method: .POST
         )
     }
 
     static func toujoursBloque(signalementId: String) async throws -> SignalementCommunityActionResponse {
         try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/still-blocked",
-            method: .POST,
-            requiresAuth: true
+            method: .POST
         )
     }
 
     static func resoudre(signalementId: String) async throws -> SignalementCommunityActionResponse {
         try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/resolved",
-            method: .POST,
-            requiresAuth: true
+            method: .POST
         )
     }
 }

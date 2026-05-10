@@ -105,6 +105,13 @@ struct HomeView: View {
         let source: String?
     }
 
+    private struct CommunityWarningPoint: Identifiable {
+        let id: String
+        let coordinate: CLLocationCoordinate2D
+        let typeProbleme: String
+        let evidenceCount: Int
+    }
+
     private struct RouteOfficialSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
@@ -139,6 +146,52 @@ struct HomeView: View {
 
     private var officialSignalPoints: [LiveSignalPoint] {
         liveSignalPoints.filter { $0.source == "stib_officiel" }
+    }
+
+    private var communityWarningPoints: [CommunityWarningPoint] {
+        struct Bucket {
+            var items: [SignalementDTO] = []
+            var latitudeTotal: Double = 0
+            var longitudeTotal: Double = 0
+            var confirmations: Int = 0
+            var stillBlocked: Int = 0
+            var resolved: Int = 0
+        }
+
+        var buckets: [String: Bucket] = [:]
+        for signalement in filteredSignalements {
+            guard signalement.source != "stib_officiel",
+                  signalement.status != "resolved",
+                  let lat = signalement.latitude,
+                  let lng = signalement.longitude else { continue }
+
+            let stopKey = signalement.arretId?.id ?? "\(round(lat * 10000) / 10000),\(round(lng * 10000) / 10000)"
+            let key = "\(signalement.ligne)|\(stopKey)"
+            var bucket = buckets[key, default: Bucket()]
+            bucket.items.append(signalement)
+            bucket.latitudeTotal += lat
+            bucket.longitudeTotal += lng
+            bucket.confirmations += signalement.community?.confirmations ?? 0
+            bucket.stillBlocked += signalement.community?.stillBlocked ?? 0
+            bucket.resolved += signalement.community?.resolved ?? 0
+            buckets[key] = bucket
+        }
+
+        return buckets.compactMap { _, bucket in
+            guard let first = bucket.items.first else { return nil }
+            let evidence = bucket.items.count + bucket.confirmations + bucket.stillBlocked
+            guard evidence >= 3, bucket.resolved < 3 else { return nil }
+            let count = Double(bucket.items.count)
+            return CommunityWarningPoint(
+                id: first.id,
+                coordinate: CLLocationCoordinate2D(
+                    latitude: bucket.latitudeTotal / count,
+                    longitude: bucket.longitudeTotal / count
+                ),
+                typeProbleme: first.displayTypeProbleme,
+                evidenceCount: evidence
+            )
+        }
     }
 
     private var mapClusters: [MapSignalCluster] {
@@ -751,14 +804,10 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
-            ForEach(mapClusters) { cluster in
-                Annotation("", coordinate: cluster.coordinate, anchor: .bottom) {
-                    Button { handleClusterTap(cluster) } label: {
-                        if cluster.count > 1 {
-                            MapClusterMarker(count: cluster.count, dominantType: cluster.dominantType)
-                        } else {
-                            LiveSignalMarker(problemType: cluster.dominantType)
-                        }
+            ForEach(communityWarningPoints) { point in
+                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
+                    Button { openPreview(for: point.id) } label: {
+                        CommunityWarningMarker(problemType: point.typeProbleme, count: point.evidenceCount)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1667,11 +1716,6 @@ struct HomeView: View {
     }
 
     private func reportStillBlocked(id: String) async {
-        guard !session.isGuest else {
-            guestGateReason = .confirm
-            showReportAuthGate = true
-            return
-        }
         do {
             let response = try await SignalementService.toujoursBloque(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
@@ -1780,11 +1824,6 @@ struct HomeView: View {
     }
 
     private func reportResolved(id: String) async {
-        guard !session.isGuest else {
-            guestGateReason = .confirm
-            showReportAuthGate = true
-            return
-        }
         do {
             let response = try await SignalementService.resoudre(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
@@ -3143,18 +3182,20 @@ private struct LiveSignalMarker: View {
 
 private struct OfficialSignalMarker: View {
     let problemType: String
+    @State private var pulse = false
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color(hex: "#F0441F").opacity(pulse ? 0.16 : 0.34))
+                        .frame(width: pulse ? 48 : 38, height: pulse ? 46 : 36)
+                        .scaleEffect(pulse ? 1.12 : 0.92)
+
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(Color(hex: "#F0441F"))
                         .frame(width: 34, height: 32)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .stroke(Color.white, lineWidth: 2)
-                        )
                         .shadow(color: Color(hex: "#F0441F").opacity(0.35), radius: 8, x: 0, y: 3)
                         .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 2)
 
@@ -3177,15 +3218,67 @@ private struct OfficialSignalMarker: View {
             TrianglePointer()
                 .fill(Color(hex: "#F0441F"))
                 .frame(width: 12, height: 7)
-                .overlay(
-                    TrianglePointer()
-                        .stroke(Color.white, lineWidth: 1.5)
-                )
                 .offset(y: -1)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.72).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
         }
         .accessibilityElement()
         .accessibilityLabel("Alerte officielle STIB — \(problemType)")
         .accessibilityHint("Ouvre le détail de la perturbation officielle")
+    }
+}
+
+private struct CommunityWarningMarker: View {
+    let problemType: String
+    let count: Int
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color(hex: "#F0441F").opacity(pulse ? 0.14 : 0.30))
+                        .frame(width: pulse ? 50 : 40, height: pulse ? 48 : 38)
+                        .scaleEffect(pulse ? 1.12 : 0.94)
+
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "#F0441F"))
+                        .frame(width: 36, height: 34)
+                        .shadow(color: Color(hex: "#F0441F").opacity(0.38), radius: 9, x: 0, y: 4)
+                        .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 2)
+
+                    Image(systemName: "person.2.wave.2.fill")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(.white)
+                }
+
+                Text("+\(count)")
+                    .font(.system(size: 8, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(Color.black)
+                    .clipShape(Capsule())
+                    .offset(x: 9, y: -7)
+            }
+
+            TrianglePointer()
+                .fill(Color(hex: "#F0441F"))
+                .frame(width: 12, height: 7)
+                .offset(y: -1)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.72).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Alerte communauté — \(problemType)")
+        .accessibilityHint("Ouvre le détail du signalement")
     }
 }
 

@@ -75,6 +75,7 @@ struct APIClient {
         req.httpMethod = method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(KeychainHelper.anonymousDeviceId(), forHTTPHeaderField: "x-stib-device-id")
 
         let accessToken = requiresAuth ? KeychainHelper.readToken() : nil
         if let accessToken {
@@ -177,6 +178,7 @@ struct APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue(KeychainHelper.anonymousDeviceId(), forHTTPHeaderField: "x-stib-device-id")
         let accessToken = requiresAuth ? KeychainHelper.readToken() : nil
         if let accessToken {
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
