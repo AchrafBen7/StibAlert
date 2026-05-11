@@ -58,11 +58,11 @@ struct QuickReportSheetView: View {
     }
 
     private var submitBottomPadding: CGFloat {
-        keyboardHeight > 0 ? keyboardHeight + 10 : safeBottom + 8
+        safeBottom + 8
     }
 
     private var scrollBottomPadding: CGFloat {
-        keyboardHeight > 0 ? keyboardHeight + 150 : 20
+        keyboardHeight > 0 ? 128 : 20
     }
 
     private var filteredNearbyStops: [NearbyStop] {
@@ -88,7 +88,7 @@ struct QuickReportSheetView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .ignoresSafeArea(edges: .bottom)
+                .padding(.bottom, keyboardHeight)
 
             if showConfetti {
                 ConfettiBurst()

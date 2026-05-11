@@ -15,6 +15,9 @@ struct HomeRoutePlannerSheet: View {
     @State private var selectedDeparture: MKMapItem?
     @State private var selectedArrival: MKMapItem?
     @State private var recentPlaces: [HomeRouteRecentPlace] = HomeRouteRecentStore.load()
+    @State private var savedPlaces: [HomeRouteSavedPlaceKind: HomeRouteRecentPlace] = HomeRouteSavedPlaceStore.load()
+    @State private var pendingSavedPlace: HomeRouteSavedPlaceKind?
+    @State private var isApplyingSelection = false
     @State private var searchTask: Task<Void, Never>?
     @State private var isResolving = false
     @State private var errorMessage: String?
@@ -95,6 +98,7 @@ struct HomeRoutePlannerSheet: View {
                     Task { await submit() }
                 }
                 .onChange(of: arrivalQuery) { _, newValue in
+                    guard !isApplyingSelection else { return }
                     selectedArrival = nil
                     handleQueryChange(newValue, for: .arrival)
                 }
@@ -117,22 +121,31 @@ struct HomeRoutePlannerSheet: View {
 
     private var quickPlaces: some View {
         HStack(spacing: 18) {
-            quickPlaceButton(icon: "house.fill", title: "Domicile", subtitle: "Ajouter") {
-                focusedField = .arrival
-                arrivalQuery = "Domicile"
+            quickPlaceButton(
+                icon: "house.fill",
+                title: "Domicile",
+                subtitle: savedPlaces[.home]?.subtitle ?? "Ajouter",
+                isConfigured: savedPlaces[.home] != nil
+            ) {
+                useSavedPlace(.home)
             }
-            quickPlaceButton(icon: "briefcase.fill", title: "Travail", subtitle: "Ajouter") {
-                focusedField = .arrival
-                arrivalQuery = "Travail"
+            quickPlaceButton(
+                icon: "briefcase.fill",
+                title: "Travail",
+                subtitle: savedPlaces[.work]?.subtitle ?? "Ajouter",
+                isConfigured: savedPlaces[.work] != nil
+            ) {
+                useSavedPlace(.work)
             }
-            quickPlaceButton(icon: "ellipsis", title: "Plus", subtitle: "Adresses") {
+            quickPlaceButton(icon: "ellipsis", title: "Plus", subtitle: "Adresses", isConfigured: true) {
                 focusedField = .arrival
+                pendingSavedPlace = nil
             }
         }
         .padding(.top, 8)
     }
 
-    private func quickPlaceButton(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+    private func quickPlaceButton(icon: String, title: String, subtitle: String, isConfigured: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon)
@@ -147,7 +160,7 @@ struct HomeRoutePlannerSheet: View {
                         .foregroundStyle(DS.Color.ink)
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(DS.Color.inkMute)
+                        .foregroundStyle(isConfigured ? DS.Color.inkMute : DS.Color.primary)
                         .lineLimit(1)
                 }
             }
@@ -241,6 +254,7 @@ struct HomeRoutePlannerSheet: View {
                     }
                 }
                 .onChange(of: text.wrappedValue) { _, newValue in
+                    guard !isApplyingSelection else { return }
                     if field == .departure {
                         selectedDeparture = nil
                     } else {
@@ -380,10 +394,10 @@ struct HomeRoutePlannerSheet: View {
     }
 
     private var canSubmit: Bool {
-        let arrivalReady = selectedArrival != nil || !arrivalQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let arrivalReady = selectedArrival != nil
         let departureReady = selectedDeparture != nil
             || userCoordinate != nil
-            || !departureQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || departureQuery.trimmingCharacters(in: .whitespacesAndNewlines) == "Votre position"
         return arrivalReady && departureReady
     }
 
@@ -422,42 +436,54 @@ struct HomeRoutePlannerSheet: View {
             arrivalQuery = ""
             selectedArrival = nil
             arrivalSuggestions = []
+            pendingSavedPlace = nil
         }
         focusedField = field
     }
 
     private func selectSuggestion(_ item: MKMapItem) {
-        if focusedField == .departure {
-            selectedDeparture = item
-            departureQuery = item.name ?? item.placemark.title ?? ""
-            departureSuggestions = []
-            focusedField = .arrival
-        } else {
-            selectedArrival = item
-            arrivalQuery = item.name ?? item.placemark.title ?? ""
-            arrivalSuggestions = []
-            focusedField = nil
-            saveRecent(item)
+        applySelectionChange {
+            if focusedField == .departure {
+                selectedDeparture = item
+                departureQuery = item.name ?? item.placemark.title ?? ""
+                departureSuggestions = []
+                focusedField = .arrival
+            } else {
+                selectedArrival = item
+                arrivalQuery = item.name ?? item.placemark.title ?? ""
+                arrivalSuggestions = []
+                focusedField = nil
+                if let pendingSavedPlace {
+                    saveSavedPlace(item, kind: pendingSavedPlace)
+                    self.pendingSavedPlace = nil
+                }
+                saveRecent(item)
+            }
         }
     }
 
     private func selectRecent(_ place: HomeRouteRecentPlace) {
-        let item = place.mapItem
-        selectedArrival = item
-        arrivalQuery = place.title
-        arrivalSuggestions = []
-        focusedField = nil
+        applySelectionChange {
+            let item = place.mapItem
+            selectedArrival = item
+            arrivalQuery = place.title
+            arrivalSuggestions = []
+            focusedField = nil
+        }
     }
 
     private func swapRouteFields() {
         guard arrivalQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
-        let oldDepartureQuery = departureQuery
-        let oldDeparture = selectedDeparture
-        departureQuery = arrivalQuery
-        selectedDeparture = selectedArrival
-        arrivalQuery = oldDepartureQuery == "Votre position" ? "" : oldDepartureQuery
-        selectedArrival = oldDeparture
-        focusedField = arrivalQuery.isEmpty ? .arrival : nil
+        applySelectionChange {
+            let oldDepartureQuery = departureQuery
+            let oldDeparture = selectedDeparture
+            departureQuery = arrivalQuery
+            selectedDeparture = selectedArrival
+            arrivalQuery = oldDepartureQuery == "Votre position" ? "" : oldDepartureQuery
+            selectedArrival = oldDeparture
+            focusedField = arrivalQuery.isEmpty ? .arrival : nil
+            pendingSavedPlace = nil
+        }
     }
 
     @MainActor
@@ -466,14 +492,8 @@ struct HomeRoutePlannerSheet: View {
         errorMessage = nil
         defer { isResolving = false }
 
-        let resolvedArrival: MKMapItem?
-        if let selectedArrival {
-            resolvedArrival = selectedArrival
-        } else {
-            resolvedArrival = await resolve(query: arrivalQuery)
-        }
-        guard let destination = resolvedArrival else {
-            errorMessage = "Adresse d’arrivée introuvable."
+        guard let destination = selectedArrival else {
+            errorMessage = "Choisis une adresse dans les résultats pour éviter un mauvais itinéraire."
             focusedField = .arrival
             return
         }
@@ -494,11 +514,8 @@ struct HomeRoutePlannerSheet: View {
         } else if let selectedDeparture {
             source = selectedDeparture
             originName = selectedDeparture.name ?? selectedDeparture.placemark.title ?? "Départ"
-        } else if let resolvedDeparture = await resolve(query: departureQuery) {
-            source = resolvedDeparture
-            originName = resolvedDeparture.name ?? resolvedDeparture.placemark.title ?? "Départ"
         } else {
-            errorMessage = "Adresse de départ introuvable."
+            errorMessage = "Choisis une adresse de départ dans les résultats."
             focusedField = .departure
             return
         }
@@ -542,6 +559,51 @@ struct HomeRoutePlannerSheet: View {
         let recent = HomeRouteRecentPlace(item: item)
         recentPlaces = HomeRouteRecentStore.prepending(recent, to: recentPlaces)
         HomeRouteRecentStore.save(recentPlaces)
+    }
+
+    private func useSavedPlace(_ kind: HomeRouteSavedPlaceKind) {
+        if let place = savedPlaces[kind] {
+            applySelectionChange {
+                selectedArrival = place.mapItem
+                arrivalQuery = place.title
+                arrivalSuggestions = []
+                pendingSavedPlace = nil
+                focusedField = nil
+            }
+        } else {
+            selectedArrival = nil
+            arrivalQuery = ""
+            arrivalSuggestions = []
+            pendingSavedPlace = kind
+            focusedField = .arrival
+            errorMessage = "Recherche puis sélectionne ton \(kind.label.lowercased()) pour l’enregistrer."
+        }
+    }
+
+    private func saveSavedPlace(_ item: MKMapItem, kind: HomeRouteSavedPlaceKind) {
+        savedPlaces[kind] = HomeRouteRecentPlace(item: item)
+        HomeRouteSavedPlaceStore.save(savedPlaces)
+        errorMessage = "\(kind.label) enregistré."
+    }
+
+    private func applySelectionChange(_ updates: () -> Void) {
+        isApplyingSelection = true
+        updates()
+        DispatchQueue.main.async {
+            isApplyingSelection = false
+        }
+    }
+}
+
+private enum HomeRouteSavedPlaceKind: String, Codable, CaseIterable, Hashable {
+    case home
+    case work
+
+    var label: String {
+        switch self {
+        case .home: return "Domicile"
+        case .work: return "Travail"
+        }
     }
 }
 
@@ -596,5 +658,29 @@ private enum HomeRouteRecentStore {
         var next = places.filter { $0.id != place.id }
         next.insert(place, at: 0)
         return Array(next.prefix(12))
+    }
+}
+
+private enum HomeRouteSavedPlaceStore {
+    private static let key = "home.route.saved.places.v1"
+
+    static func load() -> [HomeRouteSavedPlaceKind: HomeRouteRecentPlace] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([String: HomeRouteRecentPlace].self, from: data) else {
+            return [:]
+        }
+
+        return decoded.reduce(into: [:]) { result, entry in
+            guard let kind = HomeRouteSavedPlaceKind(rawValue: entry.key) else { return }
+            result[kind] = entry.value
+        }
+    }
+
+    static func save(_ places: [HomeRouteSavedPlaceKind: HomeRouteRecentPlace]) {
+        let encodable = places.reduce(into: [String: HomeRouteRecentPlace]()) { result, entry in
+            result[entry.key.rawValue] = entry.value
+        }
+        guard let data = try? JSONEncoder().encode(encodable) else { return }
+        UserDefaults.standard.set(data, forKey: key)
     }
 }

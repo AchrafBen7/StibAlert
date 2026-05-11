@@ -322,9 +322,7 @@ struct ReportsView: View {
             )
         }
 
-        let officialTransportItems = shouldHideOfficialFeedDuplicates ? [] : officialTransportFeedItems
-
-        return (reportItems + officialTransportItems)
+        return (reportItems + officialTransportFeedItems)
             .filter(matchesCurrentFilters)
             .sorted(by: sortFeedItems)
     }
@@ -363,7 +361,7 @@ struct ReportsView: View {
                 case .all: return true
                 case .official: return item.type == .official || item.type == .mixed
                 case .community: return item.type == .community || item.type == .mixed
-                case .events: return false
+                case .events: return true
                 }
             }
         case .events:
@@ -605,18 +603,14 @@ struct ReportsView: View {
                 )
             }
 
-        if !directItems.isEmpty {
-            return directItems
-        }
-
         guard let summary = currentSummary,
               (summary.sourceBreakdown?.official ?? 0) > 0 || (summary.sourceLabel?.lowercased() == "officiel")
         else {
-            return []
+            return directItems
         }
 
         let bullets = summary.bullets.isEmpty ? [summary.shortText] : summary.bullets
-        return bullets.prefix(4).enumerated().map { index, bullet in
+        let summaryItems = bullets.prefix(4).enumerated().map { index, bullet in
             EditorialFeedItem(
                 id: "official-summary-\(index)",
                 type: .official,
@@ -633,6 +627,8 @@ struct ReportsView: View {
                 event: nil
             )
         }
+
+        return directItems + (shouldHideOfficialFeedDuplicates ? [] : summaryItems)
     }
 
     private var editorialHeader: some View {
@@ -793,6 +789,8 @@ struct ReportsView: View {
             onSelectLine: { selectedLineFilter = $0 },
             onSelectSort: { selectedSortMode = $0 }
         )
+        .background(DS.Color.paper.ignoresSafeArea(edges: .top))
+        .zIndex(1_000)
     }
 
     private var scopeHelperText: String {
@@ -1732,14 +1730,15 @@ private struct ReportsFilterDock: View {
         }
         .background(
             DS.Color.paper
-                .overlay(DS.Color.background.opacity(0.98))
                 .overlay(alignment: .bottom) {
                     Rectangle()
                         .fill(DS.Color.ink.opacity(0.10))
                         .frame(height: 1)
                 }
         )
-        .zIndex(20)
+        .compositingGroup()
+        .clipped()
+        .zIndex(1_000)
     }
 
     private var visibleSegments: [ReportSegment] {
