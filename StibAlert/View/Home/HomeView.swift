@@ -2574,6 +2574,7 @@ private struct HomeRouteSurfaceOverlay: View {
 }
 
 private struct HomeSearchHeaderOverlay: View {
+    @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
     @Binding var searchQuery: String
     let suggestions: [MKMapItem]
     let isRouting: Bool
@@ -2594,6 +2595,15 @@ private struct HomeSearchHeaderOverlay: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            if !connectivity.isConnected || connectivity.isConstrained {
+                OfflineIndicator(
+                    isConnected: connectivity.isConnected,
+                    isConstrained: connectivity.isConstrained
+                )
+                .padding(.horizontal, 18)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             HStack(spacing: 10) {
                 HomeEditorialSearchField(query: $searchQuery, action: onOpenItineraryPlanner)
 

@@ -12,6 +12,7 @@ import AppIntents
 @main
 struct StibAlertApp: App {
     @UIApplicationDelegateAdaptor(PushNotificationManager.self) private var pushNotificationManager
+    @StateObject private var connectivity = NetworkConnectivityMonitor()
 
     init() {
         UITextView.appearance().backgroundColor = .clear
@@ -21,6 +22,7 @@ struct StibAlertApp: App {
     var body: some Scene {
         WindowGroup {
             SplashView()
+                .environmentObject(connectivity)
         }
     }
 }
