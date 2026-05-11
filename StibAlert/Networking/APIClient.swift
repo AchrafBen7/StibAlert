@@ -11,11 +11,40 @@ enum APIError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "URL invalide."
-        case .network(let e): return e.localizedDescription
-        case .decoding: return "Réponse serveur illisible."
-        case .server(_, let msg): return msg ?? "Erreur serveur."
+        case .network(let e): return Self.networkMessage(for: e)
+        case .decoding: return "La réponse du serveur est temporairement incompatible. Réessayez dans quelques secondes."
+        case .server(let status, let msg): return msg ?? Self.serverMessage(for: status)
         case .unauthorized: return "Session expirée, reconnectez-vous."
         case .backendDisabled: return "Fonctionnalités en ligne désactivées."
+        }
+    }
+
+    private static func networkMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        guard nsError.domain == NSURLErrorDomain else {
+            return "Connexion instable. Vérifiez votre réseau puis réessayez."
+        }
+
+        switch nsError.code {
+        case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
+            return "Aucune connexion internet. Les données affichées peuvent être anciennes."
+        case NSURLErrorTimedOut:
+            return "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes."
+        case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed:
+            return "Service momentanément indisponible. Réessayez un peu plus tard."
+        default:
+            return "Connexion instable. Vérifiez votre réseau puis réessayez."
+        }
+    }
+
+    private static func serverMessage(for status: Int) -> String {
+        switch status {
+        case 400..<500:
+            return "La demande n’a pas pu être traitée. Réessayez ou modifiez votre recherche."
+        case 500..<600:
+            return "Service momentanément indisponible. Réessayez un peu plus tard."
+        default:
+            return "Erreur serveur temporaire."
         }
     }
 }
@@ -35,7 +64,13 @@ enum HTTPMethod: String {
 struct APIClient {
     static let shared = APIClient()
 
-    private let session: URLSession = .shared
+    private let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 15
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         let formatter = ISO8601DateFormatter()
@@ -200,7 +235,12 @@ struct APIClient {
         body.append("--\(boundary)--\r\n")
         req.httpBody = body
 
-        let (data, response) = try await session.data(for: req)
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(for: req)
+        } catch {
+            throw APIError.network(error)
+        }
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server(status: -1, message: nil)
         }
