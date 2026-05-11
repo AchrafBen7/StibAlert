@@ -73,24 +73,64 @@ struct APIClient {
     }()
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         d.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
+
+            // Try String first (ISO8601, RFC3339, etc.)
             if let s = try? container.decode(String.self) {
-                if let date = formatter.date(from: s) { return date }
-                let fallback = ISO8601DateFormatter()
-                if let date = fallback.date(from: s) { return date }
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Bad date string: \(s)")
+                // Try standard ISO8601 with fractional seconds
+                let iso8601Full = ISO8601DateFormatter()
+                iso8601Full.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = iso8601Full.date(from: s) { return date }
+
+                // Try ISO8601 without fractional seconds
+                let iso8601 = ISO8601DateFormatter()
+                iso8601.formatOptions = [.withInternetDateTime]
+                if let date = iso8601.date(from: s) { return date }
+
+                // Try basic ISO8601 (Z timezone only)
+                let iso8601Basic = ISO8601DateFormatter()
+                iso8601Basic.formatOptions = [.withInternetDateTime, .withColonSeparatedTimeZone]
+                if let date = iso8601Basic.date(from: s) { return date }
+
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Unable to decode date string: \(s)"
+                )
             }
-            // Some backends ship Unix timestamps (Google Directions departure_time.value
-            // is in seconds, JS Date.getTime() is in milliseconds). Heuristic: > 10^12
-            // means milliseconds; smaller means seconds.
+
+            // Try Number (Unix timestamp in seconds or milliseconds)
+            // Google Directions: departure_time.value is in seconds
+            // JavaScript Date.getTime(): milliseconds since 1970
+            // Heuristic: > 10^12 means milliseconds, < 10^12 means seconds
             if let n = try? container.decode(Double.self) {
-                let interval = n > 1_000_000_000_000 ? n / 1000 : n
+                // Reject obviously invalid timestamps (before 1970 or after year 2100)
+                let isMilliseconds = n > 1_000_000_000_000
+                let interval = isMilliseconds ? n / 1000 : n
+
+                // Sanity check: reject timestamps outside reasonable range
+                let minValid: TimeInterval = -62_167_219_200 // Year 0
+                let maxValid: TimeInterval = 4_102_444_800   // Year 2100
+
+                guard (minValid...maxValid).contains(interval) else {
+                    throw DecodingError.dataCorruptedError(
+                        in: container,
+                        debugDescription: "Timestamp out of valid range: \(n)"
+                    )
+                }
+
                 return Date(timeIntervalSince1970: interval)
             }
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Date is neither a string nor a number")
+
+            // Try Integer (some APIs return Unix seconds as Int)
+            if let n = try? container.decode(Int.self) {
+                return Date(timeIntervalSince1970: TimeInterval(n))
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Date value is not a string, double, or integer"
+            )
         }
         return d
     }()

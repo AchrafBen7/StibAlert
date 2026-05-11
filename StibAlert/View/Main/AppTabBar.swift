@@ -106,7 +106,9 @@ struct AppTabBar: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+        .accessibilityHint(isActive ? "Onglet sélectionné" : "Double-tap pour sélectionner cet onglet")
+        .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : [.isButton])
     }
 }

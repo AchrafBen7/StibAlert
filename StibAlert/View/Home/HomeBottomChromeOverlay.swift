@@ -39,9 +39,12 @@ struct HomeBottomChromeOverlay: View {
                     set: onSelectTab
                 ))
                 .transition(.opacity)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Barre de navigation")
             }
         }
         .padding(.bottom, 6)
+        .padding(.bottom, 8) // iOS 17.5+ safe area bottom adjustment
         .zIndex(8)
     }
 }
