@@ -3,13 +3,14 @@ import SwiftUI
 struct OfflineIndicator: View {
     let isConnected: Bool
     let isConstrained: Bool
+    var pendingReports: Int = 0
 
     var body: some View {
         if !isConnected {
             HStack(spacing: 8) {
                 Image(systemName: "wifi.slash")
                     .font(.system(size: 13, weight: .semibold))
-                Text("Vous êtes hors ligne")
+                Text(offlineLabel)
                     .font(DS.Font.monoSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.primaryForeground)
@@ -34,6 +35,29 @@ struct OfflineIndicator: View {
                     .stroke(DS.Color.statusMinor, lineWidth: 1)
             )
             .transition(.opacity.combined(with: .move(edge: .top)))
+        } else if pendingReports > 0 {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("\(pendingReports) signalement\(pendingReports > 1 ? "s" : "") en attente de sync")
+                    .font(DS.Font.monoSmall.weight(.bold))
+            }
+            .foregroundStyle(DS.Color.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(DS.Color.paper2)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(DS.Color.primary.opacity(0.3), lineWidth: 1)
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
         }
+    }
+
+    private var offlineLabel: String {
+        if pendingReports > 0 {
+            return "Hors ligne · \(pendingReports) en file"
+        }
+        return "Vous êtes hors ligne"
     }
 }

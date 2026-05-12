@@ -270,6 +270,14 @@ struct DecisionView: View {
                     .padding(.top, 4)
             }
 
+            if let reasons = rec.reasons, !reasons.isEmpty {
+                reasonsBlock(reasons)
+            }
+
+            if let multimodal = rec.multimodalAlternatives, !multimodal.isEmpty {
+                multimodalBlock(multimodal)
+            }
+
             if let walkToStop = rec.walkToStop {
                 Button {
                     onOpenItinerary?(walkToStop)
@@ -298,6 +306,77 @@ struct DecisionView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: DS.Color.primary.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+
+    private func multimodalBlock(_ options: [DecisionMultimodalOption]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("OU SANS LES TRANSPORTS")
+                .font(DS.Font.monoSmall.weight(.heavy))
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 4)
+
+            HStack(spacing: 8) {
+                ForEach(options) { option in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: option.displayIcon)
+                                .font(.system(size: 14, weight: .heavy))
+                                .foregroundStyle(DS.Color.primary)
+                            Text(option.label)
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .tracking(0.5)
+                                .foregroundStyle(DS.Color.ink)
+                        }
+                        Text("\(option.durationMinutes) min")
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.ink)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(DS.Color.paper2.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func reasonsBlock(_ reasons: [DecisionReason]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("POURQUOI CE CHOIX")
+                .font(DS.Font.monoSmall.weight(.heavy))
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 6)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(reasons) { reason in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: reason.icon ?? "checkmark")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(Color(hex: "#10B981"))
+                            .frame(width: 16, alignment: .leading)
+                            .padding(.top, 2)
+                        Text(reason.label)
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "#10B981").opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color(hex: "#10B981").opacity(0.2), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 
     private func walkStopRow(_ walkStop: DecisionWalkStop) -> some View {

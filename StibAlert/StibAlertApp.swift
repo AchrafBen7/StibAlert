@@ -13,6 +13,7 @@ import AppIntents
 struct StibAlertApp: App {
     @UIApplicationDelegateAdaptor(PushNotificationManager.self) private var pushNotificationManager
     @StateObject private var connectivity = NetworkConnectivityMonitor()
+    @StateObject private var offlineQueue = OfflineQueueSync()
 
     init() {
         UITextView.appearance().backgroundColor = .clear
@@ -23,6 +24,11 @@ struct StibAlertApp: App {
         WindowGroup {
             SplashView()
                 .environmentObject(connectivity)
+                .environmentObject(offlineQueue)
+                .task {
+                    offlineQueue.bind(to: connectivity)
+                    await offlineQueue.sync()
+                }
         }
     }
 }

@@ -836,10 +836,18 @@ struct HomeView: View {
             let response = try await ClusterService.active(bbox: bbox, limit: 200)
             guard !Task.isCancelled else { return }
             activeClusters = response.clusters
+            OfflineCache.saveClusters(response.clusters)
             await considerAutoShowDecision()
         } catch {
             if (error as? CancellationError) == nil {
                 print("[HomeView] loadActiveClusters error: \(error.localizedDescription)")
+                // Fallback to cached clusters so the map is not blank offline.
+                if activeClusters.isEmpty {
+                    let cached = OfflineCache.loadClusters()
+                    if !cached.clusters.isEmpty {
+                        activeClusters = cached.clusters
+                    }
+                }
             }
         }
     }
@@ -2660,6 +2668,7 @@ private struct HomeRouteSurfaceOverlay: View {
 
 private struct HomeSearchHeaderOverlay: View {
     @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
+    @EnvironmentObject private var offlineQueue: OfflineQueueSync
     @Binding var searchQuery: String
     let suggestions: [MKMapItem]
     let isRouting: Bool
@@ -2680,10 +2689,11 @@ private struct HomeSearchHeaderOverlay: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            if !connectivity.isConnected || connectivity.isConstrained {
+            if !connectivity.isConnected || connectivity.isConstrained || offlineQueue.pendingCount > 0 {
                 OfflineIndicator(
                     isConnected: connectivity.isConnected,
-                    isConstrained: connectivity.isConstrained
+                    isConstrained: connectivity.isConstrained,
+                    pendingReports: offlineQueue.pendingCount
                 )
                 .padding(.horizontal, 18)
                 .transition(.opacity.combined(with: .move(edge: .top)))

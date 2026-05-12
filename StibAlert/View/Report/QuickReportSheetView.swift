@@ -781,11 +781,49 @@ struct QuickReportSheetView: View {
                 try? await Task.sleep(nanoseconds: 1_400_000_000)
                 handleClose()
             } catch {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
-                submitError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                let isNetworkIssue = isNetworkRelated(error)
+                if isNetworkIssue {
+                    // Queue offline — sync will happen when connectivity returns.
+                    OfflineCache.enqueueReport(OfflineCache.QueuedReport(
+                        nomArret: stop.name,
+                        ligne: line.number,
+                        typeProbleme: problem.title,
+                        description: finalDescription,
+                        latitude: userLatitude,
+                        longitude: userLongitude
+                    ))
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        submitSuccess = true
+                        submitError = "Hors ligne. Envoi quand la connexion revient."
+                    }
+                    try? await Task.sleep(nanoseconds: 1_800_000_000)
+                    handleClose()
+                } else {
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    submitError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                }
             }
             isSubmitting = false
         }
+    }
+
+    private func isNetworkRelated(_ error: Error) -> Bool {
+        if let apiError = error as? APIError {
+            if case .network = apiError { return true }
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return [
+                NSURLErrorNotConnectedToInternet,
+                NSURLErrorNetworkConnectionLost,
+                NSURLErrorTimedOut,
+                NSURLErrorCannotFindHost,
+                NSURLErrorCannotConnectToHost,
+                NSURLErrorDNSLookupFailed,
+            ].contains(nsError.code)
+        }
+        return false
     }
 
     private func handleKeyboardChange(_ notification: Notification) {

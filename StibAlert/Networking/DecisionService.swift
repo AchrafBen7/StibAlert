@@ -165,9 +165,37 @@ struct DecisionRecommendation: Decodable {
     let type: String
     let action: String
     let reasoning: String?
+    let reasons: [DecisionReason]?
     let walkToStop: DecisionWalkStop?
     let alternativeLines: [String]?
     let viaRoute: DecisionRoute?
+    let multimodalAlternatives: [DecisionMultimodalOption]?
+}
+
+struct DecisionMultimodalOption: Decodable, Hashable, Identifiable {
+    let mode: String
+    let icon: String
+    let label: String
+    let durationMinutes: Int
+    let summary: String?
+
+    var id: String { mode }
+
+    var displayIcon: String {
+        switch mode {
+        case "walk": return "figure.walk"
+        case "bike": return "bicycle"
+        case "car": return "car.fill"
+        default: return icon
+        }
+    }
+}
+
+struct DecisionReason: Decodable, Hashable, Identifiable {
+    let icon: String?
+    let label: String
+
+    var id: String { "\(icon ?? "")-\(label)" }
 }
 
 struct DecisionWalkStop: Decodable {
