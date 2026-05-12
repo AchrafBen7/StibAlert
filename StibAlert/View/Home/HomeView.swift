@@ -103,6 +103,9 @@ struct HomeView: View {
     @State private var clustersTask: Task<Void, Never>? = nil
     @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
 
+    @State private var showDecisionSheet = false
+    @State private var hasAutoShownDecision = false
+
     private struct LiveSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
@@ -570,6 +573,30 @@ struct HomeView: View {
                 .presentationDetents([.height(260), .medium])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showDecisionSheet) {
+            DecisionView(
+                coordinate: locationManager.userCoordinate,
+                preferredLine: session.currentUser?.favoriteLines?.first,
+                onDismiss: { showDecisionSheet = false },
+                onOpenMap: { clusterIndex in
+                    showDecisionSheet = false
+                    selectedClusterIndex = clusterIndex
+                },
+                onOpenItinerary: { walkStop in
+                    showDecisionSheet = false
+                    let target = MKMapItem(placemark: MKPlacemark(
+                        coordinate: CLLocationCoordinate2D(
+                            latitude: walkStop.latitude,
+                            longitude: walkStop.longitude
+                        )
+                    ))
+                    target.name = walkStop.name
+                    Task { await buildRoute(to: target) }
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(item: $selectedEventImpact) { event in
             HomeEventImpactSheet(
                 event: event,
@@ -730,14 +757,7 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
-            ForEach(communityWarningPoints) { point in
-                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
-                    Button { openPreview(for: point.id) } label: {
-                        CommunityWarningMarker(problemType: point.typeProbleme, count: point.evidenceCount)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            // Note: legacy `communityWarningPoints` removed — `activeClusters` is now the single source of truth.
             ForEach(activeClusters) { cluster in
                 if let lat = cluster.latitude, let lng = cluster.longitude {
                     Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .bottom) {
@@ -841,10 +861,40 @@ struct HomeView: View {
             let response = try await ClusterService.active(bbox: bbox, limit: 200)
             guard !Task.isCancelled else { return }
             activeClusters = response.clusters
+            await considerAutoShowDecision()
         } catch {
             if (error as? CancellationError) == nil {
                 print("[HomeView] loadActiveClusters error: \(error.localizedDescription)")
             }
+        }
+    }
+
+    @MainActor
+    private func considerAutoShowDecision() async {
+        guard !hasAutoShownDecision,
+              !showDecisionSheet,
+              nav.currentPage == .home,
+              !nav.showReportSheet else { return }
+
+        guard let user = session.currentUser else { return }
+        let favoriteLines = Set((user.favoriteLines ?? []).map { $0.uppercased() })
+        let hasRoutine = user.routine?.enabled == true
+        guard !favoriteLines.isEmpty || hasRoutine else { return }
+
+        let affectsUser = activeClusters.contains { cluster in
+            let line = cluster.ligne.uppercased()
+            if favoriteLines.contains(line) { return true }
+            if let homeStopId = user.routine?.homeStopId, cluster.arretId == homeStopId { return true }
+            if let workStopId = user.routine?.workStopId, cluster.arretId == workStopId { return true }
+            return false
+        }
+
+        guard affectsUser else { return }
+
+        hasAutoShownDecision = true
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            showDecisionSheet = true
         }
     }
 

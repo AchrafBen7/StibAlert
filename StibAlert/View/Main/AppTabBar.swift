@@ -3,8 +3,7 @@ import UIKit
 
 enum AppTab: String, CaseIterable, Identifiable {
     case home
-    case lines
-    case reports
+    case live
     case favorites
     case profile
 
@@ -13,8 +12,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Carte"
-        case .lines: return "Lignes"
-        case .reports: return "Reports"
+        case .live: return "Live"
         case .favorites: return "Favoris"
         case .profile: return "Profil"
         }
@@ -23,8 +21,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .home: return "map.fill"
-        case .lines: return "tram.fill"
-        case .reports: return "bubble.left.and.exclamationmark.bubble.right.fill"
+        case .live: return "bolt.heart.fill"
         case .favorites: return "heart.fill"
         case .profile: return "person.crop.circle.fill"
         }
@@ -33,8 +30,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     var page: AppPage {
         switch self {
         case .home: return .home
-        case .lines: return .signalements
-        case .reports: return .reports
+        case .live: return .reports
         case .favorites: return .favorites
         case .profile: return .profile
         }
@@ -43,8 +39,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     static func from(page: AppPage) -> AppTab {
         switch page {
         case .home: return .home
-        case .signalements: return .lines
-        case .reports: return .reports
+        case .signalements, .reports: return .live
         case .favorites: return .favorites
         case .profile, .profileMain: return .profile
         }

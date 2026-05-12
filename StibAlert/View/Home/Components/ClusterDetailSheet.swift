@@ -90,12 +90,73 @@ struct ClusterDetailSheet: View {
         .padding(.bottom, 16)
     }
 
+    @State private var showConfidenceExplain = false
+
     private func confidenceLabel(for cluster: ClusterDetailDTO) -> some View {
-        HStack(spacing: 6) {
-            confidenceBadge(cluster.confidence)
-            Text("\(cluster.reportCount) rapport\(cluster.reportCount > 1 ? "s" : "")")
-                .font(DS.Font.body)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                confidenceBadge(cluster.confidence)
+                Text("\(cluster.reportCount) rapport\(cluster.reportCount > 1 ? "s" : "")")
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showConfidenceExplain.toggle()
+                    }
+                } label: {
+                    Image(systemName: showConfidenceExplain ? "chevron.up.circle" : "info.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Pourquoi cette confiance ?")
+            }
+
+            if showConfidenceExplain {
+                confidenceExplanation(for: cluster)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func confidenceExplanation(for cluster: ClusterDetailDTO) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("POURQUOI CETTE CONFIANCE")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(1.5)
                 .foregroundStyle(DS.Color.inkMute)
+            VStack(alignment: .leading, spacing: 4) {
+                bulletPoint("\(cluster.reportCount) personnes ont signalé indépendamment")
+                bulletPoint("Score de confiance moyen: \(Int(cluster.aggregateTrust))/100")
+                if cluster.signalements.contains(where: { $0.source == "user" }) {
+                    bulletPoint("Inclut au moins 1 utilisateur authentifié")
+                }
+                if let firstReportedAt = cluster.firstReportedAt {
+                    let mins = max(1, Int(Date().timeIntervalSince(firstReportedAt) / 60))
+                    bulletPoint("Première alerte il y a \(mins) min")
+                }
+                if cluster.stillBlockedConfirmationCount > 0 {
+                    bulletPoint("\(cluster.stillBlockedConfirmationCount) confirmation\(cluster.stillBlockedConfirmationCount > 1 ? "s" : "") « toujours bloqué »")
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper2.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func bulletPoint(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: "#10B981"))
+                .padding(.top, 2)
+            Text(text)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
