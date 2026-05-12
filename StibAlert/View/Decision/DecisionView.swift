@@ -57,6 +57,10 @@ struct DecisionView: View {
                             if let cluster = decision.affectedCluster {
                                 clusterInfo(cluster)
                             }
+                            if let liveLine = decision.liveLine, !liveLine.stops.isEmpty {
+                                VehicleTrackVisualizer(liveLine: liveLine)
+                                    .padding(.top, 4)
+                            }
                             if let recommendation = decision.recommendation {
                                 recommendationCard(recommendation, cluster: decision.affectedCluster)
                             } else if decision.verdict == .allClear {

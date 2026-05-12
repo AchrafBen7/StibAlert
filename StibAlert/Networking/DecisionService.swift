@@ -83,6 +83,7 @@ struct DecisionDTO: Decodable {
     let isInRoutineWindow: Bool?
     let affectedCluster: DecisionClusterRef?
     let recommendation: DecisionRecommendation?
+    let liveLine: LiveLineDTO?
 
     // Trip-specific fields (populated when /api/decision is called with destLat/destLng)
     let tripMode: Bool?
@@ -91,6 +92,51 @@ struct DecisionDTO: Decodable {
     let defaultRoute: DecisionTripRoute?
     let alternatives: [DecisionTripRoute]?
     let disruptedLinesInArea: [String]?
+}
+
+struct LiveLineDTO: Decodable, Hashable {
+    let lineId: String
+    let typeTransport: String?
+    let couleur: String?
+    let direction: String?
+    let destination: String?
+    let stops: [LiveLineStop]
+    let vehicles: [LiveLineVehicle]
+    let userStopOrder: Int?
+    let etaAtUserStop: LiveLineETA?
+    let fetchedAt: Date?
+}
+
+struct LiveLineStop: Decodable, Hashable, Identifiable {
+    let order: Int
+    let arretId: String?
+    let stopId: String?
+    let name: String
+    let latitude: Double?
+    let longitude: Double?
+    let isUserStop: Bool
+
+    var id: String { arretId ?? stopId ?? "\(order)-\(name)" }
+}
+
+struct LiveLineVehicle: Decodable, Hashable, Identifiable {
+    let vehicleId: String?
+    let direction: String?
+    let latitude: Double?
+    let longitude: Double?
+    let updatedAt: Date?
+    let stopIndex: Double?
+    let nearestStopIndex: Int?
+    let distanceToNearestStopMeters: Int?
+    let stopsAway: Double?
+
+    var id: String { vehicleId ?? "\(stopIndex ?? -1)-\(latitude ?? 0)-\(longitude ?? 0)" }
+}
+
+struct LiveLineETA: Decodable, Hashable {
+    let minutes: Int?
+    let destination: String?
+    let delayMinutes: Int?
 }
 
 struct DecisionTripRoute: Decodable, Hashable {
