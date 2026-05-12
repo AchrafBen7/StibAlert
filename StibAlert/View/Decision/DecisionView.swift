@@ -3,11 +3,36 @@ import CoreLocation
 import MapKit
 
 struct DecisionView: View {
+    enum Mode: Equatable {
+        case routine
+        case trip(destination: CLLocationCoordinate2D, label: String?)
+    }
+
     let coordinate: CLLocationCoordinate2D?
     let preferredLine: String?
+    let mode: Mode
     let onDismiss: () -> Void
     let onOpenMap: ((Int) -> Void)?
     let onOpenItinerary: ((DecisionWalkStop) -> Void)?
+    let onLaunchRoute: ((CLLocationCoordinate2D, String?) -> Void)?
+
+    init(
+        coordinate: CLLocationCoordinate2D?,
+        preferredLine: String?,
+        mode: Mode = .routine,
+        onDismiss: @escaping () -> Void,
+        onOpenMap: ((Int) -> Void)? = nil,
+        onOpenItinerary: ((DecisionWalkStop) -> Void)? = nil,
+        onLaunchRoute: ((CLLocationCoordinate2D, String?) -> Void)? = nil
+    ) {
+        self.coordinate = coordinate
+        self.preferredLine = preferredLine
+        self.mode = mode
+        self.onDismiss = onDismiss
+        self.onOpenMap = onOpenMap
+        self.onOpenItinerary = onOpenItinerary
+        self.onLaunchRoute = onLaunchRoute
+    }
 
     @State private var decision: DecisionDTO? = nil
     @State private var isLoading = true
@@ -26,18 +51,22 @@ struct DecisionView: View {
                         errorState(message: loadError)
                     } else if let decision {
                         verdictHeader(decision)
-                        if let cluster = decision.affectedCluster {
-                            clusterInfo(cluster)
-                        }
-                        if let recommendation = decision.recommendation {
-                            recommendationCard(recommendation, cluster: decision.affectedCluster)
-                        } else if decision.verdict == .allClear {
-                            allClearReassurance
-                        } else if decision.verdict == .watch {
-                            watchExplainer
-                        }
-                        if let cluster = decision.affectedCluster, decision.verdict != .allClear {
-                            secondaryActions(cluster: cluster)
+                        if decision.tripMode == true {
+                            tripContent(decision)
+                        } else {
+                            if let cluster = decision.affectedCluster {
+                                clusterInfo(cluster)
+                            }
+                            if let recommendation = decision.recommendation {
+                                recommendationCard(recommendation, cluster: decision.affectedCluster)
+                            } else if decision.verdict == .allClear {
+                                allClearReassurance
+                            } else if decision.verdict == .watch {
+                                watchExplainer
+                            }
+                            if let cluster = decision.affectedCluster, decision.verdict != .allClear {
+                                secondaryActions(cluster: cluster)
+                            }
                         }
                     }
                 }
@@ -344,7 +373,24 @@ struct DecisionView: View {
         isLoading = true
         loadError = nil
         do {
-            let result = try await DecisionService.current(coordinate: coordinate, line: preferredLine)
+            let result: DecisionDTO
+            switch mode {
+            case .routine:
+                result = try await DecisionService.current(coordinate: coordinate, line: preferredLine)
+            case .trip(let destination, let label):
+                guard let origin = coordinate else {
+                    await MainActor.run {
+                        self.loadError = "Position introuvable. Active la géoloc."
+                        self.isLoading = false
+                    }
+                    return
+                }
+                result = try await DecisionService.trip(
+                    origin: origin,
+                    destination: destination,
+                    destinationLabel: label
+                )
+            }
             await MainActor.run {
                 self.decision = result
                 self.isLoading = false
@@ -355,5 +401,180 @@ struct DecisionView: View {
                 self.isLoading = false
             }
         }
+    }
+
+    // MARK: - Trip Mode (ad-hoc destination)
+
+    @ViewBuilder
+    private func tripContent(_ decision: DecisionDTO) -> some View {
+        VStack(spacing: 14) {
+            if let bestRoute = decision.bestRoute {
+                tripRouteCard(
+                    title: "ITINÉRAIRE RECOMMANDÉ",
+                    route: bestRoute,
+                    emphasis: true,
+                    showsDisruptionFlag: false
+                )
+            }
+            if let defaultRoute = decision.defaultRoute {
+                tripRouteCard(
+                    title: "TON ROUTE HABITUEL",
+                    route: defaultRoute,
+                    emphasis: false,
+                    showsDisruptionFlag: true
+                )
+            }
+            if let alternatives = decision.alternatives, !alternatives.isEmpty {
+                tripAlternativesList(alternatives)
+            }
+            if let disruptedLines = decision.disruptedLinesInArea, !disruptedLines.isEmpty {
+                disruptedAreaHint(disruptedLines)
+            }
+        }
+    }
+
+    private func tripRouteCard(
+        title: String,
+        route: DecisionTripRoute,
+        emphasis: Bool,
+        showsDisruptionFlag: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                if emphasis {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(emphasis ? DS.Color.primary : DS.Color.inkMute)
+                }
+                Text(title)
+                    .font(DS.Font.monoSmall.weight(.heavy))
+                    .tracking(2)
+                    .foregroundStyle(emphasis ? DS.Color.primary : DS.Color.inkMute)
+            }
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(route.durationMinutes) min")
+                        .font(DS.Font.displayH2)
+                        .foregroundStyle(DS.Color.ink)
+                    if let walking = route.walkingMinutes, walking > 0 {
+                        Text("dont \(walking) min à pied")
+                            .font(DS.Font.monoSmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                }
+                Spacer()
+                if let lines = route.lines, !lines.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(lines.prefix(3), id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                    }
+                }
+            }
+
+            if let summary = route.summary, !summary.isEmpty {
+                Text(summary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if showsDisruptionFlag, let disrupted = route.disruptedLines, !disrupted.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12, weight: .heavy))
+                    Text("Passe par \(disrupted.joined(separator: ", ")) — perturbé")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(0.5)
+                }
+                .foregroundStyle(Color(hex: "#E94E1B"))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(hex: "#E94E1B").opacity(0.1))
+                .clipShape(Capsule())
+            }
+
+            if emphasis, case .trip(let destCoord, let label) = mode {
+                let effectiveLabel = decision?.destinationLabel ?? label
+                Button {
+                    onLaunchRoute?(destCoord, effectiveLabel)
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 16, weight: .heavy))
+                        Text("Lancer l'itinéraire")
+                            .font(DS.Font.bodyBold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(DS.Color.primary)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(emphasis ? DS.Color.paper : DS.Color.paper2.opacity(0.6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(emphasis ? DS.Color.primary.opacity(0.3) : DS.Color.ink.opacity(0.08), lineWidth: emphasis ? 1.5 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func tripAlternativesList(_ alternatives: [DecisionTripRoute]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("AUTRES OPTIONS")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 6)
+
+            ForEach(Array(alternatives.enumerated()), id: \.offset) { _, alt in
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(alt.durationMinutes) min")
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        if let summary = alt.summary {
+                            Text(summary)
+                                .font(DS.Font.monoSmall)
+                                .foregroundStyle(DS.Color.inkMute)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer()
+                    if let disrupted = alt.disruptedLines, !disrupted.isEmpty {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color(hex: "#E94E1B"))
+                    }
+                    if let lines = alt.lines, !lines.isEmpty {
+                        ForEach(lines.prefix(2), id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                    }
+                }
+                .padding(10)
+                .background(DS.Color.paper2.opacity(0.4))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+
+    private func disruptedAreaHint(_ lines: [String]) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(DS.Color.primary)
+            Text("Lignes perturbées dans la zone : \(lines.prefix(6).joined(separator: ", "))")
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(DS.Color.inkMute)
+        }
+        .padding(.top, 6)
     }
 }

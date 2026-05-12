@@ -20,6 +20,20 @@ enum DecisionService {
         }
         return try await APIClient.shared.request(path)
     }
+
+    static func trip(
+        origin: CLLocationCoordinate2D,
+        destination: CLLocationCoordinate2D,
+        destinationLabel: String? = nil
+    ) async throws -> DecisionDTO {
+        var path = "/api/decision?lat=\(origin.latitude)&lng=\(origin.longitude)"
+        path += "&destLat=\(destination.latitude)&destLng=\(destination.longitude)"
+        if let destinationLabel, !destinationLabel.isEmpty {
+            let encoded = destinationLabel.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? destinationLabel
+            path += "&destLabel=\(encoded)"
+        }
+        return try await APIClient.shared.request(path)
+    }
 }
 
 enum DecisionVerdict: String, Codable {
@@ -69,6 +83,23 @@ struct DecisionDTO: Decodable {
     let isInRoutineWindow: Bool?
     let affectedCluster: DecisionClusterRef?
     let recommendation: DecisionRecommendation?
+
+    // Trip-specific fields (populated when /api/decision is called with destLat/destLng)
+    let tripMode: Bool?
+    let destinationLabel: String?
+    let bestRoute: DecisionTripRoute?
+    let defaultRoute: DecisionTripRoute?
+    let alternatives: [DecisionTripRoute]?
+    let disruptedLinesInArea: [String]?
+}
+
+struct DecisionTripRoute: Decodable, Hashable {
+    let durationMinutes: Int
+    let summary: String?
+    let lines: [String]?
+    let walkingMinutes: Int?
+    let transferCount: Int?
+    let disruptedLines: [String]?
 }
 
 struct DecisionClusterRef: Decodable {

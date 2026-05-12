@@ -64,7 +64,13 @@ extension HomeView {
                     }
                 },
                 onSelectSuggestion: { item in
-                    Task { await buildRoute(to: item) }
+                    // Route every search through the trip-mode DecisionView so users see
+                    // their best option in light of current disruptions before launching it.
+                    let coord = item.placemark.coordinate
+                    tripDestination = HomeView.TripDestination(
+                        coordinate: coord,
+                        label: item.name ?? item.placemark.title
+                    )
                 }
             )
             .padding(.top, 10)

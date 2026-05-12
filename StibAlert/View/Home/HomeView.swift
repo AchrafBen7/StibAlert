@@ -105,6 +105,18 @@ struct HomeView: View {
 
     @State private var showDecisionSheet = false
     @State private var hasAutoShownDecision = false
+    @State private var tripDestination: TripDestination? = nil
+    @State private var showDestinationPicker = false
+
+    struct TripDestination: Identifiable, Equatable {
+        let id = UUID()
+        let coordinate: CLLocationCoordinate2D
+        let label: String?
+
+        static func == (lhs: TripDestination, rhs: TripDestination) -> Bool {
+            lhs.id == rhs.id
+        }
+    }
 
     private struct LiveSignalPoint: Identifiable {
         let id: String
@@ -504,13 +516,13 @@ struct HomeView: View {
                 isPresented: $showRoutePlanner,
                 userCoordinate: locationManager.userCoordinate ?? locationManager.displayCoordinate,
                 isRouting: isRouting,
-                onPlanRoute: { source, destination, originName in
-                    Task {
-                        await buildRoute(
-                            from: source,
-                            to: destination,
-                            originName: originName
-                        )
+                onPlanRoute: { _, destination, _ in
+                    // Route through trip-mode DecisionView so the user sees disruption
+                    // awareness BEFORE the route is built. They can launch the trip from there.
+                    let coord = destination.placemark.coordinate
+                    let label = destination.name ?? destination.placemark.title
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
                     }
                 }
             )
@@ -538,6 +550,22 @@ struct HomeView: View {
                         )
                     ))
                     target.name = walkStop.name
+                    Task { await buildRoute(to: target) }
+                }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $tripDestination) { destination in
+            DecisionView(
+                coordinate: locationManager.userCoordinate,
+                preferredLine: nil,
+                mode: .trip(destination: destination.coordinate, label: destination.label),
+                onDismiss: { tripDestination = nil },
+                onLaunchRoute: { destCoord, label in
+                    tripDestination = nil
+                    let target = MKMapItem(placemark: MKPlacemark(coordinate: destCoord))
+                    target.name = label ?? "Destination"
                     Task { await buildRoute(to: target) }
                 }
             )
