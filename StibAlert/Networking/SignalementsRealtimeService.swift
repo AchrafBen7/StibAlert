@@ -4,6 +4,7 @@ import SocketIO
 @MainActor
 final class SignalementsRealtimeService: ObservableObject {
     @Published private(set) var latestSignalement: SignalementDTO?
+    @Published private(set) var latestClusterEvent: ClusterEventPayload?
     @Published private(set) var isConnected = false
 
     private var manager: SocketManager?
@@ -52,10 +53,35 @@ final class SignalementsRealtimeService: ObservableObject {
                 self?.handleIncomingSignalement(data)
             }
         }
+        socket.on("clusterEvent") { [weak self] data, _ in
+            Task { @MainActor in
+                self?.handleClusterEvent(data)
+            }
+        }
+        socket.on("clusterEventArret") { [weak self] data, _ in
+            Task { @MainActor in
+                self?.handleClusterEvent(data)
+            }
+        }
 
         self.manager = manager
         self.socket = socket
         socket.connect()
+    }
+
+    func subscribeToStop(_ arretId: String) {
+        socket?.emit("souscrireArret", arretId)
+    }
+
+    private func handleClusterEvent(_ data: [Any]) {
+        guard let first = data.first,
+              JSONSerialization.isValidJSONObject(first),
+              let jsonData = try? JSONSerialization.data(withJSONObject: first) else {
+            return
+        }
+        if let payload = try? decoder.decode(ClusterEventPayload.self, from: jsonData) {
+            latestClusterEvent = payload
+        }
     }
 
     func disconnect() {
@@ -82,4 +108,28 @@ final class SignalementsRealtimeService: ObservableObject {
 
         return try? decoder.decode(SignalementDTO.self, from: jsonData)
     }
+}
+
+struct ClusterEventPayload: Decodable, Identifiable {
+    let event: String
+    let clusterIndex: Int
+    let ligne: String
+    let arretId: String?
+    let typeProbleme: String
+    let reportCount: Int
+    let confidence: String
+    let status: String
+    let resolved: Bool
+    let stillBlockedConfirmationCount: Int
+    let resolveConfirmationCount: Int
+    let expiresAt: Date?
+    let latitude: Double?
+    let longitude: Double?
+    let emittedAt: Date
+
+    var id: String { "\(clusterIndex)-\(emittedAt.timeIntervalSince1970)" }
+
+    var isPublished: Bool { event == "published" }
+    var isResolved: Bool { event == "resolved" }
+    var isStillBlockedVote: Bool { event == "still_blocked" }
 }

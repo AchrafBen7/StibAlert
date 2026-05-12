@@ -10,6 +10,16 @@ enum AppStorageKeys {
     static let onboardingNeedsProfileSync = "onboardingNeedsProfileSync"
     static let onboardingLastAppliedUserId = "onboardingLastAppliedUserId"
     static let onboardingPendingPushPermission = "onboardingPendingPushPermission"
+
+    // RGPD / Privacy consent
+    static let hasAcceptedPrivacyConsent = "hasAcceptedPrivacyConsent"
+    static let privacyConsentAcceptedAt = "privacyConsentAcceptedAt"
+    static let privacyConsentVersion = "privacyConsentVersion"
+    static let analyticsOptIn = "analyticsOptIn"
+}
+
+enum PrivacyConsent {
+    static let currentVersion = "v1-2026-05"
 }
 
 struct OnboardingPreferences: Equatable {

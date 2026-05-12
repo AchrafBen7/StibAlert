@@ -5,6 +5,8 @@ struct AppRoot: View {
     @StateObject private var session = AuthSession()
     @AppStorage(AppStorageKeys.hasSeenOnboarding) private var hasSeenOnboarding = false
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
+    @AppStorage(AppStorageKeys.hasAcceptedPrivacyConsent) private var hasAcceptedPrivacyConsent = false
+    @AppStorage(AppStorageKeys.privacyConsentVersion) private var privacyConsentVersion = ""
 
     var body: some View {
         content
@@ -42,24 +44,34 @@ struct AppRoot: View {
             }
     }
 
+    private var needsPrivacyConsent: Bool {
+        !hasAcceptedPrivacyConsent || privacyConsentVersion != PrivacyConsent.currentVersion
+    }
+
     @ViewBuilder
     private var content: some View {
-        switch session.state {
-        case .unknown:
-            ZStack {
-                AppTheme.Colors.onboardingBackground.ignoresSafeArea()
-                ProgressView().tint(.white)
+        if needsPrivacyConsent {
+            PrivacyConsentView { _ in
+                // AppStorage is auto-updated by PrivacyConsentView
             }
-        case .signedOut:
-            if !hasSeenOnboarding {
-                OnboardingView {
-                    hasSeenOnboarding = true
+        } else {
+            switch session.state {
+            case .unknown:
+                ZStack {
+                    AppTheme.Colors.onboardingBackground.ignoresSafeArea()
+                    ProgressView().tint(.white)
                 }
-            } else {
+            case .signedOut:
+                if !hasSeenOnboarding {
+                    OnboardingView {
+                        hasSeenOnboarding = true
+                    }
+                } else {
+                    HomeView()
+                }
+            case .signedIn:
                 HomeView()
             }
-        case .signedIn:
-            HomeView()
         }
     }
 
