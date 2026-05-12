@@ -11,6 +11,10 @@ enum UtilisateurService {
         langue: String? = nil,
         notifications: Bool? = nil,
         weeklyDigestEnabled: Bool? = nil,
+        preTripPushEnabled: Bool? = nil,
+        communityClusterPushEnabled: Bool? = nil,
+        mercisPushEnabled: Bool? = nil,
+        quietHoursEnabled: Bool? = nil,
         favoriteLines: [String]? = nil,
         routine: CommuteRoutineDTO? = nil
     ) async throws -> UtilisateurDTO {
@@ -22,6 +26,10 @@ enum UtilisateurService {
                 langue: langue,
                 notifications: notifications,
                 weeklyDigestEnabled: weeklyDigestEnabled,
+                preTripPushEnabled: preTripPushEnabled,
+                communityClusterPushEnabled: communityClusterPushEnabled,
+                mercisPushEnabled: mercisPushEnabled,
+                quietHoursEnabled: quietHoursEnabled,
                 favoriteLines: favoriteLines,
                 routine: routine
             ),
@@ -62,6 +70,10 @@ private struct ProfilUpdateRequest: Encodable {
     let langue: String?
     let notifications: Bool?
     let weeklyDigestEnabled: Bool?
+    let preTripPushEnabled: Bool?
+    let communityClusterPushEnabled: Bool?
+    let mercisPushEnabled: Bool?
+    let quietHoursEnabled: Bool?
     let favoriteLines: [String]?
     let routine: CommuteRoutineDTO?
 }

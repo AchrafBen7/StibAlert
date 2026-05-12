@@ -10,6 +10,10 @@ struct ProfileView: View {
     @State private var weeklyDigestEnabled = true
     @State private var emailNotificationsEnabled = false
     @State private var smsNotificationsEnabled = false
+    @State private var preTripPushEnabled = true
+    @State private var communityClusterPushEnabled = true
+    @State private var mercisPushEnabled = true
+    @State private var quietHoursEnabled = true
     @State private var dataSharingEnabled = true
     @State private var locationTrackingEnabled = false
     @State private var adsPersonalizationEnabled = false
@@ -64,6 +68,39 @@ struct ProfileView: View {
         .onChange(of: weeklyDigestEnabled) { _, newValue in
             Task { await persistWeeklyDigestIfNeeded(newValue) }
         }
+        .onChange(of: preTripPushEnabled) { _, newValue in
+            Task { await persistPushPreference(preTrip: newValue) }
+        }
+        .onChange(of: communityClusterPushEnabled) { _, newValue in
+            Task { await persistPushPreference(communityCluster: newValue) }
+        }
+        .onChange(of: mercisPushEnabled) { _, newValue in
+            Task { await persistPushPreference(mercis: newValue) }
+        }
+        .onChange(of: quietHoursEnabled) { _, newValue in
+            Task { await persistPushPreference(quietHours: newValue) }
+        }
+    }
+
+    private func persistPushPreference(
+        preTrip: Bool? = nil,
+        communityCluster: Bool? = nil,
+        mercis: Bool? = nil,
+        quietHours: Bool? = nil
+    ) async {
+        guard AppConfig.isBackendEnabled, let user = session.currentUser else { return }
+        do {
+            let updated = try await UtilisateurService.mettreAJourProfil(
+                userId: user.id,
+                preTripPushEnabled: preTrip,
+                communityClusterPushEnabled: communityCluster,
+                mercisPushEnabled: mercis,
+                quietHoursEnabled: quietHours
+            )
+            session.applyCurrentUserUpdate(updated)
+        } catch {
+            print("Push preference update failed: \(error.localizedDescription)")
+        }
     }
 
     @ViewBuilder
@@ -117,6 +154,10 @@ struct ProfileView: View {
                 weeklyDigestEnabled: $weeklyDigestEnabled,
                 emailEnabled: $emailNotificationsEnabled,
                 smsEnabled: $smsNotificationsEnabled,
+                preTripPushEnabled: $preTripPushEnabled,
+                communityClusterPushEnabled: $communityClusterPushEnabled,
+                mercisPushEnabled: $mercisPushEnabled,
+                quietHoursEnabled: $quietHoursEnabled,
                 onBack: { selectedSubpage = nil },
                 onClose: closeToProfile
             )
@@ -420,6 +461,10 @@ struct ProfileView: View {
         selectedLanguageCode = user.langue ?? AppLocale.languageCode.uppercased()
         pushNotificationsEnabled = user.notifications ?? true
         weeklyDigestEnabled = user.weeklyDigestEnabled ?? true
+        preTripPushEnabled = user.preTripPushEnabled ?? true
+        communityClusterPushEnabled = user.communityClusterPushEnabled ?? true
+        mercisPushEnabled = user.mercisPushEnabled ?? true
+        quietHoursEnabled = user.quietHoursEnabled ?? true
         commuteEnabled = user.routine?.enabled ?? false
         homeLabel = user.routine?.homeLabel ?? "Domicile"
         workLabel = user.routine?.workLabel ?? "Travail"
@@ -970,6 +1015,10 @@ private struct NotificationSettingsView: View {
     @Binding var weeklyDigestEnabled: Bool
     @Binding var emailEnabled: Bool
     @Binding var smsEnabled: Bool
+    @Binding var preTripPushEnabled: Bool
+    @Binding var communityClusterPushEnabled: Bool
+    @Binding var mercisPushEnabled: Bool
+    @Binding var quietHoursEnabled: Bool
     let onBack: () -> Void
     let onClose: () -> Void
 
@@ -980,29 +1029,63 @@ private struct NotificationSettingsView: View {
             onBack: onBack,
             onClose: onClose
         ) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Choisis comment recevoir les alertes liées à tes favoris, au réseau et aux résumés de service.")
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Choisis quels types de notifications tu reçois. StibAlert ne t'enverra rien d'autre.")
                     .font(.system(size: 12.5))
                     .foregroundColor(DS.Color.inkSoft)
+
+                ProfileSettingsSection(title: "Types d'alertes") {
+                    NotificationToggleRow(
+                        icon: "sparkles",
+                        title: "Brief pré-trajet",
+                        description: "15 min avant ton départ habituel, un verdict actionable",
+                        isOn: $preTripPushEnabled
+                    )
+                    ProfileSettingsDivider()
+                    NotificationToggleRow(
+                        icon: "exclamationmark.triangle.fill",
+                        title: "Alertes communauté",
+                        description: "Quand un cluster touche une de tes lignes favorites",
+                        isOn: $communityClusterPushEnabled
+                    )
+                    ProfileSettingsDivider()
+                    NotificationToggleRow(
+                        icon: "hands.sparkles.fill",
+                        title: "Mercis",
+                        description: "Quand ton signalement aide d'autres voyageurs",
+                        isOn: $mercisPushEnabled
+                    )
+                }
+                .opacity(pushEnabled ? 1 : 0.45)
+                .disabled(!pushEnabled)
+
+                ProfileSettingsSection(title: "Plage silencieuse") {
+                    NotificationToggleRow(
+                        icon: "moon.zzz.fill",
+                        title: "22h → 7h",
+                        description: "Aucune push pendant la nuit, sauf urgences critiques",
+                        isOn: $quietHoursEnabled
+                    )
+                }
 
                 ProfileSettingsSection(title: "Canaux") {
                     NotificationToggleRow(
                         icon: "bell.fill",
-                        title: "Push",
-                        description: "Alertes temps réel sur l’appareil",
+                        title: "Push principal",
+                        description: "Master switch pour toutes les notifications iOS",
                         isOn: $pushEnabled
                     )
                     ProfileSettingsDivider()
                     NotificationToggleRow(
                         icon: "calendar.badge.clock",
-                        title: "Digest hebdo",
+                        title: "Digest hebdo (email)",
                         description: "Résumé éditorial chaque semaine",
                         isOn: $weeklyDigestEnabled
                     )
                     ProfileSettingsDivider()
                     NotificationToggleRow(
                         icon: "envelope.fill",
-                        title: "Email",
+                        title: "Email transactionnel",
                         description: "Récaps et confirmations longues",
                         isOn: $emailEnabled
                     )

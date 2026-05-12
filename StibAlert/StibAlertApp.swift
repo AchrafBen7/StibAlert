@@ -16,6 +16,7 @@ struct StibAlertApp: App {
     @StateObject private var offlineQueue = OfflineQueueSync()
 
     init() {
+        ErrorReporting.setUp()
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
     }

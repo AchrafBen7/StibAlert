@@ -29,6 +29,7 @@ struct HomeView: View {
 
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
+    @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var locationManager = HomeLocationManager()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
@@ -612,6 +613,13 @@ struct HomeView: View {
         .task { lineShapesLoader.loadIfNeeded() }
         .task { await refreshCatalogMapStops(force: true) }
         .task { await loadActiveClusters(around: cameraCenterCoordinate) }
+        .task(id: locationManager.userCoordinate?.latitude) {
+            // Refresh offline map snapshot if user has moved significantly.
+            // Runs only when connectivity is good (no point caching half-loaded tiles).
+            guard connectivity.isConnected, !connectivity.isConstrained,
+                  let coord = locationManager.userCoordinate else { return }
+            await MapTileCache.refreshSnapshotIfNeeded(center: coord)
+        }
         .task {
             guard !hasBootstrappedHomeData else { return }
             hasBootstrappedHomeData = true

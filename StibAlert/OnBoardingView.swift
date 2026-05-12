@@ -15,9 +15,15 @@ struct OnboardingView: View {
                 OnboardingLinesStep(
                     onContinue: { lines in
                         savedLines = lines
-                        step = .push
+                        step = .routine
                     },
                     onSkip: onFinish
+                )
+                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+            case .routine:
+                OnboardingRoutineStep(
+                    onContinue: { step = .push },
+                    onSkip: { step = .push }
                 )
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
             case .push:
@@ -31,7 +37,7 @@ struct OnboardingView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.88), value: step)
     }
 
-    private enum OnboardingStep { case lines, push }
+    private enum OnboardingStep { case lines, routine, push }
 }
 
 // MARK: - Step 1 — Lignes

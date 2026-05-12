@@ -16,10 +16,16 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
     let favoriteLines: [String]?
     let weeklyDigestEnabled: Bool?
     let preTripPushEnabled: Bool?
+    let communityClusterPushEnabled: Bool?
+    let mercisPushEnabled: Bool?
+    let quietHoursEnabled: Bool?
+    let quietHoursStartHour: Int?
+    let quietHoursEndHour: Int?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, routine, votes, oneSignalPlayerId, favoriteLines, weeklyDigestEnabled, preTripPushEnabled
+        case communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled, quietHoursStartHour, quietHoursEndHour
     }
 }
 
