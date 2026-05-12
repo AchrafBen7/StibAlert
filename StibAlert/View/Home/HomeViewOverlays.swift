@@ -114,4 +114,20 @@ extension HomeView {
             onSelectTab: selectTab(_:)
         )
     }
+
+    @ViewBuilder
+    var clusterDetailOverlay: some View {
+        if let clusterIndex = selectedClusterIndex {
+            ClusterDetailSheet(
+                clusterIndex: clusterIndex,
+                onClose: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        selectedClusterIndex = nil
+                    }
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zIndex(11)
+        }
+    }
 }

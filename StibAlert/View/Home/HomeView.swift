@@ -98,6 +98,11 @@ struct HomeView: View {
     @State private var mapStopsTask: Task<Void, Never>? = nil
     @State private var interactionMode: InteractionMode = .map
 
+    @State private var activeClusters: [ClusterDTO] = []
+    @State private var selectedClusterIndex: Int? = nil
+    @State private var clustersTask: Task<Void, Never>? = nil
+    @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
+
     private struct LiveSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
@@ -520,6 +525,7 @@ struct HomeView: View {
         .overlay(alignment: .bottom) { reportSheetOverlay }
         .overlay(alignment: .top) { searchHeaderOverlay }
         .overlay(alignment: .bottom) { signalementPreviewOverlay }
+        .overlay(alignment: .bottom) { clusterDetailOverlay }
         .overlay(alignment: .bottom) { bottomChromeOverlay }
         .guestAuthGate(
             isPresented: $showReportAuthGate,
@@ -603,6 +609,7 @@ struct HomeView: View {
         .task { await loadEventImpacts() }
         .task { lineShapesLoader.loadIfNeeded() }
         .task { await refreshCatalogMapStops(force: true) }
+        .task { await loadActiveClusters(around: cameraCenterCoordinate) }
         .task {
             guard !hasBootstrappedHomeData else { return }
             hasBootstrappedHomeData = true
@@ -613,7 +620,13 @@ struct HomeView: View {
                 Task {
                     await loadRemoteSignalements()
                     await refreshHomeSurface(reason: "report_closed", force: true)
+                    await loadActiveClusters(around: cameraCenterCoordinate)
                 }
+            }
+        }
+        .onChange(of: selectedClusterIndex) { _, newValue in
+            if newValue == nil {
+                Task { await loadActiveClusters(around: cameraCenterCoordinate) }
             }
         }
         .onReceive(realtimeSignalements.$latestSignalement.compactMap { $0 }) { signalement in
@@ -725,6 +738,20 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
+            ForEach(activeClusters) { cluster in
+                if let lat = cluster.latitude, let lng = cluster.longitude {
+                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .bottom) {
+                        Button {
+                            withAnimation(transitionSpring) {
+                                selectedClusterIndex = cluster.clusterIndex
+                            }
+                        } label: {
+                            ClusterMarker(cluster: cluster, isSelected: selectedClusterIndex == cluster.clusterIndex)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
             ForEach(mapVehicles) { vehicle in
                 if let lat = vehicle.latitude, let lng = vehicle.longitude {
                     Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
@@ -785,6 +812,39 @@ struct HomeView: View {
                 isFollowingUser = false
             }
             scheduleCatalogMapStopsRefresh()
+            scheduleActiveClustersRefresh()
+        }
+    }
+
+    @MainActor
+    private func scheduleActiveClustersRefresh() {
+        let center = cameraCenterCoordinate
+        if let last = lastClustersFetchCoordinate {
+            let prev = CLLocation(latitude: last.latitude, longitude: last.longitude)
+            let curr = CLLocation(latitude: center.latitude, longitude: center.longitude)
+            if prev.distance(from: curr) < 250 { return }
+        }
+        lastClustersFetchCoordinate = center
+
+        clustersTask?.cancel()
+        clustersTask = Task { [center] in
+            await loadActiveClusters(around: center)
+        }
+    }
+
+    @MainActor
+    private func loadActiveClusters(around center: CLLocationCoordinate2D) async {
+        guard AppConfig.isBackendEnabled else { return }
+        let radius = max(1500.0, min(8000.0, cameraLatitudeDelta * 111_000.0 * 0.6))
+        let bbox = BoundingBox(center: center, radiusMeters: radius)
+        do {
+            let response = try await ClusterService.active(bbox: bbox, limit: 200)
+            guard !Task.isCancelled else { return }
+            activeClusters = response.clusters
+        } catch {
+            if (error as? CancellationError) == nil {
+                print("[HomeView] loadActiveClusters error: \(error.localizedDescription)")
+            }
         }
     }
 
