@@ -4,7 +4,7 @@ import Combine
 import AVFoundation
 import WidgetKit
 
-private enum MapFilter { case none, favorites, perturbations }
+enum MapFilter { case none, favorites, perturbations }
 
 struct HomeView: View {
     private enum InteractionMode: Equatable {
@@ -27,11 +27,11 @@ struct HomeView: View {
         case mapIdle
     }
 
-    @EnvironmentObject private var nav: AppNavigation
+    @EnvironmentObject var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
     @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @StateObject private var locationManager = HomeLocationManager()
+    @StateObject var locationManager = HomeLocationManager()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
     @StateObject private var vehicleTracker = VehicleTrackingService()
     @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
@@ -43,9 +43,9 @@ struct HomeView: View {
         )
     )
     @State private var showSearch = false
-    @State private var showLegend = false
-    @State private var showRoutePlanner = false
-    @State private var selectedSignalementPreview: SignalementDTO? = nil
+    @State var showLegend = false
+    @State var showRoutePlanner = false
+    @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
     @State private var currentRouteCoordinates: [CLLocationCoordinate2D] = []
@@ -56,11 +56,11 @@ struct HomeView: View {
     @State private var isRouteSheetExpanded = false
     @State private var selectedRouteDetail: HomeRouteOption?
     @State private var selectedARRoute: HomeRouteOption?
-    @State private var searchQuery = ""
-    @State private var searchSuggestions: [MKMapItem] = []
-    @State private var isRouting = false
+    @State var searchQuery = ""
+    @State var searchSuggestions: [MKMapItem] = []
+    @State var isRouting = false
     @State private var searchTask: Task<Void, Never>? = nil
-    @State private var remoteSignalements: [SignalementDTO] = []
+    @State var remoteSignalements: [SignalementDTO] = []
     @State private var signalementsPage = 1
     @State private var signalementsTotalPages = 1
     @State private var isLoadingSignalements = false
@@ -82,13 +82,13 @@ struct HomeView: View {
     @State private var showEventImpacts = true
     @State private var selectedVilloStation: VilloStation?
     @State private var problemFilter: ReportProblemType? = nil
-    @State private var activeMapFilter: MapFilter = .none
+    @State var activeMapFilter: MapFilter = .none
     @State private var cameraLatitudeDelta: Double = 0.04
     @State private var showReportAuthGate = false
     @State private var guestGateReason: GuestAuthReason = .report
     @State private var hasBootstrappedHomeData = false
     @State private var homeRefreshTask: Task<Void, Never>? = nil
-    @State private var lastHomeRefreshAt: Date? = nil
+    @State var lastHomeRefreshAt: Date? = nil
     @State private var lastHomeSurfaceRefreshCoordinate: CLLocationCoordinate2D? = nil
     @State private var lastMapStopsRefreshCoordinate: CLLocationCoordinate2D? = nil
     @State private var hasAutoCenteredOnUser = false
@@ -100,13 +100,13 @@ struct HomeView: View {
     @State private var interactionMode: InteractionMode = .map
 
     @State private var activeClusters: [ClusterDTO] = []
-    @State private var selectedClusterIndex: Int? = nil
+    @State var selectedClusterIndex: Int? = nil
     @State private var clustersTask: Task<Void, Never>? = nil
     @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
 
     @State private var showDecisionSheet = false
     @State private var hasAutoShownDecision = false
-    @State private var tripDestination: TripDestination? = nil
+    @State var tripDestination: TripDestination? = nil
     @State private var showDestinationPicker = false
 
     struct TripDestination: Identifiable, Equatable {
@@ -402,7 +402,7 @@ struct HomeView: View {
             .filter { $0.latitude != nil && $0.longitude != nil }
     }
 
-    private var highlightedEventCount: Int {
+    var highlightedEventCount: Int {
         eventImpacts.filter(isRelevantMapEvent(_:)).count
     }
 
@@ -429,7 +429,7 @@ struct HomeView: View {
         return .mapIdle
     }
 
-    private var shouldShowSearchHeader: Bool {
+    var shouldShowSearchHeader: Bool {
         switch homeSurfaceMode {
         case .mapIdle, .routePreview, .signalementPreview:
             return true
@@ -438,15 +438,15 @@ struct HomeView: View {
         }
     }
 
-    private var shouldShowSignalementPreview: Bool {
+    var shouldShowSignalementPreview: Bool {
         homeSurfaceMode == .signalementPreview
     }
 
-    private var shouldShowPulseBar: Bool {
+    var shouldShowPulseBar: Bool {
         homeSurfaceMode == .mapIdle
     }
 
-    private var shouldShowTabBar: Bool {
+    var shouldShowTabBar: Bool {
         !nav.showReportSheet
         && !isStopDetailPresented
         && !hasRouteSurface
@@ -472,7 +472,7 @@ struct HomeView: View {
         homeSurfaceMode == .ar
     }
 
-    private var transitionSpring: Animation {
+    var transitionSpring: Animation {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
 
@@ -1037,21 +1037,21 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func openReportsFromHome() {
+    func openReportsFromHome() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             nav.currentPage = .reports
         }
     }
 
     @MainActor
-    private func openQuickReportFromHome() {
+    func openQuickReportFromHome() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             nav.showReportSheet = true
         }
     }
 
     @MainActor
-    private func selectTab(_ tab: AppTab) {
+    func selectTab(_ tab: AppTab) {
         // Tab switching should feel instant, like a native UITabBar — no
         // slide-from-the-side or spring. The pageOverlay still cross-fades
         // briefly via its own transition for polish.
@@ -1377,15 +1377,15 @@ struct HomeView: View {
         }
     }
 
-    private var totalActiveSignalementsCount: Int {
+    var totalActiveSignalementsCount: Int {
         remoteSignalements.filter { $0.status != "resolved" }.count
     }
 
-    private var favoriteLineCount: Int {
+    var favoriteLineCount: Int {
         session.currentUser?.favoriteLines?.count ?? 0
     }
 
-    private var favoriteAffectedCount: Int {
+    var favoriteAffectedCount: Int {
         guard let favoriteLines = session.currentUser?.favoriteLines, !favoriteLines.isEmpty else { return 0 }
         let lines = Set(favoriteLines)
         return remoteSignalements.filter { $0.status != "resolved" && lines.contains($0.ligne) }.count
@@ -1416,7 +1416,7 @@ struct HomeView: View {
         }
     }
 
-    private func arretName(for signalement: SignalementDTO) -> String? {
+    func arretName(for signalement: SignalementDTO) -> String? {
         if let ref = signalement.arretId, case .populated(let arret) = ref {
             return arret.nom
         }
@@ -1731,7 +1731,7 @@ struct HomeView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func reportStillBlocked(id: String) async {
+    func reportStillBlocked(id: String) async {
         do {
             let response = try await SignalementService.toujoursBloque(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
@@ -1839,7 +1839,7 @@ struct HomeView: View {
         return candidates.first ?? activeVehicle
     }
 
-    private func reportResolved(id: String) async {
+    func reportResolved(id: String) async {
         do {
             let response = try await SignalementService.resoudre(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
@@ -2673,354 +2673,6 @@ private struct HomeRouteSurfaceOverlay: View {
                 .zIndex(11)
             }
         }
-    }
-}
-
-private struct HomeSearchHeaderOverlay: View {
-    @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
-    @EnvironmentObject private var offlineQueue: OfflineQueueSync
-    @Binding var searchQuery: String
-    let suggestions: [MKMapItem]
-    let isRouting: Bool
-    let hasUserCoordinate: Bool
-    let favoriteLineCount: Int
-    let totalActiveSignalementsCount: Int
-    let isFavoritesFilterActive: Bool
-    let isPerturbationsFilterActive: Bool
-    let onShowLegend: () -> Void
-    let onOpenItineraryPlanner: () -> Void
-    let onOpenFavorites: () -> Void
-    let onOpenReports: () -> Void
-    let onSelectSuggestion: (MKMapItem) -> Void
-
-    private var isSearching: Bool {
-        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    var body: some View {
-        VStack(spacing: 10) {
-            if !connectivity.isConnected || connectivity.isConstrained || offlineQueue.pendingCount > 0 {
-                OfflineIndicator(
-                    isConnected: connectivity.isConnected,
-                    isConstrained: connectivity.isConstrained,
-                    pendingReports: offlineQueue.pendingCount
-                )
-                .padding(.horizontal, 18)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            HStack(spacing: 10) {
-                HomeEditorialSearchField(query: $searchQuery, action: onOpenItineraryPlanner)
-
-                Button(action: onShowLegend) {
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .fill(DS.Color.paper.opacity(0.96))
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                        )
-                        .overlay(
-                            Image(systemName: "square.3.layers.3d")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(DS.Color.ink)
-                        )
-                        .shadow(DS.Shadow.floating)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 18)
-
-            if isSearching {
-                if !suggestions.isEmpty {
-                    SearchSuggestionsDropdown(
-                        suggestions: suggestions,
-                        isRouting: isRouting,
-                        onSelect: onSelectSuggestion
-                    )
-                    .padding(.horizontal, 18)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Explorer la carte")
-                        .font(DS.Font.monoSmall)
-                        .tracking(1.2)
-                        .textCase(.uppercase)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .padding(.leading, 22)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            HomeEditorialActionChip(
-                                icon: "arrow.triangle.turn.up.right.diamond.fill",
-                                title: "Itinéraires",
-                                count: nil,
-                                isActive: isRouting,
-                                action: onOpenItineraryPlanner
-                            )
-
-                            HomeEditorialActionChip(
-                                icon: "star.fill",
-                                title: "Favoris",
-                                count: favoriteLineCount,
-                                isActive: isFavoritesFilterActive,
-                                action: onOpenFavorites
-                            )
-
-                            HomeEditorialActionChip(
-                                icon: "exclamationmark.triangle.fill",
-                                title: "Perturbations",
-                                count: totalActiveSignalementsCount,
-                                isActive: isPerturbationsFilterActive,
-                                action: onOpenReports
-                            )
-                        }
-                        .padding(.horizontal, 18)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct HomeEditorialSearchField: View {
-    @Binding var query: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkSoft)
-
-                Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Où vas-tu ?" : query)
-                    .font(DS.Font.body)
-                    .foregroundStyle(query.isEmpty ? DS.Color.inkMute : DS.Color.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 14)
-        .frame(height: 48)
-        .background(DS.Color.paper.opacity(0.96))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-        .shadow(DS.Shadow.floating)
-    }
-}
-
-private struct HomeEditorialActionChip: View {
-    let icon: String
-    let title: String
-    let count: Int?
-    let isActive: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            action()
-        }) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                Text(title)
-                    .font(DS.Font.bodyBold)
-                    .tracking(1.0)
-                    .textCase(.uppercase)
-                if let count {
-                    Text("\(count)")
-                        .font(DS.Font.mono)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                                .fill((isActive ? DS.Color.ink : DS.Color.paper2).opacity(0.14))
-                        )
-                }
-            }
-            .foregroundStyle(isActive ? DS.Color.ink : DS.Color.inkSoft)
-            .padding(.horizontal, 14)
-            .frame(height: 42)
-            .background(DS.Color.paper.opacity(0.96))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .shadow(DS.Shadow.raised)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct SearchCircleButton: View {
-    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 48
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(DS.Color.paper.opacity(0.96))
-                .frame(width: buttonSize, height: buttonSize)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                )
-                .overlay(
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-                )
-                .shadow(DS.Shadow.floating)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Rechercher un trajet")
-        .accessibilityHint("Ouvre la recherche de destination")
-    }
-}
-
-private struct HomeSearchBar: View {
-    @Binding var query: String
-    let onClose: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(DS.Color.ink)
-
-            TextField("", text: $query, prompt: Text("Où vas-tu ?").foregroundStyle(DS.Color.inkMute))
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.ink)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 46)
-        .background(DS.Color.paper.opacity(0.96))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous))
-        .shadow(DS.Shadow.floating)
-    }
-}
-
-private struct SearchSuggestionsDropdown: View {
-    let suggestions: [MKMapItem]
-    let isRouting: Bool
-    let onSelect: (MKMapItem) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("DESTINATIONS")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(DS.Color.inkMute)
-                Rectangle()
-                    .fill(DS.Color.ink.opacity(0.12))
-                    .frame(height: 1)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            ForEach(suggestions, id: \.self) { item in
-                Button {
-                    onSelect(item)
-                } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(DS.Color.paper2)
-                            .frame(width: 34, height: 34)
-                            .overlay(
-                                Image(systemName: symbol(for: item))
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(DS.Color.primary)
-                            )
-
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(item.name ?? "Lieu")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(DS.Color.ink)
-                            Text(primaryLocationLine(for: item))
-                                .font(DS.Font.caption)
-                                .foregroundStyle(DS.Color.inkMute)
-                                .lineLimit(1)
-                            Text(categoryLabel(for: item))
-                                .font(DS.Font.monoSmall.weight(.bold))
-                                .tracking(1.4)
-                                .foregroundStyle(DS.Color.community)
-                        }
-
-                        Spacer()
-
-                        if isRouting {
-                            ProgressView()
-                                .tint(DS.Color.ink)
-                                .scaleEffect(0.85)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 13)
-                }
-                .buttonStyle(.plain)
-
-                if item != suggestions.last {
-                    Divider()
-                        .overlay(DS.Color.ink.opacity(0.08))
-                        .padding(.leading, 60)
-                }
-            }
-        }
-        .background(DS.Color.paper.opacity(0.98))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .shadow(DS.Shadow.floating)
-    }
-
-    private func symbol(for item: MKMapItem) -> String {
-        if item.pointOfInterestCategory != nil {
-            return "sparkles"
-        }
-        return "mappin"
-    }
-
-    private func primaryLocationLine(for item: MKMapItem) -> String {
-        let placemark = item.placemark
-        let pieces: [String] = [
-            placemark.thoroughfare,
-            placemark.locality,
-            placemark.country
-        ].compactMap { value in
-            guard let value, !value.isEmpty else { return nil }
-            return value
-        }
-        return pieces.isEmpty ? (placemark.title ?? "") : pieces.joined(separator: ", ")
-    }
-
-    private func categoryLabel(for item: MKMapItem) -> String {
-        if item.pointOfInterestCategory != nil {
-            return "LIEU"
-        }
-        return "ADRESSE"
     }
 }
 

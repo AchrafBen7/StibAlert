@@ -6,6 +6,19 @@ struct DecisionView: View {
     enum Mode: Equatable {
         case routine
         case trip(destination: CLLocationCoordinate2D, label: String?)
+
+        static func == (lhs: Mode, rhs: Mode) -> Bool {
+            switch (lhs, rhs) {
+            case (.routine, .routine):
+                return true
+            case let (.trip(leftCoordinate, leftLabel), .trip(rightCoordinate, rightLabel)):
+                return leftCoordinate.latitude == rightCoordinate.latitude
+                    && leftCoordinate.longitude == rightCoordinate.longitude
+                    && leftLabel == rightLabel
+            default:
+                return false
+            }
+        }
     }
 
     let coordinate: CLLocationCoordinate2D?

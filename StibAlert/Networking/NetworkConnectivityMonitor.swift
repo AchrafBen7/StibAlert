@@ -26,7 +26,7 @@ class NetworkConnectivityMonitor: NSObject, ObservableObject {
         monitor.start(queue: queue)
     }
 
-    var statusMessage: String {
+    var statusMessage: String? {
         guard !isConnected else {
             if isConstrained {
                 return "Connexion limitée"

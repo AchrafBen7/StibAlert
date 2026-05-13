@@ -88,11 +88,6 @@ struct APIClient {
                 iso8601.formatOptions = [.withInternetDateTime]
                 if let date = iso8601.date(from: s) { return date }
 
-                // Try basic ISO8601 (Z timezone only)
-                let iso8601Basic = ISO8601DateFormatter()
-                iso8601Basic.formatOptions = [.withInternetDateTime, .withColonSeparatedTimeZone]
-                if let date = iso8601Basic.date(from: s) { return date }
-
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Unable to decode date string: \(s)"

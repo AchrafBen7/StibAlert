@@ -19,7 +19,7 @@ extension HomeView {
     }
 
     @ViewBuilder
-    private var reportSheetOverlay: some View {
+    var reportSheetOverlay: some View {
         if nav.showReportSheet {
             QuickReportSheetView(
                 isShowing: $nav.showReportSheet,
@@ -33,7 +33,7 @@ extension HomeView {
     }
 
     @ViewBuilder
-    private var searchHeaderOverlay: some View {
+    var searchHeaderOverlay: some View {
         if shouldShowSearchHeader {
             HomeSearchHeaderOverlay(
                 searchQuery: $searchQuery,
@@ -80,7 +80,7 @@ extension HomeView {
     }
 
     @ViewBuilder
-    private var signalementPreviewOverlay: some View {
+    var signalementPreviewOverlay: some View {
         if let preview = selectedSignalementPreview,
            shouldShowSignalementPreview {
             SignalementMiniCard(
@@ -106,7 +106,7 @@ extension HomeView {
     }
 
     @ViewBuilder
-    private var bottomChromeOverlay: some View {
+    var bottomChromeOverlay: some View {
         HomeBottomChromeOverlay(
             currentPage: nav.currentPage,
             shouldShowPulseBar: shouldShowPulseBar,

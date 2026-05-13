@@ -1934,7 +1934,13 @@ private struct AddFavoriteSheet: View {
                     votes: $0.votes,
                     oneSignalPlayerId: $0.oneSignalPlayerId,
                     favoriteLines: $0.favoriteLines,
-                    weeklyDigestEnabled: $0.weeklyDigestEnabled
+                    weeklyDigestEnabled: $0.weeklyDigestEnabled,
+                    preTripPushEnabled: $0.preTripPushEnabled,
+                    communityClusterPushEnabled: $0.communityClusterPushEnabled,
+                    mercisPushEnabled: $0.mercisPushEnabled,
+                    quietHoursEnabled: $0.quietHoursEnabled,
+                    quietHoursStartHour: $0.quietHoursStartHour,
+                    quietHoursEndHour: $0.quietHoursEndHour
                 )
             }) {
                 session.applyCurrentUserUpdate(updatedUser)

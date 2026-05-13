@@ -37,32 +37,33 @@ struct StopCardAccessibilityLabel: View {
     let hasError: Bool
     let nextDeparture: String?
 
-    var body: some View {
-        Group {
-            let lineInfo = lines.isEmpty
-                ? "Aucune ligne disponible"
-                : "Lignes: \(lines.joined(separator: ", "))"
+    private var lineInfo: String {
+        lines.isEmpty
+            ? "Aucune ligne disponible"
+            : "Lignes: \(lines.joined(separator: ", "))"
+    }
 
-            let departureInfo: String
-            if isLoading {
-                departureInfo = "Chargement en cours"
-            } else if hasError {
-                departureInfo = "Erreur de chargement des passages"
-            } else if let departure = nextDeparture {
-                departureInfo = departure
-            } else {
-                departureInfo = "Aucun passage prévu pour le moment"
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(stopName).hidden()
-                Text(lineInfo).hidden()
-                Text(departureInfo).hidden()
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Arrêt: \(stopName)")
-            .accessibilityValue("\(lineInfo). \(departureInfo).")
+    private var departureInfo: String {
+        if isLoading {
+            return "Chargement en cours"
+        } else if hasError {
+            return "Erreur de chargement des passages"
+        } else if let nextDeparture {
+            return nextDeparture
+        } else {
+            return "Aucun passage prévu pour le moment"
         }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(stopName).hidden()
+            Text(lineInfo).hidden()
+            Text(departureInfo).hidden()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Arrêt: \(stopName)")
+        .accessibilityValue("\(lineInfo). \(departureInfo).")
     }
 }
 

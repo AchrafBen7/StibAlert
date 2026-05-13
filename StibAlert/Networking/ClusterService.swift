@@ -103,7 +103,7 @@ struct ClusterListResponse: Decodable {
     let fetchedAt: Date?
 }
 
-struct ClusterDTO: Decodable, Identifiable, Hashable {
+struct ClusterDTO: Codable, Identifiable, Hashable {
     let clusterIndex: Int
     let ligne: String
     let arretId: String
@@ -133,7 +133,7 @@ struct ClusterDTO: Decodable, Identifiable, Hashable {
     }
 }
 
-struct ClusterPosition: Decodable, Hashable {
+struct ClusterPosition: Codable, Hashable {
     let lat: Double
     let lng: Double
 }
