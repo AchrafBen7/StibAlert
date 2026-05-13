@@ -22,7 +22,7 @@ enum ReportSegment: String, CaseIterable, Identifiable {
     }
 }
 
-private enum EditorialFeedItemType {
+enum EditorialFeedItemType {
     case official, community, mixed, event
 }
 
@@ -80,7 +80,7 @@ struct NetworkIssueCarouselItem: Identifiable {
     let tint: Color
 }
 
-private struct EditorialFeedItem: Identifiable {
+struct EditorialFeedItem: Identifiable {
     let id: String
     let type: EditorialFeedItemType
     let title: String
@@ -96,7 +96,7 @@ private struct EditorialFeedItem: Identifiable {
     let event: TransportEventImpactDTO?
 }
 
-private struct EditorialLineGroup: Identifiable {
+struct EditorialLineGroup: Identifiable {
     let id: String
     let line: String
     let items: [EditorialFeedItem]
@@ -760,78 +760,21 @@ struct ReportsView: View {
 
     @ViewBuilder
     private var editorialFeedSection: some View {
-        if isLoading && !hasLoaded {
-            ProgressView()
-                .tint(DS.Color.ink)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 56)
-        } else if feedItems.isEmpty {
-            Text("Rien à signaler dans cette catégorie.")
-                .font(DS.Font.body)
-                .italic()
-                .foregroundStyle(DS.Color.inkMute)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 64)
-        } else {
-            LazyVStack(spacing: 10) {
-                if shouldGroupFeedByLine {
-                    ForEach(groupedFeedItems) { group in
-                        EditorialLineGroupCard(
-                            group: group,
-                            isExpanded: expandedFeedLineIds.contains(group.id),
-                            isFavoriteLine: favoriteLines.contains(group.line),
-                            onToggle: {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                    if expandedFeedLineIds.contains(group.id) {
-                                        expandedFeedLineIds.remove(group.id)
-                                    } else {
-                                        expandedFeedLineIds.insert(group.id)
-                                    }
-                                }
-                            },
-                            nestedContent: {
-                                VStack(spacing: 8) {
-                                    ForEach(group.items) { item in
-                                        feedCard(for: item)
-                                    }
-                                }
-                            }
-                        )
-                    }
-                } else {
-                    ForEach(feedItems) { item in
-                        feedCard(for: item)
-                    }
-                }
-            }
-            .padding(.horizontal, DS.Spacing.xl)
-            .padding(.top, 4)
-        }
-    }
-
-    private func feedCard(for item: EditorialFeedItem) -> some View {
-        EditorialFeedCard(
-            item: item,
-            isFavoriteLine: item.lines.contains(where: { favoriteLines.contains($0) }),
-            isVoting: item.report.map { votingReportIds.contains($0.id) } ?? false,
-            hasUpvoted: item.report.map { locallyUpvotedReportIds.contains($0.id) } ?? false,
-            isNotificationLoading: item.lines.contains(where: { notificationLineInFlight.contains($0) }),
-            isNotificationEnabled: item.lines.contains(where: { favoriteLines.contains($0) }),
-            onUpvote: { report in
-                Task { await upvoteReport(report) }
-            },
-            onNotifyLine: { line in
-                Task { await enableLineNotifications(for: line) }
-            }
+        ReportsFeedView(
+            isLoading: isLoading,
+            hasLoaded: hasLoaded,
+            feedItems: feedItems,
+            shouldGroupFeedByLine: shouldGroupFeedByLine,
+            groupedFeedItems: groupedFeedItems,
+            favoriteLines: favoriteLines,
+            expandedFeedLineIds: $expandedFeedLineIds,
+            votingReportIds: votingReportIds,
+            locallyUpvotedReportIds: locallyUpvotedReportIds,
+            notificationLineInFlight: notificationLineInFlight,
+            onOpenItem: openFeedItem(_:),
+            onUpvote: { report in Task { await upvoteReport(report) } },
+            onNotifyLine: { line in Task { await enableLineNotifications(for: line) } }
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if let report = item.report {
-                selectedReport = report
-            } else if let event = item.event {
-                selectedEvent = event
-            }
-        }
     }
 
     private func openFeedItem(_ item: EditorialFeedItem) {
@@ -1510,7 +1453,7 @@ private struct EditorialNowCard: View {
     }
 }
 
-private struct EditorialLineGroupCard<NestedContent: View>: View {
+struct EditorialLineGroupCard<NestedContent: View>: View {
     let group: EditorialLineGroup
     let isExpanded: Bool
     let isFavoriteLine: Bool
@@ -1591,7 +1534,7 @@ private struct EditorialLineGroupCard<NestedContent: View>: View {
     }
 }
 
-private struct EditorialFeedCard: View {
+struct EditorialFeedCard: View {
     let item: EditorialFeedItem
     var isFavoriteLine: Bool = false
     var isVoting: Bool = false
