@@ -2496,65 +2496,6 @@ private struct HomeStopSurfaceOverlay: View {
     }
 }
 
-private struct HomeRouteSurfaceOverlay: View {
-    let options: [HomeRouteOption]
-    let modeSummaries: [RouteModeSummary]
-    @Binding var selectedRouteID: UUID?
-    @Binding var isRouteSheetExpanded: Bool
-    let selectedRouteDetail: HomeRouteOption?
-    let selectedARRoute: HomeRouteOption?
-    let shouldShowRouteSheet: Bool
-    let shouldShowRouteDetail: Bool
-    let shouldShowAR: Bool
-    let onSelect: (HomeRouteOption) -> Void
-    let onCloseRouteSheet: () -> Void
-    let onBackFromRouteDetail: () -> Void
-    let onCloseRouteDetail: () -> Void
-    let onShowRouteMap: () -> Void
-    let onStartAR: (HomeRouteOption) -> Void
-    let onCloseAR: () -> Void
-
-    var body: some View {
-        Group {
-            if shouldShowRouteSheet {
-                RouteRecommendationsSheet(
-                    options: options,
-                    modeSummaries: modeSummaries,
-                    selectedRouteID: $selectedRouteID,
-                    isExpanded: $isRouteSheetExpanded,
-                    onSelect: onSelect,
-                    onClose: onCloseRouteSheet
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
-            }
-
-            if shouldShowRouteDetail, let selectedRouteDetail {
-                RouteItineraryDetailsView(
-                    option: selectedRouteDetail,
-                    onBack: onBackFromRouteDetail,
-                    onClose: onCloseRouteDetail,
-                    onShowMap: onShowRouteMap,
-                    onStartAR: {
-                        onStartAR(selectedRouteDetail)
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-                .zIndex(9)
-            }
-
-            if shouldShowAR, let selectedARRoute {
-                RouteARNavigationView(
-                    option: selectedARRoute,
-                    onClose: onCloseAR
-                )
-                .transition(.opacity)
-                .zIndex(11)
-            }
-        }
-    }
-}
-
 private extension String {
     var normalizedStopKey: String {
         folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
@@ -4390,7 +4331,7 @@ private struct RecentReportCard: View {
     }
 }
 
-private struct RouteRecommendationsSheet: View {
+struct RouteRecommendationsSheet: View {
     let options: [HomeRouteOption]
     let modeSummaries: [RouteModeSummary]
     @Binding var selectedRouteID: UUID?
@@ -4814,19 +4755,19 @@ private struct RouteOptionCard: View {
     }
 }
 
-private struct RouteModeSummary {
+struct RouteModeSummary {
     let modeKey: String
     let title: String
     let durationText: String
     let isFastest: Bool
 }
 
-private struct RouteVisualSegment {
+struct RouteVisualSegment {
     let tint: Color
     let weight: CGFloat
 }
 
-private struct RouteDepartureInsight {
+struct RouteDepartureInsight {
     let lineCode: String
     let modeText: String
     let waitText: String
@@ -4900,7 +4841,7 @@ private struct RouteNextDepartureBanner: View {
     }
 }
 
-private struct InlineRouteStepItem: Identifiable {
+struct InlineRouteStepItem: Identifiable {
     let id = UUID()
     let icon: String?
     let title: String
@@ -5067,7 +5008,7 @@ private struct InlineRouteDetails: View {
     }
 }
 
-private struct HomeRouteOption: Identifiable {
+struct HomeRouteOption: Identifiable {
     let id = UUID()
     let route: MKRoute?
     let backendAlternative: TransportAlternativeDTO?
@@ -5924,7 +5865,7 @@ private struct HomeRouteOption: Identifiable {
     }
 }
 
-private struct RouteItineraryDetailsView: View {
+struct RouteItineraryDetailsView: View {
     let option: HomeRouteOption
     let onBack: () -> Void
     let onClose: () -> Void
@@ -6101,7 +6042,7 @@ private struct RouteItineraryDetailsView: View {
     }
 }
 
-private struct RouteARNavigationView: View {
+struct RouteARNavigationView: View {
     let option: HomeRouteOption
     let onClose: () -> Void
 
@@ -6614,7 +6555,7 @@ private struct RouteTransitServiceCard: View {
     }
 }
 
-private struct RouteItinerarySegment {
+struct RouteItinerarySegment {
     let timeText: String
     let placeTitle: String
     let icon: String?
@@ -6624,7 +6565,7 @@ private struct RouteItinerarySegment {
     var stopCountText: String? = nil
 }
 
-private struct RouteItineraryStepCard {
+struct RouteItineraryStepCard {
     enum CardStyle {
         case mint
         case white
@@ -6637,14 +6578,14 @@ private struct RouteItineraryStepCard {
     let serviceInfo: RouteTransitServiceInfo?
 }
 
-private struct RouteTransitServiceInfo {
+struct RouteTransitServiceInfo {
     let lineCode: String
     let statusTitle: String
     let detail: String
     let waitTime: String
 }
 
-private struct RouteARInstruction {
+struct RouteARInstruction {
     let primaryText: String
     let secondaryText: String?
     let distanceText: String
