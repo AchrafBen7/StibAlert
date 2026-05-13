@@ -119,14 +119,14 @@ struct HomeView: View {
         }
     }
 
-    private struct LiveSignalPoint: Identifiable {
+    struct LiveSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
         let typeProbleme: String
         let source: String?
     }
 
-    private struct RouteOfficialSignalPoint: Identifiable {
+    struct RouteOfficialSignalPoint: Identifiable {
         let id: String
         let coordinate: CLLocationCoordinate2D
         let title: String
@@ -134,7 +134,7 @@ struct HomeView: View {
         let stop: TransportStopSummaryDTO?
     }
 
-    private struct RouteMapSegment: Identifiable {
+    struct RouteMapSegment: Identifiable {
         let id: String
         let coordinates: [CLLocationCoordinate2D]
         let color: Color
@@ -686,131 +686,47 @@ struct HomeView: View {
     // MARK: - Map layer
 
     @ViewBuilder private var mapLayer: some View {
-        Map(position: $mapPosition) {
-            ForEach(visibleLineShapes) { shape in
-                MapPolyline(coordinates: shape.coordinates)
-                    .stroke(
-                        shape.color.opacity(0.85),
-                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
-                    )
-            }
-            ForEach(selectedStopLineShapes) { shape in
-                MapPolyline(coordinates: shape.coordinates)
-                    .stroke(
-                        shape.color,
-                        style: StrokeStyle(lineWidth: 6.5, lineCap: .round, lineJoin: .round)
-                    )
-            }
-            MapCircle(center: locationManager.displayCoordinate, radius: 200)
-                .foregroundStyle(AppTheme.Palette.screen.opacity(0.07))
-                .stroke(AppTheme.Palette.info.opacity(0.6), lineWidth: 1)
-            Annotation("", coordinate: locationManager.displayCoordinate, anchor: .center) {
-                UserLocationDotView(heading: locationManager.heading)
-            }
-            ForEach(routeMapSegments) { segment in
-                MapPolyline(coordinates: segment.coordinates)
-                    .stroke(
-                        segment.color,
-                        style: StrokeStyle(lineWidth: segment.lineWidth, lineCap: .round, lineJoin: .round)
-                    )
-            }
-            if let dest = destinationCoord {
-                Annotation("", coordinate: dest, anchor: .bottom) {
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(AppTheme.Palette.info)
-                        .shadow(radius: 4)
+        HomeMapLayer(
+            mapPosition: $mapPosition,
+            visibleLineShapes: visibleLineShapes,
+            selectedStopLineShapes: selectedStopLineShapes,
+            displayCoordinate: locationManager.displayCoordinate,
+            heading: locationManager.heading,
+            routeMapSegments: routeMapSegments,
+            destinationCoordinate: destinationCoord,
+            officialSignalPoints: officialSignalPoints,
+            routeOfficialSignalPoints: routeOfficialSignalPoints,
+            activeClusters: activeClusters,
+            selectedClusterIndex: selectedClusterIndex,
+            mapVehicles: mapVehicles,
+            vehicleBearings: vehicleTracker.vehicleBearings,
+            mapStops: mapStops,
+            selectedMapStopPreview: selectedMapStopPreview,
+            selectedMapStopSummary: selectedMapStopSummary,
+            mapVilloStations: mapVilloStations,
+            mapEventImpacts: mapEventImpacts,
+            onOpenPreview: openPreview(for:),
+            onOpenStopPreview: openStopPreview(for:),
+            onSelectCluster: { cluster in
+                withAnimation(transitionSpring) {
+                    selectedClusterIndex = cluster.clusterIndex
                 }
+            },
+            onSelectVilloStation: { station in
+                selectedVilloStation = station
+            },
+            onSelectEventImpact: { event in
+                selectedEventImpact = event
+            },
+            onCameraChanged: { region in
+                cameraLatitudeDelta = region.span.latitudeDelta
+                cameraCenterCoordinate = region.center
+                handleMapCameraInteraction()
             }
-            ForEach(officialSignalPoints) { point in
-                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
-                    Button { openPreview(for: point.id) } label: {
-                        OfficialSignalMarker(problemType: point.typeProbleme)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            ForEach(routeOfficialSignalPoints) { point in
-                Annotation("", coordinate: point.coordinate, anchor: .bottom) {
-                    Button {
-                        if let stop = point.stop {
-                            openStopPreview(for: stop)
-                        }
-                    } label: {
-                        OfficialSignalMarker(problemType: point.title)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            // Note: legacy `communityWarningPoints` removed — `activeClusters` is now the single source of truth.
-            ForEach(activeClusters) { cluster in
-                if let lat = cluster.latitude, let lng = cluster.longitude {
-                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .bottom) {
-                        Button {
-                            withAnimation(transitionSpring) {
-                                selectedClusterIndex = cluster.clusterIndex
-                            }
-                        } label: {
-                            ClusterMarker(cluster: cluster, isSelected: selectedClusterIndex == cluster.clusterIndex)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            ForEach(mapVehicles) { vehicle in
-                if let lat = vehicle.latitude, let lng = vehicle.longitude {
-                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
-                        VehicleMarker(
-                            vehicle: vehicle,
-                            bearing: vehicle.vehicleId.flatMap { vehicleTracker.vehicleBearings[$0] }
-                        )
-                    }
-                }
-            }
-            ForEach(mapStops) { stop in
-                if let latitude = stop.latitude, let longitude = stop.longitude {
-                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
-                        Button {
-                            openStopPreview(for: stop)
-                        } label: {
-                            HomeStopMarker(
-                                stop: stop,
-                                isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            ForEach(mapVilloStations) { station in
-                Annotation("", coordinate: station.coordinate, anchor: .bottom) {
-                    Button {
-                        selectedVilloStation = station
-                    } label: {
-                        VilloMapMarker(station: station)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            ForEach(mapEventImpacts) { event in
-                if let latitude = event.latitude, let longitude = event.longitude {
-                    Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
-                        Button {
-                            selectedEventImpact = event
-                        } label: {
-                            EventMapMarker(event: event)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-        .mapStyle(.standard(elevation: .realistic))
-        .environment(\.colorScheme, .light)
-        .ignoresSafeArea()
-        .onMapCameraChange(frequency: .onEnd) { ctx in
-            cameraLatitudeDelta = ctx.region.span.latitudeDelta
-            cameraCenterCoordinate = ctx.region.center
+        )
+    }
+
+    private func handleMapCameraInteraction() {
             if suppressNextCameraInteraction {
                 suppressNextCameraInteraction = false
             } else {
@@ -818,7 +734,6 @@ struct HomeView: View {
             }
             scheduleCatalogMapStopsRefresh()
             scheduleActiveClustersRefresh()
-        }
     }
 
     @MainActor
@@ -2483,7 +2398,7 @@ private struct WazeMenuPanel: View {
 
 // MARK: - User location dot
 
-private struct UserLocationDotView: View {
+struct UserLocationDotView: View {
     let heading: Double
 
     var body: some View {
@@ -2705,7 +2620,7 @@ private struct LiveSignalMarker: View {
     }
 }
 
-private struct OfficialSignalMarker: View {
+struct OfficialSignalMarker: View {
     let problemType: String
     @State private var pulse = false
 
@@ -2774,7 +2689,7 @@ private extension String {
     }
 }
 
-private struct HomeStopMarker: View {
+struct HomeStopMarker: View {
     let stop: TransportStopSummaryDTO
     let isSelected: Bool
 
@@ -2842,7 +2757,7 @@ private struct HomeStopMarker: View {
     }
 }
 
-private struct VilloMapMarker: View {
+struct VilloMapMarker: View {
     let station: VilloStation
 
     private var fill: Color {
@@ -2944,7 +2859,7 @@ private struct VilloMapMarker: View {
     }
 }
 
-private struct EventMapMarker: View {
+struct EventMapMarker: View {
     let event: TransportEventImpactDTO
 
     var body: some View {
