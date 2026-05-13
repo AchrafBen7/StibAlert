@@ -70,7 +70,7 @@ private struct EditorialNowItem: Identifiable {
     let reason: String
 }
 
-private struct NetworkIssueCarouselItem: Identifiable {
+struct NetworkIssueCarouselItem: Identifiable {
     let id: String
     let keyword: String
     let detail: String
@@ -134,8 +134,6 @@ struct ReportsView: View {
     @State private var activeNetworkCarouselIndex = 0
     @State private var lineDetailCache: [String: TransportLineDTO] = [:]
     @State private var lineDetailInFlight: Set<String> = []
-
-    private let networkCarouselTimer = Timer.publish(every: 4.5, on: .main, in: .common).autoconnect()
 
     private func ensureLineDetail(for line: String) {
         let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -1248,86 +1246,14 @@ struct ReportsView: View {
     private func summaryCarousel(_ summary: TransportPerturbationSummaryDTO) -> some View {
         let items = networkIssueCarouselItems(for: summary)
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                HStack(spacing: 6) {
-                    PulsingDot(color: DS.Color.statusMajor)
-                    Text("DOSSIER EN COURS")
-                        .font(.system(size: 11, weight: .bold))
-                        .tracking(1.8)
-                        .foregroundStyle(DS.Color.ink)
-                }
-
-                Spacer()
-
-                Text("\(items.count) ouvert\(items.count > 1 ? "s" : "")")
-                    .font(DS.Font.monoSmall.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-
-            TabView(selection: $activeNetworkCarouselIndex) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    let context = dossierStopContext(for: item)
-                    Button {
-                        isShowingSummary = true
-                    } label: {
-                        EditorialDossierCard(
-                            item: item,
-                            index: index + 1,
-                            total: items.count,
-                            stops: context.stops,
-                            disruptedIndices: context.disruptedIndices,
-                            disruptedStopName: context.disruptedName
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 278)
-            .onAppear {
-                for line in items.flatMap(\.lines).prefix(8) {
-                    ensureLineDetail(for: line)
-                }
-            }
-            .onChange(of: items.flatMap(\.lines).joined(separator: "|")) { _, _ in
-                for line in items.flatMap(\.lines).prefix(8) {
-                    ensureLineDetail(for: line)
-                }
-            }
-            .onReceive(networkCarouselTimer) { _ in
-                guard !reduceMotion, items.count > 1 else { return }
-                withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
-                    activeNetworkCarouselIndex = (activeNetworkCarouselIndex + 1) % items.count
-                }
-            }
-            .onChange(of: items.count) { _, count in
-                if activeNetworkCarouselIndex >= count {
-                    activeNetworkCarouselIndex = 0
-                }
-            }
-
-            if items.count > 1 {
-                HStack(spacing: 4) {
-                    ForEach(items.indices, id: \.self) { index in
-                        Button {
-                            withAnimation(.spring(response: 0.42, dampingFraction: 0.9)) {
-                                activeNetworkCarouselIndex = index
-                            }
-                        } label: {
-                            Rectangle()
-                                .fill(index == activeNetworkCarouselIndex ? DS.Color.ink : DS.Color.ink.opacity(0.25))
-                                .frame(width: index == activeNetworkCarouselIndex ? 28 : 8, height: 3)
-                                .animation(.easeInOut(duration: 0.2), value: activeNetworkCarouselIndex)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
+        return ReportsCarousel(
+            items: items,
+            activeIndex: $activeNetworkCarouselIndex,
+            reduceMotion: reduceMotion,
+            stopContext: dossierStopContext(for:),
+            onEnsureLineDetail: ensureLineDetail(for:),
+            onOpenSummary: { isShowingSummary = true }
+        )
     }
 
     private func networkIssueCarouselItems(for summary: TransportPerturbationSummaryDTO) -> [NetworkIssueCarouselItem] {
@@ -1581,171 +1507,6 @@ private struct EditorialNowCard: View {
                 .stroke(DS.Color.ink, lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-    }
-}
-
-private struct NetworkIssueCarouselCard: View {
-    let item: NetworkIssueCarouselItem
-    let itemCount: Int
-    let activeIndex: Int
-
-    private var severityLabel: String {
-        let value = item.keyword.lowercased()
-        switch value {
-        case _ where value.contains("interrompu") || value.contains("accident"):
-            return "Impact fort"
-        case _ where value.contains("travaux") || value.contains("dévi"):
-            return "À anticiper"
-        default:
-            return "À surveiller"
-        }
-    }
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Image("reports-metro-stib")
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-
-            LinearGradient(
-                colors: [
-                    .black.opacity(0.64),
-                    .black.opacity(0.22),
-                    .black.opacity(0.76)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            LinearGradient(
-                colors: [
-                    item.tint.opacity(0.58),
-                    .black.opacity(0.22),
-                    .clear
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .center, spacing: 9) {
-                    Circle()
-                        .fill(item.tint)
-                        .frame(width: 10, height: 10)
-                        .shadow(color: item.tint.opacity(0.7), radius: 9)
-
-                    Text("AUTOUR DE TOI")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(2.0)
-                        .foregroundStyle(.white.opacity(0.88))
-
-                    Spacer()
-
-                    Text("STIB-MIVB")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(2.0)
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        ReportsGlassBadge(title: item.sourceLabel, icon: "checkmark.seal.fill")
-                        ReportsGlassBadge(title: severityLabel, icon: "exclamationmark.triangle.fill")
-                    }
-
-                    HStack(alignment: .lastTextBaseline, spacing: 10) {
-                        Text(item.keyword)
-                            .font(DS.Font.displayH1)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-
-                        Text("\(activeIndex + 1)/\(max(itemCount, 1))")
-                            .font(DS.Font.monoSmall.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.68))
-                    }
-
-                    Text(item.detail)
-                        .font(DS.Font.bodySmall.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.86))
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 0)
-
-                HStack(alignment: .bottom, spacing: 8) {
-                    if !item.lines.isEmpty {
-                        HStack(spacing: 6) {
-                            ForEach(Array(item.lines.prefix(4)), id: \.self) { line in
-                                LineBadge(line: line, size: .lg)
-                            }
-                            if item.lines.count > 4 {
-                                Text("+\(item.lines.count - 4)")
-                                    .font(DS.Font.monoSmall.weight(.bold))
-                                    .foregroundStyle(.white.opacity(0.78))
-                            }
-                        }
-                    }
-
-                    if let location = item.location, !location.isEmpty {
-                        HStack(spacing: 5) {
-                            Image(systemName: "mappin.and.ellipse")
-                                .font(.system(size: 10, weight: .bold))
-                            Text(location)
-                                .lineLimit(1)
-                        }
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .foregroundStyle(.white.opacity(0.82))
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(.white.opacity(0.16))
-                        .clipShape(Circle())
-                }
-            }
-            .padding(18)
-        }
-        .frame(maxWidth: .infinity, minHeight: 212, maxHeight: 212)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(.white.opacity(0.46), lineWidth: 1)
-                .padding(1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .shadow(color: item.tint.opacity(0.22), radius: 20, x: 0, y: 12)
-        .accessibilityLabel("\(item.keyword). \(item.detail)")
-    }
-}
-
-private struct ReportsGlassBadge: View {
-    let title: String
-    let icon: String
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .bold))
-            Text(title)
-                .font(DS.Font.monoSmall.weight(.bold))
-                .tracking(0.9)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 9)
-        .frame(height: 26)
-        .background(.white.opacity(0.16))
-        .overlay(
-            Capsule()
-                .stroke(.white.opacity(0.22), lineWidth: 1)
-        )
-        .clipShape(Capsule())
     }
 }
 
@@ -3158,7 +2919,7 @@ private struct StatusCell: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
                 if pulse {
-                    PulsingDot(color: valueColor, size: 4)
+                    ReportsPulsingDot(color: valueColor, size: 4)
                 }
                 Text(label.uppercased())
                     .font(DS.Font.monoSmall.weight(.semibold))
@@ -3182,7 +2943,7 @@ private struct StatusCell: View {
     }
 }
 
-private struct PulsingDot: View {
+struct ReportsPulsingDot: View {
     let color: Color
     var size: CGFloat = 8
     @State private var animate = false
@@ -3208,7 +2969,7 @@ private struct PulsingDot: View {
 
 // MARK: - Editorial dossier card
 
-private struct EditorialDossierCard: View {
+struct EditorialDossierCard: View {
     let item: NetworkIssueCarouselItem
     let index: Int
     let total: Int
