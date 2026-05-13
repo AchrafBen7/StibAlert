@@ -103,25 +103,11 @@ private struct EditorialLineGroup: Identifiable {
 }
 
 struct ReportsView: View {
-    private enum ContentScope: String, CaseIterable, Identifiable {
-        case reports
-        case events
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .reports: return "Reports"
-            case .events: return "Événements"
-            }
-        }
-    }
-
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var selectedScope: ContentScope = .reports
+    @State private var selectedScope: ReportContentScope = .reports
     @State private var selectedSegment: ReportSegment = .all
     @State private var selectedModeFilter: ReportTransportMode = .all
     @State private var selectedSortMode: ReportSortMode = .recent
@@ -632,22 +618,10 @@ struct ReportsView: View {
     }
 
     private var editorialHeader: some View {
-        editorialMasthead
-    }
-
-    private var editorialMasthead: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Reports")
-                    .font(.system(size: 32, weight: .bold))
-                    .tracking(-1)
-                    .foregroundStyle(DS.Color.ink)
-                Spacer()
-            }
-
-            contentScopeSwitch
-                .padding(.top, 12)
-        }
+        ReportsMasthead(
+            selectedScope: $selectedScope,
+            onScopeChange: selectScope(_:)
+        )
     }
 
     private var statusHUD: some View {
@@ -709,31 +683,6 @@ struct ReportsView: View {
                 )
             }
             .frame(height: 6)
-        }
-    }
-
-    private var contentScopeSwitch: some View {
-        HStack(spacing: 8) {
-            ForEach(ContentScope.allCases) { scope in
-                Button {
-                    selectedScope = scope
-                    selectedSegment = scope == .events ? .events : .all
-                } label: {
-                    Text(scope == .reports ? "Réseau & signalements" : "Événements")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(selectedScope == scope ? DS.Color.paper : DS.Color.ink)
-                        .padding(.horizontal, 12)
-                        .frame(height: 34)
-                        .background(selectedScope == scope ? DS.Color.ink : DS.Color.paper)
-                        .overlay(
-                            Capsule()
-                                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-                        )
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -943,10 +892,15 @@ struct ReportsView: View {
         .shadow(DS.Shadow.raised)
     }
 
+    private func selectScope(_ scope: ReportContentScope) {
+        selectedScope = scope
+        selectedSegment = scope == .events ? .events : .all
+    }
+
     @MainActor
     private func applyPendingScopeIfPossible() {
         guard let rawValue = nav.pendingReportsScopeRawValue else { return }
-        if let scope = ContentScope(rawValue: rawValue) {
+        if let scope = ReportContentScope(rawValue: rawValue) {
             selectedScope = scope
         }
         selectedSegment = rawValue == "events" ? .events : .all
