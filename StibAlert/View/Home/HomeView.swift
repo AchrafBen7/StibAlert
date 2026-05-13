@@ -481,6 +481,8 @@ struct HomeView: View {
     var body: some View {
         ZStack {
             mapLayer
+            OfflineMapFallback(isConnected: connectivity.isConnected)
+                .allowsHitTesting(false)
             mapGradient
             controlsLayer
             zstackOverlays

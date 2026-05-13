@@ -403,18 +403,66 @@ struct DecisionView: View {
     }
 
     private var allClearReassurance: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Tu peux y aller")
-                .font(DS.Font.displayH3)
-                .foregroundStyle(DS.Color.ink)
-            Text("Aucun signalement majeur récent sur tes lignes habituelles. Bon trajet !")
+        VStack(alignment: .leading, spacing: 16) {
+            // Big emoji moment — emotional reward for "tout va bien"
+            HStack(spacing: 12) {
+                Text("✨")
+                    .font(.system(size: 36))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Voie libre")
+                        .font(.custom("DelaGothicOne-Regular", size: 24))
+                        .foregroundStyle(DS.Color.ink)
+                    Text(greetingForTime())
+                        .font(DS.Font.monoSmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .tracking(1.2)
+                }
+                Spacer()
+            }
+
+            Text("Tes lignes habituelles tournent sans accroc. Tu peux partir tranquille.")
                 .font(DS.Font.body)
-                .foregroundStyle(DS.Color.inkMute)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.inkMute)
+                Text("On t'enverra une push si la situation change avant ton départ.")
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.top, 4)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "#10B981").opacity(0.08))
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(hex: "#10B981").opacity(0.12),
+                    Color(hex: "#10B981").opacity(0.05),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: "#10B981").opacity(0.3), lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func greetingForTime() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<11: return "BON MATIN"
+        case 11..<14: return "BONNE JOURNÉE"
+        case 14..<18: return "BON APRÈS-MIDI"
+        case 18..<23: return "BONNE SOIRÉE"
+        default: return "BONNE NUIT"
+        }
     }
 
     private var watchExplainer: some View {

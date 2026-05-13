@@ -186,6 +186,8 @@ struct ProfileView: View {
                     VStack(spacing: 22) {
                         identityCard
 
+                        InsightsCard()
+
                         ContributionsCard(
                             onConfigureRoutine: {
                                 selectedSubpage = .account
