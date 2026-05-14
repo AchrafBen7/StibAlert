@@ -5,6 +5,7 @@ Usage:
   python3 scripts/i18n_audit.py
   python3 scripts/i18n_audit.py --write-report /tmp/i18n.md
   python3 scripts/i18n_audit.py --export-missing /tmp/i18n-missing.csv
+  python3 scripts/i18n_audit.py --export-hardcoded /tmp/i18n-hardcoded.csv
 """
 
 from __future__ import annotations
@@ -20,6 +21,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "StibAlert"
 CATALOG = APP_ROOT / "Localizable.xcstrings"
+
+PRIORITY_FILE_PREFIXES = (
+    "StibAlert/View/Home/",
+    "StibAlert/View/Reports/",
+    "StibAlert/View/Report/",
+    "StibAlert/View/Signalements/",
+    "StibAlert/View/Favorites/",
+    "StibAlert/View/Auth/",
+    "StibAlert/View/Onboarding/",
+    "StibAlert/OnBoardingView.swift",
+    "StibAlert/SplashView.swift",
+    "StibAlert/Intents/",
+)
 
 UI_STRING_PATTERNS = [
     ("Text", re.compile(r'\bText\("((?:[^"\\]|\\.)+)"\)')),
@@ -120,6 +134,14 @@ def swift_ui_candidates() -> list[dict[str, str | int]]:
     return candidates
 
 
+def priority_candidates(candidates: list[dict[str, str | int]]) -> list[dict[str, str | int]]:
+    return [
+        item
+        for item in candidates
+        if any(str(item["file"]).startswith(prefix) for prefix in PRIORITY_FILE_PREFIXES)
+    ]
+
+
 def missing_rows(catalog: dict) -> list[dict[str, str]]:
     strings = catalog.get("strings", {})
     source_language = catalog.get("sourceLanguage")
@@ -144,6 +166,26 @@ def missing_rows(catalog: dict) -> list[dict[str, str]]:
     return rows
 
 
+def write_hardcoded_csv(path: Path, rows: list[dict[str, str | int]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["file", "line", "pattern", "value", "recommended_key"],
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    "file": row["file"],
+                    "line": row["line"],
+                    "pattern": row["pattern"],
+                    "value": row["value"],
+                    "recommended_key": row["value"],
+                }
+            )
+
+
 def write_missing_csv(path: Path, rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -162,6 +204,8 @@ def build_report(catalog: dict, candidates: list[dict[str, str | int]]) -> str:
     by_pattern = Counter(str(item["pattern"]) for item in candidates)
     missing = missing_rows(catalog)
     missing_by_locale = Counter(row["locale"] for row in missing)
+    priority = priority_candidates(candidates)
+    priority_by_file = Counter(str(item["file"]) for item in priority)
 
     lines: list[str] = []
     lines.append("# StibAlert i18n audit")
@@ -170,6 +214,7 @@ def build_report(catalog: dict, candidates: list[dict[str, str | int]]) -> str:
     lines.append(f"- Source language: `{catalog.get('sourceLanguage', 'unknown')}`")
     lines.append(f"- Catalog keys: `{len(strings)}`")
     lines.append(f"- Swift UI hardcoded candidates: `{len(candidates)}`")
+    lines.append(f"- Launch-critical hardcoded candidates: `{len(priority)}`")
     lines.append("")
     lines.append("## Catalog coverage")
     lines.append("")
@@ -193,6 +238,11 @@ def build_report(catalog: dict, candidates: list[dict[str, str | int]]) -> str:
     for file, count in by_file.most_common(20):
         lines.append(f"- `{file}`: {count}")
     lines.append("")
+    lines.append("## Top launch-critical files")
+    lines.append("")
+    for file, count in priority_by_file.most_common(20):
+        lines.append(f"- `{file}`: {count}")
+    lines.append("")
     lines.append("## Pattern breakdown")
     lines.append("")
     for pattern, count in by_pattern.most_common():
@@ -211,10 +261,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write-report", type=Path)
     parser.add_argument("--export-missing", type=Path)
+    parser.add_argument("--export-hardcoded", type=Path)
+    parser.add_argument("--priority-only", action="store_true")
+    parser.add_argument("--fail-on-hardcoded", action="store_true")
     args = parser.parse_args()
 
     catalog = load_catalog()
-    candidates = swift_ui_candidates()
+    all_candidates = swift_ui_candidates()
+    candidates = priority_candidates(all_candidates) if args.priority_only else all_candidates
     report = build_report(catalog, candidates)
 
     if args.write_report:
@@ -222,12 +276,18 @@ def main() -> None:
         args.write_report.write_text(report, encoding="utf-8")
     if args.export_missing:
         write_missing_csv(args.export_missing, missing_rows(catalog))
+    if args.export_hardcoded:
+        write_hardcoded_csv(args.export_hardcoded, candidates)
 
     print(report)
     if args.write_report:
         print(f"\nReport written to {args.write_report}")
     if args.export_missing:
         print(f"Missing translations exported to {args.export_missing}")
+    if args.export_hardcoded:
+        print(f"Hardcoded strings exported to {args.export_hardcoded}")
+    if args.fail_on_hardcoded and candidates:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

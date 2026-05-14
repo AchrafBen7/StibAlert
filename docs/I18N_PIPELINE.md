@@ -9,7 +9,8 @@ Run:
 ```bash
 python3 scripts/i18n_audit.py \
   --write-report /tmp/stibalert-i18n-audit.md \
-  --export-missing /tmp/stibalert-i18n-missing.csv
+  --export-missing /tmp/stibalert-i18n-missing.csv \
+  --export-hardcoded /tmp/stibalert-i18n-hardcoded.csv
 ```
 
 Current audit result:
@@ -19,6 +20,7 @@ Current audit result:
 - Dutch coverage: 40/509, 469 missing.
 - English coverage: 59/509, 450 missing.
 - Swift UI hardcoded candidates still outside the catalog: 674.
+- Launch-critical hardcoded candidates: run `--priority-only` to isolate Home, Reports, report flow, auth, onboarding, favorites, line detail and Siri intents.
 
 ## Fast launch workflow
 
@@ -32,6 +34,27 @@ python3 scripts/i18n_import_csv.py /path/to/reviewed-translations.csv
 ```
 
 5. QA in simulator/device with phone language set to French, Dutch, then English.
+
+## Focused migration workflow
+
+Use the priority mode to avoid trying to fix the full app in one pass:
+
+```bash
+python3 scripts/i18n_audit.py \
+  --priority-only \
+  --write-report /tmp/stibalert-i18n-priority.md \
+  --export-hardcoded /tmp/stibalert-i18n-priority-hardcoded.csv
+```
+
+Recommended order:
+
+1. Convert Home + stop detail + route planner strings.
+2. Convert Reports + quick report flow strings.
+3. Convert line detail + favorites strings.
+4. Convert auth/onboarding strings.
+5. Convert profile/settings strings.
+
+Only after these screens are clean should `--fail-on-hardcoded` be considered for CI.
 
 ## Priority files to clean up first
 
