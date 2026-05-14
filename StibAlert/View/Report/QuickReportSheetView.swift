@@ -258,7 +258,7 @@ struct QuickReportSheetView: View {
                 Text(stop.name)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                Text("\(stop.distanceMeters)m · \(stop.lines.count) ligne\(stop.lines.count > 1 ? "s" : "")")
+                Text(stopDistanceAndLineCountText(stop))
                     .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -397,7 +397,7 @@ struct QuickReportSheetView: View {
 
                 Spacer(minLength: 8)
 
-                Text("\(stop.distanceMeters)m · \(stop.lines.count) lignes")
+                Text(stopDistanceAndLineCountText(stop))
                     .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(DS.Color.ink)
                     .padding(.top, 12)
@@ -567,7 +567,7 @@ struct QuickReportSheetView: View {
                         .font(.system(size: 11.5))
                         .foregroundStyle(DS.Color.inkMute)
                     if confirmations > 0 {
-                        Text("· \(confirmations) confirmé·e")
+                        Text(confirmationCountText(confirmations))
                             .font(.system(size: 11.5))
                             .foregroundStyle(DS.Color.inkMute)
                     }
@@ -651,7 +651,7 @@ struct QuickReportSheetView: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
-                Text("\(description.count)/280")
+                Text(descriptionCharacterCountText)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -706,6 +706,20 @@ struct QuickReportSheetView: View {
                 .kerning(1.2)
         }
         .padding(.horizontal, 18)
+    }
+
+    private func stopDistanceAndLineCountText(_ stop: NearbyStop) -> String {
+        let lineLabel = stop.lines.count == 1 ? String(localized: "ligne") : String(localized: "lignes")
+        return "\(stop.distanceMeters)m · \(stop.lines.count) \(lineLabel)"
+    }
+
+    private func confirmationCountText(_ count: Int) -> String {
+        let label = count == 1 ? String(localized: "confirmé") : String(localized: "confirmés")
+        return "· \(count) \(label)"
+    }
+
+    private var descriptionCharacterCountText: String {
+        "\(description.count)/280"
     }
 
     private func relativeTime(from date: Date?) -> String {

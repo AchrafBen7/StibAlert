@@ -43,6 +43,7 @@ UI_STRING_PATTERNS = [
     ("navigationTitle", re.compile(r'\.navigationTitle\("((?:[^"\\]|\\.)+)"\)')),
     ("accessibilityLabel", re.compile(r'\.accessibilityLabel\("((?:[^"\\]|\\.)+)"\)')),
     ("promptText", re.compile(r'prompt:\s*Text\("((?:[^"\\]|\\.)+)"\)')),
+    ("StringLocalized", re.compile(r'\bString\(localized:\s*"((?:[^"\\]|\\.)+)"\)')),
     ("titleArg", re.compile(r'\btitle:\s*"((?:[^"\\]|\\.)+)"')),
     ("subtitleArg", re.compile(r'\bsubtitle:\s*"((?:[^"\\]|\\.)+)"')),
     ("messageArg", re.compile(r'\bmessage:\s*"((?:[^"\\]|\\.)+)"')),
@@ -113,8 +114,13 @@ def decode_swift_string(value: str) -> str:
     )
 
 
-def swift_ui_candidates() -> list[dict[str, str | int]]:
+def normalized_catalog_key(value: str) -> str:
+    return value.strip()
+
+
+def swift_ui_candidates(catalog_keys: set[str] | None = None) -> list[dict[str, str | int]]:
     candidates: list[dict[str, str | int]] = []
+    catalog_keys = catalog_keys or set()
     for path in sorted(APP_ROOT.rglob("*.swift")):
         rel = path.relative_to(ROOT)
         text = path.read_text(encoding="utf-8", errors="ignore")
@@ -122,6 +128,8 @@ def swift_ui_candidates() -> list[dict[str, str | int]]:
             for match in pattern.finditer(text):
                 value = decode_swift_string(match.group(1))
                 if should_ignore(value):
+                    continue
+                if normalized_catalog_key(value) in catalog_keys:
                     continue
                 candidates.append(
                     {
@@ -267,7 +275,8 @@ def main() -> None:
     args = parser.parse_args()
 
     catalog = load_catalog()
-    all_candidates = swift_ui_candidates()
+    catalog_keys = {normalized_catalog_key(key) for key in catalog.get("strings", {}).keys()}
+    all_candidates = swift_ui_candidates(catalog_keys)
     candidates = priority_candidates(all_candidates) if args.priority_only else all_candidates
     report = build_report(catalog, candidates)
 

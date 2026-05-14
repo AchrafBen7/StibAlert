@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("csv_file", type=Path)
     parser.add_argument("--catalog", type=Path, default=CATALOG)
     parser.add_argument("--state", default="translated")
+    parser.add_argument("--create-missing", action="store_true")
     args = parser.parse_args()
 
     catalog = json.loads(args.catalog.read_text(encoding="utf-8"))
@@ -41,8 +42,10 @@ def main() -> None:
                 skipped += 1
                 continue
             if key not in strings:
-                skipped += 1
-                continue
+                if not args.create_missing:
+                    skipped += 1
+                    continue
+                strings[key] = {}
 
             strings[key].setdefault("localizations", {})[locale] = {
                 "stringUnit": {

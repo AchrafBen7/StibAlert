@@ -15,11 +15,11 @@ python3 scripts/i18n_audit.py \
 
 Current audit result:
 
-- `Localizable.xcstrings`: 509 keys.
-- French coverage: 509/509 via source-language fallback.
-- Dutch coverage: 40/509, 469 missing.
-- English coverage: 59/509, 450 missing.
-- Swift UI hardcoded candidates still outside the catalog: 674.
+- `Localizable.xcstrings`: 513 keys.
+- French coverage: 513/513 via source-language fallback.
+- Dutch coverage: 44/513, 469 missing.
+- English coverage: 63/513, 450 missing.
+- Swift UI hardcoded candidates still outside the catalog: 348 total, 222 launch-critical.
 - Launch-critical hardcoded candidates: run `--priority-only` to isolate Home, Reports, report flow, auth, onboarding, favorites, line detail and Siri intents.
 
 ## Fast launch workflow
