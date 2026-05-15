@@ -192,7 +192,7 @@ struct ReportsView: View {
             return EditorialFeedItem(
                 id: "report-\(report.id)",
                 type: feedType(for: report),
-                title: "Ligne \(report.ligne) — \(report.displayTypeProbleme)",
+                title: "Ligne \(report.ligne) · \(report.displayTypeProbleme)",
                 body: report.description,
                 timeLabel: relativeTimeLabel(from: report.dateSignalement),
                 lines: [report.ligne],
@@ -473,7 +473,7 @@ struct ReportsView: View {
                 return EditorialFeedItem(
                     id: "official-transport-\(incident.id)",
                     type: .official,
-                    title: primaryLine.map { "Ligne \($0) — \(incident.type ?? "Information STIB")" } ?? (incident.type ?? "Information STIB"),
+                    title: primaryLine.map { "Ligne \($0) · \(incident.type ?? "Information STIB")" } ?? (incident.type ?? "Information STIB"),
                     body: incident.description,
                     timeLabel: relativeTimeLabel(from: incident.date),
                     lines: lines,
@@ -498,7 +498,7 @@ struct ReportsView: View {
             EditorialFeedItem(
                 id: "official-summary-\(index)",
                 type: .official,
-                title: summary.affectedLines.first.map { "Ligne \($0) — Information STIB" } ?? "Information STIB",
+                title: summary.affectedLines.first.map { "Ligne \($0) · Information STIB" } ?? "Information STIB",
                 body: bullet,
                 timeLabel: "source officielle",
                 lines: summary.affectedLines,

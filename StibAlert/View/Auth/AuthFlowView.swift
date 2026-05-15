@@ -64,9 +64,9 @@ private struct WelcomePage: View {
 
     private let tickerLines = ["1", "2", "5", "7", "81", "29", "71", "95", "N04"]
     private let tickerHeadlines = [
-        "Trafic interrompu — bus de remplacement",
-        "Service normal — fréquence respectée",
-        "Travaux Place Flagey — déviation",
+        "Trafic interrompu · bus de remplacement",
+        "Service normal · fréquence respectée",
+        "Travaux Place Flagey · déviation",
         "Bondé · 22h Forest National",
         "Reprise progressive · contrôle terminé",
         "Métro régulier · 4 min entre rames",
@@ -90,7 +90,7 @@ private struct WelcomePage: View {
         .init(n: "01", icon: "mappin.and.ellipse", title: "Carte vivante", desc: "Tous les arrêts STIB, lignes, Villo! et événements en un coup d'œil.", accent: DS.Color.primary),
         .init(n: "02", icon: "bell.fill", title: "Alertes ciblées", desc: "Notifié uniquement sur vos lignes, pas de bruit en plus.", accent: DS.Color.statusMajor),
         .init(n: "03", icon: "person.2.fill", title: "Communauté", desc: "Signalements terrain confirmés en temps réel par les voyageurs.", accent: DS.Color.community),
-        .init(n: "04", icon: "bicycle", title: "Multimodal", desc: "Combine STIB, Villo!, marche — le plus rapide selon le trafic réel.", accent: DS.Color.villo)
+        .init(n: "04", icon: "bicycle", title: "Multimodal", desc: "Combine STIB, Villo! et marche, le plus rapide selon le trafic réel.", accent: DS.Color.villo)
     ]
 
     var body: some View {
@@ -153,7 +153,7 @@ private struct WelcomePage: View {
             .tracking(-1.5)
             .lineSpacing(-2)
 
-            Text("Temps réel, perturbations vérifiées par la communauté, et trajets réellement praticables — pour Bruxelles.")
+            Text("Temps réel, perturbations vérifiées par la communauté et trajets réellement praticables, pour Bruxelles.")
                 .font(.system(size: 15))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
@@ -297,7 +297,7 @@ private struct WelcomePage: View {
     private var manifesto: some View {
         VStack(alignment: .leading, spacing: 12) {
             DS.Rule(thick: true)
-            Text("« Pas de pub, pas de tracking. Juste le réseau bruxellois, lisible — pour les gens qui le prennent vraiment. »")
+            Text("« Pas de pub, pas de tracking. Juste le réseau bruxellois, lisible, pour les gens qui le prennent vraiment. »")
                 .font(.system(size: 16, design: .serif))
                 .italic()
                 .foregroundColor(DS.Color.ink)

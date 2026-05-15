@@ -629,7 +629,7 @@ struct DecisionView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 12, weight: .heavy))
-                    Text("Passe par \(disrupted.joined(separator: ", ")) — perturbé")
+                    Text("Passe par \(disrupted.joined(separator: ", ")) · perturbé")
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(0.5)
                 }

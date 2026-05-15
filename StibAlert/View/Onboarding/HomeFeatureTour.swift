@@ -27,7 +27,7 @@ struct HomeVerdictTip: Tip {
     }
 
     var message: Text? {
-        Text("Cherche un arrêt ou une destination ici — StibAlert te dit si la route est libre et te propose un plan B.")
+        Text("Cherche un arrêt ou une destination ici. StibAlert te dit si la route est libre et te propose un plan B.")
     }
 
     var image: Image? {

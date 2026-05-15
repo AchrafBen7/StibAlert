@@ -1604,7 +1604,7 @@ private struct FavoriteTransitItem: Identifiable {
             return "\(reportCount) signalements actifs"
         case .blocked:
             if let type = lastProblemType {
-                return "\(type) — service perturbé"
+                return "\(type) · service perturbé"
             }
             return "\(reportCount) signalements critiques"
         }

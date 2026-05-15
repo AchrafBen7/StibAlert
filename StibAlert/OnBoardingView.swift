@@ -425,14 +425,14 @@ private struct OnboardingPushStep: View {
                 tabIcon: "exclamationmark.triangle.fill",
                 tabLabel: "Alerte",
                 badgeColor: Color(hex: "#FF6B3D"),
-                body: "Incident à Ixelles — ligne \(primaryLine) perturbée dès 8h40. Envisage un départ avant 8h25."
+                body: "Incident à Ixelles · ligne \(primaryLine) perturbée dès 8h40. Envisage un départ avant 8h25."
             ),
             NotifScenario(
                 id: 1,
                 tabIcon: "checkmark.circle.fill",
                 tabLabel: "Tout roule",
                 badgeColor: Color(hex: "#73F0D2"),
-                body: "Ligne \(primaryLine) · 8h07 — Trafic normal ce matin. Prochain tram dans 4 min."
+                body: "Ligne \(primaryLine) · 8h07 · Trafic normal ce matin. Prochain tram dans 4 min."
             ),
             NotifScenario(
                 id: 2,
@@ -485,7 +485,7 @@ private struct OnboardingPushStep: View {
                 .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Active les alertes pour être informé avant ton départ — pas après.")
+            Text("Active les alertes pour être informé avant ton départ, pas après.")
                 .font(.custom("Montserrat-Regular", size: 15))
                 .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)

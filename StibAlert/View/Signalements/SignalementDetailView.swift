@@ -237,7 +237,7 @@ struct SignalementDetailView: View {
             }
             .padding(.bottom, 8)
 
-            Text("Ligne \(latest.ligne) — \(latest.displayTypeProbleme.lowercased())")
+            Text("Ligne \(latest.ligne) · \(latest.displayTypeProbleme.lowercased())")
                 .font(DS.Font.displayH2)
                 .foregroundStyle(DS.Color.ink)
                 .padding(.bottom, 8)

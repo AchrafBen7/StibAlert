@@ -48,7 +48,7 @@ struct LoginView: View {
             .font(.system(size: 36, weight: .bold))
             .tracking(-1.2)
 
-            Text("Vos lignes favorites, alertes et trajets — reconnectés en un instant.")
+            Text("Vos lignes favorites, alertes et trajets, reconnectés en un instant.")
                 .font(.system(size: 13.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
@@ -192,6 +192,8 @@ struct AuthEditorialScaffold<Content: View>: View {
                     eyebrow: mode == .signin ? "BON RETOUR" : "BIENVENUE",
                     large: false
                 )
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
 
                 VStack(alignment: .leading, spacing: 0) {
                     content()
