@@ -58,7 +58,7 @@ struct AppRoot: View {
             switch session.state {
             case .unknown:
                 ZStack {
-                    AppTheme.Colors.onboardingBackground.ignoresSafeArea()
+                    DS.Color.background.ignoresSafeArea()
                     ProgressView().tint(.white)
                 }
             case .signedOut:
@@ -139,7 +139,7 @@ struct AppRoot: View {
             OnboardingPreferenceStore.markApplied(for: user.id)
             await requestDeferredPushPermissionIfNeeded()
         } catch {
-            print("Onboarding preference sync failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "appRoot.onboardingSync")
         }
     }
 

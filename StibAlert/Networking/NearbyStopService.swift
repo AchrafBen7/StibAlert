@@ -219,7 +219,7 @@ private enum StaticTransitCatalogStore {
             )
             try data.write(to: url, options: .atomic)
         } catch {
-            print("Static transit catalog save failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "nearbyStops.catalogSave")
         }
     }
 
@@ -290,7 +290,7 @@ enum NearbyStopService {
                     return mapped
                 }
             } catch {
-                print("NearbyStopService backend nearby failed: \(error.localizedDescription)")
+                ErrorReporting.capture(error, tag: "nearbyStops.backend")
             }
         }
 

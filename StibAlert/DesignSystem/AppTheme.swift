@@ -1,5 +1,25 @@
 import SwiftUI
 
+// LEGACY: dark-locked palette (white text on dark navy). Used only by surfaces
+// that intentionally do not adapt to light mode: onboarding splash,
+// HomeSearchInputOverlay, and the in-progress HomeView. New code MUST use DS.*
+// from StibAlertDesignSystem.swift, which is light/dark adaptive.
+//
+// Migration map (when touching legacy code):
+//   AppTheme.Palette.screen          -> DS.Color.background
+//   AppTheme.Palette.surface         -> DS.Color.paper
+//   AppTheme.Palette.surfaceElevated -> DS.Color.paper2
+//   AppTheme.Palette.brand           -> DS.Color.primary
+//   AppTheme.Palette.textPrimary     -> DS.Color.foreground
+//   AppTheme.Palette.textSecondary   -> DS.Color.inkSoft
+//   AppTheme.Palette.textMuted       -> DS.Color.inkMute
+//   AppTheme.Palette.alert           -> DS.Color.danger
+//   AppTheme.Palette.warning         -> DS.Color.warning
+//   AppTheme.Palette.success         -> DS.Color.success
+//   AppTheme.Palette.info            -> DS.Color.info
+//   AppTheme.Palette.border          -> DS.Color.border
+//   AppTheme.Fonts.body              -> DS.Font.body
+//   AppTheme.Fonts.caption           -> DS.Font.caption
 enum AppTheme {
     enum Palette {
         static let screen = DesignSystem.Palette.screen

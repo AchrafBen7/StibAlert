@@ -1019,7 +1019,7 @@ struct ArretDetailPage: View {
             }
         } catch {
             isFavorite = previous
-            print("Stop favorite toggle failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "stop.favoriteToggle")
         }
     }
 }

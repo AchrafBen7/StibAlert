@@ -415,7 +415,6 @@ private struct OnboardingPushStep: View {
         let tabIcon: String
         let tabLabel: String
         let badgeColor: Color
-        let emoji: String
         let body: String
     }
 
@@ -426,7 +425,6 @@ private struct OnboardingPushStep: View {
                 tabIcon: "exclamationmark.triangle.fill",
                 tabLabel: "Alerte",
                 badgeColor: Color(hex: "#FF6B3D"),
-                emoji: "⚠️",
                 body: "Incident à Ixelles — ligne \(primaryLine) perturbée dès 8h40. Envisage un départ avant 8h25."
             ),
             NotifScenario(
@@ -434,15 +432,13 @@ private struct OnboardingPushStep: View {
                 tabIcon: "checkmark.circle.fill",
                 tabLabel: "Tout roule",
                 badgeColor: Color(hex: "#73F0D2"),
-                emoji: "✅",
-                body: "Ligne \(primaryLine) · 8h07 — Trafic normal ce matin. Prochain tram dans 4 min. Bon trajet 👍"
+                body: "Ligne \(primaryLine) · 8h07 — Trafic normal ce matin. Prochain tram dans 4 min."
             ),
             NotifScenario(
                 id: 2,
                 tabIcon: "clock.badge.fill",
                 tabLabel: "Retard",
                 badgeColor: Color(hex: "#B5CFF8"),
-                emoji: "🕐",
                 body: "Ligne \(primaryLine) retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min."
             ),
         ]
@@ -571,8 +567,9 @@ private struct OnboardingPushStep: View {
     private var notifBody: some View {
         let scenario = scenarios[selectedScenario]
         return HStack(alignment: .top, spacing: 12) {
-            Text(scenario.emoji)
-                .font(.system(size: 28))
+            Image(systemName: scenario.tabIcon)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(scenario.badgeColor)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Ligne \(primaryLine) · Perturbation réseau")

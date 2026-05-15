@@ -850,13 +850,6 @@ private struct LigneStopDetailSheet: View {
     }
 }
 
-private extension String {
-    var normalizedStopKey: String {
-        folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
 #if DEBUG
 #Preview {
     NavigationStack {

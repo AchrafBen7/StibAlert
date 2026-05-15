@@ -7,7 +7,7 @@ struct UserLocationDotView: View {
         ZStack {
             DirectionConeShape()
                 .fill(LinearGradient(
-                    colors: [AppTheme.Palette.info.opacity(0.55), .clear],
+                    colors: [DS.Color.info.opacity(0.55), .clear],
                     startPoint: .top, endPoint: .bottom
                 ))
                 .frame(width: 28, height: 36)
@@ -15,9 +15,9 @@ struct UserLocationDotView: View {
                 .rotationEffect(.degrees(heading))
 
             Circle()
-                .fill(AppTheme.Palette.screen)
+                .fill(DS.Color.background)
                 .frame(width: 12, height: 12)
-                .overlay(Circle().stroke(AppTheme.Palette.info, lineWidth: 1))
+                .overlay(Circle().stroke(DS.Color.info, lineWidth: 1))
                 .shadow(color: Color(red: 0.499, green: 0.527, blue: 0.962), radius: 4, x: 0, y: 4)
         }
     }
@@ -39,11 +39,11 @@ struct LiveSignalMarker: View {
 
     private var color: Color {
         switch problemType {
-        case "Accident", "Agression": return AppTheme.Palette.alert
-        case "Retard", "Panne": return AppTheme.Palette.warning
-        case "Incivilité": return AppTheme.Palette.info
-        case "Propreté": return AppTheme.Palette.success
-        default: return AppTheme.Palette.brand
+        case "Accident", "Agression": return DS.Color.danger
+        case "Retard", "Panne": return DS.Color.warning
+        case "Incivilité": return DS.Color.info
+        case "Propreté": return DS.Color.success
+        default: return DS.Color.primary
         }
     }
 
@@ -72,14 +72,14 @@ struct OfficialSignalMarker: View {
             ZStack(alignment: .topTrailing) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color(hex: "#F0441F").opacity(pulse ? 0.16 : 0.34))
+                        .fill(DS.Color.danger.opacity(pulse ? 0.16 : 0.34))
                         .frame(width: pulse ? 48 : 38, height: pulse ? 46 : 36)
                         .scaleEffect(pulse ? 1.12 : 0.92)
 
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color(hex: "#F0441F"))
+                        .fill(DS.Color.danger)
                         .frame(width: 34, height: 32)
-                        .shadow(color: Color(hex: "#F0441F").opacity(0.35), radius: 8, x: 0, y: 3)
+                        .shadow(color: DS.Color.danger.opacity(0.35), radius: 8, x: 0, y: 3)
                         .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 2)
 
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -99,7 +99,7 @@ struct OfficialSignalMarker: View {
             }
 
             TrianglePointer()
-                .fill(Color(hex: "#F0441F"))
+                .fill(DS.Color.danger)
                 .frame(width: 12, height: 7)
                 .offset(y: -1)
         }

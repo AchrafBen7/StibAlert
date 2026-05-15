@@ -77,7 +77,7 @@ final class LineShapesLoader: ObservableObject {
                 )
             }
         } catch {
-            print("Line shapes decode failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "lineShapes.decode")
             return []
         }
     }

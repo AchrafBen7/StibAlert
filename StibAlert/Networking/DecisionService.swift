@@ -42,12 +42,12 @@ enum DecisionVerdict: String, Codable {
     case caution = "CAUTION"
     case avoid = "AVOID"
 
-    var emoji: String {
+    var iconSystemName: String {
         switch self {
-        case .allClear: return "✅"
-        case .watch: return "👀"
-        case .caution: return "⚠️"
-        case .avoid: return "🚫"
+        case .allClear: return "checkmark.seal.fill"
+        case .watch: return "eye.fill"
+        case .caution: return "exclamationmark.triangle.fill"
+        case .avoid: return "xmark.octagon.fill"
         }
     }
 

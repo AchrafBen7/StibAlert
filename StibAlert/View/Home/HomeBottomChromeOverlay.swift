@@ -28,6 +28,7 @@ struct HomeBottomChromeOverlay: View {
                     }
                     Spacer()
                     HomeReportFloatingButton(action: onOpenReportSheet)
+                        .homeFeatureTip(.report)
                 }
                 .padding(.horizontal, 14)
                 .transition(.opacity)
@@ -45,7 +46,7 @@ struct HomeBottomChromeOverlay: View {
         }
         .padding(.bottom, 6)
         .padding(.bottom, 8) // iOS 17.5+ safe area bottom adjustment
-        .zIndex(8)
+        .zLayer(.bottomChrome)
     }
 }
 

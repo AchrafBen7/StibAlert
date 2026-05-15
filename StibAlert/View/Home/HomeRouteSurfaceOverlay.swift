@@ -30,7 +30,7 @@ struct HomeRouteSurfaceOverlay: View {
                     onClose: onCloseRouteSheet
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(8)
+                .zLayer(.bottomChrome)
             }
 
             if shouldShowRouteDetail, let selectedRouteDetail {
@@ -44,7 +44,7 @@ struct HomeRouteSurfaceOverlay: View {
                     }
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
-                .zIndex(9)
+                .zLayer(.routeDetail)
             }
 
             if shouldShowAR, let selectedARRoute {
@@ -53,7 +53,7 @@ struct HomeRouteSurfaceOverlay: View {
                     onClose: onCloseAR
                 )
                 .transition(.opacity)
-                .zIndex(11)
+                .zLayer(.clusterDetail)
             }
         }
     }

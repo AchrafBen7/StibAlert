@@ -28,7 +28,7 @@ extension HomeView {
                 activeSignalements: remoteSignalements
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(5)
+            .zLayer(.reportSheet)
         }
     }
 
@@ -75,7 +75,8 @@ extension HomeView {
             )
             .padding(.top, 10)
             .transition(.move(edge: .top).combined(with: .opacity))
-            .zIndex(3)
+            .zLayer(.searchHeader)
+            .homeFeatureTip(.verdict)
         }
     }
 
@@ -101,7 +102,7 @@ extension HomeView {
             .padding(.horizontal, 18)
             .padding(.bottom, 154)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(7)
+            .zLayer(.stopPreview)
         }
     }
 
@@ -133,7 +134,35 @@ extension HomeView {
                 }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .zIndex(11)
+            .zLayer(.clusterDetail)
         }
     }
+
+    @ViewBuilder
+    var allClearChipOverlay: some View {
+        if shouldShowAllClearChip {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.statusOK)
+                Text("Tout est fluide près de toi")
+                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .foregroundStyle(DS.Color.ink)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(DS.Color.paper)
+            .overlay(
+                Capsule().stroke(DS.Color.statusOK.opacity(0.45), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+            .shadow(color: DS.Color.ink.opacity(0.08), radius: 6, y: 2)
+            .padding(.top, 92)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zLayer(.allClearChip)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Aucun incident signalé à proximité")
+        }
+    }
+
 }

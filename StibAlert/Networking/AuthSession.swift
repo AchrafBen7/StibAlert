@@ -140,7 +140,7 @@ final class AuthSession: ObservableObject {
             let user = try await UtilisateurService.me()
             state = .signedIn(user)
         } catch {
-            print("User refresh failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "auth.userRefresh")
         }
     }
 

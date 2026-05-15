@@ -174,7 +174,7 @@ struct SignalementMiniCard: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
-                .font(AppTheme.Fonts.caption)
+                .font(DS.Font.caption)
         }
         .foregroundStyle(DS.Color.inkSoft)
         .padding(.horizontal, 10)

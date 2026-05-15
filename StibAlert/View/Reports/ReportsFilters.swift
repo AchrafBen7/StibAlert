@@ -108,7 +108,7 @@ struct ReportsFilterDock: View {
         )
         .compositingGroup()
         .clipped()
-        .zIndex(1_000)
+        .zLayer(.modalDropdown)
     }
 
     private var visibleSegments: [ReportSegment] {

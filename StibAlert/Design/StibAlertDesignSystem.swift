@@ -45,6 +45,14 @@ public extension DS {
         public static let statusMajor = hsl(14, 84, 48)
         public static let statusCritical = hsl(350, 75, 38)
 
+        // Semantic aliases — use these in non-status contexts (CTAs, badges, banners)
+        // so the intent is obvious at the call site. They share the underlying HSL with
+        // statusXxx so a future palette tweak stays in one place.
+        public static let success = statusOK
+        public static let warning = statusMinor
+        public static let danger = statusMajor
+        public static let info = hsl(220, 88, 55, dark: hsl(220, 88, 68))
+
         public static func hsl(_ h: Double, _ s: Double, _ l: Double, alpha: Double = 1.0, dark: SwiftUI.Color? = nil) -> SwiftUI.Color {
             let light = SwiftUI.Color(hsl: (h, s, l), alpha: alpha)
             guard let dark else { return light }
@@ -91,18 +99,21 @@ public extension SwiftUI.Color {
 
 public extension DS {
     enum Font {
-        public static let displayH1: SwiftUI.Font = .system(size: 32, weight: .bold)
-        public static let displayH2: SwiftUI.Font = .system(size: 22, weight: .bold)
-        public static let displayH3: SwiftUI.Font = .system(size: 17, weight: .semibold)
-        public static let body: SwiftUI.Font = .system(size: 14, weight: .regular)
-        public static let bodyBold: SwiftUI.Font = .system(size: 14, weight: .semibold)
-        public static let bodySmall: SwiftUI.Font = .system(size: 13, weight: .regular)
-        public static let caption: SwiftUI.Font = .system(size: 12, weight: .regular)
-        public static let eyebrow: SwiftUI.Font = .system(size: 10, weight: .semibold)
-        public static let sectionTitle: SwiftUI.Font = .system(size: 11, weight: .bold)
-        public static let mono: SwiftUI.Font = .system(size: 12, weight: .medium, design: .monospaced)
-        public static let monoSmall: SwiftUI.Font = .system(size: 10, weight: .medium, design: .monospaced)
-        public static let monoLarge: SwiftUI.Font = .system(size: 14, weight: .semibold, design: .monospaced)
+        // DelaGothicOne for editorial hero — scales with Dynamic Type via relativeTo.
+        public static let displayH1: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 32, relativeTo: .largeTitle)
+        public static let displayH2: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 22, relativeTo: .title2)
+
+        // System fonts using Apple's TextStyle scale — full Dynamic Type support.
+        public static let displayH3: SwiftUI.Font = .system(.headline)
+        public static let body: SwiftUI.Font = .system(.subheadline)
+        public static let bodyBold: SwiftUI.Font = .system(.subheadline).weight(.semibold)
+        public static let bodySmall: SwiftUI.Font = .system(.footnote)
+        public static let caption: SwiftUI.Font = .system(.caption)
+        public static let eyebrow: SwiftUI.Font = .system(.caption2).weight(.semibold)
+        public static let sectionTitle: SwiftUI.Font = .system(.caption2).weight(.bold)
+        public static let mono: SwiftUI.Font = .system(.caption, design: .monospaced)
+        public static let monoSmall: SwiftUI.Font = .system(.caption2, design: .monospaced)
+        public static let monoLarge: SwiftUI.Font = .system(.subheadline, design: .monospaced).weight(.semibold)
     }
 
     enum Radius {

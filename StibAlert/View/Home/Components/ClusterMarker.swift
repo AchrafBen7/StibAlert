@@ -7,11 +7,11 @@ struct ClusterMarker: View {
 
     private var color: Color {
         if cluster.isOfficial {
-            return Color(hex: "#3E7BFE")
+            return DS.Color.info
         }
         switch cluster.confidence {
-        case .high: return Color(hex: "#E94E1B")
-        case .medium: return Color(hex: "#F59E0B")
+        case .high: return DS.Color.danger
+        case .medium: return DS.Color.warning
         case .low: return Color(hex: "#9CA3AF")
         }
     }

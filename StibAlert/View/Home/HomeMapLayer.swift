@@ -69,8 +69,8 @@ struct HomeMapLayer: View {
     @MapContentBuilder
     private var userLocationOverlay: some MapContent {
         MapCircle(center: displayCoordinate, radius: 200)
-            .foregroundStyle(AppTheme.Palette.screen.opacity(0.07))
-            .stroke(AppTheme.Palette.info.opacity(0.6), lineWidth: 1)
+            .foregroundStyle(DS.Color.foreground.opacity(0.07))
+            .stroke(DS.Color.info.opacity(0.6), lineWidth: 1)
 
         Annotation("", coordinate: displayCoordinate, anchor: .center) {
             UserLocationDotView(heading: heading)
@@ -91,7 +91,7 @@ struct HomeMapLayer: View {
             Annotation("", coordinate: destinationCoordinate, anchor: .bottom) {
                 Image(systemName: "mappin.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundStyle(AppTheme.Palette.info)
+                    .foregroundStyle(DS.Color.info)
                     .shadow(radius: 4)
             }
         }

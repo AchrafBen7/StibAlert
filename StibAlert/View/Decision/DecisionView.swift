@@ -136,7 +136,7 @@ struct DecisionView: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(Color(hex: "#E94E1B"))
+                .foregroundStyle(DS.Color.danger)
             Text(message)
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.inkMute)
@@ -153,8 +153,9 @@ struct DecisionView: View {
         let ribbon = Color(hex: decision.verdict.ribbonColor)
         return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Text(decision.verdict.emoji)
-                    .font(.system(size: 28))
+                Image(systemName: decision.verdict.iconSystemName)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(ribbon)
                 Text(decision.verdict.shortLabel)
                     .font(DS.Font.monoSmall.weight(.heavy))
                     .tracking(2)
@@ -371,7 +372,7 @@ struct DecisionView: View {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: reason.icon ?? "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(Color(hex: "#10B981"))
+                            .foregroundStyle(DS.Color.success)
                             .frame(width: 16, alignment: .leading)
                             .padding(.top, 2)
                         Text(reason.label)
@@ -383,10 +384,10 @@ struct DecisionView: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#10B981").opacity(0.06))
+            .background(DS.Color.success.opacity(0.06))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color(hex: "#10B981").opacity(0.2), lineWidth: 1)
+                    .stroke(DS.Color.success.opacity(0.2), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
@@ -399,7 +400,7 @@ struct DecisionView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
                     .frame(width: 28, height: 28)
-                    .background(Color(hex: "#10B981").opacity(0.15))
+                    .background(DS.Color.success.opacity(0.15))
                     .clipShape(Circle())
             }
 
@@ -417,10 +418,10 @@ struct DecisionView: View {
 
     private var allClearReassurance: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Big emoji moment — emotional reward for "tout va bien"
             HStack(spacing: 12) {
-                Text("✨")
-                    .font(.system(size: 36))
+                Image(systemName: "sparkles")
+                    .font(.system(size: 30, weight: .regular))
+                    .foregroundStyle(DS.Color.statusOK)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Voie libre")
                         .font(.custom("DelaGothicOne-Regular", size: 24))
@@ -453,8 +454,8 @@ struct DecisionView: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(hex: "#10B981").opacity(0.12),
-                    Color(hex: "#10B981").opacity(0.05),
+                    DS.Color.success.opacity(0.12),
+                    DS.Color.success.opacity(0.05),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -462,7 +463,7 @@ struct DecisionView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: "#10B981").opacity(0.3), lineWidth: 1)
+                .stroke(DS.Color.success.opacity(0.3), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -632,10 +633,10 @@ struct DecisionView: View {
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(0.5)
                 }
-                .foregroundStyle(Color(hex: "#E94E1B"))
+                .foregroundStyle(DS.Color.danger)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color(hex: "#E94E1B").opacity(0.1))
+                .background(DS.Color.danger.opacity(0.1))
                 .clipShape(Capsule())
             }
 
@@ -695,7 +696,7 @@ struct DecisionView: View {
                     if let disrupted = alt.disruptedLines, !disrupted.isEmpty {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 12))
-                            .foregroundStyle(Color(hex: "#E94E1B"))
+                            .foregroundStyle(DS.Color.danger)
                     }
                     if let lines = alt.lines, !lines.isEmpty {
                         ForEach(lines.prefix(2), id: \.self) { line in

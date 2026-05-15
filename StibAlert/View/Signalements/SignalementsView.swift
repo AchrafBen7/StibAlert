@@ -450,38 +450,22 @@ struct SignalementsView: View {
     }
 
     private var linesEmptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(DS.Color.statusOK)
-            Text("Tout roule")
-                .font(DS.Font.displayH2)
-                .foregroundStyle(DS.Color.ink)
-            Text("Aucun incident signalé sur le réseau STIB pour le moment.")
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.inkMute)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        EmptyStateView(
+            iconSystemName: "checkmark.seal.fill",
+            title: "Tout roule",
+            body: "Aucun incident signalé sur le réseau STIB pour le moment.",
+            iconTint: DS.Color.statusOK,
+            iconWeight: .regular,
+            iconSize: 44
+        )
     }
 
     private var linesSearchEmptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(DS.Color.inkMute)
-            Text("Aucun résultat pour « \(query) »")
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.inkSoft)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        EmptyStateView(
+            iconSystemName: "magnifyingglass",
+            title: "Aucun résultat",
+            body: "Rien ne correspond à « \(query) »."
+        )
     }
 }
 

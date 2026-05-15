@@ -113,7 +113,7 @@ private struct ARRouteChevronOverlay: View {
                     )
                 }
                 .stroke(
-                    AppTheme.Palette.info.opacity(0.55),
+                    DS.Color.info.opacity(0.55),
                     style: StrokeStyle(lineWidth: 22, lineCap: .round)
                 )
                 .blur(radius: 4)
@@ -123,12 +123,12 @@ private struct ARRouteChevronOverlay: View {
 
                     ForEach(0..<8, id: \.self) { index in
                         ARChevronShape()
-                            .fill(AppTheme.Palette.info.opacity(0.92 - Double(index) * 0.08))
+                            .fill(DS.Color.info.opacity(0.92 - Double(index) * 0.08))
                             .frame(
                                 width: max(54, 148 - CGFloat(index) * 12),
                                 height: max(24, 56 - CGFloat(index) * 4)
                             )
-                            .shadow(color: AppTheme.Palette.info.opacity(0.45), radius: 10, x: 0, y: 0)
+                            .shadow(color: DS.Color.info.opacity(0.45), radius: 10, x: 0, y: 0)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

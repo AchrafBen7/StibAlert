@@ -17,17 +17,19 @@ struct ReportsFeedView: View {
 
     var body: some View {
         if isLoading && !hasLoaded {
-            ProgressView()
-                .tint(DS.Color.ink)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 56)
+            SkeletonList(count: 5, style: .card)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.top, 12)
         } else if feedItems.isEmpty {
-            Text("Rien à signaler dans cette catégorie.")
-                .font(DS.Font.body)
-                .italic()
-                .foregroundStyle(DS.Color.inkMute)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 64)
+            EmptyStateView(
+                iconSystemName: "checkmark.seal.fill",
+                title: "Tout est calme",
+                body: "Rien à signaler dans cette catégorie pour le moment. On te prévient dès qu'il y a du nouveau.",
+                iconTint: DS.Color.statusOK,
+                iconWeight: .regular,
+                iconSize: 44
+            )
+            .padding(.top, 32)
         } else {
             LazyVStack(spacing: 10) {
                 if shouldGroupFeedByLine {

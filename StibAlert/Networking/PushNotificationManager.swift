@@ -40,7 +40,7 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
                 UIApplication.shared.registerForRemoteNotifications()
             }
         } catch {
-            print("Push auth error: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "push.authRequest")
         }
     }
 
@@ -51,13 +51,13 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
                 try await UtilisateurService.enregistrerTokenPush(token)
                 await registerCurrentOneSignalPlayerIdIfAvailable()
             } catch {
-                print("Push token registration failed: \(error.localizedDescription)")
+                ErrorReporting.capture(error, tag: "push.tokenRegistration")
             }
         }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("APNs registration failed: \(error.localizedDescription)")
+        ErrorReporting.capture(error, tag: "push.apnsRegistration")
     }
 
     func userNotificationCenter(
@@ -111,7 +111,7 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
         do {
             try await UtilisateurService.enregistrerTokenPush(oneSignalPlayerId: playerId)
         } catch {
-            print("OneSignal player registration failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "push.oneSignalRegistration")
         }
 #endif
     }

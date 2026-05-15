@@ -87,10 +87,9 @@ struct FavoritesView: View {
                                 .padding(.top, 16)
 
                             if isLoadingRemote && displayItems.isEmpty {
-                                ProgressView()
-                                    .tint(DS.Color.inkMute)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.top, 80)
+                                SkeletonList(count: 4, style: .card)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 20)
                             } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
                                 favoritesEmptyState
                             } else if filteredItems.isEmpty {
@@ -303,51 +302,22 @@ struct FavoritesView: View {
     }
 
     private var favoritesEmptyState: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "star.slash")
-                .font(.system(size: 30, weight: .light))
-                .foregroundStyle(DS.Color.inkMute)
-            Text("Pas encore de favoris")
-                .font(DS.Font.displayH2)
-                .foregroundStyle(DS.Color.ink)
-            Text("Ajoutez vos arrêts depuis la carte pour les retrouver ici.")
-                .font(.system(size: 13))
-                .foregroundStyle(DS.Color.inkMute)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 28)
-            Button("Ajouter un arrêt") {
-                showAddSheet = true
-            }
-            .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(DS.Color.primaryForeground)
-            .frame(height: 44)
-            .frame(maxWidth: .infinity)
-            .background(DS.Color.primary)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(DS.Color.ink, lineWidth: 1.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .buttonStyle(PressableScaleStyle())
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
+        EmptyStateView(
+            iconSystemName: "star.slash",
+            title: "Pas encore de favoris",
+            body: "Ajoute tes arrêts depuis la carte pour les retrouver ici.",
+            cta: .init(label: "Ajouter un arrêt") { showAddSheet = true }
+        )
         .padding(.horizontal, 20)
         .padding(.top, 40)
     }
 
     private var searchEmptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(DS.Color.inkMute)
-            Text("Aucun résultat pour « \(query) »")
-                .font(.system(size: 13.5, weight: .semibold))
-                .foregroundStyle(DS.Color.ink)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-        }
-        .frame(maxWidth: .infinity)
+        EmptyStateView(
+            iconSystemName: "magnifyingglass",
+            title: "Aucun résultat",
+            body: "Rien ne correspond à « \(query) ». Essaie un autre nom d'arrêt ou de ligne."
+        )
         .padding(.top, 40)
     }
 

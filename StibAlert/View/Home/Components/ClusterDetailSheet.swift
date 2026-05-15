@@ -151,7 +151,7 @@ struct ClusterDetailSheet: View {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: "checkmark")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color(hex: "#10B981"))
+                .foregroundStyle(DS.Color.success)
                 .padding(.top, 2)
             Text(text)
                 .font(DS.Font.body)
@@ -163,8 +163,8 @@ struct ClusterDetailSheet: View {
     private func confidenceBadge(_ confidence: ClusterConfidence) -> some View {
         let color: Color
         switch confidence {
-        case .high: color = Color(hex: "#E94E1B")
-        case .medium: color = Color(hex: "#F59E0B")
+        case .high: color = DS.Color.danger
+        case .medium: color = DS.Color.warning
         case .low: color = Color(hex: "#9CA3AF")
         }
         return Text("Confiance: \(confidence.displayLabel.lowercased())")
@@ -180,18 +180,14 @@ struct ClusterDetailSheet: View {
     @ViewBuilder
     private var content: some View {
         if isLoading {
-            VStack(spacing: 12) {
-                ProgressView()
-                Text("Chargement…")
-                    .font(DS.Font.body)
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            .frame(maxWidth: .infinity, minHeight: 200)
+            SkeletonList(count: 3, style: .card)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity, minHeight: 200, alignment: .top)
         } else if let errorMessage {
             VStack(spacing: 12) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(Color(hex: "#E94E1B"))
+                    .foregroundStyle(DS.Color.danger)
                 Text(errorMessage)
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkMute)
@@ -278,8 +274,8 @@ struct ClusterDetailSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(hasVotedBlocked ? Color(hex: "#F59E0B").opacity(0.15) : Color(hex: "#F59E0B"))
-                .foregroundStyle(hasVotedBlocked ? Color(hex: "#F59E0B") : .white)
+                .background(hasVotedBlocked ? DS.Color.warning.opacity(0.15) : DS.Color.warning)
+                .foregroundStyle(hasVotedBlocked ? DS.Color.warning : .white)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -300,8 +296,8 @@ struct ClusterDetailSheet: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(hasVotedResolved ? Color(hex: "#10B981").opacity(0.15) : Color(hex: "#10B981"))
-                .foregroundStyle(hasVotedResolved ? Color(hex: "#10B981") : .white)
+                .background(hasVotedResolved ? DS.Color.success.opacity(0.15) : DS.Color.success)
+                .foregroundStyle(hasVotedResolved ? DS.Color.success : .white)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
