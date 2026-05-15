@@ -354,19 +354,15 @@ struct StibAlertShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: NextPassageIntent(),
             phrases: [
-                // Parameter-bound: Siri extracts line + stop straight from the
-                // sentence so the answer comes back without follow-up prompts.
-                "Prochain passage du \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                "Quand arrive le \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                "Tram \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                "Bus \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                "Métro \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                "Le \(\.$lineNumber) à \(\.$stopName) arrive dans combien de temps \(.applicationName)",
-                "Combien de temps avant le \(\.$lineNumber) à \(\.$stopName) \(.applicationName)",
-                // Fallback shorts that fall through to Siri's parameter prompt.
+                // Apple only allows one AppEntity/AppEnum parameter per phrase,
+                // so line + stop go through Siri's follow-up prompts (or the
+                // user wraps the intent in a personal Shortcut with prefilled
+                // values for a one-shot voice answer).
                 "Prochain passage \(.applicationName)",
                 "Mon tram arrive quand \(.applicationName)",
                 "Quand arrive ma ligne \(.applicationName)",
+                "Combien de temps avant mon tram \(.applicationName)",
+                "Quand passe le prochain \(.applicationName)",
             ],
             shortTitle: "Prochain passage",
             systemImageName: "tram.fill"
@@ -374,14 +370,11 @@ struct StibAlertShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: LineHealthIntent(),
             phrases: [
-                "État de la ligne \(\.$lineNumber) \(.applicationName)",
-                "Comment va la ligne \(\.$lineNumber) \(.applicationName)",
-                "La ligne \(\.$lineNumber) fonctionne \(.applicationName)",
-                "Y a-t-il des perturbations sur la \(\.$lineNumber) \(.applicationName)",
-                "Statut de la ligne \(\.$lineNumber) \(.applicationName)",
-                // Fallback shorts
                 "État de ma ligne \(.applicationName)",
                 "Comment va ma ligne \(.applicationName)",
+                "Ma ligne fonctionne \(.applicationName)",
+                "Y a-t-il des perturbations \(.applicationName)",
+                "Statut du réseau \(.applicationName)",
             ],
             shortTitle: "État d'une ligne",
             systemImageName: "waveform.path.ecg"
