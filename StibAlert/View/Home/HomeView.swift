@@ -1406,6 +1406,9 @@ struct HomeView: View {
         if let selectedStopLineNumber {
             focusMap(onLineShapesFor: selectedStopLineNumber)
         }
+        if #available(iOS 17.0, *) {
+            HomeFeatureTour.map.invalidate(reason: .actionPerformed)
+        }
     }
 
     @MainActor
