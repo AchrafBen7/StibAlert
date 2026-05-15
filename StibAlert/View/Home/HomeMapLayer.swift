@@ -101,15 +101,8 @@ struct HomeMapLayer: View {
 
     @MapContentBuilder
     private var officialIncidentAnnotations: some MapContent {
-        ForEach(officialSignalPoints) { point in
-            Annotation("", coordinate: point.coordinate, anchor: .bottom) {
-                Button { onOpenPreview(point.id) } label: {
-                    OfficialSignalMarker(problemType: point.typeProbleme)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-
+        // routeOfficialSignalPoints stay un-clustered: they belong to the
+        // active route surface so the user must see each one individually.
         ForEach(routeOfficialSignalPoints) { point in
             Annotation("", coordinate: point.coordinate, anchor: .bottom) {
                 Button {
@@ -124,46 +117,80 @@ struct HomeMapLayer: View {
         }
     }
 
-    private var clusteredCommunityMarkers: [MapSignalCluster] {
-        let inputs: [MapSignalClusterer.Input] = activeClusters.compactMap { cluster in
-            guard let lat = cluster.latitude, let lng = cluster.longitude else { return nil }
-            return MapSignalClusterer.Input(
-                id: String(cluster.clusterIndex),
+    private var unifiedMarkers: [MapSignalCluster] {
+        var inputs: [MapSignalClusterer.Input] = []
+
+        for cluster in activeClusters {
+            guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
+            inputs.append(MapSignalClusterer.Input(
+                id: "c-\(cluster.clusterIndex)",
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                typeProbleme: cluster.typeProbleme
-            )
+                typeProbleme: cluster.typeProbleme,
+                origin: .community
+            ))
         }
+
+        for point in officialSignalPoints {
+            inputs.append(MapSignalClusterer.Input(
+                id: "o-\(point.id)",
+                coordinate: point.coordinate,
+                typeProbleme: point.typeProbleme,
+                origin: .official
+            ))
+        }
+
         return MapSignalClusterer.cluster(points: inputs, latitudeDelta: cameraLatitudeDelta)
     }
 
     @MapContentBuilder
     private var communityClusterAnnotations: some MapContent {
-        ForEach(clusteredCommunityMarkers) { group in
+        ForEach(unifiedMarkers) { group in
             if group.count > 1 {
                 Annotation("", coordinate: group.coordinate, anchor: .center) {
                     Button {
                         onSelectClusterCount(group.coordinate)
                     } label: {
-                        ClusterCountMarker(count: group.count)
+                        ClusterCountMarker(count: group.count, origin: group.dominantOrigin)
                     }
                     .buttonStyle(.plain)
                 }
-            } else if let cluster = singleCluster(forSampleId: group.sampleIds.first) {
-                Annotation("", coordinate: group.coordinate, anchor: .bottom) {
-                    Button {
-                        onSelectCluster(cluster)
-                    } label: {
-                        ClusterMarker(cluster: cluster, isSelected: selectedClusterIndex == cluster.clusterIndex)
-                    }
-                    .buttonStyle(.plain)
-                }
+            } else if let sampleId = group.sampleIds.first {
+                singletonMarker(coordinate: group.coordinate, sampleId: sampleId)
             }
         }
     }
 
-    private func singleCluster(forSampleId id: String?) -> ClusterDTO? {
-        guard let id, let index = Int(id) else { return nil }
+    @MapContentBuilder
+    private func singletonMarker(coordinate: CLLocationCoordinate2D, sampleId: String) -> some MapContent {
+        if sampleId.hasPrefix("c-"),
+           let cluster = communityCluster(forSampleId: sampleId) {
+            Annotation("", coordinate: coordinate, anchor: .bottom) {
+                Button {
+                    onSelectCluster(cluster)
+                } label: {
+                    ClusterMarker(cluster: cluster, isSelected: selectedClusterIndex == cluster.clusterIndex)
+                }
+                .buttonStyle(.plain)
+            }
+        } else if sampleId.hasPrefix("o-"),
+                  let point = officialPoint(forSampleId: sampleId) {
+            Annotation("", coordinate: coordinate, anchor: .bottom) {
+                Button { onOpenPreview(point.id) } label: {
+                    OfficialSignalMarker(problemType: point.typeProbleme)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func communityCluster(forSampleId id: String) -> ClusterDTO? {
+        guard let index = Int(id.dropFirst(2)) else { return nil }
         return activeClusters.first(where: { $0.clusterIndex == index })
+    }
+
+    private func officialPoint(forSampleId id: String) -> HomeView.LiveSignalPoint? {
+        let signalId = String(id.dropFirst(2))
+        return officialSignalPoints.first(where: { $0.id == signalId })
     }
 
     @MapContentBuilder

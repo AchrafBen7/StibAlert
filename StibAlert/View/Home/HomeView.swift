@@ -1146,12 +1146,18 @@ struct HomeView: View {
         return true
     }
 
-    private func zoomCameraIn(to center: CLLocationCoordinate2D, factor: Double = 0.4) {
-        let newDelta = max(0.005, cameraLatitudeDelta * factor)
+    private func zoomCameraIn(to center: CLLocationCoordinate2D, factor: Double = 0.32) {
+        let newDelta = max(0.004, cameraLatitudeDelta * factor)
         let span = MKCoordinateSpan(latitudeDelta: newDelta, longitudeDelta: newDelta)
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-            mapPosition = .region(MKCoordinateRegion(center: center, span: span))
+        let region = MKCoordinateRegion(center: center, span: span)
+        // easeOut is cheaper to animate than a spring on Map (which redraws
+        // annotations at every interpolation step). Keeps the tap responsive
+        // when the city is dense with clusters.
+        withAnimation(.easeOut(duration: 0.28)) {
+            mapPosition = .region(region)
         }
+        cameraLatitudeDelta = newDelta
+        cameraCenterCoordinate = center
     }
 
     private func focusMapOnEvents() {
