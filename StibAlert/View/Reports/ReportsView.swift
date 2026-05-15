@@ -555,8 +555,9 @@ struct ReportsView: View {
                     .fill(DS.Color.ink.opacity(0.15))
                     .frame(width: 1)
                 StatusCell(
-                    label: "Perturbées",
+                    label: "Lignes perturbées",
                     value: "\(perturbed)",
+                    sublabel: "lignes",
                     valueColor: perturbed > 0 ? DS.Color.statusMajor : DS.Color.ink
                 )
             }

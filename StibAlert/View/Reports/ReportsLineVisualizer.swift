@@ -90,7 +90,10 @@ struct EditorialLineVisualizer: View {
         let usableH = size.height - padTop - padBot
         let t = total <= 1 ? 0 : CGFloat(originalIndex) / CGFloat(total - 1)
         let x = padX + t * usableW
-        let y = padTop + usableH * 0.5 + (rng.next() - 0.5) * usableH * 0.45
+        // Straight horizontal axis — labels still alternate above/below to
+        // avoid overlap, so we don't need to zigzag the stop positions.
+        let y = padTop + usableH * 0.5
+        _ = rng.next()  // keep RNG advancing so seeded outputs stay stable elsewhere
         return CGPoint(x: x, y: y)
     }
 

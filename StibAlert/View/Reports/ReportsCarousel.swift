@@ -30,7 +30,7 @@ struct ReportsCarousel: View {
 
             Spacer()
 
-            Text("\(items.count) ouvert\(items.count > 1 ? "s" : "")")
+            Text("\(items.count) dépêche\(items.count > 1 ? "s" : "")")
                 .font(DS.Font.monoSmall.weight(.semibold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)
