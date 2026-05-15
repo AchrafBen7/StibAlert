@@ -141,7 +141,7 @@ struct ClusterPosition: Codable, Hashable {
 struct ClusterDetailDTO: Decodable {
     let clusterIndex: Int
     let ligne: String
-    let arretId: String
+    let arretId: String?
     let typeProbleme: String
     let reportCount: Int
     let aggregateTrust: Double
@@ -159,12 +159,12 @@ struct ClusterDetailDTO: Decodable {
 }
 
 struct ClusterReportDTO: Decodable, Identifiable, Hashable {
-    let description: String
-    let trust: Double
+    let description: String?
+    let trust: Double?
     let timestamp: Date?
-    let source: String
+    let source: String?
 
-    var id: String { "\(timestamp?.timeIntervalSince1970 ?? 0)-\(description.hashValue)" }
+    var id: String { "\(timestamp?.timeIntervalSince1970 ?? 0)-\((description ?? "").hashValue)" }
 }
 
 struct ClusterConfirmResponse: Decodable {

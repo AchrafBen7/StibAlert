@@ -710,6 +710,7 @@ struct HomeView: View {
             routeOfficialSignalPoints: routeOfficialSignalPoints,
             activeClusters: activeClusters,
             selectedClusterIndex: selectedClusterIndex,
+            cameraLatitudeDelta: cameraLatitudeDelta,
             mapVehicles: mapVehicles,
             vehicleBearings: vehicleTracker.vehicleBearings,
             mapStops: mapStops,
@@ -723,6 +724,9 @@ struct HomeView: View {
                 withAnimation(transitionSpring) {
                     selectedClusterIndex = cluster.clusterIndex
                 }
+            },
+            onSelectClusterCount: { center in
+                zoomCameraIn(to: center, factor: 0.4)
             },
             onSelectVilloStation: { station in
                 selectedVilloStation = station
@@ -1140,6 +1144,14 @@ struct HomeView: View {
         }
 
         return true
+    }
+
+    private func zoomCameraIn(to center: CLLocationCoordinate2D, factor: Double = 0.4) {
+        let newDelta = max(0.005, cameraLatitudeDelta * factor)
+        let span = MKCoordinateSpan(latitudeDelta: newDelta, longitudeDelta: newDelta)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+            mapPosition = .region(MKCoordinateRegion(center: center, span: span))
+        }
     }
 
     private func focusMapOnEvents() {

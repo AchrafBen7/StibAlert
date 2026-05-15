@@ -240,7 +240,7 @@ struct ClusterDetailSheet: View {
                 .foregroundStyle(DS.Color.inkMute)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
-                Text("« \(report.description) »")
+                Text("« \(report.description ?? "Signalement") »")
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(3)
@@ -326,6 +326,7 @@ struct ClusterDetailSheet: View {
                 self.isLoading = false
             }
         } catch {
+            ErrorReporting.capture(error, tag: "cluster.detail.load", context: ["clusterIndex": clusterIndex])
             await MainActor.run {
                 self.errorMessage = "Impossible de charger les détails."
                 self.isLoading = false

@@ -13,6 +13,7 @@ struct HomeMapLayer: View {
     let routeOfficialSignalPoints: [HomeView.RouteOfficialSignalPoint]
     let activeClusters: [ClusterDTO]
     let selectedClusterIndex: Int?
+    let cameraLatitudeDelta: Double
     let mapVehicles: [TransportVehicleDTO]
     let vehicleBearings: [String: Double]
     let mapStops: [TransportStopSummaryDTO]
@@ -23,6 +24,7 @@ struct HomeMapLayer: View {
     let onOpenPreview: (String) -> Void
     let onOpenStopPreview: (TransportStopSummaryDTO) -> Void
     let onSelectCluster: (ClusterDTO) -> Void
+    let onSelectClusterCount: (CLLocationCoordinate2D) -> Void
     let onSelectVilloStation: (VilloStation) -> Void
     let onSelectEventImpact: (TransportEventImpactDTO) -> Void
     let onCameraChanged: (MKCoordinateRegion) -> Void
@@ -122,11 +124,32 @@ struct HomeMapLayer: View {
         }
     }
 
+    private var clusteredCommunityMarkers: [MapSignalCluster] {
+        let inputs: [MapSignalClusterer.Input] = activeClusters.compactMap { cluster in
+            guard let lat = cluster.latitude, let lng = cluster.longitude else { return nil }
+            return MapSignalClusterer.Input(
+                id: String(cluster.clusterIndex),
+                coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                typeProbleme: cluster.typeProbleme
+            )
+        }
+        return MapSignalClusterer.cluster(points: inputs, latitudeDelta: cameraLatitudeDelta)
+    }
+
     @MapContentBuilder
     private var communityClusterAnnotations: some MapContent {
-        ForEach(activeClusters) { cluster in
-            if let lat = cluster.latitude, let lng = cluster.longitude {
-                Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .bottom) {
+        ForEach(clusteredCommunityMarkers) { group in
+            if group.count > 1 {
+                Annotation("", coordinate: group.coordinate, anchor: .center) {
+                    Button {
+                        onSelectClusterCount(group.coordinate)
+                    } label: {
+                        ClusterCountMarker(count: group.count)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else if let cluster = singleCluster(forSampleId: group.sampleIds.first) {
+                Annotation("", coordinate: group.coordinate, anchor: .bottom) {
                     Button {
                         onSelectCluster(cluster)
                     } label: {
@@ -136,6 +159,11 @@ struct HomeMapLayer: View {
                 }
             }
         }
+    }
+
+    private func singleCluster(forSampleId id: String?) -> ClusterDTO? {
+        guard let id, let index = Int(id) else { return nil }
+        return activeClusters.first(where: { $0.clusterIndex == index })
     }
 
     @MapContentBuilder
