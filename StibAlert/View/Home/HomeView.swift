@@ -163,7 +163,7 @@ struct HomeView: View {
     private var mapClusters: [MapSignalCluster] {
         let communityPoints = liveSignalPoints.filter { $0.source != "stib_officiel" }
         return MapSignalClusterer.cluster(
-            points: communityPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme) },
+            points: communityPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme, origin: .community) },
             latitudeDelta: cameraLatitudeDelta
         )
     }
