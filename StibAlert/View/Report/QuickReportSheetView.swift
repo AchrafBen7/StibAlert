@@ -160,7 +160,11 @@ struct QuickReportSheetView: View {
 
             submitBar
         }
-        .frame(maxHeight: screen - safeTop - 24)
+        // Shrink the sheet by the keyboard height so it stays anchored
+        // between safeTop and the keyboard top (the .padding(.bottom,
+        // keyboardHeight) at the call site already shifts us above the
+        // keyboard; we just need to stop overflowing safeTop).
+        .frame(maxHeight: max(320, screen - safeTop - 24 - keyboardHeight))
         .animation(.easeOut(duration: 0.22), value: keyboardHeight)
     }
 
