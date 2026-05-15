@@ -157,14 +157,19 @@ struct QuickReportSheetView: View {
                     scrollToDescription(proxy, delay: 0.04)
                 }
             }
+            // ScrollView's intrinsic size is the size of its content, so the
+            // VStack would collapse around it when the keyboard pops up. Force
+            // the scroll area to claim every remaining vertical pixel between
+            // handleBar and submitBar — that's what stops the sheet from
+            // looking like "handleBar + submitBar only".
+            .frame(maxHeight: .infinity)
 
             submitBar
         }
-        // Shrink the sheet by the keyboard height so it stays anchored
-        // between safeTop and the keyboard top (the .padding(.bottom,
-        // keyboardHeight) at the call site already shifts us above the
-        // keyboard; we just need to stop overflowing safeTop).
-        .frame(maxHeight: max(320, screen - safeTop - 24 - keyboardHeight))
+        // Force exact height (not max) so the VStack always has the full slab
+        // between safeTop and the keyboard top to distribute among its three
+        // children. Without this, the sheet shrink-wraps its content.
+        .frame(height: max(360, screen - safeTop - 24 - keyboardHeight))
         .animation(.easeOut(duration: 0.22), value: keyboardHeight)
     }
 
