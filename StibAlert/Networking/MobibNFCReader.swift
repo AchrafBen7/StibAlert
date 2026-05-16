@@ -27,15 +27,20 @@ final class MobibNFCReader: NSObject, ObservableObject {
         errorMessage = nil
         isScanning = true
         scanState = .scanning
-        appendDebug(level: "info", "Session NFC demarree.")
-        guard let readerSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self) else {
+        appendDebug(level: "info", "Session NFC démarrée (polling ISO14443 + ISO15693 + FeliCa).")
+        // MoBIB cards are Calypso over ISO 14443 Type B but iPhone's antenna
+        // is finicky with them — broadening the polling set so non-standard
+        // revisions still register. Combining the OptionSet bits is the
+        // documented way (Apple's WWDC sessions on Core NFC).
+        let pollingOptions: NFCTagReaderSession.PollingOption = [.iso14443, .iso15693, .iso18092]
+        guard let readerSession = NFCTagReaderSession(pollingOption: pollingOptions, delegate: self) else {
             isScanning = false
-            errorMessage = "Impossible de demarrer la lecture NFC sur cet appareil."
-            scanState = .error(errorMessage ?? "Impossible de demarrer la lecture NFC.")
-            appendDebug(level: "error", "Creation de session NFC impossible.")
+            errorMessage = "Impossible de démarrer la lecture NFC sur cet appareil."
+            scanState = .error(errorMessage ?? "Impossible de démarrer la lecture NFC.")
+            appendDebug(level: "error", "Création de session NFC impossible.")
             return
         }
-        readerSession.alertMessage = "Approchez votre carte MoBIB de la partie haute de l'iPhone."
+        readerSession.alertMessage = "Tiens ta MoBIB contre l'arrière du haut de l'iPhone (zone caméra), sans bouger 1-2 secondes."
         self.session = readerSession
         readerSession.begin()
 #else
