@@ -59,10 +59,12 @@ struct TransitPassSettingsView: View {
                             if PKPassLibrary.isPassLibraryAvailable() {
                                 TransitActionRow(
                                     icon: isFetchingWalletPass ? "hourglass" : "wallet.pass.fill",
-                                    label: isFetchingWalletPass ? "Génération du pass…" : "Ajouter à Apple Wallet",
+                                    label: walletButtonLabel,
                                     value: nil,
                                     action: { Task { await addToAppleWallet() } }
                                 )
+                                .disabled(!canAddToWallet || isFetchingWalletPass)
+                                .opacity(canAddToWallet ? 1 : 0.5)
                                 ProfileSettingsDivider()
                             }
                             TransitActionRow(
@@ -150,6 +152,20 @@ struct TransitPassSettingsView: View {
 
     private var cardValidity: TransitCardValidity {
         TransitCardValidity.from(expiryDate: draftPass.expiryDate)
+    }
+
+    /// Apple Wallet refuses passes with empty primary fields, so the button
+    /// stays disabled until the user has at least a card number AND a name.
+    private var canAddToWallet: Bool {
+        let cardOK = !draftPass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let nameOK = !(previewPass.holderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        return cardOK && nameOK
+    }
+
+    private var walletButtonLabel: String {
+        if isFetchingWalletPass { return "Génération du pass…" }
+        if !canAddToWallet { return "Complète la carte d'abord" }
+        return "Ajouter à Apple Wallet"
     }
 
     @MainActor
@@ -556,6 +572,13 @@ private struct TransitPassCardView: View {
     let flashOpacity: Double
     let onToggleReveal: () -> Void
 
+    /// True when the user hasn't scanned or filled anything yet — we render
+    /// a dedicated empty placeholder instead of a half-populated mock card.
+    private var isEmptyState: Bool {
+        pass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && pass.lastScannedAt == nil
+    }
+
     private var chipNumber: String {
         let digits = pass.cardNumber.filter(\.isNumber)
         let prefix = String(digits.prefix(6))
@@ -587,6 +610,49 @@ private struct TransitPassCardView: View {
     }
 
     var body: some View {
+        if isEmptyState {
+            emptyStateCard
+        } else {
+            populatedCard
+        }
+    }
+
+    private var emptyStateCard: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(DS.Color.paper2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(
+                            style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
+                        )
+                        .foregroundStyle(DS.Color.ink.opacity(0.22))
+                )
+
+            VStack(spacing: 14) {
+                Image(systemName: "creditcard.viewfinder")
+                    .font(.system(size: 38, weight: .light))
+                    .foregroundStyle(DS.Color.inkMute)
+                Text("Aucune carte enregistrée")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("Scanne ta MoBIB en NFC ou complète\nmanuellement les champs ci-dessous.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(20)
+
+            if isScanning {
+                ScanRippleOverlay()
+                    .allowsHitTesting(false)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+        }
+        .aspectRatio(1.586, contentMode: .fit)
+    }
+
+    private var populatedCard: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14)
                 .fill(

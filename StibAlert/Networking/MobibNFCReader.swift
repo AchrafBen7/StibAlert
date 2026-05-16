@@ -69,23 +69,56 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             self.session = nil
 
             guard let nfcError = error as? NFCReaderError else {
-                self.errorMessage = error.localizedDescription
-                self.scanState = .error(error.localizedDescription)
-                self.appendDebug(level: "error", "Session invalidee: \(error.localizedDescription)")
+                let friendly = Self.friendlyMessage(for: error)
+                self.errorMessage = friendly
+                self.scanState = .error(friendly)
+                self.appendDebug(level: "error", "Session invalidée: \(error.localizedDescription)")
                 return
             }
 
             switch nfcError.code {
-            case .readerSessionInvalidationErrorFirstNDEFTagRead, .readerSessionInvalidationErrorUserCanceled:
+            case .readerSessionInvalidationErrorFirstNDEFTagRead,
+                 .readerSessionInvalidationErrorUserCanceled:
+                // User dismissed the system sheet or a tag was detected — keep
+                // the scan state aligned with whatever last result we have.
                 self.scanState = self.lastScan.map { $0.isPartial ? .partial($0) : .detected($0) } ?? .idle
-                self.appendDebug(level: "info", "Session NFC terminee par l'utilisateur ou tag detecte.")
-                break
+                self.appendDebug(level: "info", "Session NFC terminée par l'utilisateur ou tag detecté.")
+            case .readerSessionInvalidationErrorSessionTimeout:
+                let msg = "Aucune carte détectée. Approche la MoBIB de la partie haute de l'iPhone et garde-la immobile."
+                self.errorMessage = msg
+                self.scanState = .error(msg)
+                self.appendDebug(level: "warning", "Timeout NFC — aucune carte présentée.")
+            case .readerErrorUnsupportedFeature:
+                let msg = "Ton iPhone ne prend pas en charge la lecture NFC compatible MoBIB."
+                self.errorMessage = msg
+                self.scanState = .error(msg)
+                self.appendDebug(level: "error", "NFC non supporté sur cet appareil.")
             default:
-                self.errorMessage = nfcError.localizedDescription
-                self.scanState = .error(nfcError.localizedDescription)
+                let friendly = Self.friendlyMessage(for: nfcError)
+                self.errorMessage = friendly
+                self.scanState = .error(friendly)
                 self.appendDebug(level: "error", "Erreur NFC: \(nfcError.localizedDescription)")
             }
         }
+    }
+
+    /// Translates the cryptic system NFC errors into something a Brussels
+    /// commuter can actually act on. iOS sometimes returns
+    /// "Impossible de lire la carte car elle n'est pas valide" for what is
+    /// really a timeout or an antenna placement issue — that copy is far too
+    /// alarming for a UX entry point.
+    static func friendlyMessage(for error: Error) -> String {
+        let raw = error.localizedDescription.lowercased()
+        if raw.contains("timeout") || raw.contains("session") {
+            return "Aucune carte détectée. Approche la MoBIB de la partie haute de l'iPhone."
+        }
+        if raw.contains("invalide") || raw.contains("invalid") || raw.contains("valide") {
+            return "Impossible de lire cette carte. Glisse-la doucement autour du haut de l'iPhone, ou complète manuellement ci-dessous."
+        }
+        if raw.contains("annul") || raw.contains("cancel") {
+            return "Lecture annulée."
+        }
+        return "La lecture n'a pas pu se faire. Réessaie ou complète manuellement."
     }
 
     nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
