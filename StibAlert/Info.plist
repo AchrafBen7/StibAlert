@@ -21,6 +21,17 @@
 	<string>StibAlert utilise la caméra pour la navigation en réalité augmentée vers votre arrêt.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>StibAlert utilise le NFC pour associer votre carte MoBIB à votre profil et retrouver votre abonnement plus facilement.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<!-- Calypso "1TIC.ICA" AID — used by MoBIB / STIB-MIVB Brussels -->
+		<string>315449432E494341</string>
+		<!-- Calypso B Prime (older MoBIB revisions) -->
+		<string>A0000004040125009101</string>
+		<!-- Calypso applet generic -->
+		<string>334D54520010</string>
+		<!-- Mifare DESFire DF7560 (some MoBIB variants) -->
+		<string>D2760000850100</string>
+	</array>
 	<key>OneSignalAppID</key>
 	<string>c572317d-1a24-49fa-9631-b6556438ae34</string>
 	<key>CFBundleURLTypes</key>
