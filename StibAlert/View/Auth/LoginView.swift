@@ -132,7 +132,7 @@ struct LoginView: View {
 
             HStack {
                 Spacer()
-                Button {} label: {
+                Button(action: openPasswordReset) {
                     Text("Mot de passe oublié ?")
                         .font(DS.Font.mono.weight(.bold))
                         .foregroundColor(DS.Color.ink)
@@ -169,6 +169,25 @@ struct LoginView: View {
             }
             .disabled(isLoading || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || motDePasse.isEmpty)
             .buttonStyle(PressableScaleStyle())
+        }
+    }
+
+    private func openPasswordReset() {
+        // Self-service reset isn't wired yet — opens a pre-filled support
+        // mail so reviewers (and real users) reach a working escalation path.
+        let subject = "Réinitialisation de mot de passe — StibAlert"
+        let body = """
+        Bonjour,
+
+        J'ai besoin de réinitialiser mon mot de passe StibAlert.
+        Email associé au compte : \(email.isEmpty ? "(à compléter)" : email)
+
+        Merci.
+        """
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? subject
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? body
+        if let url = URL(string: "mailto:support@stibalert.app?subject=\(encodedSubject)&body=\(encodedBody)") {
+            UIApplication.shared.open(url)
         }
     }
 
