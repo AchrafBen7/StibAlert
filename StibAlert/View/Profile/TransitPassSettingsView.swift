@@ -122,12 +122,13 @@ struct TransitPassSettingsView: View {
             syncDraftWithSessionNameIfNeeded()
         }
         .onReceive(nfcReader.$lastScan.compactMap { $0 }) { scan in
+            // Store the NFC fingerprint separately from cardNumber. We used to
+            // auto-fill cardNumber with the UID, but that's confusing — the UID
+            // is the chip identifier, not the human-readable serial printed on
+            // the card. The user enters the printed number themselves.
             draftPass.nfcFingerprint = scan.fingerprint
             draftPass.nfcTagType = scan.tagType
             draftPass.lastScannedAt = scan.scannedAt
-            if draftPass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                draftPass.cardNumber = String(scan.fingerprint.prefix(16))
-            }
             save()
             triggerDetectionFeedback(isPartial: scan.isPartial)
         }
@@ -654,15 +655,14 @@ private struct TransitPassCardView: View {
 
     private var populatedCard: some View {
         ZStack(alignment: .topLeading) {
-            // Solid editorial navy with a subtle radial highlight top-left,
-            // no busy icon pattern — feels closer to an Apple Wallet pass
-            // than a photocopy of the physical MoBIB.
+            // MoBIB green gradient — echoes the physical card without
+            // photocopying its busy "M" pattern. Editorial clean look.
             RoundedRectangle(cornerRadius: 18)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.12, green: 0.18, blue: 0.32),
-                            Color(red: 0.07, green: 0.10, blue: 0.20),
+                            Color(red: 0.50, green: 0.72, blue: 0.39), // MoBIB green light
+                            Color(red: 0.36, green: 0.58, blue: 0.28), // MoBIB green deep
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
