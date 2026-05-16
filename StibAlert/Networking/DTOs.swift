@@ -128,6 +128,11 @@ struct ConnexionRequest: Encodable {
     let motDePasse: String
 }
 
+struct AppleSignInRequest: Encodable {
+    let identityToken: String
+    let fullName: String?
+}
+
 struct MessageResponse: Decodable {
     let message: String
 }

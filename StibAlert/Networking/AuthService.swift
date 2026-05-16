@@ -25,6 +25,14 @@ enum AuthService {
         )
     }
 
+    static func appleSignIn(identityToken: String, fullName: String?) async throws -> AuthResponse {
+        try await APIClient.shared.request(
+            "/api/utilisateurs/apple-signin",
+            method: .POST,
+            body: AppleSignInRequest(identityToken: identityToken, fullName: fullName)
+        )
+    }
+
     static func me() async throws -> UtilisateurDTO {
         try await APIClient.shared.request("/api/utilisateurs/me", requiresAuth: true)
     }

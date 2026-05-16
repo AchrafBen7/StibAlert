@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 enum AuthEditorialMode: String {
     case signin
@@ -61,7 +62,37 @@ struct LoginView: View {
     }
 
     private var socialSection: some View {
-        EmptyView()
+        AppleSignInButtonView { result in
+            handleAppleSignIn(result)
+        }
+        .padding(.bottom, 12)
+    }
+
+    private func handleAppleSignIn(_ result: Result<AppleSignInPayload, Error>) {
+        switch result {
+        case .success(let payload):
+            isLoading = true
+            errorMessage = nil
+            Task {
+                do {
+                    try await session.signInWithApple(
+                        identityToken: payload.identityToken,
+                        fullName: payload.fullName
+                    )
+                } catch {
+                    errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                }
+                isLoading = false
+            }
+        case .failure(let error):
+            // ASAuthorizationError.canceled is fine — user just dismissed the sheet.
+            let nsErr = error as NSError
+            if nsErr.domain == ASAuthorizationError.errorDomain,
+               nsErr.code == ASAuthorizationError.canceled.rawValue {
+                return
+            }
+            errorMessage = error.localizedDescription
+        }
     }
 
     private var formSection: some View {

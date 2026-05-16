@@ -111,6 +111,15 @@ final class AuthSession: ObservableObject {
         await registerForPushIfNeeded(using: auth.utilisateur)
     }
 
+    func signInWithApple(identityToken: String, fullName: String?) async throws {
+        let auth = try await AuthService.appleSignIn(identityToken: identityToken, fullName: fullName)
+        KeychainHelper.saveToken(auth.token)
+        if let refresh = auth.refreshToken { KeychainHelper.saveRefreshToken(refresh) }
+        state = .signedIn(auth.utilisateur)
+        PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
+        await registerForPushIfNeeded(using: auth.utilisateur)
+    }
+
     func deconnexion() async {
         try? await AuthService.deconnexion()
         KeychainHelper.deleteToken()
