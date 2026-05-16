@@ -9,6 +9,7 @@ struct TransitPassSettingsView: View {
 
     @State private var draftPass = TransitPassStorage.load()
     @State private var revealed = false
+    @State private var detectionFlashOpacity: Double = 0
 
     var body: some View {
         ZStack {
@@ -21,7 +22,13 @@ struct TransitPassSettingsView: View {
                         .padding(.top, 16)
 
                     VStack(alignment: .leading, spacing: 20) {
-                        TransitPassCardView(pass: previewPass, revealed: revealed) {
+                        TransitPassCardView(
+                            pass: previewPass,
+                            revealed: revealed,
+                            validity: cardValidity,
+                            isScanning: nfcReader.isScanning,
+                            flashOpacity: detectionFlashOpacity
+                        ) {
                             revealed.toggle()
                         }
 
@@ -86,7 +93,29 @@ struct TransitPassSettingsView: View {
                 draftPass.cardNumber = String(scan.fingerprint.prefix(16))
             }
             save()
+            triggerDetectionFeedback(isPartial: scan.isPartial)
         }
+    }
+
+    /// Flash + haptic the moment a card is detected so the user can tell at
+    /// a glance the scan landed. Success haptic for a clean read, warning
+    /// haptic for a partial.
+    private func triggerDetectionFeedback(isPartial: Bool) {
+        UINotificationFeedbackGenerator()
+            .notificationOccurred(isPartial ? .warning : .success)
+
+        withAnimation(.easeOut(duration: 0.18)) {
+            detectionFlashOpacity = 0.55
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            withAnimation(.easeOut(duration: 0.65)) {
+                detectionFlashOpacity = 0
+            }
+        }
+    }
+
+    private var cardValidity: TransitCardValidity {
+        TransitCardValidity.from(expiryDate: draftPass.expiryDate)
     }
 
     private var previewPass: TransitPass {
@@ -421,9 +450,55 @@ struct TransitPassSettingsView: View {
     }
 }
 
+enum TransitCardValidity {
+    case noExpiry
+    case valid(daysLeft: Int)
+    case expiringSoon(daysLeft: Int)
+    case expired(daysAgo: Int)
+
+    static func from(expiryDate: Date?) -> TransitCardValidity {
+        guard let expiry = expiryDate else { return .noExpiry }
+        let calendar = Calendar.current
+        let now = calendar.startOfDay(for: Date())
+        let target = calendar.startOfDay(for: expiry)
+        let days = calendar.dateComponents([.day], from: now, to: target).day ?? 0
+        if days < 0 { return .expired(daysAgo: -days) }
+        if days <= 30 { return .expiringSoon(daysLeft: days) }
+        return .valid(daysLeft: days)
+    }
+
+    var label: String {
+        switch self {
+        case .noExpiry: return "À COMPLÉTER"
+        case .valid(let days):
+            if days >= 365 { return "VALIDE" }
+            return "VALIDE · \(days) j"
+        case .expiringSoon(let days):
+            if days == 0 { return "EXPIRE AUJOURD'HUI" }
+            if days == 1 { return "EXPIRE DEMAIN" }
+            return "EXPIRE DANS \(days) j"
+        case .expired(let days):
+            if days == 0 { return "EXPIRÉE AUJOURD'HUI" }
+            return "EXPIRÉE · -\(days) j"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .noExpiry: return DS.Color.inkMute
+        case .valid: return DS.Color.statusOK
+        case .expiringSoon: return DS.Color.statusMinor
+        case .expired: return DS.Color.statusMajor
+        }
+    }
+}
+
 private struct TransitPassCardView: View {
     let pass: TransitPass
     let revealed: Bool
+    let validity: TransitCardValidity
+    let isScanning: Bool
+    let flashOpacity: Double
     let onToggleReveal: () -> Void
 
     private var chipNumber: String {
@@ -597,7 +672,10 @@ private struct TransitPassCardView: View {
             }
 
             VStack {
-                HStack {
+                HStack(alignment: .top) {
+                    ValidityBadge(validity: validity)
+                        .padding(.leading, 8)
+                        .padding(.top, 4)
                     Spacer()
                     Button(action: onToggleReveal) {
                         Image(systemName: revealed ? "eye.slash" : "eye")
@@ -615,9 +693,77 @@ private struct TransitPassCardView: View {
                 Spacer()
             }
             .padding(8)
+
+            // Ripple overlay during NFC scan — communicates "we're listening
+            // for your card" without taking over the UI.
+            if isScanning {
+                ScanRippleOverlay()
+                    .allowsHitTesting(false)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
+            // Quick white flash on detection — works in tandem with the
+            // success/warning haptic to give the user a clean "got it" cue.
+            Color.white
+                .opacity(flashOpacity)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .allowsHitTesting(false)
         }
         .aspectRatio(1.586, contentMode: .fit)
         .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
+    }
+}
+
+private struct ValidityBadge: View {
+    let validity: TransitCardValidity
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(validity.color)
+                .frame(width: 6, height: 6)
+            Text(validity.label)
+                .font(.system(size: 9, weight: .black, design: .monospaced))
+                .tracking(1.0)
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.black.opacity(0.38))
+        .overlay(
+            Capsule().stroke(validity.color.opacity(0.7), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+}
+
+private struct ScanRippleOverlay: View {
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            // Two staggered rings centered on the chip area so it reads as
+            // "the iPhone is listening near the top of the card", matching
+            // how MoBIB cards get tapped on the device.
+            ForEach(0..<2, id: \.self) { index in
+                Circle()
+                    .stroke(Color.white.opacity(0.55), lineWidth: 1.5)
+                    .frame(width: 90, height: 90)
+                    .scaleEffect(animate ? 2.2 : 0.6)
+                    .opacity(animate ? 0 : 1)
+                    .animation(
+                        .easeOut(duration: 1.6)
+                            .repeatForever(autoreverses: false)
+                            .delay(Double(index) * 0.55),
+                        value: animate
+                    )
+            }
+            Circle()
+                .fill(Color.white.opacity(0.10))
+                .frame(width: 72, height: 72)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .onAppear { animate = true }
     }
 }
 
