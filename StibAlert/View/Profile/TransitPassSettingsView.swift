@@ -1,4 +1,5 @@
 import SwiftUI
+import PassKit
 
 struct TransitPassSettingsView: View {
     @EnvironmentObject private var session: AuthSession
@@ -10,6 +11,9 @@ struct TransitPassSettingsView: View {
     @State private var draftPass = TransitPassStorage.load()
     @State private var revealed = false
     @State private var detectionFlashOpacity: Double = 0
+    @State private var pendingPassData: Data?
+    @State private var isFetchingWalletPass = false
+    @State private var walletErrorMessage: String?
 
     var body: some View {
         ZStack {
@@ -52,6 +56,15 @@ struct TransitPassSettingsView: View {
                                 action: { nfcReader.beginScan() }
                             )
                             ProfileSettingsDivider()
+                            if PKPassLibrary.isPassLibraryAvailable() {
+                                TransitActionRow(
+                                    icon: isFetchingWalletPass ? "hourglass" : "wallet.pass.fill",
+                                    label: isFetchingWalletPass ? "Génération du pass…" : "Ajouter à Apple Wallet",
+                                    value: nil,
+                                    action: { Task { await addToAppleWallet() } }
+                                )
+                                ProfileSettingsDivider()
+                            }
                             TransitActionRow(
                                 icon: "arrow.counterclockwise",
                                 label: "Réinitialiser la carte",
@@ -62,6 +75,14 @@ struct TransitPassSettingsView: View {
                                     save()
                                 }
                             )
+                        }
+
+                        if let walletErrorMessage {
+                            Text(walletErrorMessage)
+                                .font(DS.Font.bodySmall)
+                                .foregroundStyle(DS.Color.statusMajor)
+                                .padding(.horizontal, 4)
+                                .transition(.opacity)
                         }
 
                         infoSection
@@ -82,6 +103,19 @@ struct TransitPassSettingsView: View {
             }
         }
         .modifier(PaperGrainBackground())
+        .sheet(item: Binding(
+            get: { pendingPassData.map { WalletPassPayload(data: $0) } },
+            set: { newValue in pendingPassData = newValue?.data }
+        )) { payload in
+            AddPassToWalletSheet(passData: payload.data) { result in
+                pendingPassData = nil
+                if case .failure(let error) = result {
+                    walletErrorMessage = error.localizedDescription
+                } else {
+                    walletErrorMessage = nil
+                }
+            }
+        }
         .onAppear {
             syncDraftWithSessionNameIfNeeded()
         }
@@ -116,6 +150,22 @@ struct TransitPassSettingsView: View {
 
     private var cardValidity: TransitCardValidity {
         TransitCardValidity.from(expiryDate: draftPass.expiryDate)
+    }
+
+    @MainActor
+    private func addToAppleWallet() async {
+        guard !isFetchingWalletPass else { return }
+        walletErrorMessage = nil
+        isFetchingWalletPass = true
+        defer { isFetchingWalletPass = false }
+
+        do {
+            let data = try await WalletPassService.fetchMobibPass(from: draftPass)
+            pendingPassData = data
+        } catch {
+            walletErrorMessage = error.localizedDescription
+            ErrorReporting.capture(error, tag: "wallet.fetchPass")
+        }
     }
 
     private var previewPass: TransitPass {
@@ -448,6 +498,11 @@ struct TransitPassSettingsView: View {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }
+}
+
+private struct WalletPassPayload: Identifiable {
+    let data: Data
+    var id: Int { data.hashValue }
 }
 
 enum TransitCardValidity {
