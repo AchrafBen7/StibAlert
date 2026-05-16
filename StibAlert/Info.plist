@@ -9,26 +9,18 @@
 		<string>fr</string>
 		<string>nl</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>StibAlert utilise votre position pour afficher votre point de départ et votre itinéraire en temps réel.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>StibAlert utilise votre position en arrière-plan pour maintenir le guidage actif et recalculer votre itinéraire si vous déviez.</string>
+	<string>StibAlert utilise votre position pour afficher les arrêts proches et calculer votre itinéraire en temps réel.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>location</string>
-		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>StibAlert utilise la caméra pour joindre une photo à vos signalements.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>StibAlert accède à votre bibliothèque pour joindre une photo à vos signalements.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>StibAlert utilise le micro pour permettre les commandes vocales de Stibi.</string>
+	<string>StibAlert utilise la caméra pour la navigation en réalité augmentée vers votre arrêt.</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>StibAlert utilise le NFC pour associer votre carte MoBIB a votre profil et retrouver votre abonnement plus facilement.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>StibAlert utilise la reconnaissance vocale pour transcrire vos commandes à Stibi.</string>
+	<string>StibAlert utilise le NFC pour associer votre carte MoBIB à votre profil et retrouver votre abonnement plus facilement.</string>
 	<key>OneSignalAppID</key>
 	<string>c572317d-1a24-49fa-9631-b6556438ae34</string>
 	<key>CFBundleURLTypes</key>
@@ -37,14 +29,6 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>stibalert</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>Google Sign-In</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.251264362988-o8g33gdke3dd91s1upbg42tmtti2ie8d</string>
 			</array>
 		</dict>
 	</array>
