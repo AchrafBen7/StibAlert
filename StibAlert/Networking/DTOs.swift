@@ -27,6 +27,92 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, routine, votes, oneSignalPlayerId, favoriteLines, weeklyDigestEnabled, preTripPushEnabled
         case communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled, quietHoursStartHour, quietHoursEndHour
     }
+
+    init(
+        id: String,
+        nom: String,
+        email: String,
+        photoProfil: String? = nil,
+        langue: String? = nil,
+        notifications: Bool? = nil,
+        role: String? = nil,
+        favoris: [String]? = nil,
+        favorisDetails: [FavoriDetailDTO]? = nil,
+        routine: CommuteRoutineDTO? = nil,
+        votes: [String]? = nil,
+        oneSignalPlayerId: String? = nil,
+        favoriteLines: [String]? = nil,
+        weeklyDigestEnabled: Bool? = nil,
+        preTripPushEnabled: Bool? = nil,
+        communityClusterPushEnabled: Bool? = nil,
+        mercisPushEnabled: Bool? = nil,
+        quietHoursEnabled: Bool? = nil,
+        quietHoursStartHour: Int? = nil,
+        quietHoursEndHour: Int? = nil
+    ) {
+        self.id = id
+        self.nom = nom
+        self.email = email
+        self.photoProfil = photoProfil
+        self.langue = langue
+        self.notifications = notifications
+        self.role = role
+        self.favoris = favoris
+        self.favorisDetails = favorisDetails
+        self.routine = routine
+        self.votes = votes
+        self.oneSignalPlayerId = oneSignalPlayerId
+        self.favoriteLines = favoriteLines
+        self.weeklyDigestEnabled = weeklyDigestEnabled
+        self.preTripPushEnabled = preTripPushEnabled
+        self.communityClusterPushEnabled = communityClusterPushEnabled
+        self.mercisPushEnabled = mercisPushEnabled
+        self.quietHoursEnabled = quietHoursEnabled
+        self.quietHoursStartHour = quietHoursStartHour
+        self.quietHoursEndHour = quietHoursEndHour
+    }
+
+    /// Custom decoder so `favoris` accepts both shapes the backend can ship:
+    /// - `[String]` of ObjectId hex strings (lean schema)
+    /// - `[FavoriDetailDTO]` populated documents (when `/me` is `.populate`-d)
+    /// When the populated form is detected we also promote it to
+    /// `favorisDetails` so the rest of the app can render stop names
+    /// directly without a second fetch.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        nom = try container.decode(String.self, forKey: .nom)
+        email = try container.decode(String.self, forKey: .email)
+        photoProfil = try container.decodeIfPresent(String.self, forKey: .photoProfil)
+        langue = try container.decodeIfPresent(String.self, forKey: .langue)
+        notifications = try container.decodeIfPresent(Bool.self, forKey: .notifications)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        routine = try container.decodeIfPresent(CommuteRoutineDTO.self, forKey: .routine)
+        votes = try container.decodeIfPresent([String].self, forKey: .votes)
+        oneSignalPlayerId = try container.decodeIfPresent(String.self, forKey: .oneSignalPlayerId)
+        favoriteLines = try container.decodeIfPresent([String].self, forKey: .favoriteLines)
+        weeklyDigestEnabled = try container.decodeIfPresent(Bool.self, forKey: .weeklyDigestEnabled)
+        preTripPushEnabled = try container.decodeIfPresent(Bool.self, forKey: .preTripPushEnabled)
+        communityClusterPushEnabled = try container.decodeIfPresent(Bool.self, forKey: .communityClusterPushEnabled)
+        mercisPushEnabled = try container.decodeIfPresent(Bool.self, forKey: .mercisPushEnabled)
+        quietHoursEnabled = try container.decodeIfPresent(Bool.self, forKey: .quietHoursEnabled)
+        quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
+        quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
+
+        // Try string array first; fall back to populated objects.
+        var resolvedFavoris: [String]? = nil
+        var promotedDetails: [FavoriDetailDTO]? = nil
+        if let stringFavs = try? container.decodeIfPresent([String].self, forKey: .favoris) {
+            resolvedFavoris = stringFavs
+        } else if let populatedFavs = try? container.decodeIfPresent([FavoriDetailDTO].self, forKey: .favoris) {
+            resolvedFavoris = populatedFavs.map(\.id)
+            promotedDetails = populatedFavs
+        }
+        favoris = resolvedFavoris
+
+        let explicitDetails = try container.decodeIfPresent([FavoriDetailDTO].self, forKey: .favorisDetails)
+        favorisDetails = explicitDetails ?? promotedDetails
+    }
 }
 
 struct CommuteRoutineDTO: Codable, Equatable {
