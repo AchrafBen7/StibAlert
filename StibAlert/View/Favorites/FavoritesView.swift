@@ -86,7 +86,11 @@ struct FavoritesView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 16)
 
-                            if isLoadingRemote && displayItems.isEmpty {
+                            if (isLoadingRemote || !hasLoadedFavorites) && displayItems.isEmpty {
+                                // Show skeleton while the first load is in
+                                // flight, otherwise the empty state flashes
+                                // before the data arrives and the user
+                                // wrongly thinks they have no favorites.
                                 SkeletonList(count: 4, style: .card)
                                     .padding(.horizontal, 20)
                                     .padding(.top, 20)
@@ -1724,7 +1728,11 @@ private struct AddFavoriteSheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .top, spacing: 12) {
-                        PageHeader(title: "Ajouter un arrêt favori", eyebrow: "Réseau personnel", large: true)
+                        // large=false uses displayH2 (22pt) instead of
+                        // displayH1 (32pt) so "Ajouter un arrêt favori" no
+                        // longer wraps to "Ajouter un / arrêt favori" with
+                        // the orphan "un" on its own line.
+                        PageHeader(title: "Ajouter un arrêt favori", eyebrow: "Réseau personnel", large: false)
 
                         Spacer(minLength: 12)
 
@@ -1741,6 +1749,7 @@ private struct AddFavoriteSheet: View {
                         .buttonStyle(PressableScaleStyle())
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 28) // keep the eyebrow clear of the sheet's safe area edge
 
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Ajoute un arrêt proche pour suivre ses passages et recevoir des alertes ciblées.")
