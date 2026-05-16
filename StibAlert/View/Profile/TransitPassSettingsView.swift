@@ -619,10 +619,10 @@ private struct TransitPassCardView: View {
 
     private var emptyStateCard: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 18)
                 .fill(DS.Color.paper2)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: 18)
                         .strokeBorder(
                             style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
                         )
@@ -646,188 +646,137 @@ private struct TransitPassCardView: View {
             if isScanning {
                 ScanRippleOverlay()
                     .allowsHitTesting(false)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
             }
         }
         .aspectRatio(1.586, contentMode: .fit)
     }
 
     private var populatedCard: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14)
+        ZStack(alignment: .topLeading) {
+            // Solid editorial navy with a subtle radial highlight top-left,
+            // no busy icon pattern — feels closer to an Apple Wallet pass
+            // than a photocopy of the physical MoBIB.
+            RoundedRectangle(cornerRadius: 18)
                 .fill(
-                    RadialGradient(
-                        gradient: Gradient(colors: [
-                            Color(hue: 205/360, saturation: 0.85, brightness: 0.62),
-                            Color(hue: 210/360, saturation: 0.80, brightness: 0.50),
-                            Color(hue: 215/360, saturation: 0.78, brightness: 0.38)
-                        ]),
-                        center: UnitPoint(x: 0.30, y: 0.35),
-                        startRadius: 10,
-                        endRadius: 320
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.12, green: 0.18, blue: 0.32),
+                            Color(red: 0.07, green: 0.10, blue: 0.20),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
                 )
+                .overlay(
+                    // A single thin orange hairline near the bottom — Brussels
+                    // accent without screaming. Matches DS.Color.primary.
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                )
 
+            // Diagonal sweep highlight — premium pass feel.
             GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-
-                MobibIconPattern()
-                    .opacity(0.18)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                MobibWaveShape()
-                    .fill(Color.white)
-                    .frame(height: h * 0.26)
-                    .offset(y: h * 0.74)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                HStack(spacing: 1) {
-                    Text("M")
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundColor(Color(hue: 220/360, saturation: 0.30, brightness: 0.20))
-                        .tracking(-1.4)
-                    ZStack {
-                        Circle()
-                            .fill(Color(hue: 355/360, saturation: 0.82, brightness: 0.52))
-                            .frame(width: 18, height: 18)
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 6, height: 6)
-                    }
-                    Text("BIB")
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundColor(.white)
-                        .tracking(-1.4)
+                Path { p in
+                    p.move(to: CGPoint(x: -20, y: geo.size.height * 0.30))
+                    p.addLine(to: CGPoint(x: geo.size.width + 20, y: -10))
+                    p.addLine(to: CGPoint(x: geo.size.width + 20, y: geo.size.height * 0.04))
+                    p.addLine(to: CGPoint(x: -20, y: geo.size.height * 0.42))
+                    p.closeSubpath()
                 }
-                .position(x: 50, y: 30)
-
-                Text("STIB · MIVB")
-                    .font(.system(size: 7.5, weight: .bold, design: .monospaced))
-                    .tracking(2)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(Color(hue: 220/360, saturation: 0.80, brightness: 0.32))
-                    .rotationEffect(.degrees(-90))
-                    .position(x: 16, y: h * 0.55)
-
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color(hue: 45/360, saturation: 0.80, brightness: 0.78),
-                                    Color(hue: 40/360, saturation: 0.75, brightness: 0.55),
-                                    Color(hue: 32/360, saturation: 0.65, brightness: 0.38)
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    GoldChipLines()
-                        .stroke(Color(hue: 35/360, saturation: 0.55, brightness: 0.25).opacity(0.7), lineWidth: 0.6)
-                }
-                .frame(width: 52, height: 40)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(hue: 35/360, saturation: 0.50, brightness: 0.30), lineWidth: 0.5))
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-                .position(x: 46, y: h * 0.52)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(chipNumber)
-                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                        Text("/")
-                            .opacity(0.7)
-                            .font(.system(size: 10.5, design: .monospaced))
-                    }
-                    HStack(spacing: 4) {
-                        Text(serialDisplay)
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .tracking(1)
-                            .underline()
-                        Text("/ \(suffixDisplay)")
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .opacity(0.8)
-                    }
-                }
-                .foregroundColor(.white)
-                .position(x: 152, y: h * 0.54)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(pass.subscriptionLabel.isEmpty ? "ABONNEMENT STIB" : pass.subscriptionLabel.uppercased())
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(1.4)
-                        .opacity(0.9)
-                    Text(holderDisplay)
-                        .font(.system(size: 13, weight: .bold))
-                        .tracking(0.5)
-                }
-                .foregroundColor(.white)
-                .position(x: 132, y: h * 0.72)
-
-                HStack {
-                    HStack(spacing: 3) {
-                        Text(".brussels")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        IrisIcon()
-                            .frame(width: 10, height: 9)
-                    }
-                    .foregroundColor(Color(hue: 220/360, saturation: 0.80, brightness: 0.25))
-
-                    Spacer()
-
-                    HStack(spacing: 8) {
-                        Image(systemName: "bus.fill")
-                            .font(.system(size: 11))
-                        Image(systemName: "tram.fill")
-                            .font(.system(size: 11))
-                        Text(customerNumber)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundColor(Color(hue: 220/360, saturation: 0.80, brightness: 0.25))
-                }
-                .padding(.horizontal, 14)
-                .frame(height: h * 0.20)
-                .position(x: w / 2, y: h - (h * 0.10))
+                .fill(Color.white.opacity(0.05))
             }
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .allowsHitTesting(false)
 
-            VStack {
+            // Header row : eyebrow + validity + reveal toggle
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
-                    ValidityBadge(validity: validity)
-                        .padding(.leading, 8)
-                        .padding(.top, 4)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("MOBIB · STIB-MIVB")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(Color.white.opacity(0.55))
+                        Text("MoBIB")
+                            .font(.custom("DelaGothicOne-Regular", size: 28))
+                            .foregroundStyle(.white)
+                    }
                     Spacer()
-                    Button(action: onToggleReveal) {
-                        Image(systemName: revealed ? "eye.slash" : "eye")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(DS.Color.ink)
-                            .frame(width: 32, height: 32)
-                            .background(DS.Color.paper.opacity(0.9))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(DS.Color.ink.opacity(0.30), lineWidth: 1.5)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    VStack(alignment: .trailing, spacing: 6) {
+                        ValidityBadge(validity: validity)
+                        Button(action: onToggleReveal) {
+                            Image(systemName: revealed ? "eye.slash" : "eye")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 28, height: 28)
+                                .background(Color.white.opacity(0.10))
+                                .overlay(
+                                    Circle().stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                )
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
+
                 Spacer()
+
+                // Subscription label + holder name
+                VStack(alignment: .leading, spacing: 4) {
+                    Text((pass.subscriptionLabel.isEmpty ? "Abonnement STIB" : pass.subscriptionLabel).uppercased())
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(Color(red: 1.0, green: 0.49, blue: 0.13)) // DS.Color.primary tint
+                    Text(holderDisplay)
+                        .font(.system(size: 19, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
+                Spacer().frame(height: 12)
+
+                // Card number row
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("NUMÉRO CARTE")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .tracking(1.4)
+                            .foregroundStyle(Color.white.opacity(0.45))
+                        Text(serialDisplay)
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("CLIENT")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .tracking(1.4)
+                            .foregroundStyle(Color.white.opacity(0.45))
+                        Text(customerNumber)
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white)
+                    }
+                }
             }
-            .padding(8)
+            .padding(18)
 
             // Ripple overlay during NFC scan — communicates "we're listening
             // for your card" without taking over the UI.
             if isScanning {
                 ScanRippleOverlay()
                     .allowsHitTesting(false)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
             }
 
             // Quick white flash on detection — works in tandem with the
             // success/warning haptic to give the user a clean "got it" cue.
             Color.white
                 .opacity(flashOpacity)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
                 .allowsHitTesting(false)
         }
         .aspectRatio(1.586, contentMode: .fit)
