@@ -27,12 +27,13 @@ final class MobibNFCReader: NSObject, ObservableObject {
         errorMessage = nil
         isScanning = true
         scanState = .scanning
-        appendDebug(level: "info", "Session NFC démarrée (polling ISO14443 + ISO15693 + FeliCa).")
-        // MoBIB cards are Calypso over ISO 14443 Type B but iPhone's antenna
-        // is finicky with them — broadening the polling set so non-standard
-        // revisions still register. Combining the OptionSet bits is the
-        // documented way (Apple's WWDC sessions on Core NFC).
-        let pollingOptions: NFCTagReaderSession.PollingOption = [.iso14443, .iso15693, .iso18092]
+        appendDebug(level: "info", "Session NFC démarrée (polling ISO14443 + ISO15693).")
+        // MoBIB is Calypso over ISO 14443 Type B. FeliCa (.iso18092) would
+        // need com.apple.developer.nfc.readersession.felica.systemcodes
+        // declared in entitlements, which we don't have — iOS refuses the
+        // session entirely if we ask for FeliCa without it. ISO 15693 is
+        // free to combine and helps for some MoBIB revisions.
+        let pollingOptions: NFCTagReaderSession.PollingOption = [.iso14443, .iso15693]
         guard let readerSession = NFCTagReaderSession(pollingOption: pollingOptions, delegate: self) else {
             isScanning = false
             errorMessage = "Impossible de démarrer la lecture NFC sur cet appareil."
