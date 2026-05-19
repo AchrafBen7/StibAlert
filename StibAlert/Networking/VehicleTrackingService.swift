@@ -16,9 +16,20 @@ final class VehicleTrackingService: ObservableObject {
     private var previousPositions: [String: CLLocationCoordinate2D] = [:]
     private let interval: TimeInterval = 15
 
+    /// Per-line cache so that switching lines (or re-opening a stop on a
+    /// line we already polled) feels instant: we re-emit the cached array
+    /// while a fresh fetch runs in the background.
+    private var cacheByLines: [Set<String>: [TransportVehicleDTO]] = [:]
+    private var bearingsCacheByLines: [Set<String>: [String: Double]] = [:]
+
     var visibleLines: Set<String> = []
     var userLocation: CLLocationCoordinate2D?
     var proximityRadiusKm: Double = 1.5
+    /// When false, the backend returns every live vehicle on the tracked
+    /// lines instead of just those within `proximityRadiusKm` of the user.
+    /// Set this to false in line-focus mode so the user can see trams
+    /// anywhere along the tracé, not only around their own position.
+    var proximityFilterEnabled: Bool = true
 
     func start(lines: Set<String>, location: CLLocationCoordinate2D? = nil) {
         visibleLines = normalizedLines(from: lines)
@@ -37,6 +48,17 @@ final class VehicleTrackingService: ObservableObject {
 
         guard AppConfig.isBackendEnabled else { return }
         guard !visibleLines.isEmpty else { stop(); return }
+
+        // Optimistic display: if we polled this exact line set before, re-emit
+        // the last-known positions so the map is never empty for the 500 ms –
+        // 3 s the network round-trip takes. A fresh fetch starts right after.
+        if let cached = cacheByLines[normalized] {
+            self.vehicles = cached
+            self.vehicleBearings = bearingsCacheByLines[normalized] ?? [:]
+        } else {
+            self.vehicles = []
+            self.vehicleBearings = [:]
+        }
 
         if pollingTask == nil {
             start(lines: visibleLines, location: userLocation)
@@ -71,7 +93,7 @@ final class VehicleTrackingService: ObservableObject {
         guard !visibleLines.isEmpty else { vehicles = []; return }
 
         var params = "lines=\(visibleLines.sorted().joined(separator: ","))"
-        if let loc = userLocation {
+        if proximityFilterEnabled, let loc = userLocation {
             params += "&lat=\(loc.latitude)&lng=\(loc.longitude)&rayon=\(proximityRadiusKm)"
         }
 
@@ -80,9 +102,24 @@ final class VehicleTrackingService: ObservableObject {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            // Backend ships `updatedAt` as `2026-05-19T11:09:09.651Z`. The
+            // stock `.iso8601` strategy doesn't accept fractional seconds, so
+            // we install a custom decoder that tries both forms.
+            decoder.dateDecodingStrategy = .custom { dec in
+                let container = try dec.singleValueContainer()
+                let raw = try container.decode(String.self)
+                if let date = Self.iso8601WithMillis.date(from: raw) { return date }
+                if let date = Self.iso8601Plain.date(from: raw) { return date }
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Unrecognised ISO-8601 date: \(raw)"
+                )
+            }
             let response = try decoder.decode(VehiclePositionsResponse.self, from: data)
             let fresh = response.items.filter { $0.latitude != nil && $0.longitude != nil }
+            #if DEBUG
+            print("[VehicleTracker] \(url.absoluteString) → \(response.items.count) raw, \(fresh.count) with coords")
+            #endif
 
             var newBearings = vehicleBearings
             for vehicle in fresh {
@@ -107,12 +144,34 @@ final class VehicleTrackingService: ObservableObject {
                 }
             )
 
+            // Glide animation is applied on the SwiftUI side via .animation()
+            // on the consumer view — we keep this service UIKit-free so it
+            // doesn't import SwiftUI (importing it here was masking other
+            // symbols of the module).
             self.vehicles = fresh
             self.vehicleBearings = newBearings
+            // Cache so a subsequent line switch shows trams instantly.
+            cacheByLines[visibleLines] = fresh
+            bearingsCacheByLines[visibleLines] = newBearings
         } catch {
+            #if DEBUG
+            print("[VehicleTracker] fetch failed for \(url.absoluteString): \(error.localizedDescription)")
+            #endif
             // silently fail — map still works without vehicles
         }
     }
+
+    private static let iso8601WithMillis: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let iso8601Plain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
 
     private func compassBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
         let lat1 = from.latitude * .pi / 180

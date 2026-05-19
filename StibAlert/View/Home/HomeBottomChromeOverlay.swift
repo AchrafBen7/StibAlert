@@ -16,16 +16,6 @@ struct HomeBottomChromeOverlay: View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
                 HStack(alignment: .center, spacing: 10) {
-                    if totalActiveSignalementsCount > 0 {
-                        HomePulseBar(
-                            totalActive: totalActiveSignalementsCount,
-                            favoriteAffectedCount: favoriteAffectedCount,
-                            eventCount: highlightedEventCount,
-                            refreshedAt: refreshedAt,
-                            onOpenReports: onOpenReports
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    }
                     Spacer()
                     HomeReportFloatingButton(action: onOpenReportSheet)
                         .homeFeatureTip(.report)
@@ -73,20 +63,10 @@ private struct HomePulseBar: View {
                     .fill(favoriteAffectedCount > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
                     .frame(width: 10, height: 10)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(titleText)
-                        .font(DS.Font.bodyBold)
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                    if let refreshedAt {
-                        (Text("Actualisé ") + Text(refreshedAt, style: .relative))
-                            .font(DS.Font.monoSmall)
-                            .tracking(0.8)
-                            .textCase(.uppercase)
-                            .foregroundStyle(DS.Color.inkMute)
-                            .lineLimit(1)
-                    }
-                }
+                Text(titleText)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
 
                 Image(systemName: "chevron.up")
                     .font(.system(size: 11, weight: .semibold))
@@ -115,24 +95,20 @@ private struct HomeReportFloatingButton: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             action()
         }) {
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .heavy))
-                Text("Signaler")
-                    .font(DS.Font.bodyBold)
-            }
-            .foregroundStyle(DS.Color.primaryForeground)
-            .padding(.horizontal, 18)
-            .frame(height: 58)
-            .background(DS.Color.primary)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: 1.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(DS.Shadow.overlay)
+            Image(systemName: "plus")
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(DS.Color.primaryForeground)
+                .frame(width: 58, height: 58)
+                .background(DS.Color.primary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(DS.Shadow.overlay)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Signaler")
     }
 }
 

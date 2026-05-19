@@ -3,20 +3,16 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
     @EnvironmentObject private var session: AuthSession
+    @EnvironmentObject private var languageStore: AppLanguageStore
     @Environment(\.openURL) private var openURL
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
     @State private var weeklyDigestEnabled = true
-    @State private var emailNotificationsEnabled = false
-    @State private var smsNotificationsEnabled = false
     @State private var preTripPushEnabled = true
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
     @State private var quietHoursEnabled = true
-    @State private var dataSharingEnabled = true
-    @State private var locationTrackingEnabled = false
-    @State private var adsPersonalizationEnabled = false
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var email = ""
@@ -60,6 +56,9 @@ struct ProfileView: View {
             syncFromSession()
         }
         .onChange(of: selectedLanguageCode) { _, newValue in
+            // Apply override locally first — this triggers the env(\.locale)
+            // re-render at the app root so the UI swaps language immediately.
+            languageStore.setOverride(newValue)
             Task { await persistLanguageIfNeeded(newValue) }
         }
         .onChange(of: pushNotificationsEnabled) { _, newValue in
@@ -135,9 +134,6 @@ struct ProfileView: View {
             .transition(.move(edge: .trailing).combined(with: .opacity))
         case .privacy:
             PrivacySettingsView(
-                dataSharingEnabled: $dataSharingEnabled,
-                locationTrackingEnabled: $locationTrackingEnabled,
-                adsPersonalizationEnabled: $adsPersonalizationEnabled,
                 onBack: { selectedSubpage = nil },
                 onClose: closeToProfile
             )
@@ -152,8 +148,6 @@ struct ProfileView: View {
             NotificationSettingsView(
                 pushEnabled: $pushNotificationsEnabled,
                 weeklyDigestEnabled: $weeklyDigestEnabled,
-                emailEnabled: $emailNotificationsEnabled,
-                smsEnabled: $smsNotificationsEnabled,
                 preTripPushEnabled: $preTripPushEnabled,
                 communityClusterPushEnabled: $communityClusterPushEnabled,
                 mercisPushEnabled: $mercisPushEnabled,
@@ -299,7 +293,7 @@ struct ProfileView: View {
     }
 
     private var activeAlertCount: Int {
-        [pushNotificationsEnabled, weeklyDigestEnabled, emailNotificationsEnabled, smsNotificationsEnabled]
+        [pushNotificationsEnabled, weeklyDigestEnabled, preTripPushEnabled, communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled]
             .filter { $0 }
             .count
     }
@@ -452,7 +446,10 @@ struct ProfileView: View {
         lastName = parts.count > 1 ? parts[1] : ""
         email = user.email
         username = String(user.email.split(separator: "@").first ?? "user")
-        selectedLanguageCode = user.langue ?? AppLocale.languageCode.uppercased()
+        // Priority: in-app override > backend-persisted choice > current system language.
+        selectedLanguageCode = languageStore.languageOverride?.uppercased()
+            ?? user.langue
+            ?? AppLocale.languageCode.uppercased()
         pushNotificationsEnabled = user.notifications ?? true
         weeklyDigestEnabled = user.weeklyDigestEnabled ?? true
         preTripPushEnabled = user.preTripPushEnabled ?? true
@@ -1007,8 +1004,6 @@ private enum LanguageMockData {
 private struct NotificationSettingsView: View {
     @Binding var pushEnabled: Bool
     @Binding var weeklyDigestEnabled: Bool
-    @Binding var emailEnabled: Bool
-    @Binding var smsEnabled: Bool
     @Binding var preTripPushEnabled: Bool
     @Binding var communityClusterPushEnabled: Bool
     @Binding var mercisPushEnabled: Bool
@@ -1075,20 +1070,6 @@ private struct NotificationSettingsView: View {
                         title: "Digest hebdo (email)",
                         description: "Résumé éditorial chaque semaine",
                         isOn: $weeklyDigestEnabled
-                    )
-                    ProfileSettingsDivider()
-                    NotificationToggleRow(
-                        icon: "envelope.fill",
-                        title: "Email transactionnel",
-                        description: "Récaps et confirmations longues",
-                        isOn: $emailEnabled
-                    )
-                    ProfileSettingsDivider()
-                    NotificationToggleRow(
-                        icon: "message.fill",
-                        title: "SMS",
-                        description: "Canal court pour alertes critiques",
-                        isOn: $smsEnabled
                     )
                 }
 
@@ -1510,9 +1491,6 @@ private struct PasswordRow: View {
 }
 
 private struct PrivacySettingsView: View {
-    @Binding var dataSharingEnabled: Bool
-    @Binding var locationTrackingEnabled: Bool
-    @Binding var adsPersonalizationEnabled: Bool
     let onBack: () -> Void
     let onClose: () -> Void
     @Environment(\.openURL) private var openURL
@@ -1552,40 +1530,27 @@ private struct PrivacySettingsView: View {
                 .buttonStyle(ProfileRootRowPressableStyle())
             }
 
-            ProfileSettingsSection(title: "Paramètres") {
-                PrivacyToggleRow(
-                    title: "Partage de données",
-                    description: "Aide à améliorer l’app en envoyant des données d’usage anonymes.",
-                    isOn: $dataSharingEnabled
+            ProfileSettingsSection(title: "Ce que StibAlert collecte") {
+                PrivacySummaryRow(
+                    icon: "location.fill",
+                    title: "Localisation",
+                    detail: "Uniquement en temps réel pour afficher les arrêts proches et calculer ton itinéraire. Jamais stockée sur nos serveurs."
                 )
                 ProfileSettingsDivider()
-                PrivacyToggleRow(
-                    title: "Suivi de localisation",
-                    description: "Permet d’identifier les arrêts proches pour signaler plus vite.",
-                    isOn: $locationTrackingEnabled
+                PrivacySummaryRow(
+                    icon: "person.fill",
+                    title: "Compte",
+                    detail: "Email, nom et préférences pour synchroniser tes favoris et alertes entre tes appareils."
                 )
                 ProfileSettingsDivider()
-                PrivacyToggleRow(
-                    title: "Personnalisation des annonces",
-                    description: "Utilise vos données pour adapter les publicités.",
-                    isOn: $adsPersonalizationEnabled
+                PrivacySummaryRow(
+                    icon: "person.2.fill",
+                    title: "Signalements",
+                    detail: "Contenu de tes signalements communautaires, conservé tant que ton compte existe. Tu peux supprimer ton compte à tout moment."
                 )
             }
 
-            ProfileSettingsSection(title: "Gestion du compte") {
-                PrivacyActionRow(
-                    title: "Applications tierces",
-                    description: "Certaines fonctionnalités s’appuient sur des services externes.",
-                    actionLabel: "Voir",
-                    learnMoreURL: URL(string: "https://stib-alert-backend.onrender.com/privacy")
-                )
-                ProfileSettingsDivider()
-                PrivacyActionRow(
-                    title: "Télécharger vos données",
-                    description: "Obtenez une copie des données personnelles enregistrées.",
-                    actionLabel: "Exporter"
-                )
-                ProfileSettingsDivider()
+            ProfileSettingsSection(title: "Tes droits") {
                 PrivacyActionRow(
                     title: "Supprimer votre compte",
                     description: "Efface définitivement le compte et les données associées.",
@@ -1606,37 +1571,33 @@ private struct PrivacySettingsView: View {
     }
 }
 
-private struct PrivacyToggleRow: View {
+private struct PrivacySummaryRow: View {
+    let icon: String
     let title: String
-    let description: String
-    @Binding var isOn: Bool
+    let detail: String
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(DS.Color.ink)
+                .frame(width: 22, height: 22)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
 
-                Text(description)
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Color.inkMute)
+                Text(detail)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: 12)
-
-            ProfileSettingsSwitch(isOn: isOn)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isOn.toggle()
-            }
-        }
+        .padding(.vertical, 14)
     }
 }
 

@@ -15,11 +15,15 @@ private struct LineShapeFeature: Decodable {
     let variante: Int?
     let colorHex: String
     let geoShape: LineShapeGeo
+    let dateDebut: String?
+    let dateFin: String?
 
     enum CodingKeys: String, CodingKey {
         case ligne, variante
         case colorHex = "color_hex"
         case geoShape = "geo_shape"
+        case dateDebut = "date_debut"
+        case dateFin = "date_fin"
     }
 }
 
@@ -62,7 +66,30 @@ final class LineShapesLoader: ObservableObject {
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
             let decoder = JSONDecoder()
             let features = try decoder.decode([LineShapeFeature].self, from: data)
-            return features.compactMap { feat in
+
+            // The shipped dataset is a STIB snapshot frozen at 09/03/2025.
+            // Some shapes have been superseded by newer route revisions (e.g.
+            // line 35 was re-routed after that date). When STIB publishes
+            // multiple variants for the same `ligne+variante`, we keep the one
+            // with the LATEST `date_debut` — that's the freshest tracé. If a
+            // single shape is present, we keep it as-is, even if its
+            // validity window has closed: it's still the best fallback we
+            // have until the bundle is refreshed.
+            var freshestByKey: [String: LineShapeFeature] = [:]
+            for feat in features {
+                let key = "\(feat.ligne)-\(feat.variante ?? 1)"
+                if let existing = freshestByKey[key] {
+                    let existingStart = Self.parseDate(existing.dateDebut ?? "") ?? .distantPast
+                    let candidateStart = Self.parseDate(feat.dateDebut ?? "") ?? .distantPast
+                    if candidateStart > existingStart {
+                        freshestByKey[key] = feat
+                    }
+                } else {
+                    freshestByKey[key] = feat
+                }
+            }
+
+            return freshestByKey.values.compactMap { feat in
                 let coords = feat.geoShape.geometry.coordinates.compactMap { pair -> CLLocationCoordinate2D? in
                     guard pair.count >= 2 else { return nil }
                     return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
@@ -80,6 +107,18 @@ final class LineShapesLoader: ObservableObject {
             ErrorReporting.capture(error, tag: "lineShapes.decode")
             return []
         }
+    }
+
+    private static let bundleDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "dd/MM/yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Europe/Brussels")
+        return f
+    }()
+
+    private static func parseDate(_ raw: String) -> Date? {
+        bundleDateFormatter.date(from: raw)
     }
 
     func shapes(matchingNumbers numbers: Set<String>) -> [LineShape] {

@@ -27,6 +27,7 @@ struct HomeMapLayer: View {
     let onSelectClusterCount: (CLLocationCoordinate2D) -> Void
     let onSelectVilloStation: (VilloStation) -> Void
     let onSelectEventImpact: (TransportEventImpactDTO) -> Void
+    let onSelectVehicle: (TransportVehicleDTO) -> Void
     let onCameraChanged: (MKCoordinateRegion) -> Void
 
     var body: some View {
@@ -36,10 +37,14 @@ struct HomeMapLayer: View {
             routeOverlays
             officialIncidentAnnotations
             communityClusterAnnotations
-            vehicleAnnotations
             stopAnnotations
             villoAnnotations
             eventAnnotations
+            // Vehicles render LAST so their pins sit on top of every other
+            // annotation — without this a tram that lands on the same pixel
+            // as the user-location dot or a stop marker would visually vanish
+            // even though it's actually there.
+            vehicleAnnotations
         }
         .mapStyle(.standard(elevation: .realistic))
         .environment(\.colorScheme, .light)
@@ -70,7 +75,9 @@ struct HomeMapLayer: View {
 
     @MapContentBuilder
     private var userLocationOverlay: some MapContent {
-        MapCircle(center: displayCoordinate, radius: 200)
+        // 80 m circle instead of 200 m so a tram pin landing near the user
+        // dot is not hidden by the translucent fill at city-wide zoom.
+        MapCircle(center: displayCoordinate, radius: 80)
             .foregroundStyle(DS.Color.foreground.opacity(0.07))
             .stroke(DS.Color.info.opacity(0.6), lineWidth: 1)
 
@@ -198,10 +205,15 @@ struct HomeMapLayer: View {
         ForEach(mapVehicles) { vehicle in
             if let lat = vehicle.latitude, let lng = vehicle.longitude {
                 Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
-                    VehicleMarker(
-                        vehicle: vehicle,
-                        bearing: vehicle.vehicleId.flatMap { vehicleBearings[$0] }
-                    )
+                    Button {
+                        onSelectVehicle(vehicle)
+                    } label: {
+                        VehicleMarker(
+                            vehicle: vehicle,
+                            bearing: vehicle.vehicleId.flatMap { vehicleBearings[$0] }
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }

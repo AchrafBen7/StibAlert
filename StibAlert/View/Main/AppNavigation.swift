@@ -6,7 +6,6 @@ enum AppPage {
     case reports
     case favorites
     case profile
-    case profileMain
 }
 
 final class AppNavigation: ObservableObject {

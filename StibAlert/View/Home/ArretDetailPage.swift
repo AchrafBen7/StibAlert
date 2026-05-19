@@ -105,6 +105,7 @@ struct ArretDetailPage: View {
     let userCoordinate: CLLocationCoordinate2D?
     let nearbyStops: [TransportStopSummaryDTO]
     let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
+    let communitySignalements: [SignalementDTO]
     let onDismiss: () -> Void
     let onOpenLine: (String) -> Void
     let selectedLineRoute: String?
@@ -125,6 +126,17 @@ struct ArretDetailPage: View {
     private var stopCoordinate: CLLocationCoordinate2D? {
         guard let latitude = effectiveStop.latitude, let longitude = effectiveStop.longitude else { return nil }
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    // Only show the "Signaler" CTA if the user is actually near this stop.
+    // Matches QuickReportSheet's 120 m auto-selection radius — otherwise we'd
+    // let people file reports for a stop they're nowhere near (the sheet would
+    // still pre-fill it because the stop is in their bootstrap nearbyStops).
+    private var canReportFromHere: Bool {
+        guard let userCoordinate, let stopCoordinate else { return false }
+        let user = CLLocation(latitude: userCoordinate.latitude, longitude: userCoordinate.longitude)
+        let stop = CLLocation(latitude: stopCoordinate.latitude, longitude: stopCoordinate.longitude)
+        return user.distance(from: stop) <= 120
     }
 
     private var severityColor: Color {
@@ -263,6 +275,26 @@ struct ArretDetailPage: View {
         stopDetail?.activeIncidents ?? []
     }
 
+    // Community signalements scoped to this stop (most-recent first).
+    // Match by the populated arret name — same predicate as the report sheet.
+    private var stopCommunitySignalements: [SignalementDTO] {
+        let stopName = effectiveStop.name
+        return communitySignalements
+            .filter { s in
+                guard s.status != "resolved" else { return false }
+                if case .populated(let arret) = s.arretId {
+                    return arret.nom == stopName
+                }
+                return false
+            }
+            .sorted { ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast) }
+    }
+
+    private var signalementsLastHourCount: Int {
+        let cutoff = Date().addingTimeInterval(-3600)
+        return stopCommunitySignalements.filter { ($0.dateSignalement ?? .distantPast) >= cutoff }.count
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             DS.Color.paper.ignoresSafeArea()
@@ -280,6 +312,12 @@ struct ArretDetailPage: View {
 
                     if !disruptions.isEmpty {
                         disruptionBanner
+                            .padding(.horizontal, 20)
+                            .padding(.top, 12)
+                    }
+
+                    if !stopCommunitySignalements.isEmpty {
+                        communityReportsSection
                             .padding(.horizontal, 20)
                             .padding(.top, 12)
                     }
@@ -471,6 +509,77 @@ struct ArretDetailPage: View {
                 .frame(width: 2)
         }
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+
+    private var communityReportsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 11))
+                Text("Signalements communauté")
+                    .font(DS.Font.eyebrow)
+                Spacer()
+                Text(lastHourCountText)
+                    .font(DS.Font.eyebrow)
+                    .foregroundStyle(DS.Color.community)
+            }
+            .foregroundStyle(DS.Color.community)
+
+            VStack(spacing: 6) {
+                ForEach(stopCommunitySignalements.prefix(4)) { signalement in
+                    communityReportRow(signalement)
+                }
+            }
+
+            if stopCommunitySignalements.count > 4 {
+                Text("+\(stopCommunitySignalements.count - 4) autres")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.community.opacity(0.08))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(DS.Color.community)
+                .frame(width: 2)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+
+    private var lastHourCountText: String {
+        let count = signalementsLastHourCount
+        if count == 0 {
+            return "Aucun · 1 h"
+        }
+        return "\(count) · 1 h"
+    }
+
+    private func communityReportRow(_ signalement: SignalementDTO) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            LineBadge(line: signalement.ligne, size: .sm)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(signalement.displayTypeProbleme)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Text(signalement.freshnessLabel)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            Spacer(minLength: 8)
+            if let confirmations = signalement.community?.confirmations, confirmations > 0 {
+                HStack(spacing: 3) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 10))
+                    Text("\(confirmations)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                }
+                .foregroundStyle(DS.Color.community)
+            }
+        }
     }
 
     private var segmentedTabs: some View {
@@ -834,19 +943,21 @@ struct ArretDetailPage: View {
             }
             .buttonStyle(.plain)
 
-            Button(action: onReport) {
-                Label("Signaler", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.Color.primaryForeground)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(DS.Color.primary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.md)
-                            .stroke(DS.Color.ink, lineWidth: 1.5)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            if canReportFromHere {
+                Button(action: onReport) {
+                    Label("Signaler", systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Color.primaryForeground)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(DS.Color.primary)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md)
+                                .stroke(DS.Color.ink, lineWidth: 1.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)

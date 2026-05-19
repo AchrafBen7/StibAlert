@@ -14,8 +14,29 @@ extension HomeView {
         // Signalement preview card overlay (bottom)
         signalementPreviewOverlay
 
+        // Vehicle detail overlay (bottom) — shown when user taps a tram pin
+        vehicleDetailOverlay
+
         // Bottom chrome (tab bar + pulse bar)
         bottomChromeOverlay
+    }
+
+    @ViewBuilder
+    var vehicleDetailOverlay: some View {
+        if let vehicle = selectedVehicle {
+            VehicleDetailSheet(
+                vehicle: vehicle,
+                destinationByDirection: vehicleDestinationByDirection,
+                onClose: {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                        selectedVehicle = nil
+                    }
+                }
+            )
+            .padding(.bottom, 100)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .zLayer(.clusterDetail)
+        }
     }
 
     @ViewBuilder
@@ -25,7 +46,10 @@ extension HomeView {
                 isShowing: $nav.showReportSheet,
                 userLatitude: locationManager.userCoordinate?.latitude,
                 userLongitude: locationManager.userCoordinate?.longitude,
-                activeSignalements: remoteSignalements
+                activeSignalements: remoteSignalements,
+                onSubmitted: { signalement in
+                    mergeIncomingSignalement(signalement)
+                }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zLayer(.reportSheet)
@@ -35,48 +59,76 @@ extension HomeView {
     @ViewBuilder
     var searchHeaderOverlay: some View {
         if shouldShowSearchHeader {
-            HomeSearchHeaderOverlay(
-                searchQuery: $searchQuery,
-                suggestions: searchSuggestions,
-                isRouting: isRouting,
-                hasUserCoordinate: locationManager.userCoordinate != nil,
-                favoriteLineCount: favoriteLineCount,
-                totalActiveSignalementsCount: totalActiveSignalementsCount,
-                isFavoritesFilterActive: activeMapFilter == .favorites,
-                isPerturbationsFilterActive: activeMapFilter == .perturbations,
-                onShowLegend: {
-                    withAnimation(transitionSpring) {
-                        showLegend = true
-                    }
-                },
-                onOpenItineraryPlanner: {
-                    showRoutePlanner = true
-                    activeMapFilter = .none
-                },
-                onOpenFavorites: {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
-                        activeMapFilter = activeMapFilter == .favorites ? .none : .favorites
-                    }
-                },
-                onOpenReports: {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
-                        activeMapFilter = activeMapFilter == .perturbations ? .none : .perturbations
-                    }
-                },
-                onSelectSuggestion: { item in
-                    // Route every search through the trip-mode DecisionView so users see
-                    // their best option in light of current disruptions before launching it.
-                    let coord = item.placemark.coordinate
-                    tripDestination = HomeView.TripDestination(
-                        coordinate: coord,
-                        label: item.name ?? item.placemark.title
+            Group {
+                if let stop = selectedMapStopPreview {
+                    // Mini stop card — replaces the search bar so the user can
+                    // see the focused line + live vehicles on the map below.
+                    HomeStopMiniHeaderCard(
+                        stop: stop,
+                        selectedLine: selectedStopLineNumber,
+                        nextDepartures: selectedMapStopDetail?.nextDepartures ?? [],
+                        isLoading: isLoadingMapStopDetail,
+                        liveVehicleCount: vehicleTracker.vehicles.count,
+                        liveVehicles: vehicleTracker.vehicles,
+                        onClose: {
+                            dismissStopPreview()
+                        },
+                        onSelectLine: { line in
+                            selectStopLineRoute(line)
+                        },
+                        onFollowVehicle: { vehicle in
+                            panMap(to: vehicle)
+                        }
                     )
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zLayer(.searchHeader)
+                } else {
+                    HomeSearchHeaderOverlay(
+                        searchQuery: $searchQuery,
+                        suggestions: searchSuggestions,
+                        isRouting: isRouting,
+                        hasUserCoordinate: locationManager.userCoordinate != nil,
+                        favoriteLineCount: favoriteLineCount,
+                        totalActiveSignalementsCount: totalActiveSignalementsCount,
+                        isFavoritesFilterActive: activeMapFilter == .favorites,
+                        isPerturbationsFilterActive: activeMapFilter == .perturbations,
+                        onShowLegend: {
+                            withAnimation(transitionSpring) {
+                                showLegend = true
+                            }
+                        },
+                        onOpenItineraryPlanner: {
+                            showRoutePlanner = true
+                            activeMapFilter = .none
+                        },
+                        onOpenFavorites: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                                activeMapFilter = activeMapFilter == .favorites ? .none : .favorites
+                            }
+                        },
+                        onOpenReports: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                                activeMapFilter = activeMapFilter == .perturbations ? .none : .perturbations
+                            }
+                        },
+                        onSelectSuggestion: { item in
+                            // Route every search through the trip-mode DecisionView so users see
+                            // their best option in light of current disruptions before launching it.
+                            let coord = item.placemark.coordinate
+                            tripDestination = HomeView.TripDestination(
+                                coordinate: coord,
+                                label: item.name ?? item.placemark.title
+                            )
+                        }
+                    )
+                    .padding(.top, 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zLayer(.searchHeader)
+                    .homeFeatureTip(.verdict)
                 }
-            )
-            .padding(.top, 10)
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .zLayer(.searchHeader)
-            .homeFeatureTip(.verdict)
+            }
         }
     }
 

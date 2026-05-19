@@ -7,6 +7,7 @@ struct QuickReportSheetView: View {
     let userLatitude: Double?
     let userLongitude: Double?
     let activeSignalements: [SignalementDTO]
+    var onSubmitted: ((SignalementDTO) -> Void)? = nil
 
     @State private var selectedStop: NearbyStop? = nil
     @State private var selectedLine: NearbyIssueLine? = nil
@@ -21,10 +22,8 @@ struct QuickReportSheetView: View {
     @State private var isLoadingStops = false
     @State private var isStopPickerExpanded = false
     @State private var stopSearchQuery = ""
-    @State private var keyboardHeight: CGFloat = 0
     @FocusState private var focusedField: FocusedField?
 
-    private let screen = UIScreen.main.bounds.height
     private enum FocusedField { case description }
 
     private var safeTop: CGFloat {
@@ -62,7 +61,9 @@ struct QuickReportSheetView: View {
     }
 
     private var scrollBottomPadding: CGFloat {
-        keyboardHeight > 0 ? 128 : 20
+        // Always leave enough room for the keyboard's safe-area inset
+        // plus a little visual breathing space below the description field.
+        focusedField == .description ? 128 : 20
     }
 
     private var filteredNearbyStops: [NearbyStop] {
@@ -76,7 +77,7 @@ struct QuickReportSheetView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             DS.Color.ink.opacity(0.42)
                 .ignoresSafeArea()
                 .onTapGesture(perform: handleClose)
@@ -87,8 +88,6 @@ struct QuickReportSheetView: View {
                     DS.Color.paper
                         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, keyboardHeight)
 
             if showConfetti {
                 ConfettiBurst()
@@ -97,12 +96,8 @@ struct QuickReportSheetView: View {
             }
         }
         .onAppear(perform: bootstrap)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification), perform: handleKeyboardChange)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.easeOut(duration: 0.22)) {
-                keyboardHeight = 0
-            }
-        }
+        // No manual keyboard observers — SwiftUI's safe area handles avoidance
+        // for the bottom-anchored sheet (we don't .ignoresSafeArea(.keyboard)).
     }
 
     // MARK: - Sheet layout
@@ -143,34 +138,30 @@ struct QuickReportSheetView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: focusedField) { _, newValue in
                     guard newValue == .description else { return }
-                    scrollToDescription(proxy)
+                    // Short delay — SwiftUI handles the keyboard avoidance
+                    // natively now, we just need a frame for layout to settle.
+                    scrollToDescription(proxy, delay: 0.05)
                 }
                 .onChange(of: selectedProblem) { _, newValue in
                     guard newValue != nil else { return }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        focusedField = .description
-                    }
                     scrollToDescription(proxy)
                 }
-                .onChange(of: keyboardHeight) { _, newValue in
-                    guard newValue > 0, focusedField == .description else { return }
-                    scrollToDescription(proxy, delay: 0.04)
-                }
             }
-            // ScrollView's intrinsic size is the size of its content, so the
-            // VStack would collapse around it when the keyboard pops up. Force
-            // the scroll area to claim every remaining vertical pixel between
-            // handleBar and submitBar — that's what stops the sheet from
-            // looking like "handleBar + submitBar only".
+            // Let the scroll claim every remaining vertical pixel between
+            // handleBar and submitBar — without this the VStack would
+            // shrink-wrap and the sheet would look like "handle + submit only".
             .frame(maxHeight: .infinity)
 
             submitBar
         }
-        // Force exact height (not max) so the VStack always has the full slab
-        // between safeTop and the keyboard top to distribute among its three
-        // children. Without this, the sheet shrink-wraps its content.
-        .frame(height: max(360, screen - safeTop - 24 - keyboardHeight))
-        .animation(.easeOut(duration: 0.22), value: keyboardHeight)
+        // Cap to the usable height (status bar excluded). SwiftUI's automatic
+        // keyboard avoidance will further shrink the available area when the
+        // keyboard appears, so we don't subtract the keyboard manually.
+        .frame(maxHeight: maxSheetHeight)
+    }
+
+    private var maxSheetHeight: CGFloat {
+        UIScreen.main.bounds.height - safeTop - 24
     }
 
     // MARK: - Header
@@ -646,9 +637,10 @@ struct QuickReportSheetView: View {
                 }
                 .padding(.horizontal, 18)
                 .id("descriptionField")
-                .onTapGesture {
-                    focusedField = .description
-                }
+                // Removed manual .onTapGesture that set focusedField — it was
+                // racing with TextField's native tap-to-focus and swallowing
+                // the first tap, forcing users to tap 2–3 times before the
+                // keyboard came up. The .focused() binding handles it.
                 .onChange(of: description) { _, newValue in
                     if newValue.count > 280 {
                         description = String(newValue.prefix(280))
@@ -787,7 +779,7 @@ struct QuickReportSheetView: View {
 
         Task {
             do {
-                _ = try await SignalementService.ajouter(
+                let response = try await SignalementService.ajouter(
                     nomArret: stop.name,
                     ligne: line.number,
                     typeProbleme: problem.title,
@@ -796,6 +788,9 @@ struct QuickReportSheetView: View {
                     longitude: userLongitude,
                     photo: nil
                 )
+                // Hand the new signalement back to the parent so it can appear
+                // on the map + in the stop detail before the next backend poll.
+                onSubmitted?(response.signalement)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 withAnimation(.easeOut(duration: 0.25)) {
                     submitSuccess = true
@@ -847,15 +842,6 @@ struct QuickReportSheetView: View {
             ].contains(nsError.code)
         }
         return false
-    }
-
-    private func handleKeyboardChange(_ notification: Notification) {
-        guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-        let screenHeight = UIScreen.main.bounds.height
-        let overlap = max(0, screenHeight - frame.minY)
-        withAnimation(.easeOut(duration: 0.22)) {
-            keyboardHeight = overlap
-        }
     }
 
     private func scrollToDescription(_ proxy: ScrollViewProxy, delay: Double = 0.12) {

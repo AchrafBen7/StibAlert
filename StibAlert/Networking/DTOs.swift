@@ -640,6 +640,12 @@ struct TransportVehicleDTO: Codable, Identifiable, Equatable {
     let latitude: Double?
     let longitude: Double?
     let updatedAt: Date?
+    /// Name of the stop the vehicle is currently at / approaching, as
+    /// reported by the backend. Drives the popup shown on vehicle tap.
+    let stopNom: String?
+    /// Distance from the user's location to this vehicle in metres. Only
+    /// populated when the request included a lat/lng/rayon filter.
+    let distanceFromPoint: Int?
 }
 
 struct TransportOverviewDTO: Codable, Equatable {

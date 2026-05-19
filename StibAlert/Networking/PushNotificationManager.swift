@@ -96,11 +96,18 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
               !appId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
-        #if DEBUG
-        OneSignal.Debug.setLogLevel(.LL_VERBOSE)
-        #endif
-        OneSignal.initialize(appId, withLaunchOptions: launchOptions)
-        OneSignal.Notifications.addClickListener(self)
+        // OneSignal.initialize() does sync I/O (reads provisioning profile,
+        // ~3KB log dump) + network during didFinishLaunching → 12 s hang at
+        // cold start. Defer to the next run-loop tick so the first frame
+        // ships before OneSignal does its setup. Push registration still
+        // succeeds; we just don't block launch on it.
+        DispatchQueue.main.async {
+            #if DEBUG
+            OneSignal.Debug.setLogLevel(.LL_ERROR)
+            #endif
+            OneSignal.initialize(appId, withLaunchOptions: launchOptions)
+            OneSignal.Notifications.addClickListener(self)
+        }
 #endif
     }
 

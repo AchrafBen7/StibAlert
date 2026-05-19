@@ -12,6 +12,7 @@ struct HomeStopSurfaceOverlay: View {
     let shouldShowStopDetail: Bool
     let nearbyStops: (TransportStopSummaryDTO) -> [TransportStopSummaryDTO]
     let nearbyVilloStations: (TransportStopSummaryDTO) -> [(station: VilloStation, distanceMeters: Int)]
+    let communitySignalements: [SignalementDTO]
     let onDismiss: () -> Void
     let onOpenDetail: (TransportStopSummaryDTO) -> Void
     let onOpenLine: (String) -> Void
@@ -63,6 +64,7 @@ struct HomeStopSurfaceOverlay: View {
                 userCoordinate: userCoordinate,
                 nearbyStops: nearbyStops(stop),
                 nearbyVilloStations: nearbyVilloStations(stop),
+                communitySignalements: communitySignalements,
                 onDismiss: onDismiss,
                 onOpenLine: onOpenLine,
                 selectedLineRoute: selectedLineRoute,

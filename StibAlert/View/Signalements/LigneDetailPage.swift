@@ -833,6 +833,7 @@ private struct LigneStopDetailSheet: View {
             userCoordinate: nil,
             nearbyStops: [],
             nearbyVilloStations: [],
+            communitySignalements: [],
             onDismiss: { dismiss() },
             onOpenLine: { _ in },
             selectedLineRoute: nil,

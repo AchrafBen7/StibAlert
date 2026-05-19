@@ -66,42 +66,33 @@ struct HomeSearchHeaderOverlay: View {
                     .padding(.horizontal, 18)
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Explorer la carte")
-                        .font(DS.Font.monoSmall)
-                        .tracking(1.2)
-                        .textCase(.uppercase)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .padding(.leading, 22)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        HomeEditorialActionChip(
+                            icon: "arrow.triangle.turn.up.right.diamond.fill",
+                            title: "Itinéraires",
+                            count: nil,
+                            isActive: isRouting,
+                            action: onOpenItineraryPlanner
+                        )
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            HomeEditorialActionChip(
-                                icon: "arrow.triangle.turn.up.right.diamond.fill",
-                                title: "Itinéraires",
-                                count: nil,
-                                isActive: isRouting,
-                                action: onOpenItineraryPlanner
-                            )
+                        HomeEditorialActionChip(
+                            icon: "star.fill",
+                            title: "Favoris",
+                            count: favoriteLineCount,
+                            isActive: isFavoritesFilterActive,
+                            action: onOpenFavorites
+                        )
 
-                            HomeEditorialActionChip(
-                                icon: "star.fill",
-                                title: "Favoris",
-                                count: favoriteLineCount,
-                                isActive: isFavoritesFilterActive,
-                                action: onOpenFavorites
-                            )
-
-                            HomeEditorialActionChip(
-                                icon: "exclamationmark.triangle.fill",
-                                title: "Perturbations",
-                                count: totalActiveSignalementsCount,
-                                isActive: isPerturbationsFilterActive,
-                                action: onOpenReports
-                            )
-                        }
-                        .padding(.horizontal, 18)
+                        HomeEditorialActionChip(
+                            icon: "exclamationmark.triangle.fill",
+                            title: "Perturbations",
+                            count: totalActiveSignalementsCount,
+                            isActive: isPerturbationsFilterActive,
+                            action: onOpenReports
+                        )
                     }
+                    .padding(.horizontal, 18)
                 }
             }
         }

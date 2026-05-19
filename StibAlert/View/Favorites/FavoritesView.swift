@@ -19,7 +19,7 @@ struct FavoritesView: View {
     private var filteredItems: [FavoriteTransitItem] {
         let base = selectedFilter == .all
             ? displayItems
-            : displayItems.filter { $0.filter == selectedFilter }
+            : displayItems.filter { $0.modes.contains(selectedFilter) }
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return base }
@@ -475,19 +475,29 @@ struct FavoritesView: View {
             FavoriteSectionHeading(text: "Alertes intelligentes")
 
             VStack(spacing: 8) {
-                favoriteInfoRow(
-                    icon: "bell.fill",
-                    title: "Notifications favorites",
-                    subtitle: (session.currentUser?.notifications ?? false) ? "Activées" : "Désactivées",
-                    active: session.currentUser?.notifications ?? false
-                )
+                Button {
+                    nav.currentPage = .profile
+                } label: {
+                    favoriteInfoRow(
+                        icon: "bell.fill",
+                        title: "Notifications favorites",
+                        subtitle: (session.currentUser?.notifications ?? false) ? "Activées" : "Désactivées",
+                        active: session.currentUser?.notifications ?? false
+                    )
+                }
+                .buttonStyle(.plain)
 
-                favoriteInfoRow(
-                    icon: "newspaper.fill",
-                    title: "Digest hebdomadaire",
-                    subtitle: (session.currentUser?.weeklyDigestEnabled ?? false) ? "Chaque semaine" : "Non activé",
-                    active: session.currentUser?.weeklyDigestEnabled ?? false
-                )
+                Button {
+                    nav.currentPage = .profile
+                } label: {
+                    favoriteInfoRow(
+                        icon: "newspaper.fill",
+                        title: "Digest hebdomadaire",
+                        subtitle: (session.currentUser?.weeklyDigestEnabled ?? false) ? "Chaque semaine" : "Non activé",
+                        active: session.currentUser?.weeklyDigestEnabled ?? false
+                    )
+                }
+                .buttonStyle(.plain)
 
                 if let routine = session.currentUser?.routine {
                     Button {
@@ -584,7 +594,7 @@ struct FavoritesView: View {
 
         return source.enumerated().map { index, stop in
             let primaryLine = stop.primaryLine ?? stop.lignesDesservies?.first ?? "\(index + 1)"
-            let filter = FavoriteTransportFilter.from(lines: stop.lignesDesservies ?? [])
+            let modes = FavoriteTransportFilter.modes(for: stop.lignesDesservies ?? [])
             let severity = FavoriteSeverity.from(status: stop.status)
             let problemLabel = stop.status ?? "Normal"
 
@@ -599,7 +609,7 @@ struct FavoritesView: View {
                 problemLabel: problemLabel,
                 reportCount: stop.signalementCount ?? 0,
                 nextPassage: stop.nextPassageMinutes.map { "\($0) min" } ?? "--",
-                filter: filter,
+                modes: modes,
                 severity: severity,
                 detailLines: (stop.lignesDesservies ?? [primaryLine]).prefix(4).map {
                     FavoriteLineChip(
@@ -1536,12 +1546,50 @@ private enum FavoriteTransportFilter: CaseIterable, Identifiable {
         }
     }
 
+    // STIB network as of 2024-2026.
+    // Metro: 1, 2, 5, 6. Trams: see set below. Everything else numeric, or N-prefixed
+    // night lines, is a bus.
+    private static let metroLines: Set<String> = ["1", "2", "5", "6"]
+    // STIB tram network 2024-2026. Source of truth: TransitLineMode.tramLines.
+    // Cross-checked against line-shapes.json suffix (m/t/b).
+    private static let tramLines: Set<String> = [
+        "3", "4", "7", "8", "9", "10", "18", "19", "25", "35",
+        "39", "44", "51", "55", "62", "81", "82", "92", "93", "97"
+    ]
+
+    static func mode(for line: String) -> FavoriteTransportFilter? {
+        let normalized = line
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .replacingOccurrences(of: "LIGNE", with: "")
+            .replacingOccurrences(of: "TRAM", with: "")
+            .replacingOccurrences(of: "BUS", with: "")
+            .replacingOccurrences(of: "METRO", with: "")
+            .replacingOccurrences(of: "MÉTRO", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+        if metroLines.contains(normalized) { return .metro }
+        if tramLines.contains(normalized) { return .tram }
+        if normalized.hasPrefix("N") { return .bus } // Noctis night buses
+        if Int(normalized) != nil { return .bus }
+        return nil
+    }
+
+    static func modes(for lines: [String]) -> Set<FavoriteTransportFilter> {
+        Set(lines.compactMap(mode(for:)))
+    }
+
     static func from(lines: [String]) -> FavoriteTransportFilter {
-        let types = lines
-        if types.contains(where: { ["1", "2", "5", "6"].contains($0) }) { return .metro }
-        if let line = types.first, Int(line) ?? 100 >= 90 { return .bus }
-        if !types.isEmpty { return .tram }
-        return .all
+        modes(for: lines).sorted(by: { $0.priority < $1.priority }).first ?? .bus
+    }
+
+    fileprivate var priority: Int {
+        switch self {
+        case .metro: return 0
+        case .tram: return 1
+        case .bus: return 2
+        case .all: return 3
+        }
     }
 
     var badgeColor: Color {
@@ -1590,7 +1638,7 @@ private struct FavoriteTransitItem: Identifiable {
     let problemLabel: String
     let reportCount: Int
     let nextPassage: String
-    let filter: FavoriteTransportFilter
+    let modes: Set<FavoriteTransportFilter>
     let severity: FavoriteSeverity
     let detailLines: [FavoriteLineChip]
     var lastUpdatedAt: Date? = nil
@@ -1967,11 +2015,11 @@ private final class OneShotLocationManager: NSObject, ObservableObject, CLLocati
 
 private enum FavoritesMockData {
     static let items: [FavoriteTransitItem] = [
-        .init(stopBackendId: nil, stopId: nil, code: "46", codeColor: Color(hex: "#E43C2E"), codeTextColor: .white, title: "De Wand", crowding: "Haute", problemLabel: "Perturbé", reportCount: 12, nextPassage: "15 min", filter: .bus, severity: .warning, detailLines: [.init(code: "46", color: Color(hex: "#F29DC3"), textColor: .black), .init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "10", color: Color(hex: "#8F4199"), textColor: .white)]),
-        .init(stopBackendId: nil, stopId: nil, code: "62", codeColor: Color(hex: "#F29DC3"), codeTextColor: .black, title: "Leopold III", crowding: "Faible", problemLabel: "Normal", reportCount: 1, nextPassage: "5 min", filter: .tram, severity: .normal, detailLines: [.init(code: "46", color: Color(hex: "#F29DC3"), textColor: .black), .init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "10", color: Color(hex: "#8F4199"), textColor: .white)]),
-        .init(stopBackendId: nil, stopId: nil, code: "38", codeColor: Color(hex: "#A67CB0"), codeTextColor: .white, title: "Suzan Daniel", crowding: "Moyenne", problemLabel: "Bloqué", reportCount: 16, nextPassage: "/", filter: .tram, severity: .blocked, detailLines: [.init(code: "38", color: Color(hex: "#A67CB0"), textColor: .white), .init(code: "51", color: Color(hex: "#91BEE5"), textColor: .black)]),
-        .init(stopBackendId: nil, stopId: nil, code: "48", codeColor: Color(hex: "#ED7807"), codeTextColor: .white, title: "Heembeek", crowding: "Faible", problemLabel: "Normal", reportCount: 1, nextPassage: "5 min", filter: .bus, severity: .normal, detailLines: [.init(code: "48", color: Color(hex: "#ED7807"), textColor: .white), .init(code: "56", color: Color(hex: "#0066A3"), textColor: .white)]),
-        .init(stopBackendId: nil, stopId: nil, code: "1", codeColor: Color(hex: "#8F4199"), codeTextColor: .white, title: "Gare de l’ouest", crowding: "Moyenne", problemLabel: "Perturbé", reportCount: 3, nextPassage: "2 min", filter: .metro, severity: .warning, detailLines: [.init(code: "1", color: Color(hex: "#8F4199"), textColor: .white), .init(code: "5", color: Color(hex: "#F9A611"), textColor: .white)]),
-        .init(stopBackendId: nil, stopId: nil, code: "7", codeColor: Color(hex: "#EFE048"), codeTextColor: .black, title: "Vanderkindere", crowding: "Haute", problemLabel: "Bloqué", reportCount: 9, nextPassage: "8 min", filter: .tram, severity: .blocked, detailLines: [.init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "92", color: Color(hex: "#4C8B33"), textColor: .white)])
+        .init(stopBackendId: nil, stopId: nil, code: "46", codeColor: Color(hex: "#E43C2E"), codeTextColor: .white, title: "De Wand", crowding: "Haute", problemLabel: "Perturbé", reportCount: 12, nextPassage: "15 min", modes: [.bus, .tram], severity: .warning, detailLines: [.init(code: "46", color: Color(hex: "#F29DC3"), textColor: .black), .init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "10", color: Color(hex: "#8F4199"), textColor: .white)]),
+        .init(stopBackendId: nil, stopId: nil, code: "62", codeColor: Color(hex: "#F29DC3"), codeTextColor: .black, title: "Leopold III", crowding: "Faible", problemLabel: "Normal", reportCount: 1, nextPassage: "5 min", modes: [.tram, .bus], severity: .normal, detailLines: [.init(code: "46", color: Color(hex: "#F29DC3"), textColor: .black), .init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "10", color: Color(hex: "#8F4199"), textColor: .white)]),
+        .init(stopBackendId: nil, stopId: nil, code: "38", codeColor: Color(hex: "#A67CB0"), codeTextColor: .white, title: "Suzan Daniel", crowding: "Moyenne", problemLabel: "Bloqué", reportCount: 16, nextPassage: "/", modes: [.bus, .tram], severity: .blocked, detailLines: [.init(code: "38", color: Color(hex: "#A67CB0"), textColor: .white), .init(code: "51", color: Color(hex: "#91BEE5"), textColor: .black)]),
+        .init(stopBackendId: nil, stopId: nil, code: "48", codeColor: Color(hex: "#ED7807"), codeTextColor: .white, title: "Heembeek", crowding: "Faible", problemLabel: "Normal", reportCount: 1, nextPassage: "5 min", modes: [.bus], severity: .normal, detailLines: [.init(code: "48", color: Color(hex: "#ED7807"), textColor: .white), .init(code: "56", color: Color(hex: "#0066A3"), textColor: .white)]),
+        .init(stopBackendId: nil, stopId: nil, code: "1", codeColor: Color(hex: "#8F4199"), codeTextColor: .white, title: "Gare de l’ouest", crowding: "Moyenne", problemLabel: "Perturbé", reportCount: 3, nextPassage: "2 min", modes: [.metro], severity: .warning, detailLines: [.init(code: "1", color: Color(hex: "#8F4199"), textColor: .white), .init(code: "5", color: Color(hex: "#F9A611"), textColor: .white)]),
+        .init(stopBackendId: nil, stopId: nil, code: "7", codeColor: Color(hex: "#EFE048"), codeTextColor: .black, title: "Vanderkindere", crowding: "Haute", problemLabel: "Bloqué", reportCount: 9, nextPassage: "8 min", modes: [.tram], severity: .blocked, detailLines: [.init(code: "7", color: Color(hex: "#EFE048"), textColor: .black), .init(code: "92", color: Color(hex: "#4C8B33"), textColor: .white)])
     ]
 }

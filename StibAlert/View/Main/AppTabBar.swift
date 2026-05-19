@@ -41,7 +41,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .home: return .home
         case .signalements, .reports: return .live
         case .favorites: return .favorites
-        case .profile, .profileMain: return .profile
+        case .profile: return .profile
         }
     }
 }

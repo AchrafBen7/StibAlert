@@ -101,6 +101,51 @@ enum LineBadgeSize {
     }
 }
 
+/// Transport mode for a STIB-MIVB line. Drives icon + label choices across
+/// the app. STIB network as of 2024-2026 — keep in sync with the same
+/// classification in FavoritesView.FavoriteTransportFilter.
+enum TransitLineMode {
+    case metro
+    case tram
+    case bus
+
+    private static let metroLines: Set<String> = ["1", "2", "5", "6"]
+    // STIB tram network 2024-2026. Cross-checked against the STIB OpenData
+    // `line-shapes.json` suffix convention (m = métro, t = tram, b = bus).
+    private static let tramLines: Set<String> = [
+        "3", "4", "7", "8", "9", "10", "18", "19", "25", "35",
+        "39", "44", "51", "55", "62", "81", "82", "92", "93", "97"
+    ]
+
+    /// Returns the transport mode for the given line number. `T7` / `B53`
+    /// prefixes are stripped, and night lines (`N06`) fall back to bus.
+    static func mode(for line: String?) -> TransitLineMode {
+        guard let line else { return .bus }
+        var n = line.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if n.hasPrefix("T"), n.dropFirst().allSatisfy(\.isNumber) { n = String(n.dropFirst()) }
+        if n.hasPrefix("B"), n.dropFirst().allSatisfy(\.isNumber) { n = String(n.dropFirst()) }
+        if metroLines.contains(n) { return .metro }
+        if tramLines.contains(n) { return .tram }
+        return .bus
+    }
+
+    var sfSymbol: String {
+        switch self {
+        case .metro: return "tram.tunnel.fill"
+        case .tram:  return "tram.fill"
+        case .bus:   return "bus.fill"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .metro: return "Métro"
+        case .tram:  return "Tram"
+        case .bus:   return "Bus"
+        }
+    }
+}
+
 enum TransitLinePalette {
     static func fill(for line: String) -> Color {
         let normalized = line.uppercased()

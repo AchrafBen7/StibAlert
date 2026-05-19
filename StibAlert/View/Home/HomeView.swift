@@ -31,7 +31,7 @@ struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject var locationManager = HomeLocationManager()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
-    @StateObject private var vehicleTracker = VehicleTrackingService()
+    @StateObject var vehicleTracker = VehicleTrackingService()
     @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
 
     @State private var mapPosition: MapCameraPosition = .region(
@@ -68,11 +68,11 @@ struct HomeView: View {
     @State private var currentTransportRecommendation: TransportRecommendationDTO?
     @State private var isLoadingTransportOverview = false
     @State private var selectedAlternativeDetail: TransportAlternativeDTO?
-    @State private var selectedMapStopPreview: TransportStopSummaryDTO?
-    @State private var selectedMapStopSummary: TransportStopSummaryDTO?
-    @State private var selectedMapStopDetail: TransportStopDTO?
-    @State private var selectedStopLineNumber: String?
-    @State private var isLoadingMapStopDetail = false
+    @State var selectedMapStopPreview: TransportStopSummaryDTO?
+    @State var selectedMapStopSummary: TransportStopSummaryDTO?
+    @State var selectedMapStopDetail: TransportStopDTO?
+    @State var selectedStopLineNumber: String?
+    @State var isLoadingMapStopDetail = false
     @State private var mapStopDetailError: String?
     @State private var eventImpacts: [TransportEventImpactDTO] = []
     @State private var selectedEventImpact: TransportEventImpactDTO?
@@ -99,6 +99,7 @@ struct HomeView: View {
 
     @State private var activeClusters: [ClusterDTO] = []
     @State var selectedClusterIndex: Int? = nil
+    @State var selectedVehicle: TransportVehicleDTO? = nil
     @State private var clustersTask: Task<Void, Never>? = nil
     @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
 
@@ -145,8 +146,13 @@ struct HomeView: View {
     }
 
     private var liveSignalPoints: [LiveSignalPoint] {
-        filteredSignalements.compactMap { s in
+        let normalized = selectedStopLineNumber.map(normalizedLineNumber)
+        return filteredSignalements.compactMap { s in
             guard let lat = s.latitude, let lng = s.longitude else { return nil }
+            // Focus mode: keep only the signalements about the focused line.
+            if let normalized, normalizedLineNumber(s.ligne) != normalized {
+                return nil
+            }
             return LiveSignalPoint(
                 id: s.id,
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
@@ -161,6 +167,9 @@ struct HomeView: View {
     }
 
     private var mapClusters: [MapSignalCluster] {
+        // Hide community clusters entirely in focus mode — keeping them would
+        // re-introduce noise we just stripped from the rest of the map.
+        guard !isFocusModeActive else { return [] }
         let communityPoints = liveSignalPoints.filter { $0.source != "stib_officiel" }
         return MapSignalClusterer.cluster(
             points: communityPoints.map { MapSignalClusterer.Input(id: $0.id, coordinate: $0.coordinate, typeProbleme: $0.typeProbleme, origin: .community) },
@@ -185,8 +194,17 @@ struct HomeView: View {
     }
 
     private var trackedVehicleLineNumbers: Set<String> {
-        guard let selectedRouteOption else { return [] }
-        return Set(selectedRouteOption.displayLineCodes)
+        // Route preview wins — we want the single tracked vehicle for that trip.
+        if let selectedRouteOption {
+            return Set(selectedRouteOption.displayLineCodes)
+        }
+        // Otherwise, when the user has focused a line through the mini stop
+        // card, poll vehicle positions for that whole line so we can render
+        // the tram/bus icons on its tracé.
+        if let selectedStopLineNumber {
+            return [selectedStopLineNumber]
+        }
+        return []
     }
 
     private var visibleLineShapes: [LineShape] {
@@ -202,10 +220,21 @@ struct HomeView: View {
     }
 
     private var mapVehicles: [TransportVehicleDTO] {
-        guard cameraLatitudeDelta <= 0.12 else { return [] }
-        guard let selectedRouteOption else { return [] }
-        if let trackedVehicle = trackedVehicle(for: selectedRouteOption) {
-            return [trackedVehicle]
+        if let selectedRouteOption {
+            guard cameraLatitudeDelta <= 0.12 else { return [] }
+            if let trackedVehicle = trackedVehicle(for: selectedRouteOption) {
+                return [trackedVehicle]
+            }
+            return []
+        }
+        // Mini stop card focus mode — show every vehicle the tracker reports
+        // for the focused line so the user can watch them move along the tracé.
+        // No zoom guard here: the whole point of the focus mode is "show me
+        // where the trams are right now", even when the line spans Brussels.
+        if selectedStopLineNumber != nil {
+            return vehicleTracker.vehicles.filter {
+                $0.latitude != nil && $0.longitude != nil
+            }
         }
         return []
     }
@@ -271,8 +300,55 @@ struct HomeView: View {
         if let selectedRouteOption {
             return routeScopedStops(for: selectedRouteOption)
         }
+        // Focus mode: hide every stop pin so the map shows only the line
+        // tracé + its live vehicles. The user's selected stop is still
+        // implicit at the centre of the camera, and the search header card
+        // already names it.
+        if isFocusModeActive {
+            return []
+        }
 
         return baseMapStops
+    }
+
+    /// True when the user has tapped a stop and we're showing the mini header
+    /// card. We use this to strip the map of everything that's not the
+    /// focused line (signalements, villo, clusters, other-line stops, etc.).
+    private var isFocusModeActive: Bool {
+        selectedRouteOption == nil && selectedStopLineNumber != nil
+    }
+
+    /// Quantized user-latitude bucket (≈110 m per integer step). Used as a
+    /// stable `.task(id:)` so the offline-tile refresher does not re-fire on
+    /// every GPS update — only when the user has actually moved ~100 m.
+    private var coarseUserLatitudeBucket: Int? {
+        guard let lat = locationManager.userCoordinate?.latitude else { return nil }
+        return Int(lat * 1000)
+    }
+
+    /// Best-effort mapping from STIB direction code (e.g. "9051") to the
+    /// human-readable terminus name (e.g. "VANDERKINDERE"), assembled by
+    /// pairing the unique direction codes of currently-tracked vehicles
+    /// against the unique destinations advertised by the focused stop. If
+    /// both lists have the same shape (typically 2 ⇄ 2 for a tram line),
+    /// we zip them so the vehicle popup can display "→ TERMINUS".
+    var vehicleDestinationByDirection: [String: String] {
+        guard let focused = selectedStopLineNumber else { return [:] }
+        let normalized = normalizedLineNumber(focused)
+
+        let directions = Set(vehicleTracker.vehicles.compactMap { v -> String? in
+            guard let line = v.line, normalizedLineNumber(line) == normalized else { return nil }
+            return v.direction
+        })
+        let destinations = Array(Set(
+            (selectedMapStopDetail?.nextDepartures ?? [])
+                .filter { normalizedLineNumber($0.line) == normalized }
+                .compactMap { $0.destination?.uppercased() }
+        )).sorted()
+
+        let sortedDirections = directions.sorted()
+        guard sortedDirections.count == destinations.count, !destinations.isEmpty else { return [:] }
+        return Dictionary(uniqueKeysWithValues: zip(sortedDirections, destinations))
     }
 
     private var baseMapStops: [TransportStopSummaryDTO] {
@@ -385,6 +461,7 @@ struct HomeView: View {
     }
 
     private var mapVilloStations: [VilloStation] {
+        guard !isFocusModeActive else { return [] }
         guard showVilloStations, cameraLatitudeDelta <= 0.03 else { return [] }
         return VilloStationService.nearbyStations(
             around: locationManager.displayCoordinate,
@@ -394,6 +471,7 @@ struct HomeView: View {
     }
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
+        guard !isFocusModeActive else { return [] }
         guard showEventImpacts, cameraLatitudeDelta <= 0.14 else { return [] }
         return eventImpacts
             .filter(isRelevantMapEvent(_:))
@@ -429,9 +507,12 @@ struct HomeView: View {
 
     var shouldShowSearchHeader: Bool {
         switch homeSurfaceMode {
-        case .mapIdle, .routePreview, .signalementPreview:
+        case .mapIdle, .routePreview, .signalementPreview, .stopPreview:
+            // .stopPreview now renders a mini stop card *inside* the search
+            // header overlay instead of the bottom preview sheet, so we keep
+            // the header slot visible to host it.
             return true
-        case .unavailable, .stopPreview, .stopDetail, .routeDetail, .ar:
+        case .unavailable, .stopDetail, .routeDetail, .ar:
             return false
         }
     }
@@ -441,7 +522,10 @@ struct HomeView: View {
     }
 
     var shouldShowPulseBar: Bool {
-        homeSurfaceMode == .mapIdle
+        // Hide the + floating button while the cluster sheet is open —
+        // otherwise it overlaps the "C'est résolu" / "Toujours bloqué" CTAs
+        // at the bottom of the cluster card.
+        homeSurfaceMode == .mapIdle && selectedClusterIndex == nil
     }
 
     var shouldShowTabBar: Bool {
@@ -463,7 +547,10 @@ struct HomeView: View {
     }
 
     private var shouldShowStopPreview: Bool {
-        homeSurfaceMode == .stopPreview
+        // Disabled — the big bottom preview card has been replaced by the
+        // mini stop card embedded in the search header overlay. Set this back
+        // to `homeSurfaceMode == .stopPreview` to restore the legacy sheet.
+        false
     }
 
     private var shouldShowStopDetail: Bool {
@@ -503,6 +590,7 @@ struct HomeView: View {
         .overlay(alignment: .top) { allClearChipOverlay }
         .overlay(alignment: .bottom) { signalementPreviewOverlay }
         .overlay(alignment: .bottom) { clusterDetailOverlay }
+        .overlay(alignment: .bottom) { vehicleDetailOverlay }
         .overlay(alignment: .bottom) { bottomChromeOverlay }
         .guestAuthGate(
             isPresented: $showReportAuthGate,
@@ -536,9 +624,7 @@ struct HomeView: View {
                     // awareness BEFORE the route is built. They can launch the trip from there.
                     let coord = destination.placemark.coordinate
                     let label = destination.name ?? destination.placemark.title
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
-                    }
+                    tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
                 }
             )
         }
@@ -547,6 +633,10 @@ struct HomeView: View {
                 .presentationDetents([.height(260), .medium])
                 .presentationDragIndicator(.visible)
         }
+        // VehicleDetailSheet is rendered as an overlay (vehicleDetailOverlay)
+        // — see HomeViewOverlays. We avoid SwiftUI's .sheet() here because
+        // its UIViewController-backed presentation adds ~200 ms of latency
+        // between the tap and the panel appearing on iPhone 11-era devices.
         .sheet(isPresented: $showDecisionSheet) {
             DecisionView(
                 coordinate: locationManager.userCoordinate,
@@ -620,6 +710,10 @@ struct HomeView: View {
             syncFavoritesToWidget(newLines)
         }
         .onChange(of: trackedVehicleLineNumbers) { _, newLines in
+            // Focus mode (stop mini-card) needs every tram on the line, not
+            // just the ones within 1.5 km of the user. Route preview keeps the
+            // proximity filter — it only tracks one specific vehicle anyway.
+            vehicleTracker.proximityFilterEnabled = (selectedRouteOption != nil)
             vehicleTracker.updateLines(newLines)
         }
         .task { await loadRemoteSignalements() }
@@ -627,9 +721,13 @@ struct HomeView: View {
         .task { lineShapesLoader.loadIfNeeded() }
         .task { await refreshCatalogMapStops(force: true) }
         .task { await loadActiveClusters(around: cameraCenterCoordinate) }
-        .task(id: locationManager.userCoordinate?.latitude) {
+        .task(id: coarseUserLatitudeBucket) {
             // Refresh offline map snapshot if user has moved significantly.
             // Runs only when connectivity is good (no point caching half-loaded tiles).
+            // Using a quantized bucket (≈110 m grid) instead of raw lat avoids
+            // the SwiftUI "onChange(of: Optional<Double>) tried to update
+            // multiple times per frame" warning when the GPS reports many
+            // updates per second.
             guard connectivity.isConnected, !connectivity.isConstrained,
                   let coord = locationManager.userCoordinate else { return }
             await MapTileCache.refreshSnapshotIfNeeded(center: coord)
@@ -668,7 +766,7 @@ struct HomeView: View {
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }) { coord in
             if !hasAutoCenteredOnUser || isFollowingUser {
                 suppressNextCameraInteraction = true
-                withAnimation(.easeInOut(duration: 0.8)) {
+                withAnimation(.easeOut(duration: 0.35)) {
                     mapPosition = .region(MKCoordinateRegion(
                         center: coord,
                         span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
@@ -706,9 +804,11 @@ struct HomeView: View {
             heading: locationManager.heading,
             routeMapSegments: routeMapSegments,
             destinationCoordinate: destinationCoord,
-            officialSignalPoints: officialSignalPoints,
+            // Focus mode strips every overlay from the map so the only
+            // markers left are the focused line's stops and its live vehicles.
+            officialSignalPoints: isFocusModeActive ? [] : officialSignalPoints,
             routeOfficialSignalPoints: routeOfficialSignalPoints,
-            activeClusters: activeClusters,
+            activeClusters: isFocusModeActive ? [] : activeClusters,
             selectedClusterIndex: selectedClusterIndex,
             cameraLatitudeDelta: cameraLatitudeDelta,
             mapVehicles: mapVehicles,
@@ -734,8 +834,22 @@ struct HomeView: View {
             onSelectEventImpact: { event in
                 selectedEventImpact = event
             },
+            onSelectVehicle: { vehicle in
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                    selectedVehicle = vehicle
+                }
+            },
             onCameraChanged: { region in
-                cameraLatitudeDelta = region.span.latitudeDelta
+                // Skip sub-threshold updates: the visibility predicates use
+                // bands of 0.03/0.05/0.12/0.18, so anything finer than 0.005
+                // does not change the rendered set but does re-evaluate every
+                // computed that reads cameraLatitudeDelta (causing 30+
+                // body invalidations per scroll).
+                let newDelta = region.span.latitudeDelta
+                if abs(newDelta - cameraLatitudeDelta) > 0.005 {
+                    cameraLatitudeDelta = newDelta
+                }
                 cameraCenterCoordinate = region.center
                 handleMapCameraInteraction()
             }
@@ -850,7 +964,7 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 190)
+                .padding(.bottom, 156)
                 .zLayer(.controls)
             }
         }
@@ -884,6 +998,7 @@ struct HomeView: View {
             nearbyVilloStations: { stop in
                 stopVilloStations(for: stop, detail: selectedMapStopDetail)
             },
+            communitySignalements: remoteSignalements,
             onDismiss: {
                 enterInteractionMode(.map)
             },
@@ -997,11 +1112,29 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func selectStopLineRoute(_ line: String) {
+    func selectStopLineRoute(_ line: String) {
         let normalized = normalizedLineNumber(line)
         guard !normalized.isEmpty else { return }
-        selectedStopLineNumber = normalized
+        withAnimation(.easeInOut(duration: 0.25)) {
+            selectedStopLineNumber = normalized
+        }
         focusMap(onLineShapesFor: normalized)
+    }
+
+    /// Closes the mini stop card and returns the map to its idle state.
+    /// Unlike `enterInteractionMode(.map)` this preserves any route surface,
+    /// only the stop-pin selection is unwound.
+    @MainActor
+    func dismissStopPreview() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            selectedMapStopPreview = nil
+            selectedMapStopDetail = nil
+            selectedStopLineNumber = nil
+            isLoadingMapStopDetail = false
+            if interactionMode == .stopPreview {
+                interactionMode = .map
+            }
+        }
     }
 
     @MainActor
@@ -1266,6 +1399,23 @@ struct HomeView: View {
         }
     }
 
+    /// Centres the camera on a specific vehicle so the user can spot the
+    /// "Plus proche" tram even when they've panned the map away from the
+    /// focused stop. Triggered from the mini-card's closest-vehicle row.
+    @MainActor
+    func panMap(to vehicle: TransportVehicleDTO) {
+        guard let lat = vehicle.latitude, let lng = vehicle.longitude else { return }
+        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+        withAnimation(.easeInOut(duration: 0.55)) {
+            mapPosition = .region(MKCoordinateRegion(
+                center: coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+            ))
+        }
+    }
+
     private func focusMap(onLineShapesFor line: String) {
         let shapes = lineShapesLoader.shapes(matchingNumbers: [line])
         let coordinates = shapes.flatMap(\.coordinates)
@@ -1385,7 +1535,42 @@ struct HomeView: View {
         Task {
             do {
                 let lookupId = stop.stopId ?? stop.id
-                let detail = try await TransportService.stop(id: lookupId)
+                // STIB models every physical stop as 2 separate stop IDs —
+                // one per direction. Fetching only the tapped pin gives us
+                // departures for a single direction (the other side of the
+                // street is silent). Look up sibling stop IDs sharing the
+                // same name within 80 m and merge their nextDepartures so
+                // the mini-card shows both directions.
+                let siblingIds = self.siblingStopIds(for: stop)
+                async let primary = TransportService.stop(id: lookupId)
+                let siblings = await withTaskGroup(of: [TransportDepartureDTO].self) { group in
+                    for sid in siblingIds {
+                        group.addTask {
+                            (try? await TransportService.stop(id: sid))?.nextDepartures ?? []
+                        }
+                    }
+                    var all: [TransportDepartureDTO] = []
+                    for await deps in group { all.append(contentsOf: deps) }
+                    return all
+                }
+                let primaryDetail = try await primary
+                let merged = Self.mergeDepartures(
+                    primaryDetail.nextDepartures + siblings
+                )
+                let detail = TransportStopDTO(
+                    stop: primaryDetail.stop,
+                    severity: primaryDetail.severity,
+                    confidence: primaryDetail.confidence,
+                    realtimeStatus: primaryDetail.realtimeStatus,
+                    officialDataStatus: primaryDetail.officialDataStatus,
+                    officialDataMessage: primaryDetail.officialDataMessage,
+                    perturbationSummary: primaryDetail.perturbationSummary,
+                    label: primaryDetail.label,
+                    color: primaryDetail.color,
+                    activeIncidents: primaryDetail.activeIncidents,
+                    nextDepartures: merged,
+                    recommendedAlternatives: primaryDetail.recommendedAlternatives
+                )
                 await MainActor.run {
                     let matchesPreview = selectedMapStopPreview?.id == stop.id
                     let matchesDetail = selectedMapStopSummary?.id == stop.id
@@ -1415,11 +1600,47 @@ struct HomeView: View {
         }
     }
 
+    /// Returns the backend stop IDs of every catalog stop sharing the same
+    /// name and within ~80 m of the tapped stop, excluding the stop itself.
+    /// Used to fetch the other-direction quay of the same physical platform.
+    private func siblingStopIds(for stop: TransportStopSummaryDTO) -> [String] {
+        guard let stopLat = stop.latitude, let stopLng = stop.longitude else { return [] }
+        let origin = CLLocation(latitude: stopLat, longitude: stopLng)
+        let normalizedName = stop.name.uppercased()
+        return catalogMapStops.compactMap { ns -> String? in
+            guard ns.name.uppercased() == normalizedName else { return nil }
+            guard let coord = ns.coordinate, let backendId = ns.backendId else { return nil }
+            guard backendId != stop.id, backendId != stop.stopId else { return nil }
+            let distance = origin.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
+            return distance <= 80 ? backendId : nil
+        }
+    }
+
+    /// De-duplicate departures by `(line, destination, minutes)` then sort
+    /// chronologically. Realtime entries win over scheduled when both exist
+    /// for the same key.
+    private static func mergeDepartures(_ all: [TransportDepartureDTO]) -> [TransportDepartureDTO] {
+        var bucket: [String: TransportDepartureDTO] = [:]
+        for d in all {
+            let key = "\(d.line.uppercased())|\(d.destination?.uppercased() ?? "")|\(d.minutes)"
+            if let existing = bucket[key] {
+                if existing.source != "realtime", d.source == "realtime" {
+                    bucket[key] = d
+                }
+            } else {
+                bucket[key] = d
+            }
+        }
+        return bucket.values.sorted { $0.minutes < $1.minutes }
+    }
+
     @MainActor
     private func openStopPreview(for stop: TransportStopSummaryDTO) {
-        selectedMapStopPreview = stop
-        selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
-        enterInteractionMode(.stopPreview)
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            selectedMapStopPreview = stop
+            selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
+            enterInteractionMode(.stopPreview)
+        }
         loadStopDetail(for: stop)
         if let selectedStopLineNumber {
             focusMap(onLineShapesFor: selectedStopLineNumber)
@@ -1879,7 +2100,7 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func mergeIncomingSignalement(_ signalement: SignalementDTO) {
+    func mergeIncomingSignalement(_ signalement: SignalementDTO) {
         if let index = remoteSignalements.firstIndex(where: { $0.id == signalement.id }) {
             remoteSignalements[index] = signalement
         } else {
@@ -2254,7 +2475,7 @@ struct HomeView: View {
         enterInteractionMode(.routePreview)
 
         let rect = option.mapRectWithPadding
-        withAnimation(.easeInOut(duration: 0.8)) {
+        withAnimation(.easeOut(duration: 0.35)) {
             mapPosition = .rect(rect)
         }
     }
@@ -2262,9 +2483,9 @@ struct HomeView: View {
     @ViewBuilder
     private var pageOverlay: some View {
         ZStack {
-            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile || nav.currentPage == .profileMain) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
+            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
 
-            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .favorites && nav.currentPage != .profile && nav.currentPage != .profileMain {
+            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .favorites && nav.currentPage != .profile {
                 VStack {
                     HStack {
                         Button {
@@ -2303,8 +2524,6 @@ struct HomeView: View {
                 FavoritesView()
             case .profile:
                 ProfileView()
-            case .profileMain:
-                ProfileMainView()
             case .home:
                 EmptyView()
             }
