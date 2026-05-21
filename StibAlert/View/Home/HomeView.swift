@@ -584,6 +584,7 @@ struct HomeView: View {
         !nav.showReportSheet
         && !isStopDetailPresented
         && !hasRouteSurface
+        && !nav.hidesTabBar
     }
 
     var shouldShowAllClearChip: Bool {

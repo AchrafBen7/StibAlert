@@ -14,6 +14,9 @@ final class AppNavigation: ObservableObject {
     @Published var showReportSheet = false
     @Published var showSideMenu = false
     @Published var showAuthFlow = false
+    /// Set by full-page detail screens (e.g. the favourite stop detail) that
+    /// want the bottom tab bar hidden while they're on screen.
+    @Published var hidesTabBar = false
     @Published var authInitialRoute: AuthRoute?
     @Published var pendingLineFocus: String?
     @Published var pendingReportFocus: String?

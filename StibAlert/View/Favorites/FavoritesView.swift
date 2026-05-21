@@ -701,7 +701,8 @@ private struct FavoriteStopDetailView: View {
                 body: incident.description ?? "Aucun détail terrain disponible.",
                 background: incidentBackground(for: incident.severity),
                 dotColor: incidentDotColor(for: incident.severity),
-                confidenceText: incident.community.map(communitySummary(from:)) ?? confidenceLabel(for: incident.confidence)
+                confidenceText: incident.community.map(communitySummary(from:)) ?? confidenceLabel(for: incident.confidence),
+                severity: incident.severity
             )
         }
     }
@@ -823,6 +824,9 @@ private struct FavoriteStopDetailView: View {
         .task(id: item.stopBackendId) {
             await loadTransportStop()
         }
+        // Full-page detail → hide the bottom tab bar while it's on screen.
+        .onAppear { nav.hidesTabBar = true }
+        .onDisappear { nav.hidesTabBar = false }
     }
 
     private var header: some View {
@@ -1472,9 +1476,14 @@ private struct FavoriteTransportIncidentCard: View {
 
                 Spacer(minLength: 8)
 
-                Circle()
-                    .fill(incident.dotColor)
-                    .frame(width: 12, height: 12)
+                // Severity-coloured warning icon (icon varies by problem type)
+                // — replaces the flat coloured dot + tinted card so the card
+                // follows the design system (neutral paper).
+                Image(systemName: SignalVisuals.icon(forType: incident.title))
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(severityColor)
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(severityColor.opacity(0.14)))
             }
 
             HStack(spacing: 8) {
@@ -1484,12 +1493,21 @@ private struct FavoriteTransportIncidentCard: View {
             }
         }
         .padding(14)
-        .background(incident.background)
+        .background(DS.Color.paper)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var severityColor: Color {
+        switch incident.severity {
+        case "critical": return DS.Color.statusCritical
+        case "major":    return DS.Color.statusMajor
+        case "minor":    return DS.Color.statusMinor
+        default:         return DS.Color.statusOK
+        }
     }
 
     private func communityButton(_ title: String, action: @escaping () async -> Void) -> some View {
@@ -1758,6 +1776,7 @@ private struct FavoriteIncident: Identifiable {
     let background: Color
     let dotColor: Color
     let confidenceText: String?
+    let severity: String?
 }
 
 private struct AddFavoriteSheet: View {
