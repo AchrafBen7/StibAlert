@@ -79,6 +79,7 @@ struct HomeView: View {
     @State private var showVilloStations = true
     @State private var showEventImpacts = true
     @State private var selectedVilloStation: VilloStation?
+    @State private var selectedSncbStation: SNCBStation?
     @State private var problemFilter: ReportProblemType? = nil
     @State var activeMapFilter: MapFilter = .none
     @State private var cameraLatitudeDelta: Double = 0.04
@@ -512,6 +513,15 @@ struct HomeView: View {
         ).map(\.station)
     }
 
+    private var mapSncbStations: [SNCBStation] {
+        guard !isFocusModeActive else { return [] }
+        guard cameraLatitudeDelta <= 0.16 else { return [] }
+        return SNCBStationService.mapStations(
+            around: cameraCenterCoordinate,
+            cameraLatitudeDelta: cameraLatitudeDelta
+        )
+    }
+
     private var mapEventImpacts: [TransportEventImpactDTO] {
         guard !isFocusModeActive else { return [] }
         guard showEventImpacts, cameraLatitudeDelta <= 0.14 else { return [] }
@@ -674,6 +684,17 @@ struct HomeView: View {
             HomeVilloStationSheet(station: station)
                 .presentationDetents([.height(260), .medium])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedSncbStation) { station in
+            HomeSncbStationSheet(
+                station: station,
+                onReport: {
+                    selectedSncbStation = nil
+                    nav.showReportSheet = true
+                }
+            )
+            .presentationDetents([.height(280), .medium])
+            .presentationDragIndicator(.visible)
         }
         // VehicleDetailSheet is rendered as an overlay (vehicleDetailOverlay)
         // — see HomeViewOverlays. We avoid SwiftUI's .sheet() here because
@@ -854,6 +875,8 @@ struct HomeView: View {
             mapStops: mapStops,
             selectedMapStopPreview: selectedMapStopPreview,
             selectedMapStopSummary: selectedMapStopSummary,
+            mapSncbStations: mapSncbStations,
+            selectedSncbStation: selectedSncbStation,
             mapVilloStations: mapVilloStations,
             mapEventImpacts: mapEventImpacts,
             onOpenPreview: openPreview(for:),
@@ -865,6 +888,9 @@ struct HomeView: View {
             },
             onSelectClusterCount: { center in
                 zoomCameraIn(to: center, factor: 0.4)
+            },
+            onSelectSncbStation: { station in
+                selectedSncbStation = station
             },
             onSelectVilloStation: { station in
                 selectedVilloStation = station
@@ -3061,4 +3087,3 @@ private struct HomeAlternativeDetailsSheet: View {
         return parts.joined(separator: " • ")
     }
 }
-

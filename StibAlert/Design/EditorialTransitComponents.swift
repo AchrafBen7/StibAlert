@@ -151,6 +151,7 @@ enum TransitLinePalette {
         let normalized = line.uppercased()
 
         switch normalized {
+        case "SNCB", "NMBS": return Color(hex: "#0055A4")
         case "1": return Color(hex: "#B0368F")
         case "2": return Color(hex: "#F47A20")
         case "4": return Color(hex: "#E94983")
@@ -237,6 +238,9 @@ enum TransitLinePalette {
     }
 
     private static func inferredFill(for line: String) -> Color {
+        if line.uppercased() == "SNCB" || line.uppercased() == "NMBS" {
+            return Color(hex: "#0055A4")
+        }
         if let numeric = Int(line) {
             if (1...6).contains(numeric) { return DS.Color.metro }
             if numeric >= 90 { return DS.Color.bus }

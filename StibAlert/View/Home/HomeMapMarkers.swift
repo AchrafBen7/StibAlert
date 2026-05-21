@@ -262,6 +262,68 @@ struct HomeStopMarker: View {
     }
 }
 
+struct SNCBStationMarker: View {
+    let station: SNCBStation
+    let isSelected: Bool
+    var warningStyle: StopWarningStyle? = nil
+
+    var body: some View {
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                Text(station.displayName)
+                    .font(.system(size: 9, weight: .bold))
+                    .lineLimit(1)
+                    .foregroundStyle(DS.Color.ink)
+
+                Image("operator-sncb")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 12)
+            }
+            .padding(.horizontal, 7)
+            .frame(height: 19)
+            .background(Capsule().fill(DS.Color.paper.opacity(0.97)))
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color(hex: "#0055A4") : DS.Color.ink.opacity(0.18), lineWidth: isSelected ? 1.5 : 1)
+            )
+            .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+            .overlay(alignment: .topTrailing) {
+                if let warningStyle {
+                    Image(systemName: warningStyle.icon)
+                        .font(.system(size: 7.5, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(width: 15, height: 15)
+                        .background(Circle().fill(warningStyle.color))
+                        .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                        .offset(x: 6, y: -5)
+                }
+            }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color(hex: "#0055A4"))
+                    .frame(width: 34, height: 30)
+                    .shadow(color: Color(hex: "#0055A4").opacity(0.28), radius: 8, x: 0, y: 4)
+
+                Image(systemName: "train.side.front.car")
+                    .font(.system(size: 15, weight: .black))
+                    .foregroundStyle(.white)
+            }
+
+            TrianglePointer()
+                .fill(Color(hex: "#0055A4"))
+                .frame(width: 11, height: 7)
+                .offset(y: -4)
+        }
+        .scaleEffect(isSelected ? 1.06 : 1)
+        .accessibilityElement()
+        .accessibilityLabel("Gare SNCB \(station.displayName)")
+        .accessibilityHint("Sélectionne la gare")
+    }
+}
+
 struct VilloMapMarker: View {
     let station: VilloStation
 

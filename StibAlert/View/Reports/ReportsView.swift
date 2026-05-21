@@ -10,6 +10,7 @@ struct ReportsView: View {
     @State private var selectedScope: ReportContentScope = .reports
     @State private var selectedSegment: ReportSegment = .all
     @State private var selectedModeFilter: ReportTransportMode = .all
+    @State private var selectedOperator: TransitOperator = .stib
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
@@ -128,6 +129,10 @@ struct ReportsView: View {
     }
 
     private var availableLineFilters: [String] {
+        if selectedOperator == .sncb {
+            return ["Tout", "SNCB"]
+        }
+
         let catalogLines = lineCatalog.map(\.lineid)
         let fallbackLines = reports.map(\.ligne)
             + events.flatMap(\.impactedLines)
@@ -374,10 +379,11 @@ struct ReportsView: View {
     }
 
     private var shouldGroupFeedByLine: Bool {
+        guard selectedOperator != .sncb else { return false }
         // Group by line+mode on both "En cours" and "Officiel" — Événements
         // remains a flat chronological list because each event item
         // typically spans multiple lines.
-        (selectedScope == .reports || selectedScope == .official)
+        return (selectedScope == .reports || selectedScope == .official)
             && selectedLineFilter == "Tout"
     }
 
@@ -429,6 +435,10 @@ struct ReportsView: View {
     }
 
     private var visibleLineFilters: [String] {
+        if selectedOperator == .sncb {
+            return ["Tout", "SNCB"]
+        }
+
         // The line-filter dock is only shown on the Events scope, so the
         // useful chip set is "every line an event actually touches" — that way
         // each chip yields results and the user sees all the lines events
@@ -694,7 +704,15 @@ struct ReportsView: View {
     /// `TransitOperatorRow` component so the Horaires tab can reuse the
     /// exact same masthead.
     private var statusHUD: some View {
-        TransitOperatorRow()
+        TransitOperatorRow(
+            activeOperator: selectedOperator,
+            enabledOperators: [.stib, .sncb],
+            onSelect: { transitOperator in
+                selectedOperator = transitOperator
+                selectedLineFilter = "Tout"
+                selectedModeFilter = transitOperator == .sncb ? .sncb : .all
+            }
+        )
     }
 
     private var editorialSearchSection: some View {
@@ -1043,12 +1061,21 @@ struct ReportsView: View {
     }
 
     private func matchesSelectedMode(lines: [String]) -> Bool {
+        if selectedOperator == .sncb {
+            return lines.contains { transportMode(for: $0) == .sncb }
+        }
+        if selectedOperator != .stib {
+            return false
+        }
         guard selectedModeFilter != .all else { return true }
         return lines.contains { transportMode(for: $0) == selectedModeFilter }
     }
 
     private func transportMode(for line: String) -> ReportTransportMode {
         let normalized = line.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized == "SNCB" || normalized == "NMBS" || normalized == "TRAIN" {
+            return .sncb
+        }
         if normalized.hasPrefix("T") { return .tram }
         guard let number = Int(normalized) else { return .bus }
         if (1...6).contains(number) { return .metro }
@@ -3119,4 +3146,3 @@ struct EditorialDossierCard: View {
 // `TransitOperator` + its row View now live in
 // `View/Components/TransitOperatorRow.swift` so both Infos trafic and
 // Horaires can share the same masthead.
-

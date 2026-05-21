@@ -20,12 +20,15 @@ struct HomeMapLayer: View {
     let mapStops: [TransportStopSummaryDTO]
     let selectedMapStopPreview: TransportStopSummaryDTO?
     let selectedMapStopSummary: TransportStopSummaryDTO?
+    let mapSncbStations: [SNCBStation]
+    let selectedSncbStation: SNCBStation?
     let mapVilloStations: [VilloStation]
     let mapEventImpacts: [TransportEventImpactDTO]
     let onOpenPreview: (String) -> Void
     let onOpenStopPreview: (TransportStopSummaryDTO) -> Void
     let onSelectCluster: (ClusterDTO) -> Void
     let onSelectClusterCount: (CLLocationCoordinate2D) -> Void
+    let onSelectSncbStation: (SNCBStation) -> Void
     let onSelectVilloStation: (VilloStation) -> Void
     let onSelectEventImpact: (TransportEventImpactDTO) -> Void
     let onSelectVehicle: (TransportVehicleDTO) -> Void
@@ -39,6 +42,7 @@ struct HomeMapLayer: View {
             officialIncidentAnnotations
             communityClusterAnnotations
             stopAnnotations
+            sncbStationAnnotations
             villoAnnotations
             eventAnnotations
             // Vehicles render LAST so their pins sit on top of every other
@@ -180,6 +184,46 @@ struct HomeMapLayer: View {
         )
     }
 
+    private func colocatedSncbStation(lat: Double?, lng: Double?) -> SNCBStation? {
+        guard let lat, let lng else { return nil }
+        let signalLoc = CLLocation(latitude: lat, longitude: lng)
+        var nearest: SNCBStation?
+        var nearestDist: CLLocationDistance = 45
+        for station in mapSncbStations {
+            let distance = signalLoc.distance(from: CLLocation(latitude: station.lat, longitude: station.lng))
+            if distance <= nearestDist {
+                nearestDist = distance
+                nearest = station
+            }
+        }
+        return nearest
+    }
+
+    private func stationWarningStyle(for station: SNCBStation) -> StopWarningStyle? {
+        var best: StopWarningStyle?
+        let stationLoc = CLLocation(latitude: station.lat, longitude: station.lng)
+        for cluster in activeClusters {
+            guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
+            let distance = stationLoc.distance(from: CLLocation(latitude: lat, longitude: lng))
+            guard distance <= 45 else { continue }
+            let style = warningStyle(for: cluster)
+            if best == nil || style.rank > (best?.rank ?? 0) {
+                best = style
+            }
+        }
+        return best
+    }
+
+    private var absorbedSncbClusterIndices: Set<Int> {
+        var absorbed = Set<Int>()
+        for cluster in activeClusters {
+            if colocatedSncbStation(lat: cluster.latitude, lng: cluster.longitude) != nil {
+                absorbed.insert(cluster.clusterIndex)
+            }
+        }
+        return absorbed
+    }
+
     /// Resolves which displayed stops currently host an active signalement —
     /// community cluster OR official STIB incident. Returns the per-stop badge
     /// style (highest-rank issue wins when several share a stop) plus the
@@ -220,6 +264,7 @@ struct HomeMapLayer: View {
         for cluster in activeClusters {
             // Skip clusters now represented as a badge on a stop marker.
             if coloc.absorbedClusterIndices.contains(cluster.clusterIndex) { continue }
+            if absorbedSncbClusterIndices.contains(cluster.clusterIndex) { continue }
             guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "c-\(cluster.clusterIndex)",
@@ -330,6 +375,24 @@ struct HomeMapLayer: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+        }
+    }
+
+    @MapContentBuilder
+    private var sncbStationAnnotations: some MapContent {
+        ForEach(mapSncbStations) { station in
+            Annotation("", coordinate: station.coordinate, anchor: .bottom) {
+                Button {
+                    onSelectSncbStation(station)
+                } label: {
+                    SNCBStationMarker(
+                        station: station,
+                        isSelected: selectedSncbStation?.id == station.id,
+                        warningStyle: stationWarningStyle(for: station)
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }

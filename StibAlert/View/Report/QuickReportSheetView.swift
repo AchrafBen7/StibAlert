@@ -22,6 +22,7 @@ struct QuickReportSheetView: View {
     @State private var isLoadingStops = false
     @State private var isStopPickerExpanded = false
     @State private var stopSearchQuery = ""
+    @State private var selectedOperator: TransitOperator = .stib
     @FocusState private var focusedField: FocusedField?
 
     private enum FocusedField { case description }
@@ -96,6 +97,10 @@ struct QuickReportSheetView: View {
             }
         }
         .onAppear(perform: bootstrap)
+        .onChange(of: selectedOperator) { _, _ in
+            resetTargetSelection()
+            bootstrap()
+        }
         // No manual keyboard observers — SwiftUI's safe area handles avoidance
         // for the bottom-anchored sheet (we don't .ignoresSafeArea(.keyboard)).
     }
@@ -110,6 +115,7 @@ struct QuickReportSheetView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
                         sheetHeader
+                        operatorSelectorSection
                         stopSection
                         if !isStopPickerExpanded {
                             if let stop = selectedStop, !stop.issueLines.isEmpty {
@@ -171,11 +177,23 @@ struct QuickReportSheetView: View {
             Text("Signaler un problème")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
-            Text("Arrêt détecté automatiquement")
+            Text(selectedOperator == .sncb ? "Gare détectée automatiquement" : "Arrêt détecté automatiquement")
                 .font(.system(size: 14))
                 .foregroundStyle(DS.Color.inkSoft)
         }
         .padding(.horizontal, 18)
+    }
+
+    private var operatorSelectorSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle(icon: "square.grid.2x2.fill", text: "Réseau")
+            TransitOperatorRow(
+                activeOperator: selectedOperator,
+                enabledOperators: [.stib, .sncb],
+                onSelect: { selectedOperator = $0 }
+            )
+            .padding(.horizontal, 18)
+        }
     }
 
     // MARK: - Handle bar
@@ -210,7 +228,10 @@ struct QuickReportSheetView: View {
 
     private var stopSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(icon: "mappin.and.ellipse", text: "Arrêt")
+            sectionTitle(
+                icon: selectedOperator == .sncb ? "train.side.front.car" : "mappin.and.ellipse",
+                text: selectedOperator == .sncb ? "Gare" : "Arrêt"
+            )
 
             if isLoadingStops {
                 stopSkeleton
@@ -219,7 +240,7 @@ struct QuickReportSheetView: View {
             } else if let stop = selectedStop {
                 stopCompactCard(stop)
             } else {
-                Text("Aucun arrêt détecté à proximité.")
+                Text(emptyTargetMessage)
                     .font(.system(size: 13))
                     .foregroundStyle(DS.Color.inkMute)
                     .padding(.horizontal, 18)
@@ -247,12 +268,7 @@ struct QuickReportSheetView: View {
 
     private func stopCompactCard(_ stop: NearbyStop) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Color.community)
-                .frame(width: 36, height: 36)
-                .background(DS.Color.community.opacity(0.12))
-                .clipShape(Circle())
+            targetIcon
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(stop.name)
@@ -287,7 +303,7 @@ struct QuickReportSheetView: View {
     private var stopPickerExpanded: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Choisir un autre arrêt")
+                Text(selectedOperator == .sncb ? "Choisir une autre gare" : "Choisir un autre arrêt")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
@@ -328,7 +344,7 @@ struct QuickReportSheetView: View {
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
 
-            TextField("Rechercher un arrêt ou une ligne", text: $stopSearchQuery)
+            TextField(selectedOperator == .sncb ? "Rechercher une gare" : "Rechercher un arrêt ou une ligne", text: $stopSearchQuery)
                 .font(.system(size: 14))
                 .foregroundStyle(DS.Color.ink)
                 .textInputAutocapitalization(.words)
@@ -416,6 +432,38 @@ struct QuickReportSheetView: View {
             .shadow(color: DS.Color.ink.opacity(isSelected ? 0.06 : 0.035), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var targetIcon: some View {
+        if selectedOperator == .sncb {
+            Image("operator-sncb")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .frame(width: 36, height: 36)
+                .background(DS.Color.paper2.opacity(0.65))
+                .clipShape(Circle())
+        } else {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DS.Color.community)
+                .frame(width: 36, height: 36)
+                .background(DS.Color.community.opacity(0.12))
+                .clipShape(Circle())
+        }
+    }
+
+    private var emptyTargetMessage: String {
+        switch selectedOperator {
+        case .stib:
+            return "Aucun arrêt détecté à proximité."
+        case .sncb:
+            return "Aucune gare SNCB détectée à proximité."
+        case .delijn, .tec:
+            return "\(selectedOperator.shortName) n’est pas encore connecté aux arrêts proches."
+        }
     }
 
     // MARK: - Line chips (inline horizontal)
@@ -742,12 +790,17 @@ struct QuickReportSheetView: View {
     // MARK: - Bootstrap
 
     private func bootstrap() {
+        guard selectedOperator == .stib else {
+            loadLocalOperatorTargets()
+            return
+        }
         guard let lat = userLatitude, let lng = userLongitude else { return }
         isLoadingStops = true
         Task {
             defer { isLoadingStops = false }
             do {
                 let stops = try await NearbyStopService.fetchNearby(lat: lat, lng: lng)
+                guard selectedOperator == .stib else { return }
                 nearbyStops = stops
                 selectedStop = NearestStopFinder.nearest(
                     to: userCoordinate, in: stops, maxMeters: 120
@@ -759,6 +812,37 @@ struct QuickReportSheetView: View {
                 print("NearbyStopService failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    private func loadLocalOperatorTargets() {
+        isLoadingStops = false
+        switch selectedOperator {
+        case .sncb:
+            let stops = SNCBStationService.nearbyStations(
+                around: userCoordinate,
+                radiusMeters: 35_000,
+                limit: 8
+            ).map(SNCBStationService.nearbyStop(from:))
+            nearbyStops = stops
+            selectedStop = stops.first
+            selectedLine = stops.first?.issueLines.first
+        case .delijn, .tec:
+            nearbyStops = []
+            selectedStop = nil
+            selectedLine = nil
+        case .stib:
+            break
+        }
+    }
+
+    private func resetTargetSelection() {
+        selectedStop = nil
+        selectedLine = nil
+        selectedProblem = nil
+        description = ""
+        submitError = nil
+        isStopPickerExpanded = false
+        stopSearchQuery = ""
     }
 
     // MARK: - Submit
@@ -773,6 +857,8 @@ struct QuickReportSheetView: View {
 
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalDescription = trimmed.count >= 3 ? trimmed : "Signalement rapide — \(problem.title)"
+        let reportLatitude = stop.coordinate?.latitude ?? userLatitude
+        let reportLongitude = stop.coordinate?.longitude ?? userLongitude
 
         isSubmitting = true
         submitError = nil
@@ -784,8 +870,9 @@ struct QuickReportSheetView: View {
                     ligne: line.number,
                     typeProbleme: problem.title,
                     description: finalDescription,
-                    latitude: userLatitude,
-                    longitude: userLongitude,
+                    latitude: reportLatitude,
+                    longitude: reportLongitude,
+                    transportOperator: selectedOperator.rawValue,
                     photo: nil
                 )
                 // Hand the new signalement back to the parent so it can appear
@@ -807,8 +894,9 @@ struct QuickReportSheetView: View {
                         ligne: line.number,
                         typeProbleme: problem.title,
                         description: finalDescription,
-                        latitude: userLatitude,
-                        longitude: userLongitude
+                        latitude: reportLatitude,
+                        longitude: reportLongitude,
+                        transportOperator: selectedOperator.rawValue
                     ))
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     withAnimation(.easeOut(duration: 0.25)) {

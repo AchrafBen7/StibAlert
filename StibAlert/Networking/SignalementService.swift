@@ -36,6 +36,7 @@ enum SignalementService {
         description: String,
         latitude: Double?,
         longitude: Double?,
+        transportOperator: String? = nil,
         photo: UIImage?
     ) async throws -> AjoutSignalementResponse {
         var fields: [String: String] = [
@@ -46,6 +47,9 @@ enum SignalementService {
         ]
         if let latitude { fields["latitude"] = String(latitude) }
         if let longitude { fields["longitude"] = String(longitude) }
+        if let transportOperator, !transportOperator.isEmpty {
+            fields["transportOperator"] = transportOperator
+        }
 
         let imageData = photo?.jpegData(compressionQuality: 0.8)
         return try await APIClient.shared.upload(

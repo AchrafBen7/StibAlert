@@ -106,6 +106,7 @@ enum OfflineCache {
         let description: String
         let latitude: Double?
         let longitude: Double?
+        let transportOperator: String?
 
         init(
             id: UUID = UUID(),
@@ -115,7 +116,8 @@ enum OfflineCache {
             typeProbleme: String,
             description: String,
             latitude: Double?,
-            longitude: Double?
+            longitude: Double?,
+            transportOperator: String? = nil
         ) {
             self.id = id
             self.createdAt = createdAt
@@ -125,6 +127,7 @@ enum OfflineCache {
             self.description = description
             self.latitude = latitude
             self.longitude = longitude
+            self.transportOperator = transportOperator
         }
     }
 

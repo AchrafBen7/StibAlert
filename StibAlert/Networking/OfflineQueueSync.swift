@@ -61,6 +61,7 @@ final class OfflineQueueSync: ObservableObject {
                     description: report.description,
                     latitude: report.latitude,
                     longitude: report.longitude,
+                    transportOperator: report.transportOperator,
                     photo: nil
                 )
                 OfflineCache.removeQueuedReport(id: report.id)

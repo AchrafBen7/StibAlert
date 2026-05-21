@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// The four major Belgian transit operators. STIB-MIVB is the only one
-/// wired into the backend today; the rest are placeholders shown desaturated
-/// to communicate the multi-operator roadmap.
 enum TransitOperator: String, CaseIterable, Identifiable {
     case stib
     case delijn
@@ -38,17 +35,24 @@ enum TransitOperator: String, CaseIterable, Identifiable {
         case .tec:    return "TEC"
         }
     }
+
+    var mapLabel: String {
+        switch self {
+        case .stib: return "STIB"
+        case .delijn: return "De Lijn"
+        case .sncb: return "SNCB"
+        case .tec: return "TEC"
+        }
+    }
 }
 
-/// Reusable row of the 4 Belgian transit operator logos. Used as the
-/// masthead of both the Infos trafic and the Horaires tabs to communicate
-/// the multi-operator scope (only STIB is wired today; the rest are
-/// desaturated placeholders).
+/// Reusable row of Belgian transit operator logos. STIB and SNCB are wired
+/// today; De Lijn / TEC stay visible but disabled until their local datasets
+/// land.
 struct TransitOperatorRow: View {
-    /// Which operator is currently active / wired. Today this is hard-coded
-    /// to `.stib` but stays parameterised so we can flip the others on as
-    /// their backend integrations land.
     var activeOperator: TransitOperator = .stib
+    var enabledOperators: Set<TransitOperator> = [.stib, .sncb]
+    var onSelect: ((TransitOperator) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
@@ -60,32 +64,40 @@ struct TransitOperatorRow: View {
 
     private func tile(_ op: TransitOperator) -> some View {
         let isActive = op == activeOperator
-        return VStack(spacing: 4) {
-            Image(op.assetName)
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 28, height: 28)
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(DS.Color.paper.opacity(0.95))
-                )
-                .overlay(
-                    Circle()
-                        .stroke(DS.Color.ink.opacity(isActive ? 0.18 : 0.08), lineWidth: 1)
-                )
-                // Grey-out non-active operators so users immediately read
-                // them as "not wired yet" without losing the brand cue.
-                .saturation(isActive ? 1 : 0)
-                .opacity(isActive ? 1 : 0.45)
-            Text(op.shortName)
-                .font(.system(size: 9, weight: .bold))
-                .tracking(0.5)
-                .foregroundStyle(isActive ? DS.Color.ink : DS.Color.inkMute)
-                .lineLimit(1)
+        let isEnabled = enabledOperators.contains(op)
+
+        return Button {
+            guard isEnabled else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            onSelect?(op)
+        } label: {
+            VStack(spacing: 4) {
+                Image(op.assetName)
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(isActive ? DS.Color.ink.opacity(0.06) : DS.Color.paper.opacity(0.95))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(DS.Color.ink.opacity(isActive ? 0.30 : 0.08), lineWidth: isActive ? 1.5 : 1)
+                    )
+                    .saturation(isEnabled ? 1 : 0)
+                    .opacity(isEnabled ? 1 : 0.42)
+                Text(op.shortName)
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.5)
+                    .foregroundStyle(isActive ? DS.Color.ink : DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityLabel(op.accessibilityLabel + (isActive ? "" : " (bientôt)"))
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(op.accessibilityLabel + (isEnabled ? "" : " (bientôt)"))
     }
 }

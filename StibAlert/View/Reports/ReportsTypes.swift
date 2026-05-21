@@ -26,7 +26,7 @@ enum EditorialFeedItemType {
 }
 
 enum ReportTransportMode: String, CaseIterable, Identifiable {
-    case all, metro, tram, bus
+    case all, metro, tram, bus, sncb
 
     var id: String { rawValue }
 
@@ -36,6 +36,7 @@ enum ReportTransportMode: String, CaseIterable, Identifiable {
         case .metro: return "Métro"
         case .tram: return "Tram"
         case .bus: return "Bus"
+        case .sncb: return "SNCB"
         }
     }
 
@@ -45,6 +46,7 @@ enum ReportTransportMode: String, CaseIterable, Identifiable {
         case .metro: return "m.circle.fill"
         case .tram: return "tram.fill"
         case .bus: return "bus.fill"
+        case .sncb: return "train.side.front.car"
         }
     }
 }

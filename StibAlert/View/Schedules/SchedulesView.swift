@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 /// "Horaires" tab — IDF Mobilités-style lines directory. Search bar on top,
@@ -11,12 +12,19 @@ struct SchedulesView: View {
     @State private var isLoading = false
     @State private var loadError: String? = nil
     @State private var searchQuery: String = ""
+    @State private var selectedOperator: TransitOperator = .stib
+    @State private var isBruxellesExpanded = true
+    @StateObject private var locationManager = HomeLocationManager()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
-                TransitOperatorRow()
+                TransitOperatorRow(
+                    activeOperator: selectedOperator,
+                    enabledOperators: [.stib, .sncb],
+                    onSelect: { selectedOperator = $0 }
+                )
                     .padding(.horizontal, 18)
                     .padding(.top, 12)
                 searchBar
@@ -28,7 +36,11 @@ struct SchedulesView: View {
             .padding(.bottom, 110) // tab bar clearance
             .background(DS.Color.paper.ignoresSafeArea())
             .task {
+                locationManager.start()
                 if allLines.isEmpty { await loadLines() }
+            }
+            .onChange(of: selectedOperator) { _, _ in
+                searchQuery = ""
             }
             .preferredColorScheme(.light)
         }
@@ -55,7 +67,7 @@ struct SchedulesView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(DS.Color.inkMute)
-            TextField("Chercher une ligne", text: $searchQuery)
+            TextField(selectedOperator == .sncb ? "Chercher une gare" : "Chercher une ligne", text: $searchQuery)
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.ink)
                 .autocorrectionDisabled()
@@ -84,7 +96,11 @@ struct SchedulesView: View {
 
     @ViewBuilder
     private var content: some View {
-        if isLoading && allLines.isEmpty {
+        if selectedOperator == .sncb {
+            sncbContent
+        } else if selectedOperator != .stib {
+            unavailableOperatorContent(selectedOperator)
+        } else if isLoading && allLines.isEmpty {
             VStack(spacing: 14) {
                 Spacer().frame(height: 60)
                 ProgressView().tint(DS.Color.ink)
@@ -138,6 +154,173 @@ struct SchedulesView: View {
                 LigneDetailPage(lineId: lineId)
             }
         }
+    }
+
+    private var sncbContent: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                // Nearest gares first — not a section, just rows each tagged
+                // with a small "GARE LA PLUS PROCHE" label. Hidden while searching.
+                let nearest = nearestSncbStations
+                if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty && !nearest.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(nearest.enumerated()), id: \.element.id) { index, item in
+                            sncbStationRow(item, proximityLabel: proximityLabel(index))
+                        }
+                    }
+                    .background(DS.Color.paper.opacity(0.95))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                }
+
+                // Collapsible "Bruxelles" section listing all 50 SNCB stations.
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { isBruxellesExpanded.toggle() }
+                    } label: {
+                        collapsibleSectionHeader(
+                            icon: "train.side.front.car",
+                            title: "Bruxelles",
+                            count: filteredSncbStations.count,
+                            expanded: isBruxellesExpanded
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    if isBruxellesExpanded {
+                        VStack(spacing: 0) {
+                            ForEach(filteredSncbStations) { station in
+                                sncbStationRow(
+                                    SNCBStationDistance(
+                                        station: station,
+                                        distanceMeters: distanceFromUser(to: station)
+                                    ),
+                                    proximityLabel: nil
+                                )
+                            }
+                        }
+                        .background(DS.Color.paper.opacity(0.95))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 4)
+            .padding(.bottom, 18)
+        }
+    }
+
+    private func unavailableOperatorContent(_ transitOperator: TransitOperator) -> some View {
+        VStack(spacing: 10) {
+            Spacer().frame(height: 70)
+            Image(transitOperator.assetName)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 42, height: 42)
+            Text("\(transitOperator.shortName) arrive bientôt")
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+            Text("La base locale n’est pas encore branchée pour cet opérateur.")
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 24)
+    }
+
+    private func sectionHeader(icon: String, title: String, count: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 30, height: 30)
+                .background(DS.Color.paper2)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+            Text(title.uppercased())
+                .font(DS.Font.eyebrow)
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
+            Text("\(count)")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+    }
+
+    /// Same look as `sectionHeader` but with a chevron to signal the section
+    /// can be expanded/collapsed.
+    private func collapsibleSectionHeader(icon: String, title: String, count: Int, expanded: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 30, height: 30)
+                .background(DS.Color.paper2)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+            Text(title.uppercased())
+                .font(DS.Font.eyebrow)
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
+            Text("\(count)")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(DS.Color.inkMute)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+                .rotationEffect(.degrees(expanded ? 0 : -90))
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func sncbStationRow(_ item: SNCBStationDistance, proximityLabel: String?) -> some View {
+        HStack(spacing: 12) {
+            Image("operator-sncb")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 30, height: 30)
+                .frame(width: 46, height: 46)
+                .background(DS.Color.paper2.opacity(0.65))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let proximityLabel {
+                    Text(proximityLabel)
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(Color(hex: "#0055A4"))
+                }
+                Text(item.station.displayName)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Text("\(formattedDistance(item.distanceMeters)) · Gare SNCB")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+        .padding(.vertical, 11)
+        .padding(.horizontal, 12)
+        .background(DS.Color.paper)
+        .overlay(Rectangle().fill(DS.Color.ink.opacity(0.10)).frame(height: 1), alignment: .bottom)
     }
 
     private func section(for mode: TransitLineMode, lines: [DisplayLine]) -> some View {
@@ -227,6 +410,49 @@ struct SchedulesView: View {
             guard let lines = groups[mode], !lines.isEmpty else { return nil }
             let sorted = lines.sorted { numericRank($0.shortCode) < numericRank($1.shortCode) }
             return (mode, sorted)
+        }
+    }
+
+    private var nearestSncbStations: [SNCBStationDistance] {
+        SNCBStationService.nearbyStations(
+            around: locationManager.userCoordinate,
+            radiusMeters: 35_000,
+            limit: 3
+        )
+    }
+
+    private var filteredSncbStations: [SNCBStation] {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+        guard !trimmed.isEmpty else { return SNCBStationService.allStations }
+        return SNCBStationService.allStations.filter { station in
+            station.displayName
+                .folding(options: .diacriticInsensitive, locale: .current)
+                .lowercased()
+                .contains(trimmed)
+        }
+    }
+
+    private func distanceFromUser(to station: SNCBStation) -> Int {
+        let origin = locationManager.userCoordinate ?? CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
+        let distance = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+            .distance(from: CLLocation(latitude: station.lat, longitude: station.lng))
+        return Int(distance.rounded())
+    }
+
+    private func formattedDistance(_ meters: Int) -> String {
+        if meters >= 1000 {
+            return String(format: "%.1f km", Double(meters) / 1000)
+        }
+        return "\(meters)m"
+    }
+
+    private func proximityLabel(_ index: Int) -> String {
+        switch index {
+        case 0: return "GARE LA PLUS PROCHE"
+        case 1: return "2E GARE PROCHE"
+        default: return "3E GARE PROCHE"
         }
     }
 
