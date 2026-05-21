@@ -324,11 +324,7 @@ private struct RouteOptionCard: View {
                         .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
 
-                    HStack(spacing: 8) {
-                        ForEach(option.displayLineCodes, id: \.self) { code in
-                            RouteLineMiniBadge(line: code)
-                        }
-                    }
+                    RouteLegFlowStrip(chips: option.legChips)
 
                     if let nextDeparture = option.nextDepartureInsight {
                         RouteNextDepartureLine(insight: nextDeparture)
@@ -378,16 +374,7 @@ private struct RouteOptionCard: View {
                 .frame(maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    ForEach(Array(option.displayLineCodes.enumerated()), id: \.offset) { index, code in
-                        RouteLineMiniBadge(line: code)
-                        if index < option.displayLineCodes.count - 1 {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(DS.Color.inkMute)
-                        }
-                    }
-                }
+                RouteLegFlowStrip(chips: option.legChips)
 
                 Text("\(option.transferSummary.uppercased()) · \(option.terminalLabel.uppercased())")
                     .font(DS.Font.monoSmall.weight(.bold))
@@ -488,6 +475,41 @@ private struct RouteLineMiniBadge: View {
                     .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+}
+
+/// Google-style journey flow: 🚶 → line → line → 🚶, with chevrons between
+/// legs. Makes a multi-leg trip readable at a glance instead of a bare list of
+/// line badges.
+private struct RouteLegFlowStrip: View {
+    let chips: [RouteLegChip]
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+                chipView(chip)
+                if index < chips.count - 1 {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chipView(_ chip: RouteLegChip) -> some View {
+        switch chip {
+        case .walk:
+            Image(systemName: "figure.walk")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+                .frame(width: 30, height: 30)
+                .background(DS.Color.paper2.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        case .line(let code):
+            RouteLineMiniBadge(line: code)
+        }
     }
 }
 

@@ -1,6 +1,12 @@
 import MapKit
 import SwiftUI
 
+/// One leg of a journey, for the Google-style flow strip (walk vs a line).
+enum RouteLegChip: Equatable {
+    case walk
+    case line(code: String)
+}
+
 struct HomeRouteOption: Identifiable {
     let id = UUID()
     let route: MKRoute?
@@ -380,6 +386,26 @@ struct HomeRouteOption: Identifiable {
             return Self.extractLineCode(from: instruction)
         }
         return Array(NSOrderedSet(array: extracted).array as? [String] ?? [])
+    }
+
+    /// Ordered journey legs for a Google-style flow strip
+    /// (🚶 → line → line → 🚶). Consecutive walk legs are merged into one.
+    var legChips: [RouteLegChip] {
+        guard let steps = backendAlternative?.steps, !steps.isEmpty else {
+            return displayLineCodes.map { .line(code: $0) }
+        }
+        var chips: [RouteLegChip] = []
+        for step in steps.sorted(by: { $0.order < $1.order }) {
+            let mode = step.mode.lowercased()
+            if mode == "walk" || mode == "walking" || mode == "foot" {
+                if chips.last == .walk { continue }
+                chips.append(.walk)
+            } else if let raw = step.line?.trimmingCharacters(in: .whitespaces), !raw.isEmpty {
+                let code = raw.range(of: ":").map { String(raw[..<$0.lowerBound]) } ?? raw
+                chips.append(.line(code: code))
+            }
+        }
+        return chips.isEmpty ? displayLineCodes.map { .line(code: $0) } : chips
     }
 
     var terminalLabel: String {
