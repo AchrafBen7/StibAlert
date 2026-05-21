@@ -8,7 +8,6 @@ struct ProfileView: View {
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
-    @State private var weeklyDigestEnabled = true
     @State private var preTripPushEnabled = true
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
@@ -69,9 +68,6 @@ struct ProfileView: View {
         }
         .onChange(of: pushNotificationsEnabled) { _, newValue in
             Task { await persistNotificationsIfNeeded(newValue) }
-        }
-        .onChange(of: weeklyDigestEnabled) { _, newValue in
-            Task { await persistWeeklyDigestIfNeeded(newValue) }
         }
         .onChange(of: preTripPushEnabled) { _, newValue in
             Task { await persistPushPreference(preTrip: newValue) }
@@ -153,7 +149,6 @@ struct ProfileView: View {
         case .notifications:
             NotificationSettingsView(
                 pushEnabled: $pushNotificationsEnabled,
-                weeklyDigestEnabled: $weeklyDigestEnabled,
                 preTripPushEnabled: $preTripPushEnabled,
                 communityClusterPushEnabled: $communityClusterPushEnabled,
                 mercisPushEnabled: $mercisPushEnabled,
@@ -469,7 +464,6 @@ struct ProfileView: View {
             ?? user.langue
             ?? AppLocale.languageCode.uppercased()
         pushNotificationsEnabled = user.notifications ?? true
-        weeklyDigestEnabled = user.weeklyDigestEnabled ?? true
         preTripPushEnabled = user.preTripPushEnabled ?? true
         communityClusterPushEnabled = user.communityClusterPushEnabled ?? true
         mercisPushEnabled = user.mercisPushEnabled ?? true
@@ -505,20 +499,6 @@ struct ProfileView: View {
             }
         } catch {
             print("Notifications update failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func persistWeeklyDigestIfNeeded(_ enabled: Bool) async {
-        guard AppConfig.isBackendEnabled else { return }
-        guard let user = session.currentUser, user.weeklyDigestEnabled != enabled else { return }
-        do {
-            let updated = try await UtilisateurService.mettreAJourProfil(
-                userId: user.id,
-                weeklyDigestEnabled: enabled
-            )
-            session.applyCurrentUserUpdate(updated)
-        } catch {
-            print("Weekly digest update failed: \(error.localizedDescription)")
         }
     }
 
@@ -1021,7 +1001,6 @@ private enum LanguageMockData {
 
 private struct NotificationSettingsView: View {
     @Binding var pushEnabled: Bool
-    @Binding var weeklyDigestEnabled: Bool
     @Binding var preTripPushEnabled: Bool
     @Binding var communityClusterPushEnabled: Bool
     @Binding var mercisPushEnabled: Bool
@@ -1081,13 +1060,6 @@ private struct NotificationSettingsView: View {
                         title: "Push principal",
                         description: "Master switch pour toutes les notifications iOS",
                         isOn: $pushEnabled
-                    )
-                    ProfileSettingsDivider()
-                    NotificationToggleRow(
-                        icon: "calendar.badge.clock",
-                        title: "Digest hebdo",
-                        description: "Récap push de tes lignes chaque semaine",
-                        isOn: $weeklyDigestEnabled
                     )
                 }
 
