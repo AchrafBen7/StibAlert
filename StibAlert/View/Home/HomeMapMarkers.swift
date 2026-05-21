@@ -301,23 +301,20 @@ struct SNCBStationMarker: View {
                 }
             }
 
+            // Small pin dot — same footprint as a STIB line dot (was an
+            // oversized blue block + pointer that dominated the map).
             ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                Circle()
                     .fill(Color(hex: "#0055A4"))
-                    .frame(width: 34, height: 30)
-                    .shadow(color: Color(hex: "#0055A4").opacity(0.28), radius: 8, x: 0, y: 4)
-
+                    .frame(width: 18, height: 18)
+                    .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
                 Image(systemName: "train.side.front.car")
-                    .font(.system(size: 15, weight: .black))
+                    .font(.system(size: 8, weight: .black))
                     .foregroundStyle(.white)
             }
-
-            TrianglePointer()
-                .fill(Color(hex: "#0055A4"))
-                .frame(width: 11, height: 7)
-                .offset(y: -4)
         }
-        .scaleEffect(isSelected ? 1.06 : 1)
+        .scaleEffect(isSelected ? 1.1 : 1)
         .accessibilityElement()
         .accessibilityLabel("Gare SNCB \(station.displayName)")
         .accessibilityHint("Sélectionne la gare")
