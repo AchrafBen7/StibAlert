@@ -100,3 +100,13 @@ struct EditorialLineGroup: Identifiable {
     let line: String
     let items: [EditorialFeedItem]
 }
+
+/// Wrapper that bundles every line-group of the same transit mode together,
+/// so the reports feed can render distinct MÉTRO / TRAM / BUS sections
+/// instead of a single mixed list. Lines without an identifiable mode fall
+/// into the bus bucket as a sensible default for STIB.
+struct EditorialModeSection: Identifiable {
+    let id: TransitLineMode
+    let mode: TransitLineMode
+    let groups: [EditorialLineGroup]
+}

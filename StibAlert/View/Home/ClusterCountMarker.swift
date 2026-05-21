@@ -1,33 +1,38 @@
 import SwiftUI
 
-/// TGTG-style numeric circle shown on the map when multiple pins are grouped
-/// at low zoom. Tap zooms the camera into the group's bounding region so the
-/// underlying pins can be inspected individually.
+/// Map cluster pin for grouped reports. Shaped as a chip (icon + count)
+/// instead of a plain numbered circle so users don't confuse it with a
+/// generic "N stops grouped" indicator — it always reads as "N reports".
+/// Tap zooms the camera into the group's bounding region.
 struct ClusterCountMarker: View {
     let count: Int
     let origin: MapPinOrigin
 
     var body: some View {
-        Text("\(count)")
-            .font(.system(size: count > 99 ? 13 : 15, weight: .black, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(width: diameter, height: diameter)
-            .background(
-                Circle()
-                    .fill(fillColor)
-                    .overlay(
-                        Circle().stroke(Color.white.opacity(0.92), lineWidth: 2)
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.22), radius: 4, y: 2)
-            .accessibilityLabel("\(count) alertes")
+        HStack(spacing: 4) {
+            Image(systemName: iconName)
+                .font(.system(size: 11, weight: .black))
+            Text("\(count)")
+                .font(.system(size: 13, weight: .black, design: .rounded))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .frame(height: 26)
+        .background(
+            Capsule()
+                .fill(fillColor)
+                .overlay(
+                    Capsule().stroke(Color.white.opacity(0.92), lineWidth: 1.5)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.22), radius: 4, y: 2)
+        .accessibilityLabel(accessibilityText)
     }
 
-    private var diameter: CGFloat {
-        switch count {
-        case 0...9: return 32
-        case 10...99: return 38
-        default: return 46
+    private var iconName: String {
+        switch origin {
+        case .official:  return "exclamationmark.triangle.fill"
+        case .community: return "bubble.left.and.bubble.right.fill"
         }
     }
 
@@ -35,6 +40,13 @@ struct ClusterCountMarker: View {
         switch origin {
         case .official:  return DS.Color.primary
         case .community: return DS.Color.accent
+        }
+    }
+
+    private var accessibilityText: String {
+        switch origin {
+        case .official:  return "\(count) alertes officielles"
+        case .community: return "\(count) signalements communauté"
         }
     }
 }

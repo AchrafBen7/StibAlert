@@ -29,6 +29,26 @@ enum MapSignalClusterer {
     /// the city is in view; individual pins once they zoom to street level.
     static func cluster(points: [Input], latitudeDelta: Double) -> [MapSignalCluster] {
         guard !points.isEmpty else { return [] }
+
+        // At tight zoom (≤ ~2 km view), bypass clustering entirely — return
+        // every point as its own singleton marker. Users associate numeric
+        // "N" pins with "many things grouped because I'm zoomed out": showing
+        // a "2" cluster on top of a single stop marker at street level was
+        // visually misleading.
+        if latitudeDelta <= 0.02 {
+            return points.map { point in
+                MapSignalCluster(
+                    id: point.id,
+                    coordinate: point.coordinate,
+                    count: 1,
+                    dominantType: point.typeProbleme,
+                    dominantOrigin: point.origin,
+                    sampleIds: [point.id],
+                    span: nil
+                )
+            }
+        }
+
         // Aggressive grid: latDelta/5 gives ~3km cells at city view, ~150m at
         // street view, so pins stop merging only once the user is in detail.
         let cellSize = max(0.0005, latitudeDelta / 5)

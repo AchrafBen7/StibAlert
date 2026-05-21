@@ -3,8 +3,9 @@ import AuthenticationServices
 
 struct SignUpView: View {
     @EnvironmentObject private var session: AuthSession
-    @Environment(\.dismiss) private var dismiss
     let onRequireActivation: () -> Void
+    var onGoToSignIn: () -> Void = {}
+    var onClose: () -> Void = {}
 
     @State private var nom = ""
     @State private var email = ""
@@ -40,7 +41,7 @@ struct SignUpView: View {
     }
 
     var body: some View {
-        AuthEditorialScaffold(mode: .signup) {
+        AuthEditorialScaffold(mode: .signup, onClose: onClose) {
             hero
             modeSwitch
             socialSection
@@ -75,7 +76,7 @@ struct SignUpView: View {
     }
 
     private var modeSwitch: some View {
-        AuthModeSwitch(mode: .signup, onSelectSignIn: { dismiss() }, onSelectSignUp: {})
+        AuthModeSwitch(mode: .signup, onSelectSignIn: onGoToSignIn, onSelectSignUp: {})
     }
 
     private var socialSection: some View {
@@ -218,7 +219,7 @@ struct SignUpView: View {
         HStack {
             Spacer()
             Button {
-                dismiss()
+                onClose()
             } label: {
                 Text("CONTINUER EN TANT QU’INVITÉ →")
                     .font(DS.Font.mono.weight(.bold))

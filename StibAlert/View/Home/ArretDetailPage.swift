@@ -277,15 +277,46 @@ struct ArretDetailPage: View {
 
     // Community signalements scoped to this stop (most-recent first).
     // Match by the populated arret name — same predicate as the report sheet.
+    // Also discards reports whose time-decayed confidence has rotted below
+    // 0.18 (≈ Faible threshold), so a 6-hour-old "incivilité" doesn't keep
+    // cluttering the stop card.
     private var stopCommunitySignalements: [SignalementDTO] {
         let stopName = effectiveStop.name
         return communitySignalements
             .filter { s in
                 guard s.status != "resolved" else { return false }
+                guard s.liveConfidence >= 0.18 else { return false }
                 if case .populated(let arret) = s.arretId {
                     return arret.nom == stopName
                 }
                 return false
+            }
+            .sorted { ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast) }
+    }
+
+    /// Signalements on stops that are PROPAGATION-impacted by this stop's
+    /// line(s): same line(s) and within a 1.5 km radius (rough proxy for
+    /// the "±3 stops upstream/downstream" zone described in the Waze 2.0
+    /// design doc). Excluded if already in `stopCommunitySignalements`.
+    private var linePropagatedSignalements: [SignalementDTO] {
+        guard let stopLat = effectiveStop.latitude, let stopLng = effectiveStop.longitude else { return [] }
+        let stopCoord = CLLocation(latitude: stopLat, longitude: stopLng)
+        let stopName = effectiveStop.name.uppercased()
+        let lineSet = Set(effectiveStop.lines.map { $0.uppercased() })
+        return communitySignalements
+            .filter { s in
+                guard s.status != "resolved" else { return false }
+                guard s.liveConfidence >= 0.18 else { return false }
+                // Same line as this stop
+                guard lineSet.contains(s.ligne.uppercased()) else { return false }
+                // Skip reports already attached to THIS stop
+                if case .populated(let arret) = s.arretId, arret.nom.uppercased() == stopName {
+                    return false
+                }
+                // Has coordinates within 1.5 km
+                guard let lat = s.latitude, let lng = s.longitude else { return false }
+                let dist = stopCoord.distance(from: CLLocation(latitude: lat, longitude: lng))
+                return dist <= 1500
             }
             .sorted { ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast) }
     }
@@ -320,6 +351,12 @@ struct ArretDetailPage: View {
                         communityReportsSection
                             .padding(.horizontal, 20)
                             .padding(.top, 12)
+                    }
+
+                    if !linePropagatedSignalements.isEmpty {
+                        propagatedReportsSection
+                            .padding(.horizontal, 20)
+                            .padding(.top, 10)
                     }
 
                     segmentedTabs
@@ -557,7 +594,43 @@ struct ArretDetailPage: View {
         return "\(count) · 1 h"
     }
 
-    private func communityReportRow(_ signalement: SignalementDTO) -> some View {
+    /// "À proximité sur la ligne" — propagated section showing community
+    /// reports on the same line within 1.5 km. Visually de-emphasised (no
+    /// left stripe, lighter background) so the user understands these are
+    /// CONTEXT, not direct reports of this stop.
+    private var propagatedReportsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 11))
+                Text("Sur la ligne · à proximité")
+                    .font(DS.Font.eyebrow)
+                Spacer()
+                Text("\(linePropagatedSignalements.count)")
+                    .font(DS.Font.eyebrow)
+            }
+            .foregroundStyle(DS.Color.inkMute)
+
+            VStack(spacing: 6) {
+                ForEach(linePropagatedSignalements.prefix(3)) { signalement in
+                    communityReportRow(signalement, showsArretName: true)
+                }
+            }
+
+            if linePropagatedSignalements.count > 3 {
+                Text("+\(linePropagatedSignalements.count - 3) autres sur la ligne")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper2.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+
+    private func communityReportRow(_ signalement: SignalementDTO, showsArretName: Bool = false) -> some View {
         HStack(alignment: .top, spacing: 8) {
             LineBadge(line: signalement.ligne, size: .sm)
             VStack(alignment: .leading, spacing: 2) {
@@ -565,9 +638,20 @@ struct ArretDetailPage: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
-                Text(signalement.freshnessLabel)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(DS.Color.inkMute)
+                if showsArretName,
+                   case .populated(let arret) = signalement.arretId {
+                    Text(arret.nom.uppercased())
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .tracking(0.8)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    Text(signalement.freshnessLabel)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute)
+                    confidenceDot(for: signalement)
+                }
             }
             Spacer(minLength: 8)
             if let confirmations = signalement.community?.confirmations, confirmations > 0 {
@@ -579,6 +663,29 @@ struct ArretDetailPage: View {
                 }
                 .foregroundStyle(DS.Color.community)
             }
+        }
+    }
+
+    /// Small colored dot indicating the live-decayed confidence band.
+    /// Green = "Fraîche" (fresh + high-confidence), amber = "Modérée", grey
+    /// = "Faible". Helps the user judge how trustworthy each report is
+    /// without doing the time-math themselves.
+    private func confidenceDot(for signalement: SignalementDTO) -> some View {
+        HStack(spacing: 3) {
+            Circle()
+                .fill(confidenceDotColor(for: signalement))
+                .frame(width: 5, height: 5)
+            Text(signalement.liveConfidenceLabel)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+    }
+
+    private func confidenceDotColor(for signalement: SignalementDTO) -> Color {
+        switch signalement.liveConfidence {
+        case 0.7...: return DS.Color.statusOK
+        case 0.35..<0.7: return DS.Color.statusMinor
+        default: return DS.Color.inkMute.opacity(0.5)
         }
     }
 

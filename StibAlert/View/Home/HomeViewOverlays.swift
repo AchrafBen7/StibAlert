@@ -78,6 +78,9 @@ extension HomeView {
                         },
                         onFollowVehicle: { vehicle in
                             panMap(to: vehicle)
+                        },
+                        onShowDetail: {
+                            openStopDetailFromMiniCard(for: stop)
                         }
                     )
                     .padding(.horizontal, 14)

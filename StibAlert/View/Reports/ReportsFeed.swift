@@ -5,7 +5,10 @@ struct ReportsFeedView: View {
     let hasLoaded: Bool
     let feedItems: [EditorialFeedItem]
     let shouldGroupFeedByLine: Bool
-    let groupedFeedItems: [EditorialLineGroup]
+    /// Per-mode feed sections (Métro / Tram / Bus). Built from
+    /// `groupedFeedItems` upstream so a long mixed list becomes three
+    /// scannable mode bundles.
+    let feedSections: [EditorialModeSection]
     let favoriteLines: Set<String>
     @Binding var expandedFeedLineIds: Set<String>
     let votingReportIds: Set<String>
@@ -31,30 +34,10 @@ struct ReportsFeedView: View {
             )
             .padding(.top, 32)
         } else {
-            LazyVStack(spacing: 10) {
+            LazyVStack(spacing: 18) {
                 if shouldGroupFeedByLine {
-                    ForEach(groupedFeedItems) { group in
-                        EditorialLineGroupCard(
-                            group: group,
-                            isExpanded: expandedFeedLineIds.contains(group.id),
-                            isFavoriteLine: favoriteLines.contains(group.line),
-                            onToggle: {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                                    if expandedFeedLineIds.contains(group.id) {
-                                        expandedFeedLineIds.remove(group.id)
-                                    } else {
-                                        expandedFeedLineIds.insert(group.id)
-                                    }
-                                }
-                            },
-                            nestedContent: {
-                                VStack(spacing: 8) {
-                                    ForEach(group.items) { item in
-                                        feedCard(for: item)
-                                    }
-                                }
-                            }
-                        )
+                    ForEach(feedSections) { section in
+                        modeSection(section)
                     }
                 } else {
                     ForEach(feedItems) { item in
@@ -64,6 +47,63 @@ struct ReportsFeedView: View {
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, 4)
+        }
+    }
+
+    /// One Métro / Tram / Bus section: header eyebrow + every line-group
+    /// belonging to that mode rendered in sequence.
+    private func modeSection(_ section: EditorialModeSection) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader(section.mode, count: section.groups.count)
+            VStack(spacing: 10) {
+                ForEach(section.groups) { group in
+                    EditorialLineGroupCard(
+                        group: group,
+                        isExpanded: expandedFeedLineIds.contains(group.id),
+                        isFavoriteLine: favoriteLines.contains(group.line),
+                        onToggle: {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                if expandedFeedLineIds.contains(group.id) {
+                                    expandedFeedLineIds.remove(group.id)
+                                } else {
+                                    expandedFeedLineIds.insert(group.id)
+                                }
+                            }
+                        },
+                        nestedContent: {
+                            VStack(spacing: 8) {
+                                ForEach(group.items) { item in
+                                    feedCard(for: item)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private func sectionHeader(_ mode: TransitLineMode, count: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: mode.sfSymbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 30, height: 30)
+                .background(DS.Color.paper2)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+            Text(mode.label.uppercased())
+                .font(DS.Font.eyebrow)
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+            Text("·")
+                .font(DS.Font.eyebrow)
+                .foregroundStyle(DS.Color.inkMute)
+            Text("\(count) ligne\(count > 1 ? "s" : "")")
+                .font(DS.Font.eyebrow)
+                .tracking(1.4)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
         }
     }
 

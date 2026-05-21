@@ -2,8 +2,9 @@ import SwiftUI
 
 enum AppPage {
     case home
+    case schedules        // "Horaires" — lines catalog + search by stop
     case signalements
-    case reports
+    case reports          // "Infos trafic" tab (formerly "Live")
     case favorites
     case profile
 }

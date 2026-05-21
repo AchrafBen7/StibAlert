@@ -56,7 +56,10 @@ struct ReportsCarousel: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(height: 278)
+        // Shrunk from 278 → 196: user wanted the dossier carousel kept but
+        // smaller so it doesn't dominate the screen; the new line-status
+        // grid below now takes the visual lead.
+        .frame(height: 196)
         .onAppear(perform: ensureVisibleLineDetails)
         .onChange(of: items.flatMap(\.lines).joined(separator: "|")) { _, _ in
             ensureVisibleLineDetails()

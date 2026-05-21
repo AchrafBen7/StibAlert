@@ -1,5 +1,43 @@
 import SwiftUI
 
+/// Visual style for a stop's ⚠ badge — colour + SF symbol derived from the
+/// colocated signalement so the badge matches the marker it replaces. `rank`
+/// breaks ties when several signals share one stop (highest wins).
+struct StopWarningStyle {
+    let color: Color
+    let icon: String
+    let rank: Int
+}
+
+/// Single source of truth mapping a problem type → SF symbol, shared by the
+/// map cluster marker and the on-stop badge so they never drift apart.
+enum SignalVisuals {
+    static func icon(forType type: String) -> String {
+        switch type.lowercased() {
+        case "retard": return "clock.fill"
+        case "panne", "interruption": return "exclamationmark.octagon.fill"
+        case "accident": return "exclamationmark.triangle.fill"
+        case "travaux", "déviation": return "exclamationmark.triangle.fill"
+        case "agression", "incivilité": return "shield.lefthalf.filled"
+        case "propreté": return "trash.fill"
+        case "perturbation": return "bolt.fill"
+        case "arrêt non desservi": return "xmark.octagon.fill"
+        case "information stib": return "info.circle.fill"
+        default: return "exclamationmark.bubble.fill"
+        }
+    }
+
+    /// Marker/badge colour for a community cluster — mirrors `ClusterMarker`.
+    static func communityColor(for cluster: ClusterDTO) -> Color {
+        if cluster.isOfficial { return DS.Color.info }
+        switch cluster.confidence {
+        case .high: return DS.Color.danger
+        case .medium: return DS.Color.warning
+        case .low: return Color(hex: "#9CA3AF")
+        }
+    }
+}
+
 struct UserLocationDotView: View {
     let heading: Double
 
@@ -128,68 +166,99 @@ private struct TrianglePointer: Shape {
 struct HomeStopMarker: View {
     let stop: TransportStopSummaryDTO
     let isSelected: Bool
+    /// Non-nil when an active signalement (community OR official STIB) sits on
+    /// this stop. Instead of drawing a separate warning pin on top of the
+    /// marker (which used to cover the stop name + line dots), we tuck a small
+    /// badge — coloured + iconed by the issue's type/severity — into the
+    /// corner of the name pill.
+    var warningStyle: StopWarningStyle? = nil
 
-    private var primaryLine: String? {
-        stop.lines.first
+    /// De-duplicated, normalised line list. Cap at 5 visible circles +
+    /// "+N" suffix so a busy hub like Châtelet doesn't spawn a marker
+    /// twenty circles wide.
+    private var displayedLines: [String] {
+        var seen = Set<String>()
+        return stop.lines.filter { line in
+            let key = line.trimmingCharacters(in: .whitespaces).uppercased()
+            guard !key.isEmpty, !seen.contains(key) else { return false }
+            seen.insert(key)
+            return true
+        }
     }
-
-    private var fill: Color {
-        if isSelected { return DS.Color.ink }
-        guard let primaryLine else { return DS.Color.paper }
-        return TransitLinePalette.fill(for: primaryLine)
-    }
-
-    private var foreground: Color {
-        if isSelected { return DS.Color.paper }
-        guard let primaryLine else { return DS.Color.ink }
-        return TransitLinePalette.foreground(for: primaryLine)
-    }
-
-    private var extraCount: Int {
-        max(stop.lines.count - 1, 0)
-    }
+    private var visibleLines: [String] { Array(displayedLines.prefix(5)) }
+    private var hiddenLinesCount: Int { max(displayedLines.count - 5, 0) }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            ZStack {
-                Circle()
-                    .fill(fill)
-                    .frame(width: isSelected ? 34 : 32, height: isSelected ? 34 : 32)
-                    .overlay(
-                        Circle()
-                            .stroke(DS.Color.paper, lineWidth: 3)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(DS.Color.ink.opacity(isSelected ? 0.9 : 0.22), lineWidth: isSelected ? 1.5 : 1)
-                    )
+        VStack(spacing: 3) {
+            // Stop name label (IDF Mobilités style) — small pill above the
+            // line dots so users can read which stop they're tapping.
+            Text(stop.name)
+                .font(.system(size: 9, weight: .bold))
+                .lineLimit(1)
+                .foregroundStyle(DS.Color.ink)
+                .padding(.horizontal, 6)
+                .frame(height: 18)
+                .background(
+                    Capsule()
+                        .fill(DS.Color.paper.opacity(0.96))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.18),
+                            lineWidth: isSelected ? 1.5 : 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+                .overlay(alignment: .topTrailing) {
+                    if let warningStyle {
+                        Image(systemName: warningStyle.icon)
+                            .font(.system(size: 7.5, weight: .black))
+                            .foregroundStyle(.white)
+                            .frame(width: 15, height: 15)
+                            .background(Circle().fill(warningStyle.color))
+                            .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                            .offset(x: 5, y: -5)
+                    }
+                }
 
-                Text(primaryLine ?? "•")
-                    .font(.system(size: primaryLine?.count ?? 1 > 2 ? 12 : 14, weight: .heavy, design: .rounded))
-                    .foregroundStyle(foreground)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-            }
-            .shadow(color: .black.opacity(0.16), radius: 5, x: 0, y: 3)
-
-            if extraCount > 0 {
-                Text("+\(extraCount)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(DS.Color.ink)
-                    .padding(.horizontal, 6)
-                    .frame(height: 18)
-                    .background(DS.Color.paper)
-                    .overlay(
-                        Capsule()
-                            .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
-                    .offset(x: 8, y: -6)
+            // Row of small line circles in their official colours.
+            HStack(spacing: 2) {
+                ForEach(visibleLines, id: \.self) { line in
+                    lineDot(line)
+                }
+                if hiddenLinesCount > 0 {
+                    Text("+\(hiddenLinesCount)")
+                        .font(.system(size: 8, weight: .bold, design: .rounded))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(minWidth: 16, minHeight: 16)
+                        .padding(.horizontal, 2)
+                        .background(DS.Color.paper)
+                        .overlay(
+                            Capsule()
+                                .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
+                }
             }
         }
+        .scaleEffect(isSelected ? 1.08 : 1)
         .accessibilityElement()
         .accessibilityLabel("Arrêt \(stop.name)")
         .accessibilityHint("Ouvre les détails et prochains passages")
+    }
+
+    private func lineDot(_ line: String) -> some View {
+        let fill = TransitLinePalette.fill(for: line)
+        let fg = TransitLinePalette.foreground(for: line)
+        return Text(line)
+            .font(.system(size: 8, weight: .black, design: .rounded))
+            .foregroundStyle(fg)
+            .frame(width: 16, height: 16)
+            .background(Circle().fill(fill))
+            .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1))
+            .minimumScaleFactor(0.7)
+            .lineLimit(1)
     }
 }
 

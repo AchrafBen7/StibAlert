@@ -1,5 +1,6 @@
 import MapKit
 import SwiftUI
+import CoreLocation
 
 struct HomeMapLayer: View {
     @Binding var mapPosition: MapCameraPosition
@@ -124,10 +125,101 @@ struct HomeMapLayer: View {
         }
     }
 
-    private var unifiedMarkers: [MapSignalCluster] {
-        var inputs: [MapSignalClusterer.Input] = []
+    /// Distance (m) under which a signalement is treated as sitting *on* a
+    /// displayed stop — close enough that the two markers would overlap. At
+    /// that point we drop the standalone warning pin and badge the stop
+    /// instead (the chosen UX: one clean marker per stop).
+    private static let stopColocationMeters: CLLocationDistance = 35
+
+    /// Nearest displayed stop to a signal, within the overlap threshold. A
+    /// matching backend id (when known) wins outright; otherwise we fall back
+    /// to geographic proximity.
+    private func colocatedStop(stopId: String?, lat: Double?, lng: Double?) -> TransportStopSummaryDTO? {
+        if let stopId, let match = mapStops.first(where: { $0.id == stopId }) {
+            return match
+        }
+        guard let lat, let lng else { return nil }
+        let signalLoc = CLLocation(latitude: lat, longitude: lng)
+        var nearest: TransportStopSummaryDTO?
+        var nearestDist = Self.stopColocationMeters
+        for stop in mapStops {
+            guard let slat = stop.latitude, let slng = stop.longitude else { continue }
+            let distance = signalLoc.distance(from: CLLocation(latitude: slat, longitude: slng))
+            if distance <= nearestDist {
+                nearestDist = distance
+                nearest = stop
+            }
+        }
+        return nearest
+    }
+
+    private func warningStyle(for cluster: ClusterDTO) -> StopWarningStyle {
+        let rank: Int
+        if cluster.isOfficial {
+            rank = 3
+        } else {
+            switch cluster.confidence {
+            case .high: rank = 3
+            case .medium: rank = 2
+            case .low: rank = 1
+            }
+        }
+        return StopWarningStyle(
+            color: SignalVisuals.communityColor(for: cluster),
+            icon: SignalVisuals.icon(forType: cluster.typeProbleme),
+            rank: rank
+        )
+    }
+
+    private func warningStyle(for point: HomeView.LiveSignalPoint) -> StopWarningStyle {
+        // Official STIB incidents are authoritative → top rank, danger colour.
+        StopWarningStyle(
+            color: DS.Color.danger,
+            icon: SignalVisuals.icon(forType: point.typeProbleme),
+            rank: 3
+        )
+    }
+
+    /// Resolves which displayed stops currently host an active signalement —
+    /// community cluster OR official STIB incident. Returns the per-stop badge
+    /// style (highest-rank issue wins when several share a stop) plus the
+    /// signal ids to hide so no standalone pin is drawn over a badged stop.
+    private var stopWarningColocation: (
+        styles: [String: StopWarningStyle],
+        absorbedClusterIndices: Set<Int>,
+        absorbedOfficialIds: Set<String>
+    ) {
+        var styles: [String: StopWarningStyle] = [:]
+        var absorbedClusters: Set<Int> = []
+        var absorbedOfficial: Set<String> = []
+
+        func register(_ stopId: String, _ style: StopWarningStyle) {
+            if let existing = styles[stopId], existing.rank >= style.rank { return }
+            styles[stopId] = style
+        }
 
         for cluster in activeClusters {
+            guard let match = colocatedStop(stopId: cluster.arretId, lat: cluster.latitude, lng: cluster.longitude) else { continue }
+            register(match.id, warningStyle(for: cluster))
+            absorbedClusters.insert(cluster.clusterIndex)
+        }
+
+        for point in officialSignalPoints {
+            guard let match = colocatedStop(stopId: nil, lat: point.coordinate.latitude, lng: point.coordinate.longitude) else { continue }
+            register(match.id, warningStyle(for: point))
+            absorbedOfficial.insert(point.id)
+        }
+
+        return (styles, absorbedClusters, absorbedOfficial)
+    }
+
+    private var unifiedMarkers: [MapSignalCluster] {
+        var inputs: [MapSignalClusterer.Input] = []
+        let coloc = stopWarningColocation
+
+        for cluster in activeClusters {
+            // Skip clusters now represented as a badge on a stop marker.
+            if coloc.absorbedClusterIndices.contains(cluster.clusterIndex) { continue }
             guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "c-\(cluster.clusterIndex)",
@@ -138,6 +230,8 @@ struct HomeMapLayer: View {
         }
 
         for point in officialSignalPoints {
+            // Skip official incidents now shown as a badge on a stop marker.
+            if coloc.absorbedOfficialIds.contains(point.id) { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "o-\(point.id)",
                 coordinate: point.coordinate,
@@ -221,6 +315,7 @@ struct HomeMapLayer: View {
 
     @MapContentBuilder
     private var stopAnnotations: some MapContent {
+        let warningStyles = stopWarningColocation.styles
         ForEach(mapStops) { stop in
             if let latitude = stop.latitude, let longitude = stop.longitude {
                 Annotation("", coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude), anchor: .bottom) {
@@ -229,7 +324,8 @@ struct HomeMapLayer: View {
                     } label: {
                         HomeStopMarker(
                             stop: stop,
-                            isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id
+                            isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id,
+                            warningStyle: warningStyles[stop.id]
                         )
                     }
                     .buttonStyle(.plain)

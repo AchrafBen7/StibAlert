@@ -43,14 +43,35 @@ struct AuthFlowView: View {
     private func destination(for route: AuthRoute) -> some View {
         switch route {
         case .signIn:
-            LoginView(onGoToSignUp: { path.append(.signUp) })
-                .environmentObject(session)
+            LoginView(
+                onGoToSignUp: { toggleMode(pushing: .signUp) },
+                onClose: { dismiss() }
+            )
+            .environmentObject(session)
         case .signUp:
-            SignUpView(onRequireActivation: { path.append(.activation) })
-                .environmentObject(session)
+            SignUpView(
+                onRequireActivation: { path.append(.activation) },
+                onGoToSignIn: { toggleMode(pushing: .signIn) },
+                onClose: { dismiss() }
+            )
+            .environmentObject(session)
         case .activation:
             ActivationView()
                 .environmentObject(session)
+        }
+    }
+
+    /// Symmetric sign-in ⇄ sign-up toggle. Whichever screen we entered on is
+    /// the NavigationStack root (`path` empty); tapping the other tab pushes
+    /// it, and tapping back from the pushed screen pops to root. This makes
+    /// the mode switch behave identically whether the user arrived via "Se
+    /// connecter" or "S'inscrire" — previously SignUp-as-root + "Se
+    /// connecter" called `dismiss()` and tore down the whole flow.
+    private func toggleMode(pushing route: AuthRoute) {
+        if path.isEmpty {
+            path.append(route)
+        } else {
+            path.removeAll()
         }
     }
 }

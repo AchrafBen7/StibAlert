@@ -6,29 +6,11 @@ struct ClusterMarker: View {
     @State private var pulse = false
 
     private var color: Color {
-        if cluster.isOfficial {
-            return DS.Color.info
-        }
-        switch cluster.confidence {
-        case .high: return DS.Color.danger
-        case .medium: return DS.Color.warning
-        case .low: return Color(hex: "#9CA3AF")
-        }
+        SignalVisuals.communityColor(for: cluster)
     }
 
     private var iconName: String {
-        switch cluster.typeProbleme.lowercased() {
-        case "retard": return "clock.fill"
-        case "panne", "interruption": return "exclamationmark.octagon.fill"
-        case "accident": return "exclamationmark.triangle.fill"
-        case "travaux", "déviation": return "exclamationmark.triangle.fill"
-        case "agression", "incivilité": return "shield.lefthalf.filled"
-        case "propreté": return "trash.fill"
-        case "perturbation": return "bolt.fill"
-        case "arrêt non desservi": return "xmark.octagon.fill"
-        case "information stib": return "info.circle.fill"
-        default: return "exclamationmark.bubble.fill"
-        }
+        SignalVisuals.icon(forType: cluster.typeProbleme)
     }
 
     private var freshness: Bool {

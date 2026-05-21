@@ -324,6 +324,76 @@ extension SignalementDTO {
         }
     }
 
+    /// Time-decayed live confidence in [0,1]. Implements the Waze-style
+    /// half-life formula `c(t) = c_initial × 0.5^(t / half_life)` where the
+    /// half-life depends on the incident type (a 10-minute affluence report
+    /// rots much faster than a 3-hour planned-works dossier).
+    ///
+    /// Negative community votes on `resolved` shrink the confidence
+    /// further (×0.3) — they're a strong signal that the incident is gone.
+    /// `still_blocked` votes are expected to *reset `dateSignalement`*
+    /// server-side, so we don't double-count them here.
+    var liveConfidence: Double {
+        let base = community?.confidence ?? Self.legacyConfidenceFloor(for: confiance) ?? 0.5
+        guard let date = dateSignalement else { return base }
+        let minutes = Date().timeIntervalSince(date) / 60
+        guard minutes > 0 else { return base }
+        let halfLife = Self.halfLifeMinutes(for: typeProbleme)
+        let decay = pow(0.5, minutes / halfLife)
+        var value = base * decay
+        if let resolved = community?.resolved, resolved > 0 {
+            value *= 0.3
+        }
+        return min(max(value, 0), 1)
+    }
+
+    /// Human label for the decayed confidence: "Fraîche", "Modérée", "Faible".
+    var liveConfidenceLabel: String {
+        switch liveConfidence {
+        case 0.7...: return "Fraîche"
+        case 0.35..<0.7: return "Modérée"
+        default: return "Faible"
+        }
+    }
+
+    /// Half-life in minutes per problem type. Tuned to the typical resolution
+    /// time of each kind of incident on STIB-MIVB:
+    ///   • Affluence change le plus vite (10 min)
+    ///   • Incivilité ponctuelle (15 min)
+    ///   • Retard se résorbe vite (20 min)
+    ///   • Agression / propreté (30 min)
+    ///   • Panne (45 min) — peut prendre du temps
+    ///   • Accident / interruption (60 min)
+    ///   • Déviation (90 min)
+    ///   • Travaux planifiés (180 min)
+    static func halfLifeMinutes(for type: String) -> Double {
+        let n = type
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+        if n.contains("travaux") { return 180 }
+        if n.contains("deviation") { return 90 }
+        if n.contains("interrupt") { return 60 }
+        if n.contains("accident") { return 60 }
+        if n.contains("panne") { return 45 }
+        if n.contains("agression") { return 30 }
+        if n.contains("proprete") { return 30 }
+        if n.contains("retard") { return 20 }
+        if n.contains("incivilit") { return 15 }
+        if n.contains("affluence") { return 10 }
+        return 30
+    }
+
+    /// Maps the legacy string `confiance` (haute/moyenne/basse) to a
+    /// numeric initial when the backend ships no community.confidence yet.
+    private static func legacyConfidenceFloor(for raw: String?) -> Double? {
+        switch raw?.lowercased() {
+        case "haute", "high": return 0.85
+        case "moyenne", "medium": return 0.6
+        case "basse", "low": return 0.35
+        default: return nil
+        }
+    }
+
     var confidenceExplanation: String? {
         guard let confiance else { return nil }
         switch confiance.lowercased() {

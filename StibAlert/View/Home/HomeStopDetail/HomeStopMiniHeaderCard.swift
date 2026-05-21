@@ -15,6 +15,7 @@ struct HomeStopMiniHeaderCard: View {
     let onClose: () -> Void
     let onSelectLine: (String) -> Void
     let onFollowVehicle: (TransportVehicleDTO) -> Void
+    let onShowDetail: () -> Void
 
     /// Vehicle currently at or closest to the focused stop. Used to anchor
     /// the abstract "now / 2 min" pills to a real, named position on the
@@ -77,23 +78,31 @@ struct HomeStopMiniHeaderCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text("ARRÊT")
-                            .font(.system(size: 9, weight: .bold))
-                            .tracking(1.2)
-                            .foregroundStyle(DS.Color.inkMute)
-                        if selectedLine != nil {
-                            liveCountBadge
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    onShowDetail()
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("ARRÊT")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(1.2)
+                                .foregroundStyle(DS.Color.inkMute)
+                            if selectedLine != nil {
+                                liveCountBadge
+                            }
                         }
+                        Text(stop.name)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                    Text(stop.name)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
+                .accessibilityHint("Ouvre les détails complets de l'arrêt")
 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -121,6 +130,8 @@ struct HomeStopMiniHeaderCard: View {
             if let closestVehicle, selectedLine != nil {
                 closestVehicleRow(closestVehicle)
             }
+
+            detailButton
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -238,6 +249,38 @@ struct HomeStopMiniHeaderCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Centrer la carte sur le tram à \(stopText)")
+    }
+
+    /// Full-width row at the bottom that opens the standalone ArretDetailPage
+    /// — the user wanted a clear path to the full detail screen (community
+    /// reports, official disruptions, lines & destinations) from the mini
+    /// card without losing the live focus context.
+    private var detailButton: some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            onShowDetail()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "list.bullet.rectangle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Voir l'arrêt en détail")
+                    .font(.system(size: 12, weight: .bold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(DS.Color.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(DS.Color.paper2.opacity(0.75))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
     }
 
     private var liveCountBadge: some View {

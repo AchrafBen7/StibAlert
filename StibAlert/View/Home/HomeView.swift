@@ -100,6 +100,13 @@ struct HomeView: View {
     @State private var activeClusters: [ClusterDTO] = []
     @State var selectedClusterIndex: Int? = nil
     @State var selectedVehicle: TransportVehicleDTO? = nil
+
+    /// Session-long cache: STIB direction code → human terminus name.
+    /// Built incrementally from observed `nextDepartures` at every stop the
+    /// user opens (cf. `learnDirectionTerminus(for:)`). Survives across stop
+    /// changes so a tram tapped at BUISSONNETS still knows it goes to
+    /// VANDERKINDERE because we learned that mapping at a previous stop.
+    @State var directionTerminusCache: [String: String] = [:]
     @State private var clustersTask: Task<Void, Never>? = nil
     @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
 
@@ -141,8 +148,24 @@ struct HomeView: View {
     }
 
     private var filteredSignalements: [SignalementDTO] {
-        guard let filter = problemFilter else { return remoteSignalements }
-        return remoteSignalements.filter { $0.typeProbleme == filter.title }
+        // Apply the user's problem-type filter and ALSO drop reports whose
+        // time-decayed confidence has rotted below 0.18. Without this, a
+        // 6-hour-old "Incivilité" stays pinned to the map indefinitely; the
+        // half-life formula in `SignalementDTO.liveConfidence` lets the map
+        // self-clean as reports age out by category.
+        // Note: official STIB signals bypass the confidence floor — STIB
+        // disruptions are authoritative and shouldn't be hidden by client
+        // heuristics.
+        let typeMatched: [SignalementDTO]
+        if let filter = problemFilter {
+            typeMatched = remoteSignalements.filter { $0.typeProbleme == filter.title }
+        } else {
+            typeMatched = remoteSignalements
+        }
+        return typeMatched.filter { s in
+            if s.source?.lowercased().contains("stib") == true { return true }
+            return s.liveConfidence >= 0.18
+        }
     }
 
     private var liveSignalPoints: [LiveSignalPoint] {
@@ -326,29 +349,48 @@ struct HomeView: View {
         return Int(lat * 1000)
     }
 
-    /// Best-effort mapping from STIB direction code (e.g. "9051") to the
-    /// human-readable terminus name (e.g. "VANDERKINDERE"), assembled by
-    /// pairing the unique direction codes of currently-tracked vehicles
-    /// against the unique destinations advertised by the focused stop. If
-    /// both lists have the same shape (typically 2 ⇄ 2 for a tram line),
-    /// we zip them so the vehicle popup can display "→ TERMINUS".
+    /// Mapping from STIB direction code (e.g. "9051") to the human terminus
+    /// name (e.g. "VANDERKINDERE"). Backed by `directionTerminusCache`, which
+    /// is filled progressively by `learnDirectionTerminus(for:)` every time
+    /// a stop is loaded — so even at one-way loop stops (BUISSONNETS) the
+    /// vehicle popup can still label trams going the other way once we've
+    /// seen the mapping at any bidirectional stop on the line.
     var vehicleDestinationByDirection: [String: String] {
-        guard let focused = selectedStopLineNumber else { return [:] }
-        let normalized = normalizedLineNumber(focused)
+        directionTerminusCache
+    }
 
-        let directions = Set(vehicleTracker.vehicles.compactMap { v -> String? in
-            guard let line = v.line, normalizedLineNumber(line) == normalized else { return nil }
-            return v.direction
-        })
-        let destinations = Array(Set(
-            (selectedMapStopDetail?.nextDepartures ?? [])
-                .filter { normalizedLineNumber($0.line) == normalized }
-                .compactMap { $0.destination?.uppercased() }
-        )).sorted()
-
-        let sortedDirections = directions.sorted()
-        guard sortedDirections.count == destinations.count, !destinations.isEmpty else { return [:] }
-        return Dictionary(uniqueKeysWithValues: zip(sortedDirections, destinations))
+    /// Update the global direction→terminus cache from a freshly-loaded
+    /// stop detail. The rule: if a tracked vehicle is currently AT this
+    /// stop (or within 80 m) with direction code X, and the stop's
+    /// nextDepartures show line L going to destination D, then X → D.
+    @MainActor
+    private func learnDirectionTerminus(for detail: TransportStopDTO) {
+        let stopName = detail.stop.name.uppercased()
+        let stopCoord: CLLocation? = {
+            guard let lat = detail.stop.latitude, let lng = detail.stop.longitude else { return nil }
+            return CLLocation(latitude: lat, longitude: lng)
+        }()
+        var learned = directionTerminusCache
+        for departure in detail.nextDepartures {
+            guard let destination = departure.destination?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .uppercased(), !destination.isEmpty else { continue }
+            let lineNorm = normalizedLineNumber(departure.line)
+            let matchingVehicle = vehicleTracker.vehicles.first { v in
+                guard let vLine = v.line, normalizedLineNumber(vLine) == lineNorm else { return false }
+                if v.stopNom?.uppercased() == stopName { return true }
+                if let stopCoord, let vLat = v.latitude, let vLng = v.longitude {
+                    return stopCoord.distance(from: CLLocation(latitude: vLat, longitude: vLng)) <= 80
+                }
+                return false
+            }
+            if let direction = matchingVehicle?.direction, learned[direction] != destination {
+                learned[direction] = destination
+            }
+        }
+        if learned != directionTerminusCache {
+            directionTerminusCache = learned
+        }
     }
 
     private var baseMapStops: [TransportStopSummaryDTO] {
@@ -661,21 +703,17 @@ struct HomeView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(item: $tripDestination) { destination in
-            DecisionView(
-                coordinate: locationManager.userCoordinate,
-                preferredLine: nil,
-                mode: .trip(destination: destination.coordinate, label: destination.label),
-                onDismiss: { tripDestination = nil },
-                onLaunchRoute: { destCoord, label in
-                    tripDestination = nil
-                    let target = MKMapItem(placemark: MKPlacemark(coordinate: destCoord))
-                    target.name = label ?? "Destination"
-                    Task { await buildRoute(to: target) }
-                }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+        // Trip mode used to detour through DecisionView (the "Verdict" sheet
+        // with a 0 min recommendation that confused users). Now we jump
+        // straight to buildRoute and let the route recommendations sheet do
+        // the work. .onChange fires when the user picks a destination in the
+        // route planner; we consume `tripDestination` immediately.
+        .onChange(of: tripDestination) { _, destination in
+            guard let destination else { return }
+            tripDestination = nil
+            let target = MKMapItem(placemark: MKPlacemark(coordinate: destination.coordinate))
+            target.name = destination.label ?? "Destination"
+            Task { await buildRoute(to: target) }
         }
         .sheet(item: $selectedEventImpact) { event in
             HomeEventImpactSheet(
@@ -1121,6 +1159,27 @@ struct HomeView: View {
         focusMap(onLineShapesFor: normalized)
     }
 
+    /// Opens the full standalone `ArretDetailPage` from the mini header card.
+    /// We promote the currently-selected stop from "preview" to "detail" mode
+    /// so the search header collapses and the full page slides in.
+    @MainActor
+    func openStopDetailFromMiniCard(for stop: TransportStopSummaryDTO) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.84)) {
+            selectedMapStopSummary = stop
+            selectedMapStopPreview = nil
+            if selectedStopLineNumber == nil {
+                selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
+            }
+            interactionMode = .stopDetail
+        }
+        // Detail data may already be loaded from the mini card; load only if
+        // the cached payload is for a different stop (sibling fetch was for
+        // the previous tap).
+        if selectedMapStopDetail?.stop.id != stop.id {
+            loadStopDetail(for: stop)
+        }
+    }
+
     /// Closes the mini stop card and returns the map to its idle state.
     /// Unlike `enterInteractionMode(.map)` this preserves any route surface,
     /// only the stop-pin selection is unwound.
@@ -1146,6 +1205,12 @@ struct HomeView: View {
         currentRouteCoordinates = []
         if !keepDestination {
             destinationCoord = nil
+            // Closing the route surface should wipe the destination chip
+            // shown in the search header — the search bar reads from
+            // `searchQuery` and was leaving the previous destination there
+            // even after the user dismissed the route.
+            searchQuery = ""
+            searchSuggestions = []
         }
         currentTransportRecommendation = nil
         isRouteSheetExpanded = false
@@ -1577,6 +1642,7 @@ struct HomeView: View {
                     if matchesPreview || matchesDetail {
                         selectedMapStopDetail = detail
                         selectDefaultStopLineIfNeeded(from: detail)
+                        learnDirectionTerminus(for: detail)
                     }
                 }
             } catch {
@@ -1601,19 +1667,37 @@ struct HomeView: View {
     }
 
     /// Returns the backend stop IDs of every catalog stop sharing the same
-    /// name and within ~80 m of the tapped stop, excluding the stop itself.
-    /// Used to fetch the other-direction quay of the same physical platform.
+    /// (normalised) name and within ~150 m of the tapped stop, excluding the
+    /// stop itself. Used to fetch the other-direction quay of the same
+    /// physical platform. We strip parenthetical suffixes ("(direction X)",
+    /// "(quai 1)", …) and accented chars so MONTGOMERY and MONTGOMERY (quai
+    /// 1) merge as siblings.
     private func siblingStopIds(for stop: TransportStopSummaryDTO) -> [String] {
         guard let stopLat = stop.latitude, let stopLng = stop.longitude else { return [] }
         let origin = CLLocation(latitude: stopLat, longitude: stopLng)
-        let normalizedName = stop.name.uppercased()
+        let normalizedName = Self.normalizedStopName(stop.name)
         return catalogMapStops.compactMap { ns -> String? in
-            guard ns.name.uppercased() == normalizedName else { return nil }
+            guard Self.normalizedStopName(ns.name) == normalizedName else { return nil }
             guard let coord = ns.coordinate, let backendId = ns.backendId else { return nil }
             guard backendId != stop.id, backendId != stop.stopId else { return nil }
             let distance = origin.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
-            return distance <= 80 ? backendId : nil
+            return distance <= 150 ? backendId : nil
         }
+    }
+
+    /// Strip parenthetical qualifiers and accented characters so two quays of
+    /// the same physical stop collapse to a single key even when STIB labels
+    /// them differently per direction.
+    private static func normalizedStopName(_ raw: String) -> String {
+        let withoutParens = raw.replacingOccurrences(
+            of: #"\s*\([^)]*\)\s*"#,
+            with: "",
+            options: .regularExpression
+        )
+        return withoutParens
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
     }
 
     /// De-duplicate departures by `(line, destination, minutes)` then sort
@@ -2483,9 +2567,9 @@ struct HomeView: View {
     @ViewBuilder
     private var pageOverlay: some View {
         ZStack {
-            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .favorites || nav.currentPage == .profile) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
+            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .schedules || nav.currentPage == .favorites || nav.currentPage == .profile) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
 
-            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .favorites && nav.currentPage != .profile {
+            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .schedules && nav.currentPage != .favorites && nav.currentPage != .profile {
                 VStack {
                     HStack {
                         Button {
@@ -2520,6 +2604,8 @@ struct HomeView: View {
                 SignalementsView()
             case .reports:
                 ReportsView()
+            case .schedules:
+                SchedulesView()
             case .favorites:
                 FavoritesView()
             case .profile:

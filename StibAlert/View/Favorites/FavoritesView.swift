@@ -136,8 +136,14 @@ struct FavoritesView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            PageHeader(title: "Favoris", eyebrow: "Ton réseau personnel", large: true)
+        HStack(alignment: .center, spacing: 12) {
+            // Compact title — kept consistent with Infos trafic / Horaires
+            // headers. Dropped the eyebrow + Dela Gothic displayH1 to free
+            // vertical space on a content-dense page.
+            Text("Favoris")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(DS.Color.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 12)
             Button {
                 showAddSheet = true

@@ -12,10 +12,9 @@ struct AppRoot: View {
         content
             .environmentObject(nav)
             .environmentObject(session)
-            .sheet(isPresented: $nav.showAuthFlow) {
+            .fullScreenCover(isPresented: $nav.showAuthFlow) {
                 AuthFlowView(initialRoute: nav.authInitialRoute)
                     .environmentObject(session)
-                    .presentationDragIndicator(.visible)
             }
             .onChange(of: session.isSignedIn) { _, signedIn in
                 guard signedIn else { return }

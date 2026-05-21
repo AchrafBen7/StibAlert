@@ -241,13 +241,13 @@ struct ProfileView: View {
     private var profileHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Compte StibAlert")
-                        .eyebrow()
-                    Text("Profil")
-                        .font(DS.Font.displayH1)
-                        .foregroundStyle(DS.Color.ink)
-                }
+                // Compact title — kept consistent with Infos trafic /
+                // Horaires / Favoris (the other 4 tab pages). The eyebrow
+                // "Compte StibAlert" was dropped to match the cleaner
+                // single-line header pattern.
+                Text("Profil")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
 
                 Spacer()
 

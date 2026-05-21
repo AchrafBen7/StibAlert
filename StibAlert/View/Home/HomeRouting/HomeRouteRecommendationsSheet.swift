@@ -293,9 +293,18 @@ private struct RouteOptionCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(option.durationText)
-                            .font(.system(size: 22, weight: .black))
+                            .font(.system(size: 24, weight: .black))
                             .tracking(-0.8)
                             .foregroundStyle(DS.Color.ink)
+                        if let timingSecondaryText = option.timingSecondaryText {
+                            Text(timingSecondaryText)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(DS.Color.statusMinor)
+                                .padding(.horizontal, 6)
+                                .frame(height: 18)
+                                .background(DS.Color.statusMinor.opacity(0.14))
+                                .clipShape(Capsule())
+                        }
                         Spacer(minLength: 12)
                         Button(action: { onToggleExpanded?() }) {
                             Image(systemName: isExpandedCard ? "chevron.up" : "chevron.down")
@@ -306,26 +315,14 @@ private struct RouteOptionCard: View {
                         .buttonStyle(.plain)
                     }
 
+                    Text(option.timingHeadlineText)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+
                     Text("\(option.primaryModeLabel.uppercased()) · \(option.transferSummary.uppercased())")
                         .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(2)
+                        .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
-
-                    Text(option.timingHeadlineText)
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(DS.Color.inkMute)
-
-                    if let timingSecondaryText = option.timingSecondaryText {
-                        Text(timingSecondaryText)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(DS.Color.inkMute.opacity(0.82))
-                    }
-
-                    if let nextDeparture = option.nextDepartureInsight {
-                        RouteNextDepartureBanner(insight: nextDeparture, arrivalText: option.arrivalSummaryText)
-                            .padding(.top, 2)
-                    }
 
                     HStack(spacing: 8) {
                         ForEach(option.displayLineCodes, id: \.self) { code in
@@ -333,12 +330,18 @@ private struct RouteOptionCard: View {
                         }
                     }
 
+                    if let nextDeparture = option.nextDepartureInsight {
+                        RouteNextDepartureLine(insight: nextDeparture)
+                            .padding(.top, 2)
+                    }
+
                     RouteDurationStrip(segments: option.visualSegments)
+                        .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, isExpandedCard ? 8 : 12)
+            .padding(.top, 14)
+            .padding(.bottom, isExpandedCard ? 8 : 14)
         }
     }
 
@@ -355,18 +358,10 @@ private struct RouteOptionCard: View {
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
                 }
-                Text(option.realtimeDepartureTimeText != nil || option.realtimeArrivalTimeText != nil
-                     ? "\(option.realtimeDepartureTimeText ?? option.departureTimeText) → \(option.realtimeArrivalTimeText ?? option.arrivalTimeText)"
-                     : "\(option.departureTimeText) → \(option.arrivalTimeText)")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.2)
+                Text(option.timingHeadlineText)
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DS.Color.inkMute)
-                if let timingSecondaryText = option.timingSecondaryText {
-                    Text(timingSecondaryText)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(DS.Color.inkMute.opacity(0.72))
-                        .lineLimit(1)
-                }
+                    .lineLimit(1)
                 if let nextDeparture = option.nextDepartureInsight {
                     Text("\(nextDeparture.lineCode) · \(nextDeparture.waitText)")
                         .font(DS.Font.monoSmall.weight(.bold))
@@ -413,55 +408,30 @@ private struct RouteOptionCard: View {
     }
 }
 
-private struct RouteNextDepartureBanner: View {
+/// Compact single-line replacement for the old big "PROCHAIN DÉPART" banner.
+/// Shows the next leg's line badge, when it leaves, and a realtime dot — no
+/// duplicate arrival/departure times since those already appear on the card
+/// above. Drops the visual weight of the original orange pill.
+private struct RouteNextDepartureLine: View {
     let insight: RouteDepartureInsight
-    let arrivalText: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(spacing: 6) {
+            if insight.isRealtime {
+                Circle()
+                    .fill(DS.Color.statusOK)
+                    .frame(width: 6, height: 6)
+            }
+            Text("Prochain")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(DS.Color.inkMute)
             RouteLineMiniBadge(line: insight.lineCode)
-                .frame(width: 34, height: 34)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text("PROCHAIN DÉPART")
-                        .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
-                        .tracking(1.2)
-                        .foregroundStyle(DS.Color.inkMute)
-                    Text(insight.isRealtime ? "temps réel" : "prévu")
-                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(insight.isRealtime ? DS.Color.primary : DS.Color.inkMute)
-                }
-                Text(insight.titleText)
-                    .font(.system(size: 13.5, weight: .black))
-                    .foregroundStyle(DS.Color.ink)
-                Text(insight.detailText)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(insight.waitText)
-                    .font(.system(size: 17, weight: .black))
-                    .tracking(-0.35)
-                    .foregroundStyle(DS.Color.primary)
-                Text(arrivalText)
-                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(DS.Color.inkMute)
-            }
+                .frame(height: 22)
+                .fixedSize()
+            Text(insight.waitText)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(DS.Color.primary)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(DS.Color.primary.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(DS.Color.primary.opacity(0.22), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

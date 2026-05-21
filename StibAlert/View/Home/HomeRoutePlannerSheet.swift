@@ -42,7 +42,7 @@ struct HomeRoutePlannerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    topSearchBar
+                    headerRow
                     quickPlaces
                     routeFieldsCard
 
@@ -75,48 +75,32 @@ struct HomeRoutePlannerSheet: View {
         .preferredColorScheme(.light)
     }
 
-    private var topSearchBar: some View {
+    /// Lightweight header (back button + screen title). We dropped the
+    /// previous full TextField search bar because it was bound to the same
+    /// `$arrivalQuery` as the arrival row of the route card below — typing
+    /// in one made the other echo it, which felt like a duplicate input.
+    /// All typing now happens in the route card.
+    private var headerRow: some View {
         HStack(spacing: 12) {
             Button {
                 isPresented = false
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                     .frame(width: 36, height: 36)
+                    .background(DS.Color.paper2)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
             }
             .buttonStyle(.plain)
 
-            TextField("", text: $arrivalQuery, prompt: Text("Votre recherche").foregroundStyle(DS.Color.inkMute))
-                .font(.system(size: 24, weight: .medium))
+            Text("Itinéraire")
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
-                .focused($focusedField, equals: .arrival)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .onSubmit {
-                    Task { await submit() }
-                }
-                .onChange(of: arrivalQuery) { _, newValue in
-                    guard !isApplyingSelection else { return }
-                    selectedArrival = nil
-                    handleQueryChange(newValue, for: .arrival)
-                }
 
-            Button {
-                focusedField = .arrival
-            } label: {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                    .frame(width: 36, height: 36)
-            }
-            .buttonStyle(.plain)
+            Spacer()
         }
-        .padding(.horizontal, 12)
-        .frame(height: 62)
-        .background(DS.Color.paper2.opacity(0.72))
-        .clipShape(Capsule())
     }
 
     private var quickPlaces: some View {

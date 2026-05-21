@@ -22,6 +22,10 @@ struct ReportsView: View {
     @State private var selectedLineFilter = "Tout"
     @State private var selectedReport: SignalementDTO? = nil
     @State private var selectedEvent: TransportEventImpactDTO? = nil
+    /// LineId opened from the LineStatusGrid tap — drives a presentation
+    /// sheet that pushes `LigneDetailPage` directly without going through
+    /// the Signalements tab.
+    @State private var selectedLineForDetail: String? = nil
     @State private var transportOverview: TransportOverviewDTO? = nil
     @State private var selectedLineTransport: TransportLineDTO? = nil
     @State private var selectedLineSummary: TransportPerturbationSummaryDTO? = nil
@@ -240,19 +244,110 @@ struct ReportsView: View {
         let scopedItems: [EditorialFeedItem]
         switch selectedScope {
         case .reports:
+            // "En cours" → live signal: community reports + active official
+            // incidents (everything happening right now).
+            scopedItems = reportFeedItems
+        case .official:
+            // "Officiel" → STIB-published items only (scheduled works, planned
+            // disruptions, official traffic info).
             scopedItems = reportFeedItems.filter { item in
-                switch selectedSegment {
-                case .all: return true
-                case .official: return item.type == .official || item.type == .mixed
-                case .community: return item.type == .community || item.type == .mixed
-                case .events: return true
-                }
+                item.type == .official || item.type == .mixed
             }
         case .events:
             scopedItems = eventFeedItems
         }
 
         return scopedItems.sorted(by: sortFeedItems)
+    }
+
+    /// Incidents passed to the LineStatusGrid — also filtered per top tab so
+    /// the corner badge on each line badge reflects the currently selected
+    /// scope. On "Événements" we hide the grid entirely, so this returns []
+    /// when scope is events.
+    ///
+    /// We *also* fold in any line listed in `currentSummary.affectedLines`
+    /// that has no concrete incident in `currentOfficialIncidents` — that
+    /// gap is exactly what made line 1 appear in the carousel sommaire but
+    /// stay un-badged in the grid before. Synthetic incidents inherit the
+    /// summary's source so they end up under "Officiel" too.
+    private var incidentsForLineGrid: [TransportIncidentDTO] {
+        switch selectedScope {
+        case .events:
+            return []
+        case .reports, .official:
+            let base: [TransportIncidentDTO]
+            if selectedScope == .official {
+                base = currentOfficialIncidents.filter { incident in
+                    let source = incident.source?.lowercased() ?? ""
+                    return source.contains("official") || source.contains("stib")
+                }
+            } else {
+                base = currentOfficialIncidents
+            }
+            return base + syntheticIncidentsFromSummary(missingFrom: base)
+        }
+    }
+
+    /// Build placeholder `TransportIncidentDTO`s for every `affectedLines`
+    /// entry in the current summary that isn't already represented in
+    /// `incidentsBaseline`. Lets the LineStatusGrid badge those lines even
+    /// when the backend ships them only in the summary aggregate.
+    private func syntheticIncidentsFromSummary(missingFrom incidentsBaseline: [TransportIncidentDTO]) -> [TransportIncidentDTO] {
+        var knownLines = Set(incidentsBaseline.compactMap { $0.line?.uppercased() })
+        var synthesised: [TransportIncidentDTO] = []
+
+        // 1. Lines mentioned in the perturbation summary's affected list.
+        if let summary = currentSummary {
+            let summaryType = summary.incidentTypes?.first ?? "perturbation"
+            let summarySource = summary.source ?? summary.sourceLabel ?? "official"
+            for line in summary.affectedLines {
+                let normalized = line.uppercased()
+                guard !knownLines.contains(normalized) else { continue }
+                synthesised.append(TransportIncidentDTO(
+                    id: "summary-\(normalized)",
+                    type: summaryType,
+                    description: summary.shortText,
+                    severity: "minor",
+                    confidence: nil,
+                    legacyConfidence: nil,
+                    source: summarySource,
+                    line: line,
+                    stop: nil,
+                    date: nil,
+                    community: nil
+                ))
+                knownLines.insert(normalized)
+            }
+        }
+
+        // 2. Lines that show up as feed items (community reports + official
+        // signals from `reportFeedItems`) but somehow weren't picked up by
+        // either the activeIncidents list or the summary. Without this the
+        // grid badge for métro 1 / tram 81 stayed empty while the feed
+        // (sommaire) clearly listed them.
+        for item in reportFeedItems {
+            for line in item.lines {
+                let normalized = line.uppercased()
+                guard !normalized.isEmpty, !knownLines.contains(normalized) else { continue }
+                let isOfficial = item.type == .official || item.type == .mixed
+                synthesised.append(TransportIncidentDTO(
+                    id: "feed-\(item.id)-\(normalized)",
+                    type: item.title,
+                    description: item.body,
+                    severity: isOfficial ? "minor" : "minor",
+                    confidence: nil,
+                    legacyConfidence: nil,
+                    source: isOfficial ? "official" : "community",
+                    line: line,
+                    stop: nil,
+                    date: nil,
+                    community: nil
+                ))
+                knownLines.insert(normalized)
+            }
+        }
+
+        return synthesised
     }
 
     private func matchesCurrentFilters(_ item: EditorialFeedItem) -> Bool {
@@ -276,7 +371,11 @@ struct ReportsView: View {
     }
 
     private var shouldGroupFeedByLine: Bool {
-        selectedScope == .reports && selectedLineFilter == "Tout"
+        // Group by line+mode on both "En cours" and "Officiel" — Événements
+        // remains a flat chronological list because each event item
+        // typically spans multiple lines.
+        (selectedScope == .reports || selectedScope == .official)
+            && selectedLineFilter == "Tout"
     }
 
     private var groupedFeedItems: [EditorialLineGroup] {
@@ -293,6 +392,20 @@ struct ReportsView: View {
         }
         .sorted { lhs, rhs in
             sortLineGroups(lhs, rhs)
+        }
+    }
+
+    /// Top-level feed grouping: split the per-line groups into MÉTRO / TRAM
+    /// / BUS sections so the user no longer scrolls a long mixed list.
+    /// Order is fixed (metro → tram → bus) and empty sections are skipped.
+    private var feedSections: [EditorialModeSection] {
+        let groupsByMode = Dictionary(grouping: groupedFeedItems) { group in
+            TransitLineMode.mode(for: group.line)
+        }
+        let order: [TransitLineMode] = [.metro, .tram, .bus]
+        return order.compactMap { mode -> EditorialModeSection? in
+            guard let groups = groupsByMode[mode], !groups.isEmpty else { return nil }
+            return EditorialModeSection(id: mode, mode: mode, groups: groups)
         }
     }
 
@@ -331,10 +444,30 @@ struct ReportsView: View {
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.md)
 
-                    if let summary = currentSummary {
-                        summaryCarousel(summary)
-                            .padding(.horizontal, DS.Spacing.xl)
-                            .padding(.top, DS.Spacing.lg)
+                    // The dossier carousel ("sommaire") is now folded into the
+                    // LineStatusGrid below — each line's badge carries the
+                    // same incident icon, so the user finds the same info on
+                    // its line tile and can tap through to LigneDetailPage.
+
+                    scopeSegmentedTabs
+                        .padding(.horizontal, DS.Spacing.xl)
+                        .padding(.top, DS.Spacing.lg)
+
+                    if !lineCatalog.isEmpty && selectedScope != .events {
+                        LineStatusGrid(
+                            catalog: lineCatalog,
+                            incidents: incidentsForLineGrid,
+                            onSelectLine: { lineId in
+                                // Open LigneDetailPage directly as a sheet
+                                // instead of routing through the Signalements
+                                // tab — the user only wants the line detail
+                                // from this tap, not the broader signalements
+                                // landing.
+                                selectedLineForDetail = lineId
+                            }
+                        )
+                        .padding(.horizontal, DS.Spacing.xl)
+                        .padding(.top, DS.Spacing.lg)
                     }
 
                     if let loadError {
@@ -343,8 +476,16 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
-                    Section(header: editorialStickySegments) {
-                        editorialFeedSection
+                    // Sommaire / feed has been removed entirely from Infos
+                    // trafic: every line shown there is now reachable via the
+                    // LineStatusGrid badge above (tap → LigneDetailPage with
+                    // the same details under the Infos trafic sub-tab).
+                    // Set to true on the Événements tab to keep the events
+                    // feed visible (no grid equivalent yet).
+                    if selectedScope == .events {
+                        Section(header: editorialStickySegments) {
+                            editorialFeedSection
+                        }
                     }
             }
                 .padding(.bottom, 140)
@@ -381,6 +522,20 @@ struct ReportsView: View {
                 .environmentObject(nav)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(isPresented: Binding(
+            get: { selectedLineForDetail != nil },
+            set: { if !$0 { selectedLineForDetail = nil } }
+        )) {
+            if let lineId = selectedLineForDetail {
+                // Full-screen cover instead of a bottom sheet — the user
+                // wants the line detail to feel like a real page push, not a
+                // modal. Closing happens via LigneDetailPage's own back
+                // button (which calls `dismiss()` from the inner scope).
+                LigneDetailPage(lineId: lineId, initialTab: .traffic)
+                    .environmentObject(session)
+                    .environmentObject(nav)
+            }
         }
         .sheet(isPresented: $isShowingSummary) {
             if let summary = currentSummary {
@@ -522,67 +677,11 @@ struct ReportsView: View {
         )
     }
 
+    /// Belgian transit operators row. Now extracted into the shared
+    /// `TransitOperatorRow` component so the Horaires tab can reuse the
+    /// exact same masthead.
     private var statusHUD: some View {
-        let perturbed = nowItems.count
-        let total = max(60, perturbed + 50) // STIB ≈ 4 métros + ~20 trams + ~50 bus actifs
-        let ok = max(0, total - perturbed)
-        let severity: (label: String, color: Color) = {
-            switch perturbed {
-            case 0:    return ("NOMINAL", DS.Color.statusOK)
-            case 1...2: return ("MINEUR", DS.Color.statusMinor)
-            case 3...5: return ("MODÉRÉ", DS.Color.statusMajor)
-            default:    return ("MAJEUR", DS.Color.statusCritical)
-            }
-        }()
-
-        return VStack(spacing: 8) {
-            HStack(spacing: 0) {
-                StatusCell(
-                    label: "État",
-                    value: severity.label,
-                    valueColor: severity.color,
-                    pulse: true
-                )
-                Rectangle()
-                    .fill(DS.Color.ink.opacity(0.15))
-                    .frame(width: 1)
-                StatusCell(
-                    label: "Lignes OK",
-                    value: "\(ok)",
-                    sublabel: "/ \(total)"
-                )
-                Rectangle()
-                    .fill(DS.Color.ink.opacity(0.15))
-                    .frame(width: 1)
-                StatusCell(
-                    label: "Lignes perturbées",
-                    value: "\(perturbed)",
-                    sublabel: "lignes",
-                    valueColor: perturbed > 0 ? DS.Color.statusMajor : DS.Color.ink
-                )
-            }
-            .background(DS.Color.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .fill(DS.Color.statusOK)
-                        .frame(width: total > 0 ? CGFloat(ok) / CGFloat(total) * geo.size.width : 0)
-                    Rectangle()
-                        .fill(DS.Color.statusMajor)
-                }
-                .overlay(
-                    Rectangle()
-                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
-                )
-            }
-            .frame(height: 6)
-        }
+        TransitOperatorRow()
     }
 
     private var editorialSearchSection: some View {
@@ -613,9 +712,59 @@ struct ReportsView: View {
         .shadow(DS.Shadow.raised)
     }
 
+    /// Top-level 3-tab segmented control: En cours / Officiel / Événements.
+    /// Drives both the LineStatusGrid badge filtering (above) and the feed
+    /// filtering (below). Replaces the older 2-mode toggle plus inline
+    /// segments — all three filters now live in a single horizontal bar.
+    private var scopeSegmentedTabs: some View {
+        HStack(spacing: 4) {
+            ForEach(ReportContentScope.allCases) { scope in
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        selectedScope = scope
+                        // Reset segment when leaving .reports so the filter
+                        // logic stays predictable for sub-scopes.
+                        if scope == .events {
+                            selectedSegment = .events
+                        } else {
+                            selectedSegment = .all
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: scope.icon)
+                            .font(.system(size: 12, weight: .bold))
+                        Text(scope.title)
+                            .font(DS.Font.bodyBold)
+                            .tracking(0.4)
+                    }
+                    .foregroundStyle(selectedScope == scope ? DS.Color.paper : DS.Color.ink)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 38)
+                    .background(selectedScope == scope ? DS.Color.ink : DS.Color.paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(selectedScope == scope ? 0 : 0.08), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(DS.Color.paper2.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+    }
+
     private var editorialStickySegments: some View {
         ReportsFilterDock(
-            showsReportFilters: selectedScope == .reports,
+            // The new top-level `scopeSegmentedTabs` already covers segment
+            // filtering, so the inline ReportsFilterDock segments would
+            // duplicate that UI. We keep the dock only for the line/mode
+            // /sort sub-filters, hidden on the Événements tab.
+            showsReportFilters: false,
             selectedSegment: selectedSegment,
             selectedMode: selectedModeFilter,
             selectedLine: selectedLineFilter,
@@ -644,16 +793,9 @@ struct ReportsView: View {
     private var scopeHelperText: String {
         switch selectedScope {
         case .reports:
-            switch selectedSegment {
-            case .all:
-                return "Vue mixte des infos STIB officielles et des signalements de terrain."
-            case .official:
-                return "Informations publiées côté STIB ou confirmées par des sources officielles."
-            case .community:
-                return "Signalements partagés par les usagers sur le terrain."
-            case .events:
-                return "Événements bruxellois pouvant charger le réseau."
-            }
+            return "Signalements en temps réel — communauté + perturbations actives."
+        case .official:
+            return "Informations officielles STIB : travaux planifiés, perturbations à venir."
         case .events:
             return "Événements et lieux qui peuvent augmenter l’affluence autour de certaines lignes."
         }
@@ -666,7 +808,7 @@ struct ReportsView: View {
             hasLoaded: hasLoaded,
             feedItems: feedItems,
             shouldGroupFeedByLine: shouldGroupFeedByLine,
-            groupedFeedItems: groupedFeedItems,
+            feedSections: feedSections,
             favoriteLines: favoriteLines,
             expandedFeedLineIds: $expandedFeedLineIds,
             votingReportIds: votingReportIds,
@@ -810,7 +952,10 @@ struct ReportsView: View {
     private func loadSummary(force: Bool = false) async {
         guard AppConfig.isBackendEnabled else { return }
         guard !isLoadingSummary else { return }
-        guard selectedScope == .reports else { return }
+        // Summary feeds both "En cours" and "Officiel" tabs (the
+        // LineStatusGrid badges) so we load it for both. We skip only the
+        // Événements scope where the grid isn't visible.
+        guard selectedScope != .events else { return }
         if selectedLineFilter == "Tout", transportOverview != nil && !force { return }
         if selectedLineFilter != "Tout", selectedLineSummary != nil && !force { return }
 
@@ -2866,7 +3011,7 @@ struct EditorialDossierCard: View {
                 .padding(.trailing, 12)
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "dot.radiowaves.left.and.right")
@@ -2888,7 +3033,7 @@ struct EditorialDossierCard: View {
 
                     Spacer()
                 }
-                .padding(.top, 24)
+                .padding(.top, 14)
 
                 HStack(alignment: .top, spacing: 10) {
                     Text(primaryLine)
@@ -2930,11 +3075,11 @@ struct EditorialDossierCard: View {
                     disruptedIndices: disruptedIndices,
                     disruptedStopName: disruptedStopName
                 )
-                .frame(height: 132)
+                .frame(height: 70)
             }
             .padding(.leading, 18)
             .padding(.trailing, 12)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2944,4 +3089,8 @@ struct EditorialDossierCard: View {
         .shadow(color: DS.Color.ink.opacity(0.18), radius: 12, x: 0, y: 8)
     }
 }
+
+// `TransitOperator` + its row View now live in
+// `View/Components/TransitOperatorRow.swift` so both Infos trafic and
+// Horaires can share the same masthead.
 

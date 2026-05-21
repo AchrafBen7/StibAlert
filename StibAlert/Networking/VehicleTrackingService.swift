@@ -81,6 +81,46 @@ final class VehicleTrackingService: ObservableObject {
         previousPositions = [:]
     }
 
+    /// One-shot snapshot of live vehicles for the given lines, fetched from
+    /// the same enriched `vehicle-positions-map` endpoint the home map uses
+    /// (each item carries `stopNom` + real coordinates — unlike the raw
+    /// `/transport/line` vehicles). No proximity filter, so callers get every
+    /// vehicle along the tracé. Used by detail screens that want a snapshot
+    /// instead of a continuous poll.
+    static func snapshot(lines: Set<String>) async -> [TransportVehicleDTO] {
+        guard AppConfig.isBackendEnabled else { return [] }
+        let normalized = lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            .filter { !$0.isEmpty }
+        guard !normalized.isEmpty else { return [] }
+
+        let params = "lines=\(normalized.sorted().joined(separator: ","))"
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib/vehicle-positions-map?\(params)") else { return [] }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { dec in
+                let container = try dec.singleValueContainer()
+                let raw = try container.decode(String.self)
+                if let date = iso8601WithMillis.date(from: raw) { return date }
+                if let date = iso8601Plain.date(from: raw) { return date }
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Unrecognised ISO-8601 date: \(raw)"
+                )
+            }
+            return try decoder.decode(VehiclePositionsResponse.self, from: data)
+                .items
+                .filter { $0.latitude != nil && $0.longitude != nil }
+        } catch {
+            #if DEBUG
+            print("[VehicleTracker] snapshot failed for \(url.absoluteString): \(error.localizedDescription)")
+            #endif
+            return []
+        }
+    }
+
     private func pollLoop() async {
         while !Task.isCancelled {
             guard !visibleLines.isEmpty else { stop(); return }

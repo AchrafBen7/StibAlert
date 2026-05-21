@@ -100,8 +100,12 @@ public extension SwiftUI.Color {
 public extension DS {
     enum Font {
         // DelaGothicOne for editorial hero — scales with Dynamic Type via relativeTo.
-        public static let displayH1: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 32, relativeTo: .largeTitle)
-        public static let displayH2: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 22, relativeTo: .title2)
+        // Sizes tuned down from 32/22 → 24/18: at the original sizes Dela
+        // Gothic (a dense blocky display face) dominated content-rich
+        // screens like Profil / Décision / la fiche d'arrêt. Keeping the
+        // typography identity but giving the rest of the page room to breathe.
+        public static let displayH1: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 24, relativeTo: .largeTitle)
+        public static let displayH2: SwiftUI.Font = .custom("DelaGothicOne-Regular", size: 18, relativeTo: .title2)
 
         // System fonts using Apple's TextStyle scale — full Dynamic Type support.
         public static let displayH3: SwiftUI.Font = .system(.headline)

@@ -69,6 +69,11 @@ struct SignalementMiniCard: View {
 
             HStack(spacing: 10) {
                 metaPill(icon: "clock", text: signalement.freshnessLabel)
+                metaPill(
+                    icon: confidenceIcon,
+                    text: signalement.liveConfidenceLabel,
+                    tint: confidenceTint
+                )
                 if let confirmationsSummary = signalement.confirmationsSummaryLabel {
                     metaPill(icon: "checkmark.seal.fill", text: confirmationsSummary)
                 }
@@ -169,19 +174,35 @@ struct SignalementMiniCard: View {
         }
     }
 
-    private func metaPill(icon: String, text: String) -> some View {
+    private func metaPill(icon: String, text: String, tint: Color? = nil) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
                 .font(DS.Font.caption)
         }
-        .foregroundStyle(DS.Color.inkSoft)
+        .foregroundStyle(tint ?? DS.Color.inkSoft)
         .padding(.horizontal, 10)
         .frame(height: 24)
-        .background(DS.Color.paper2.opacity(0.7))
-        .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
+        .background((tint ?? DS.Color.paper2).opacity(tint == nil ? 0.7 : 0.16))
+        .overlay(Capsule().stroke((tint ?? DS.Color.ink).opacity(0.16), lineWidth: 1))
         .clipShape(Capsule())
+    }
+
+    private var confidenceTint: Color {
+        switch signalement.liveConfidence {
+        case 0.7...: return DS.Color.statusOK
+        case 0.35..<0.7: return DS.Color.statusMinor
+        default: return DS.Color.inkMute
+        }
+    }
+
+    private var confidenceIcon: String {
+        switch signalement.liveConfidence {
+        case 0.7...: return "checkmark.seal.fill"
+        case 0.35..<0.7: return "hourglass"
+        default: return "questionmark.circle"
+        }
     }
 
     private func actionButton(

@@ -276,21 +276,35 @@ struct HomeRouteOption: Identifiable {
         scheduledDepartureTimeText != realtimeDepartureTimeText || scheduledArrivalTimeText != realtimeArrivalTimeText
     }
 
+    /// Single-line arrival-focused summary shown in the recommendation card.
+    /// We dropped the "TEMPS RÉEL 16:58 → 17:01 / Prévu 17:14 → 17:50" dual
+    /// display — users found it confusing to see two different timeframes for
+    /// the same trip. The realtime arrival time is the one that matters; the
+    /// scheduled value is reduced to a tiny delay note below when it differs.
     var timingHeadlineText: String {
-        if let realtimeDepartureTimeText, let realtimeArrivalTimeText {
-            return "TEMPS RÉEL \(realtimeDepartureTimeText) → \(realtimeArrivalTimeText)"
+        if let realtimeArrivalTimeText {
+            return "Arrivée \(realtimeArrivalTimeText)"
         }
-        if let scheduledDepartureTimeText, let scheduledArrivalTimeText {
-            return "PRÉVU \(scheduledDepartureTimeText) → \(scheduledArrivalTimeText)"
+        if let scheduledArrivalTimeText {
+            return "Arrivée vers \(scheduledArrivalTimeText)"
         }
-        return "DÉPART \(departureTimeText) · ARRIVÉE \(arrivalTimeText)"
+        return "Arrivée \(arrivalTimeText)"
     }
 
+    /// Short delay note, only when realtime is meaningfully later than the
+    /// scheduled time. We compute it in minutes so the user sees "+ 3 min
+    /// par rapport à l'horaire" instead of two separate clocks.
     var timingSecondaryText: String? {
         guard hasRealtimeTimingDelta,
-              let scheduledDepartureTimeText,
-              let scheduledArrivalTimeText else { return nil }
-        return "Prévu \(scheduledDepartureTimeText) → \(scheduledArrivalTimeText)"
+              let realtime = backendAlternative?.realtimeArrivalAt,
+              let scheduled = backendAlternative?.scheduledArrivalAt else { return nil }
+        let deltaMin = Int(realtime.timeIntervalSince(scheduled) / 60.0)
+        guard abs(deltaMin) >= 1 else { return nil }
+        if deltaMin > 0 {
+            return "+ \(deltaMin) min vs prévu"
+        } else {
+            return "\(deltaMin) min vs prévu"
+        }
     }
 
     var arrivalSummaryText: String {

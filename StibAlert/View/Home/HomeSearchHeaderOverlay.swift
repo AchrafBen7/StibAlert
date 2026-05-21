@@ -35,7 +35,7 @@ struct HomeSearchHeaderOverlay: View {
             }
 
             HStack(spacing: 10) {
-                HomeEditorialSearchField(query: $searchQuery, action: onOpenItineraryPlanner)
+                HomeEditorialSearchField(query: $searchQuery, onSubmit: onOpenItineraryPlanner)
 
                 Button(action: onShowLegend) {
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
@@ -101,28 +101,51 @@ struct HomeSearchHeaderOverlay: View {
 
 private struct HomeEditorialSearchField: View {
     @Binding var query: String
-    let action: () -> Void
+    /// Called when the user presses search/enter on the keyboard *after*
+    /// typing something. Hands off to the full route planner.
+    let onSubmit: () -> Void
+
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkSoft)
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.Color.inkSoft)
 
-                Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Où vas-tu ?" : query)
-                    .font(DS.Font.body)
-                    .foregroundStyle(query.isEmpty ? DS.Color.inkMute : DS.Color.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            TextField("Où vas-tu ?", text: $query)
+                .font(DS.Font.body)
+                .foregroundStyle(DS.Color.ink)
+                .focused($isFocused)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit {
+                    guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    isFocused = false
+                    onSubmit()
+                }
+
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Effacer la recherche")
             }
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 14)
         .frame(height: 48)
         .background(DS.Color.paper.opacity(0.96))
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                .stroke(
+                    isFocused ? DS.Color.ink.opacity(0.36) : DS.Color.ink.opacity(0.16),
+                    lineWidth: 1
+                )
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         .shadow(DS.Shadow.floating)

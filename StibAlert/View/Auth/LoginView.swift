@@ -8,8 +8,8 @@ enum AuthEditorialMode: String {
 
 struct LoginView: View {
     @EnvironmentObject private var session: AuthSession
-    @Environment(\.dismiss) private var dismiss
     let onGoToSignUp: () -> Void
+    var onClose: () -> Void = {}
 
     @State private var email = ""
     @State private var motDePasse = ""
@@ -24,7 +24,7 @@ struct LoginView: View {
     }
 
     var body: some View {
-        AuthEditorialScaffold(mode: .signin) {
+        AuthEditorialScaffold(mode: .signin, onClose: onClose) {
             hero
             modeSwitch
             socialSection
@@ -217,7 +217,7 @@ struct LoginView: View {
         HStack {
             Spacer()
             Button {
-                dismiss()
+                onClose()
             } label: {
                 Text("CONTINUER EN TANT QU’INVITÉ →")
                     .font(DS.Font.mono.weight(.bold))
@@ -232,24 +232,38 @@ struct LoginView: View {
 
 struct AuthEditorialScaffold<Content: View>: View {
     let mode: AuthEditorialMode
+    var onClose: () -> Void = {}
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                PageHeader(
-                    title: "",
-                    eyebrow: mode == .signin ? "BON RETOUR" : "BIENVENUE",
-                    large: false
-                )
+                // Close bar — replaces the old "BON RETOUR" / "BIENVENUE"
+                // eyebrow. Now that auth is a full-screen page (not a sheet
+                // with a drag handle) it needs an explicit dismiss control,
+                // plus real breathing room under the status bar.
+                HStack {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 40, height: 40)
+                            .background(DS.Color.paper)
+                            .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fermer")
+                    Spacer()
+                }
                 .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.top, 8)
 
                 VStack(alignment: .leading, spacing: 0) {
                     content()
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .padding(.top, 24)
                 .padding(.bottom, 40)
             }
         }
