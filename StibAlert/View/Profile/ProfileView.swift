@@ -25,6 +25,9 @@ struct ProfileView: View {
     @State private var workStopId: String?
     @State private var favoriteLinesSelection: Set<String> = []
     @State private var isSavingSettings = false
+    /// Number of community signalements the user has made — fetched from
+    /// /me/contributions. 0 for a fresh account.
+    @State private var signalementCount = 0
 
     var body: some View {
         ZStack {
@@ -51,6 +54,9 @@ struct ProfileView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task {
             syncFromSession()
+        }
+        .task(id: session.currentUser?.id) {
+            await loadContributionCount()
         }
         .onChange(of: session.currentUser?.id) { _, _ in
             syncFromSession()
@@ -292,10 +298,19 @@ struct ProfileView: View {
         return "•••• \(raw.suffix(4))"
     }
 
-    private var activeAlertCount: Int {
-        [pushNotificationsEnabled, weeklyDigestEnabled, preTripPushEnabled, communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled]
-            .filter { $0 }
-            .count
+    private func loadContributionCount() async {
+        guard AppConfig.isBackendEnabled, session.isSignedIn else {
+            signalementCount = 0
+            return
+        }
+        do {
+            let response = try await ContributionsService.mine()
+            signalementCount = response.summary.totalContributions
+        } catch {
+            // Network/decoding failure → leave at 0 rather than show a stale
+            // or misleading number.
+            signalementCount = 0
+        }
     }
 
     private var identityCard: some View {
@@ -345,7 +360,7 @@ struct ProfileView: View {
                 Divider().background(DS.Color.ink.opacity(0.15))
                 profileStatCell(icon: "tram.fill", label: "Lignes", value: "\(favoriteLinesSelection.count)")
                 Divider().background(DS.Color.ink.opacity(0.15))
-                profileStatCell(icon: "bell.fill", label: "Alertes", value: "\(activeAlertCount)")
+                profileStatCell(icon: "exclamationmark.bubble.fill", label: "Signalements", value: "\(signalementCount)")
             }
             .frame(height: 72)
         }
@@ -394,10 +409,13 @@ struct ProfileView: View {
                 .foregroundColor(DS.Color.ink)
             Text(label.uppercased())
                 .font(DS.Font.monoSmall.weight(.semibold))
-                .tracking(1.8)
+                .tracking(1.4)
                 .foregroundColor(DS.Color.inkMute)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 2)
     }
 
     private func profileRow(icon: String, label: String, value: String? = nil, action: (() -> Void)? = nil) -> some View {
