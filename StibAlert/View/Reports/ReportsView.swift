@@ -161,7 +161,8 @@ struct ReportsView: View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
         return events.filter { event in
-            let matchesLine = selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter)
+            let matchesLine = selectedLineFilter == "Tout"
+                || event.impactedLines.contains { Self.shortLineCode($0) == Self.shortLineCode(selectedLineFilter) }
             guard matchesLine else { return false }
             guard !trimmed.isEmpty else { return true }
 
@@ -217,7 +218,9 @@ struct ReportsView: View {
 
     private var eventFeedItems: [EditorialFeedItem] {
         let eventItems = events.compactMap { event -> EditorialFeedItem? in
-            guard selectedLineFilter == "Tout" || event.impactedLines.contains(selectedLineFilter) else { return nil }
+            guard selectedLineFilter == "Tout"
+                || event.impactedLines.contains(where: { Self.shortLineCode($0) == Self.shortLineCode(selectedLineFilter) })
+            else { return nil }
             return EditorialFeedItem(
                 id: "event-\(event.id)",
                 type: .event,
@@ -426,7 +429,17 @@ struct ReportsView: View {
     }
 
     private var visibleLineFilters: [String] {
-        Array(availableLineFilters.filter { $0 == "Tout" || matchesSelectedMode(lines: [$0]) }.prefix(40))
+        // The line-filter dock is only shown on the Events scope, so the
+        // useful chip set is "every line an event actually touches" — that way
+        // each chip yields results and the user sees all the lines events
+        // impact (instead of the first 40 catalog lines, which mostly have no
+        // event). Normalised to short codes + numeric-sorted.
+        let codes = events
+            .flatMap(\.impactedLines)
+            .map(Self.shortLineCode)
+            .filter { !$0.isEmpty }
+        let unique = Array(Set(codes)).sorted { $0.compare($1, options: .numeric) == .orderedAscending }
+        return ["Tout"] + unique
     }
 
     var body: some View {
@@ -1359,6 +1372,19 @@ struct ReportsView: View {
             sourceLabel: item.sourceLabel,
             tint: item.tint
         )
+    }
+
+    /// Normalised short line code — strips a ":City"/":Suburb" suffix and a
+    /// leading T/B/M mode prefix, uppercased, so an event's impactedLines
+    /// match the filter chips regardless of formatting ("T82", "82:City" → "82").
+    private static func shortLineCode(_ raw: String) -> String {
+        var token = raw
+        if let colon = token.range(of: ":") { token = String(token[..<colon.lowerBound]) }
+        token = token.trimmingCharacters(in: .whitespaces).uppercased()
+        if let first = token.first, "TBM".contains(first), token.dropFirst().allSatisfy(\.isNumber) {
+            token = String(token.dropFirst())
+        }
+        return token
     }
 
     private func sanitizedLines(_ lines: [String]) -> [String] {

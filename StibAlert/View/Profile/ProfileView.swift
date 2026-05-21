@@ -1085,8 +1085,8 @@ private struct NotificationSettingsView: View {
                     ProfileSettingsDivider()
                     NotificationToggleRow(
                         icon: "calendar.badge.clock",
-                        title: "Digest hebdo (email)",
-                        description: "Résumé éditorial chaque semaine",
+                        title: "Digest hebdo",
+                        description: "Récap push de tes lignes chaque semaine",
                         isOn: $weeklyDigestEnabled
                     )
                 }
