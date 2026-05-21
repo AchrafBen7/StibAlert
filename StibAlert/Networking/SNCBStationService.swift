@@ -9,6 +9,9 @@ struct SNCBStation: Decodable, Identifiable, Equatable {
     let lat: Double
     let lng: Double
     let standardname: String
+    /// Belgian province (precomputed offline from coordinates) — drives the
+    /// Horaires drill-down. Optional for forward-compatibility.
+    let province: String?
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: lat, longitude: lng)
@@ -17,6 +20,8 @@ struct SNCBStation: Decodable, Identifiable, Equatable {
     var displayName: String {
         standardname.isEmpty ? name : standardname
     }
+
+    var displayProvince: String { province ?? "Autre" }
 }
 
 struct SNCBStationDistance: Identifiable {
@@ -32,6 +37,30 @@ private struct SNCBStationsPayload: Decodable {
 
 enum SNCBStationService {
     static let allStations: [SNCBStation] = loadStations()
+
+    /// Display order for the Horaires province sections (north → south-ish).
+    private static let provinceOrder = [
+        "Bruxelles", "Brabant flamand", "Brabant wallon", "Anvers",
+        "Flandre-Orientale", "Flandre-Occidentale", "Limbourg",
+        "Hainaut", "Liège", "Namur", "Luxembourg",
+    ]
+
+    /// Gares grouped by province (ordered), each sorted alphabetically so
+    /// same-city gares (Bruxelles-Midi/Central/Nord…) cluster together.
+    static let stationsByProvince: [(province: String, stations: [SNCBStation])] = {
+        let grouped = Dictionary(grouping: allStations) { $0.displayProvince }
+        let ordered = grouped.keys.sorted { a, b in
+            let ia = provinceOrder.firstIndex(of: a) ?? Int.max
+            let ib = provinceOrder.firstIndex(of: b) ?? Int.max
+            return ia != ib ? ia < ib : a < b
+        }
+        return ordered.map { p in
+            (province: p,
+             stations: grouped[p]!.sorted {
+                 $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+             })
+        }
+    }()
 
     static func nearbyStations(
         around coordinate: CLLocationCoordinate2D?,

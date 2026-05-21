@@ -13,7 +13,7 @@ struct SchedulesView: View {
     @State private var loadError: String? = nil
     @State private var searchQuery: String = ""
     @State private var selectedOperator: TransitOperator = .stib
-    @State private var isBruxellesExpanded = true
+    @State private var expandedProvinces: Set<String> = []
     @StateObject private var locationManager = HomeLocationManager()
 
     var body: some View {
@@ -176,38 +176,40 @@ struct SchedulesView: View {
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 }
 
-                // Collapsible section listing every Belgian SNCB station.
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { isBruxellesExpanded.toggle() }
-                    } label: {
-                        collapsibleSectionHeader(
-                            icon: "train.side.front.car",
-                            title: "Toutes les gares",
-                            count: filteredSncbStations.count,
-                            expanded: isBruxellesExpanded
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    if isBruxellesExpanded {
-                        VStack(spacing: 0) {
-                            ForEach(filteredSncbStations) { station in
-                                sncbStationRow(
-                                    SNCBStationDistance(
-                                        station: station,
-                                        distanceMeters: distanceFromUser(to: station)
-                                    ),
-                                    proximityLabel: nil
-                                )
+                if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                    // Search → flat results across all of Belgium.
+                    let results = filteredSncbStations
+                    VStack(alignment: .leading, spacing: 10) {
+                        collapsibleSectionHeader(icon: "magnifyingglass", title: "Résultats", count: results.count, expanded: true)
+                        gareListContainer {
+                            ForEach(results) { station in
+                                sncbStationRow(SNCBStationDistance(station: station, distanceMeters: distanceFromUser(to: station)), proximityLabel: nil)
                             }
                         }
-                        .background(DS.Color.paper.opacity(0.95))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                    }
+                } else {
+                    // Province → gares drill-down.
+                    ForEach(SNCBStationService.stationsByProvince, id: \.province) { group in
+                        let isOpen = expandedProvinces.contains(group.province)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if isOpen { expandedProvinces.remove(group.province) }
+                                    else { expandedProvinces.insert(group.province) }
+                                }
+                            } label: {
+                                collapsibleSectionHeader(icon: "mappin.and.ellipse", title: group.province, count: group.stations.count, expanded: isOpen)
+                            }
+                            .buttonStyle(.plain)
+
+                            if isOpen {
+                                gareListContainer {
+                                    ForEach(group.stations) { station in
+                                        sncbStationRow(SNCBStationDistance(station: station, distanceMeters: distanceFromUser(to: station)), proximityLabel: nil)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -282,6 +284,16 @@ struct SchedulesView: View {
                 .rotationEffect(.degrees(expanded ? 0 : -90))
         }
         .contentShape(Rectangle())
+    }
+
+    private func gareListContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .background(DS.Color.paper.opacity(0.95))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     private func sncbStationRow(_ item: SNCBStationDistance, proximityLabel: String?) -> some View {
