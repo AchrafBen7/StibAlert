@@ -394,7 +394,25 @@ struct HomeView: View {
         }
     }
 
+    /// The user's saved favourite stops as map annotations.
+    private var favoriteMapStops: [TransportStopSummaryDTO] {
+        (session.currentUser?.favorisDetails ?? []).compactMap { fav in
+            guard let lat = fav.latitude, let lng = fav.longitude else { return nil }
+            return TransportStopSummaryDTO(
+                id: fav.id,
+                stopId: nil,
+                name: fav.nom,
+                latitude: lat,
+                longitude: lng,
+                lines: fav.lignesDesservies ?? []
+            )
+        }
+    }
+
     private var baseMapStops: [TransportStopSummaryDTO] {
+        // Favourites filter: show the user's saved stops regardless of zoom
+        // (few markers → no clutter). This is "montre-moi mes favoris".
+        if activeMapFilter == .favorites { return favoriteMapStops }
         guard cameraLatitudeDelta <= 0.07 else { return [] }
 
         let catalogStops = catalogMapStops.compactMap { stop -> TransportStopSummaryDTO? in
@@ -432,9 +450,9 @@ struct HomeView: View {
 
         switch activeMapFilter {
         case .favorites:
-            let favLines = Set(session.currentUser?.favoriteLines ?? [])
-            guard !favLines.isEmpty else { return merged }
-            return merged.filter { !$0.lines.filter { favLines.contains($0) }.isEmpty }
+            // Handled at the top of baseMapStops (favoriteMapStops); kept for
+            // switch exhaustiveness.
+            return favoriteMapStops
         case .perturbations:
             let affectedLines = Set(remoteSignalements.filter { $0.status != "resolved" }.map { $0.ligne })
             guard !affectedLines.isEmpty else { return merged }
@@ -515,7 +533,9 @@ struct HomeView: View {
 
     private var mapSncbStations: [SNCBStation] {
         guard !isFocusModeActive else { return [] }
-        guard cameraLatitudeDelta <= 0.16 else { return [] }
+        // Same zoom gate as STIB stops (mapStops) so gares only appear once
+        // you're zoomed in — otherwise the whole network crowds the map.
+        guard cameraLatitudeDelta <= 0.07 else { return [] }
         return SNCBStationService.mapStations(
             around: cameraCenterCoordinate,
             cameraLatitudeDelta: cameraLatitudeDelta
@@ -1569,7 +1589,9 @@ struct HomeView: View {
     }
 
     var favoriteLineCount: Int {
-        session.currentUser?.favoriteLines?.count ?? 0
+        // The FAVORIS chip reflects the user's saved STOPS (what the filter
+        // actually shows), not favourite lines — which were always 0 here.
+        session.currentUser?.favorisDetails?.count ?? 0
     }
 
     var favoriteAffectedCount: Int {
