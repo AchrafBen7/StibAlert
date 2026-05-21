@@ -176,14 +176,14 @@ struct SchedulesView: View {
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 }
 
-                // Collapsible "Bruxelles" section listing all 50 SNCB stations.
+                // Collapsible section listing every Belgian SNCB station.
                 VStack(alignment: .leading, spacing: 10) {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { isBruxellesExpanded.toggle() }
                     } label: {
                         collapsibleSectionHeader(
                             icon: "train.side.front.car",
-                            title: "Bruxelles",
+                            title: "Toutes les gares",
                             count: filteredSncbStations.count,
                             expanded: isBruxellesExpanded
                         )
