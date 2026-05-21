@@ -11,6 +11,7 @@ struct ReportsView: View {
     @State private var selectedSegment: ReportSegment = .all
     @State private var selectedModeFilter: ReportTransportMode = .all
     @State private var selectedOperator: TransitOperator = .stib
+    @State private var isSncbAllStationsExpanded = false
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
@@ -278,6 +279,187 @@ struct ReportsView: View {
     /// gap is exactly what made line 1 appear in the carousel sommaire but
     /// stay un-badged in the grid before. Synthetic incidents inherit the
     /// summary's source so they end up under "Officiel" too.
+    // MARK: - SNCB (stations, not numbered lines)
+
+    /// Active community reports on SNCB gares (ligne == "SNCB").
+    private var sncbActiveReports: [SignalementDTO] {
+        reports
+            .filter { $0.status != "resolved" && $0.ligne.uppercased() == "SNCB" }
+            .sorted { ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast) }
+    }
+
+    private func sncbGareName(_ report: SignalementDTO) -> String {
+        if case .populated(let arret) = report.arretId { return arret.nom }
+        return "Gare SNCB"
+    }
+
+    /// Hybrid SNCB view for Infos trafic: affected gares as cards first, then a
+    /// collapsible list of every station (SNCB has no numbered lines to grid).
+    @ViewBuilder
+    private var sncbInfoTraficContent: some View {
+        let active = sncbActiveReports
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+            VStack(alignment: .leading, spacing: 10) {
+                sncbSectionHeader(icon: "exclamationmark.triangle.fill", title: "Perturbations", count: active.count, tint: DS.Color.statusMajor)
+                if active.isEmpty {
+                    sncbAllClearCard
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(active) { sncbReportCard($0) }
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isSncbAllStationsExpanded.toggle() }
+                } label: {
+                    sncbCollapsibleHeader(title: "Toutes les gares", count: SNCBStationService.allStations.count, expanded: isSncbAllStationsExpanded)
+                }
+                .buttonStyle(.plain)
+
+                if isSncbAllStationsExpanded {
+                    VStack(spacing: 0) {
+                        ForEach(SNCBStationService.allStations) { sncbStationListRow($0) }
+                    }
+                    .background(DS.Color.paper.opacity(0.95))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func sncbSectionHeader(icon: String, title: String, count: Int, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.14))
+                .clipShape(Circle())
+            Text(title.uppercased())
+                .font(DS.Font.eyebrow).tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
+            Text("\(count)")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+    }
+
+    private func sncbCollapsibleHeader(title: String, count: Int, expanded: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "train.side.front.car")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color(hex: "#0055A4"))
+                .frame(width: 28, height: 28)
+                .background(Color(hex: "#0055A4").opacity(0.12))
+                .clipShape(Circle())
+            Text(title.uppercased())
+                .font(DS.Font.eyebrow).tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+            Spacer()
+            Text("\(count)")
+                .font(DS.Font.monoSmall.weight(.bold))
+                .foregroundStyle(DS.Color.inkMute)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+                .rotationEffect(.degrees(expanded ? 0 : -90))
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var sncbAllClearCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(DS.Color.statusOK)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Réseau SNCB OK")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                Text("Aucune perturbation signalée sur les gares.")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.statusOK.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Color.statusOK.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+    }
+
+    private func sncbReportCard(_ report: SignalementDTO) -> some View {
+        Button {
+            selectedReport = report
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(DS.Color.statusMajor))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(sncbGareName(report))
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    Text("\(report.displayTypeProbleme) · \(report.freshnessLabel)")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if let confirmations = report.community?.confirmations, confirmations > 0 {
+                    Text("\(confirmations)×")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.community)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sncbStationListRow(_ station: SNCBStation) -> some View {
+        HStack(spacing: 12) {
+            Image("operator-sncb")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 26, height: 20)
+                .frame(width: 40, height: 40)
+                .background(DS.Color.paper2.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text(station.displayName)
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(DS.Color.paper)
+        .overlay(Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1), alignment: .bottom)
+    }
+
     private var incidentsForLineGrid: [TransportIncidentDTO] {
         switch selectedScope {
         case .events:
@@ -476,7 +658,14 @@ struct ReportsView: View {
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.lg)
 
-                    if !lineCatalog.isEmpty && selectedScope != .events {
+                    if selectedOperator == .sncb {
+                        // SNCB has stations, not numbered lines — a line grid
+                        // makes no sense. Show affected gares first (cards),
+                        // then a collapsible list of every station.
+                        sncbInfoTraficContent
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
+                    } else if !lineCatalog.isEmpty && selectedScope != .events {
                         LineStatusGrid(
                             catalog: lineCatalog,
                             incidents: incidentsForLineGrid,
@@ -505,7 +694,7 @@ struct ReportsView: View {
                     // the same details under the Infos trafic sub-tab).
                     // Set to true on the Événements tab to keep the events
                     // feed visible (no grid equivalent yet).
-                    if selectedScope == .events {
+                    if selectedOperator != .sncb && selectedScope == .events {
                         Section(header: editorialStickySegments) {
                             editorialFeedSection
                         }
