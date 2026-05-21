@@ -78,6 +78,8 @@ struct HomeView: View {
     @State private var selectedEventImpact: TransportEventImpactDTO?
     @State private var showVilloStations = true
     @State private var showEventImpacts = true
+    @State private var showStibStops = true
+    @State private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
     @State private var problemFilter: ReportProblemType? = nil
@@ -413,6 +415,8 @@ struct HomeView: View {
         // Favourites filter: show the user's saved stops regardless of zoom
         // (few markers → no clutter). This is "montre-moi mes favoris".
         if activeMapFilter == .favorites { return favoriteMapStops }
+        // Legend layer toggle.
+        guard showStibStops else { return [] }
         guard cameraLatitudeDelta <= 0.07 else { return [] }
 
         let catalogStops = catalogMapStops.compactMap { stop -> TransportStopSummaryDTO? in
@@ -533,6 +537,7 @@ struct HomeView: View {
 
     private var mapSncbStations: [SNCBStation] {
         guard !isFocusModeActive else { return [] }
+        guard showSncbStations else { return [] }
         // Same zoom gate as STIB stops (mapStops) so gares only appear once
         // you're zoomed in — otherwise the whole network crowds the map.
         guard cameraLatitudeDelta <= 0.07 else { return [] }
@@ -1059,7 +1064,12 @@ struct HomeView: View {
 
     @ViewBuilder private var zstackOverlays: some View {
         if showLegend {
-            MapLegendOverlay {
+            MapLegendOverlay(
+                showStibStops: $showStibStops,
+                showSncbStations: $showSncbStations,
+                showVilloStations: $showVilloStations,
+                showEventImpacts: $showEventImpacts
+            ) {
                 withAnimation(transitionSpring) {
                     showLegend = false
                 }
