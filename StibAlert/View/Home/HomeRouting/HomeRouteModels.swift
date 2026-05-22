@@ -44,6 +44,10 @@ struct InlineRouteStepItem: Identifiable {
     let lineCode: String?
     let timingBadge: String?
     let timingDetail: String?
+    /// Minutes spent waiting at the next connection (gap between this leg's
+    /// arrival and the following leg's departure). Drives the "Attente X min"
+    /// connector so a long correspondence isn't silently hidden.
+    var waitAfterMinutes: Int? = nil
 }
 
 struct RouteItinerarySegment {

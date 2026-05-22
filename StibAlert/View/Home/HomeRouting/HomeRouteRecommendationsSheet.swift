@@ -290,10 +290,10 @@ private struct RouteOptionCard: View {
                         .foregroundStyle(DS.Color.paper)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 9) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(option.durationText)
-                            .font(.system(size: 24, weight: .black))
+                            .font(.system(size: 26, weight: .black))
                             .tracking(-0.8)
                             .foregroundStyle(DS.Color.ink)
                         if let timingSecondaryText = option.timingSecondaryText {
@@ -325,19 +325,17 @@ private struct RouteOptionCard: View {
                         .foregroundStyle(DS.Color.inkMute)
 
                     RouteLegFlowStrip(chips: option.legChips)
+                        .padding(.top, 2)
 
                     if let nextDeparture = option.nextDepartureInsight {
                         RouteNextDepartureLine(insight: nextDeparture)
                             .padding(.top, 2)
                     }
-
-                    RouteDurationStrip(segments: option.visualSegments)
-                        .padding(.top, 4)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, isExpandedCard ? 8 : 14)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, isExpandedCard ? 10 : 16)
         }
     }
 
@@ -602,7 +600,22 @@ private struct InlineRouteDetails: View {
                 }
                 .padding(.vertical, 8)
 
-                if index < option.inlineSteps.count - 1 {
+                if let wait = item.waitAfterMinutes {
+                    HStack(spacing: 8) {
+                        Image(systemName: "hourglass")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Color.statusMinor)
+                            .frame(width: 30)
+                        Text("Attente \(wait) min · correspondance")
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(DS.Color.statusMinor)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 6)
+                    .background(DS.Color.statusMinor.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                } else if index < option.inlineSteps.count - 1 {
                     Rectangle()
                         .fill(DS.Color.ink.opacity(0.12))
                         .frame(height: 1)

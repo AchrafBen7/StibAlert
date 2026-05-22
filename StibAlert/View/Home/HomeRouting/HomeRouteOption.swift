@@ -464,14 +464,16 @@ struct HomeRouteOption: Identifiable {
 
     var inlineSteps: [InlineRouteStepItem] {
         if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
-            return steps.sorted { $0.order < $1.order }.map { step in
+            let sorted = steps.sorted { $0.order < $1.order }
+            return sorted.enumerated().map { index, step in
                 InlineRouteStepItem(
                     icon: Self.inlineIcon(for: step),
                     title: Self.inlineTitle(for: step),
                     meta: Self.inlineMeta(for: step),
                     lineCode: step.line,
                     timingBadge: Self.inlineTimingBadge(for: step),
-                    timingDetail: Self.inlineTimingDetail(for: step)
+                    timingDetail: Self.inlineTimingDetail(for: step),
+                    waitAfterMinutes: Self.waitMinutes(after: step, next: index + 1 < sorted.count ? sorted[index + 1] : nil)
                 )
             }
         }
@@ -535,6 +537,17 @@ struct HomeRouteOption: Identifiable {
         if minutes <= 0 { return "Maintenant" }
         if minutes <= 90 { return waitText(minutes) }
         return "À \(timeFormatter.string(from: date))"
+    }
+
+    /// Wait at the connection after `step`: the gap between this leg's arrival
+    /// and the next leg's departure. Returns nil for short (<3 min) or unknown
+    /// gaps so we only surface meaningful waits.
+    private static func waitMinutes(after step: TransportRouteStepDTO, next: TransportRouteStepDTO?) -> Int? {
+        guard let next,
+              let arrival = step.realtimeArrivalAt ?? step.scheduledArrivalAt,
+              let departure = next.realtimeDepartureAt ?? next.scheduledDepartureAt else { return nil }
+        let minutes = Int((departure.timeIntervalSince(arrival) / 60).rounded())
+        return minutes >= 3 ? minutes : nil
     }
 
     private static func extractLineCode(from instruction: String) -> String? {

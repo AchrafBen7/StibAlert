@@ -2641,10 +2641,26 @@ struct HomeView: View {
         selectedRouteID = option.id
         enterInteractionMode(.routePreview)
 
-        let rect = option.mapRectWithPadding
         withAnimation(.easeOut(duration: 0.35)) {
-            mapPosition = .rect(rect)
+            mapPosition = .rect(routeFramingRect(for: option))
         }
+    }
+
+    /// Frame a route so it sits in the visible upper area of the map rather
+    /// than centred behind the results sheet (which covers the lower third).
+    /// We add light breathing room, then extend the rect downward so the route
+    /// content rises above the sheet — otherwise the user had to pan down to
+    /// "find" their trip.
+    private func routeFramingRect(for option: HomeRouteOption) -> MKMapRect {
+        let coords = option.routeCoordinates
+        let base: MKMapRect = coords.count > 1
+            ? MKPolyline(coordinates: coords, count: coords.count).boundingMapRect
+            : option.mapRectWithPadding
+        let padded = base.insetBy(dx: -base.width * 0.18, dy: -base.height * 0.18)
+        // Grow the bottom (south) so the route fits in roughly the top 60% of
+        // the viewport — clear of the collapsed recommendations sheet.
+        let extraBottom = padded.height * 0.7
+        return MKMapRect(x: padded.origin.x, y: padded.origin.y, width: padded.width, height: padded.height + extraBottom)
     }
 
     @ViewBuilder
