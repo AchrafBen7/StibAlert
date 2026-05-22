@@ -28,6 +28,8 @@ struct GareDetailPage: View {
     @State private var isLoadingSchedule = true
     @State private var signalements: [SignalementDTO] = []
     @State private var isLoadingReports = true
+    @State private var realtime: SNCBRealtime?
+    @State private var showNetworkDisruptions = false
     @State private var isRefreshing = false
     @State private var didInitDay = false
     @State private var selectedDeparture: SNCBDeparture?
@@ -339,11 +341,15 @@ struct GareDetailPage: View {
     private func scheduleRow(_ dep: SNCBDeparture) -> some View {
         let isNext = nextKey == key(for: dep)
         let isFav = favorites.contains(SNCBDepartureFavorites.key(stationId: station.id, day: selectedDay, departure: dep))
+        let rt = rtMatch(for: dep)
+        let canceled = rt?.canceled ?? false
+        let delay = rt?.delayMinutes ?? 0
         return Button { selectedDeparture = dep } label: {
             HStack(spacing: 12) {
                 Text(dep.time)
                     .font(DS.Font.monoLarge)
-                    .foregroundStyle(DS.Color.ink)
+                    .foregroundStyle(canceled ? DS.Color.inkMute : DS.Color.ink)
+                    .strikethrough(canceled, color: DS.Color.statusMajor)
                     .frame(width: 52, alignment: .leading)
 
                 if !dep.line.isEmpty {
@@ -363,12 +369,22 @@ struct GareDetailPage: View {
 
                 Spacer(minLength: 0)
 
+                if canceled {
+                    Text("SUPPRIMÉ")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .tracking(0.6)
+                        .foregroundStyle(DS.Color.statusMajor)
+                } else if delay > 0 {
+                    Text("+\(delay) min")
+                        .font(.system(size: 12, weight: .black, design: .rounded))
+                        .foregroundStyle(DS.Color.statusMinor)
+                }
                 if isFav {
                     Image(systemName: "star.fill")
                         .font(.system(size: 11, weight: .black))
                         .foregroundStyle(DS.Color.primary)
                 }
-                if isNext {
+                if isNext, !canceled, delay == 0 {
                     Text("PROCHAIN")
                         .font(.system(size: 9, weight: .black, design: .monospaced))
                         .tracking(0.8)
@@ -380,13 +396,20 @@ struct GareDetailPage: View {
             }
             .padding(.vertical, 11)
             .padding(.horizontal, 12)
-            .background(isNext ? DS.Color.statusOK.opacity(0.08) : DS.Color.paper)
+            .background(rowBackground(isNext: isNext, canceled: canceled, delayed: delay > 0))
             .overlay(alignment: .bottom) {
                 Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private func rowBackground(isNext: Bool, canceled: Bool, delayed: Bool) -> Color {
+        if canceled { return DS.Color.statusMajor.opacity(0.06) }
+        if delayed { return DS.Color.statusMinor.opacity(0.06) }
+        if isNext { return DS.Color.statusOK.opacity(0.08) }
+        return DS.Color.paper
     }
 
     // MARK: - Infos trafic tab
@@ -398,7 +421,7 @@ struct GareDetailPage: View {
 
         switch selectedTrafficSubtab {
         case .live:     communityList
-        case .official: officialPlaceholder
+        case .official: officialList
         case .social:   socialPlaceholder
         }
 
@@ -418,9 +441,7 @@ struct GareDetailPage: View {
                 Text(isOK ? "Trafic normal" : "Perturbations en cours")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                Text(isOK
-                     ? "Aucun signalement actif sur cette gare."
-                     : "\(signalements.count) info\(signalements.count > 1 ? "s" : "") · communauté")
+                Text(bannerSubtitle(isOK: isOK))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .lineLimit(2)
@@ -439,7 +460,7 @@ struct GareDetailPage: View {
     private var trafficSubtabSwitcher: some View {
         HStack(spacing: 4) {
             subtabChip(.live, label: "En cours", count: signalements.count)
-            subtabChip(.official, label: "Officiel", count: 0)
+            subtabChip(.official, label: "Officiel", count: officialCount)
             subtabChip(.social, label: "Twitter / X", count: 0)
         }
         .padding(4)
@@ -495,12 +516,184 @@ struct GareDetailPage: View {
         }
     }
 
-    private var officialPlaceholder: some View {
-        emptyStateCard(
-            icon: "checkmark.seal.fill",
-            title: "Pas d'info officielle SNCB",
-            detail: "Les perturbations officielles SNCB (retards, suppressions, travaux) arrivent bientôt."
+    @ViewBuilder
+    private var officialList: some View {
+        let trains = perturbedTrains
+        let gareDisr = gareDisruptions
+
+        if isLoadingSchedule && realtime == nil {
+            ProgressView().tint(DS.Color.ink).frame(maxWidth: .infinity).padding(.vertical, 24)
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                if trains.isEmpty && gareDisr.isEmpty {
+                    emptyStateCard(
+                        icon: "checkmark.seal.fill",
+                        title: "Aucune perturbation à cette gare",
+                        detail: "Pas de retard ni de suppression annoncés au départ de \(station.displayName)."
+                    )
+                }
+
+                if !trains.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionLabel("TRAINS PERTURBÉS", count: trains.count, tint: DS.Color.statusMajor)
+                        VStack(spacing: 8) {
+                            ForEach(trains) { perturbedTrainRow($0) }
+                        }
+                    }
+                }
+
+                if !gareDisr.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionLabel("PERTURBATIONS · \(station.displayName.uppercased())", count: gareDisr.count, tint: DS.Color.statusMinor)
+                        VStack(spacing: 8) {
+                            ForEach(gareDisr) { disruptionRow($0) }
+                        }
+                    }
+                }
+
+                networkDisruptionsDisclosure
+            }
+        }
+    }
+
+    /// Network-wide NMBS disturbances, collapsed by default so the gare view
+    /// stays focused on what affects *this* gare.
+    @ViewBuilder
+    private var networkDisruptionsDisclosure: some View {
+        let all = realtime?.disruptions ?? []
+        if !all.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showNetworkDisruptions.toggle() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.info)
+                        Text("RÉSEAU SNCB")
+                            .font(DS.Font.eyebrow).tracking(1.6)
+                            .foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text("\(all.count)")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundStyle(DS.Color.inkMute)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Color.inkMute)
+                            .rotationEffect(.degrees(showNetworkDisruptions ? 0 : -90))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if showNetworkDisruptions {
+                    VStack(spacing: 8) {
+                        ForEach(all) { disruptionRow($0) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func sectionLabel(_ title: String, count: Int, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(DS.Font.eyebrow).tracking(1.6)
+                .foregroundStyle(DS.Color.inkMute)
+                .lineLimit(1)
+            Spacer()
+            Text("\(count)")
+                .font(.system(size: 10, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .frame(height: 18)
+                .background(Capsule().fill(tint))
+        }
+    }
+
+    private func perturbedTrainRow(_ t: SNCBRTDeparture) -> some View {
+        HStack(spacing: 12) {
+            Text(t.time)
+                .font(DS.Font.monoLarge)
+                .foregroundStyle(t.canceled ? DS.Color.inkMute : DS.Color.ink)
+                .strikethrough(t.canceled, color: DS.Color.statusMajor)
+                .frame(width: 52, alignment: .leading)
+            if !t.line.isEmpty {
+                Text(t.line)
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .frame(height: 20)
+                    .background(Color(hex: "#0055A4"))
+                    .clipShape(Capsule())
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(t.destination)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                if let platform = t.platform, !platform.isEmpty {
+                    Text("Voie \(platform)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+            Spacer(minLength: 0)
+            if t.canceled {
+                Text("SUPPRIMÉ")
+                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .foregroundStyle(DS.Color.statusMajor)
+            } else {
+                Text("+\(t.delayMinutes) min")
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundStyle(DS.Color.statusMinor)
+            }
+        }
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .stroke((t.canceled ? DS.Color.statusMajor : DS.Color.statusMinor).opacity(0.3), lineWidth: 1)
         )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+    }
+
+    private func disruptionRow(_ d: SNCBDisruption) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: d.type == "planned" ? "wrench.and.screwdriver.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Color.statusMinor)
+                .frame(width: 28, height: 28)
+                .background(DS.Color.statusMinor.opacity(0.14))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(d.title.isEmpty ? "Perturbation SNCB" : d.title)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(2)
+                if !d.description.isEmpty {
+                    Text(d.description)
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(4)
+                }
+                if let link = d.link, let url = URL(string: link) {
+                    Link(destination: url) {
+                        Text("Plus d'infos")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Color.info)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }
 
     private var socialPlaceholder: some View {
@@ -593,7 +786,54 @@ struct GareDetailPage: View {
 
     // MARK: - Derived data
 
-    private var hasActiveTrafficIssue: Bool { !signalements.isEmpty }
+    private var hasActiveTrafficIssue: Bool { !signalements.isEmpty || officialCount > 0 }
+
+    private func bannerSubtitle(isOK: Bool) -> String {
+        if isOK { return "Aucune perturbation à cette gare." }
+        var parts: [String] = []
+        if !signalements.isEmpty { parts.append("communauté") }
+        if officialCount > 0 { parts.append("SNCB") }
+        let total = signalements.count + officialCount
+        return "\(total) info\(total > 1 ? "s" : "") · \(parts.joined(separator: " + "))"
+    }
+
+    // MARK: Real-time (iRail)
+
+    private var officialCount: Int { perturbedTrains.count + gareDisruptions.count }
+
+    /// Delayed / cancelled trains at this gare, upcoming only.
+    private var perturbedTrains: [SNCBRTDeparture] {
+        let now = brusselsNowMinutes
+        return (realtime?.departures ?? [])
+            .filter { ($0.canceled || $0.delayMinutes > 0) && $0.scheduledMinutes >= now - 5 }
+            .sorted { $0.scheduledMinutes < $1.scheduledMinutes }
+    }
+
+    /// Network disturbances whose text names this gare — the gare-relevant slice
+    /// of the (network-wide) official perturbation list.
+    private var gareDisruptions: [SNCBDisruption] {
+        let key = station.displayName.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+        guard key.count >= 3 else { return [] }
+        return (realtime?.disruptions ?? []).filter { d in
+            let hay = (d.title + " " + d.description).folding(options: .diacriticInsensitive, locale: .current).lowercased()
+            return hay.contains(key)
+        }
+    }
+
+    private var rtByMinute: [Int: [SNCBRTDeparture]] {
+        Dictionary(grouping: realtime?.departures ?? [], by: { $0.scheduledMinutes })
+    }
+
+    /// Join a theoretical departure to its live counterpart by scheduled minute,
+    /// disambiguating by destination then line when several share a slot.
+    private func rtMatch(for dep: SNCBDeparture) -> SNCBRTDeparture? {
+        let candidates = rtByMinute[dep.minutes] ?? []
+        if candidates.isEmpty { return nil }
+        if candidates.count == 1 { return candidates[0] }
+        let destKey = dep.destination.normalizedStopKey
+        return candidates.first { $0.destination.normalizedStopKey == destKey }
+            ?? candidates.first { $0.line.caseInsensitiveCompare(dep.line) == .orderedSame }
+    }
 
     private var isViewingToday: Bool { schedule?.todayType == selectedDay }
 
@@ -649,6 +889,7 @@ struct GareDetailPage: View {
     private func load() async {
         async let schedTask = SNCBStationService.fullSchedule(stationId: station.id)
         async let repsTask = SignalementService.liste()
+        async let rtTask = SNCBStationService.realtime(stationId: station.id)
 
         let sched = await schedTask
         if let sched, !didInitDay {
@@ -658,6 +899,7 @@ struct GareDetailPage: View {
         schedule = sched
         isLoadingSchedule = false
 
+        realtime = await rtTask
         applyReports((try? await repsTask) ?? [])
         isLoadingReports = false
     }
@@ -669,7 +911,9 @@ struct GareDetailPage: View {
         defer { isRefreshing = false }
         async let schedTask = SNCBStationService.fullSchedule(stationId: station.id)
         async let repsTask = SignalementService.liste()
+        async let rtTask = SNCBStationService.realtime(stationId: station.id)
         if let sched = await schedTask { schedule = sched }
+        realtime = await rtTask
         applyReports((try? await repsTask) ?? [])
     }
 

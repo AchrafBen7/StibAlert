@@ -91,6 +91,36 @@ struct SNCBSchedule: Decodable {
     var todayType: SNCBDayType { SNCBDayType(rawValue: today) ?? .weekday }
 }
 
+/// A live (iRail) departure for a gare: the scheduled slot plus its real-time
+/// delay / cancellation, used both to populate the Officiel tab and to annotate
+/// the theoretical timetable.
+struct SNCBRTDeparture: Decodable, Identifiable {
+    let scheduledMinutes: Int
+    let time: String
+    let destination: String
+    let line: String
+    let delayMinutes: Int
+    let canceled: Bool
+    let platform: String?
+    var id: String { "\(scheduledMinutes)-\(destination)-\(line)" }
+}
+
+/// An official NMBS disturbance (network-wide), from iRail.
+struct SNCBDisruption: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let description: String
+    let type: String?
+    let link: String?
+}
+
+struct SNCBRealtime: Decodable {
+    let stationId: String
+    let fetchedAt: String?
+    let departures: [SNCBRTDeparture]
+    let disruptions: [SNCBDisruption]
+}
+
 enum SNCBStationService {
     static let allStations: [SNCBStation] = loadStations()
 
@@ -199,6 +229,21 @@ enum SNCBStationService {
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             return try JSONDecoder().decode(SNCBSchedule.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Live SNCB data for a gare (iRail, via the backend): real-time departures
+    /// with delays/cancellations + official NMBS disturbances. Backend-cached,
+    /// fetched on demand. Returns nil on any failure.
+    static func realtime(stationId: String) async -> SNCBRealtime? {
+        guard AppConfig.isBackendEnabled else { return nil }
+        let encoded = stationId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? stationId
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/sncb/realtime?stationId=\(encoded)") else { return nil }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return try JSONDecoder().decode(SNCBRealtime.self, from: data)
         } catch {
             return nil
         }
