@@ -97,8 +97,16 @@ struct HomeView: View {
     @State private var isFollowingUser = true
     @State private var suppressNextCameraInteraction = false
     @State private var cameraCenterCoordinate = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
+    @State private var cameraLongitudeDelta: Double = 0.04
     @State private var catalogMapStops: [NearbyStop] = []
     @State private var mapStopsTask: Task<Void, Never>? = nil
+    // De Lijn / TEC stops are fetched by viewport (≈30k each — too many to bundle).
+    @State private var operatorMapStops: [OperatorMapStop] = []
+    @State private var operatorStopsTask: Task<Void, Never>? = nil
+    @State private var lastOperatorStopsCoordinate: CLLocationCoordinate2D? = nil
+    @State private var selectedOperatorStop: OperatorMapStop? = nil
+    @State private var showDelijnStops = true
+    @State private var showTecStops = true
     @State private var interactionMode: InteractionMode = .map
 
     @State private var activeClusters: [ClusterDTO] = []
@@ -569,6 +577,16 @@ struct HomeView: View {
         return (favorites + zoomed).filter { seen.insert($0.id).inserted }
     }
 
+    /// De Lijn / TEC stops to render — viewport-fetched and gated to a *deeper*
+    /// zoom than STIB/SNCB (these networks have ~30k stops each, so they only
+    /// appear once the user is really zoomed in).
+    private var mapOperatorStops: [OperatorMapStop] {
+        guard !isFocusModeActive, cameraLatitudeDelta <= 0.018 else { return [] }
+        return operatorMapStops.filter {
+            ($0.op == .delijn && showDelijnStops) || ($0.op == .tec && showTecStops)
+        }
+    }
+
     private var mapEventImpacts: [TransportEventImpactDTO] {
         guard !isFocusModeActive else { return [] }
         guard showEventImpacts, cameraLatitudeDelta <= 0.14 else { return [] }
@@ -743,6 +761,12 @@ struct HomeView: View {
             )
             .presentationDetents([.height(280), .medium])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedOperatorStop) { stop in
+            HomeOperatorStopSheet(stop: stop, onReport: {
+                selectedOperatorStop = nil
+                nav.showReportSheet = true
+            })
         }
         // VehicleDetailSheet is rendered as an overlay (vehicleDetailOverlay)
         // — see HomeViewOverlays. We avoid SwiftUI's .sheet() here because
@@ -927,6 +951,7 @@ struct HomeView: View {
             selectedMapStopSummary: selectedMapStopSummary,
             mapSncbStations: mapSncbStations,
             selectedSncbStation: selectedSncbStation,
+            mapOperatorStops: mapOperatorStops,
             mapVilloStations: mapVilloStations,
             mapEventImpacts: mapEventImpacts,
             onOpenPreview: openPreview(for:),
@@ -941,6 +966,9 @@ struct HomeView: View {
             },
             onSelectSncbStation: { station in
                 selectedSncbStation = station
+            },
+            onSelectOperatorStop: { stop in
+                selectedOperatorStop = stop
             },
             onSelectVilloStation: { station in
                 selectedVilloStation = station
@@ -964,8 +992,10 @@ struct HomeView: View {
                 if abs(newDelta - cameraLatitudeDelta) > 0.005 {
                     cameraLatitudeDelta = newDelta
                 }
+                cameraLongitudeDelta = region.span.longitudeDelta
                 cameraCenterCoordinate = region.center
                 handleMapCameraInteraction()
+                scheduleOperatorStopsRefresh()
             }
         )
     }
@@ -2128,6 +2158,51 @@ struct HomeView: View {
         } catch {
             ErrorReporting.capture(error, tag: "home.nearbyStops")
         }
+    }
+
+    /// Debounced viewport fetch for De Lijn / TEC stops — only fires when the
+    /// user is zoomed in past the operator gate, and skips if the camera hasn't
+    /// moved much since the last fetch.
+    private func scheduleOperatorStopsRefresh() {
+        guard cameraLatitudeDelta <= 0.018, showDelijnStops || showTecStops else {
+            operatorStopsTask?.cancel()
+            operatorMapStops = []
+            lastOperatorStopsCoordinate = nil
+            return
+        }
+        if let last = lastOperatorStopsCoordinate,
+           centerDistanceMeters(from: last, to: cameraCenterCoordinate) < 300,
+           !operatorMapStops.isEmpty {
+            return
+        }
+        operatorStopsTask?.cancel()
+        operatorStopsTask = Task {
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            guard !Task.isCancelled else { return }
+            await refreshOperatorStops()
+        }
+    }
+
+    @MainActor
+    private func refreshOperatorStops() async {
+        guard cameraLatitudeDelta <= 0.018 else { operatorMapStops = []; return }
+        let latSpan = max(cameraLatitudeDelta, 0.001)
+        let lngSpan = max(cameraLongitudeDelta, 0.001)
+        let minLat = cameraCenterCoordinate.latitude - latSpan / 2
+        let maxLat = cameraCenterCoordinate.latitude + latSpan / 2
+        let minLng = cameraCenterCoordinate.longitude - lngSpan / 2
+        let maxLng = cameraCenterCoordinate.longitude + lngSpan / 2
+
+        var combined: [OperatorMapStop] = []
+        if showDelijnStops {
+            combined += await OperatorStopService.stops(operator: .delijn, minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng, limit: 200)
+        }
+        if showTecStops {
+            combined += await OperatorStopService.stops(operator: .tec, minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng, limit: 200)
+        }
+        guard !Task.isCancelled else { return }
+        operatorMapStops = combined
+        lastOperatorStopsCoordinate = cameraCenterCoordinate
     }
 
     private func centerDistanceMeters(from lhs: CLLocationCoordinate2D, to rhs: CLLocationCoordinate2D) -> Double {

@@ -44,6 +44,21 @@ enum TransitOperator: String, CaseIterable, Identifiable {
         case .tec: return "TEC"
         }
     }
+
+    /// Brand colour used for map markers + accents.
+    var brandColor: Color {
+        switch self {
+        case .stib:   return Color(hex: "#003F87")
+        case .delijn: return Color(hex: "#FFB612")
+        case .sncb:   return Color(hex: "#0055A4")
+        case .tec:    return Color(hex: "#E2001A")
+        }
+    }
+
+    /// Readable foreground over `brandColor`.
+    var brandTextColor: Color {
+        self == .delijn ? .black : .white
+    }
 }
 
 /// Reusable row of Belgian transit operator logos. STIB and SNCB are wired

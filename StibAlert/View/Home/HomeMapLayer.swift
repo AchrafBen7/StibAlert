@@ -24,6 +24,7 @@ struct HomeMapLayer: View {
     let selectedMapStopSummary: TransportStopSummaryDTO?
     let mapSncbStations: [SNCBStation]
     let selectedSncbStation: SNCBStation?
+    let mapOperatorStops: [OperatorMapStop]
     let mapVilloStations: [VilloStation]
     let mapEventImpacts: [TransportEventImpactDTO]
     let onOpenPreview: (String) -> Void
@@ -31,6 +32,7 @@ struct HomeMapLayer: View {
     let onSelectCluster: (ClusterDTO) -> Void
     let onSelectClusterCount: (CLLocationCoordinate2D) -> Void
     let onSelectSncbStation: (SNCBStation) -> Void
+    let onSelectOperatorStop: (OperatorMapStop) -> Void
     let onSelectVilloStation: (VilloStation) -> Void
     let onSelectEventImpact: (TransportEventImpactDTO) -> Void
     let onSelectVehicle: (TransportVehicleDTO) -> Void
@@ -45,6 +47,7 @@ struct HomeMapLayer: View {
             communityClusterAnnotations
             stopAnnotations
             sncbStationAnnotations
+            operatorStopAnnotations
             villoAnnotations
             eventAnnotations
             // Vehicles render LAST so their pins sit on top of every other
@@ -395,6 +398,20 @@ struct HomeMapLayer: View {
                         warningStyle: stationWarningStyle(for: station),
                         isFavorite: favoriteGareIds.contains(station.id)
                     )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @MapContentBuilder
+    private var operatorStopAnnotations: some MapContent {
+        ForEach(mapOperatorStops) { stop in
+            Annotation("", coordinate: stop.coordinate, anchor: .bottom) {
+                Button {
+                    onSelectOperatorStop(stop)
+                } label: {
+                    OperatorStopMarker(stop: stop)
                 }
                 .buttonStyle(.plain)
             }

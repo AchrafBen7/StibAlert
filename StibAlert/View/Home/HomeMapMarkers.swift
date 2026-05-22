@@ -347,6 +347,40 @@ struct SNCBStationMarker: View {
     }
 }
 
+/// Compact marker for a De Lijn / TEC stop — operator-coloured dot + small
+/// name pill. Only shown when deeply zoomed in (these networks have ~30k stops
+/// each, fetched by viewport).
+struct OperatorStopMarker: View {
+    let stop: OperatorMapStop
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(stop.name)
+                .font(.system(size: 8.5, weight: .bold))
+                .lineLimit(1)
+                .foregroundStyle(DS.Color.ink)
+                .padding(.horizontal, 5)
+                .frame(height: 16)
+                .background(Capsule().fill(DS.Color.paper.opacity(0.96)))
+                .overlay(Capsule().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
+                .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
+
+            ZStack {
+                Circle()
+                    .fill(stop.op.brandColor)
+                    .frame(width: 14, height: 14)
+                    .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 6, weight: .black))
+                    .foregroundStyle(stop.op.brandTextColor)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("\(stop.op.mapLabel) — \(stop.name)")
+    }
+}
+
 struct VilloMapMarker: View {
     let station: VilloStation
 
