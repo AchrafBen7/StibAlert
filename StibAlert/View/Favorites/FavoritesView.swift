@@ -6,6 +6,9 @@ struct FavoritesView: View {
     @EnvironmentObject private var session: AuthSession
     @State private var selectedFilter: FavoriteTransportFilter = .all
     @State private var query = ""
+    @State private var selectedOperator: TransitOperator = .stib
+    @State private var selectedGareForDetail: SNCBStation?
+    @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
     @State private var selectedItem: FavoriteTransitItem?
     @State private var remoteItems: [FavoriteTransitItem] = []
     @State private var isLoadingRemote = false
@@ -78,37 +81,28 @@ struct FavoritesView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 0) {
                             header
-                            searchRow
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
+                            TransitOperatorRow(
+                                activeOperator: selectedOperator,
+                                enabledOperators: [.stib, .sncb],
+                                onSelect: { selectedOperator = $0 }
+                            )
+                            .padding(.horizontal, 20)
+                            .padding(.top, 14)
 
-                            filtersRow
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
-
-                            if (isLoadingRemote || !hasLoadedFavorites) && displayItems.isEmpty {
-                                // Show skeleton while the first load is in
-                                // flight, otherwise the empty state flashes
-                                // before the data arrives and the user
-                                // wrongly thinks they have no favorites.
-                                SkeletonList(count: 4, style: .card)
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 20)
-                            } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
-                                favoritesEmptyState
-                            } else if filteredItems.isEmpty {
-                                searchEmptyState
+                            if selectedOperator == .sncb {
+                                sncbFavoritesContent
                             } else {
-                                VStack(alignment: .leading, spacing: 28) {
-                                    pinnedStopsSection
-                                    followedLinesSection
-                                    smartBriefsSection
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.top, 20)
-                                .padding(.bottom, 96)
+                                stibFavoritesContent
                             }
                         }
+                    }
+                    .fullScreenCover(item: $selectedGareForDetail) { gare in
+                        GareDetailPage(station: gare, initialTab: .schedule, onReport: { _ in
+                            selectedGareForDetail = nil
+                            nav.showReportSheet = true
+                        })
+                        .environmentObject(session)
+                        .environmentObject(nav)
                     }
                 }
             }
@@ -133,6 +127,121 @@ struct FavoritesView: View {
                 .environmentObject(session)
             }
         } // end else (guest check)
+    }
+
+    @ViewBuilder
+    private var stibFavoritesContent: some View {
+        searchRow
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+        filtersRow
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+        if (isLoadingRemote || !hasLoadedFavorites) && displayItems.isEmpty {
+            SkeletonList(count: 4, style: .card)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+        } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
+            favoritesEmptyState
+        } else if filteredItems.isEmpty {
+            searchEmptyState
+        } else {
+            VStack(alignment: .leading, spacing: 28) {
+                pinnedStopsSection
+                followedLinesSection
+                smartBriefsSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 96)
+        }
+    }
+
+    private var favoriteGares: [SNCBStation] {
+        gareFavorites.stations.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
+    }
+
+    @ViewBuilder
+    private var sncbFavoritesContent: some View {
+        if favoriteGares.isEmpty {
+            sncbFavoritesEmptyState
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                FavoriteSectionHeading(text: "GARES ÉPINGLÉES", systemImage: "star.fill")
+                VStack(spacing: 0) {
+                    ForEach(favoriteGares) { sncbGareRow($0) }
+                }
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 96)
+        }
+    }
+
+    private func sncbGareRow(_ station: SNCBStation) -> some View {
+        Button { selectedGareForDetail = station } label: {
+            HStack(spacing: 12) {
+                Image("operator-sncb")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .background(DS.Color.paper2.opacity(0.65))
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(station.displayName)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    Text("\(station.displayProvince) · Gare SNCB")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .background(DS.Color.paper)
+            .overlay(Rectangle().fill(DS.Color.ink.opacity(0.10)).frame(height: 1), alignment: .bottom)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var sncbFavoritesEmptyState: some View {
+        VStack(spacing: 10) {
+            Spacer().frame(height: 50)
+            Image(systemName: "star")
+                .font(.system(size: 26))
+                .foregroundStyle(DS.Color.inkMute)
+            Text("Aucune gare en favori")
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+            Text("Ouvrez une gare (Horaires ou Infos trafic) et appuyez sur ★ pour l'épingler ici.")
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkMute)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+        .padding(.bottom, 96)
     }
 
     private var header: some View {
@@ -401,7 +510,7 @@ struct FavoritesView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text("Affluence \(item.crowding)")
+                    Text(item.activityLabel)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(DS.Color.inkMute)
                     Spacer()
@@ -897,7 +1006,7 @@ private struct FavoriteStopDetailView: View {
             HStack(spacing: 12) {
                 detailStat(label: "Prochain", value: item.nextPassage)
                 Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
-                detailStat(label: "Affluence", value: item.crowding)
+                detailStat(label: "État", value: item.problemLabel)
                 Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
                 detailStat(label: "Signalements", value: "\(item.reportCount)")
             }
@@ -1198,7 +1307,7 @@ private struct FavoriteTransitCard: View {
                     .foregroundStyle(.black)
                     .rotationEffect(.degrees(180))
 
-                Text("Affluence: \(item.crowding)")
+                Text(item.activityLabel)
                     .font(.custom("Montserrat-Regular", size: 12))
                     .foregroundStyle(.black.opacity(0.82))
             }
@@ -1669,10 +1778,17 @@ private struct FavoriteTransitItem: Identifiable {
     var lastProblemType: String? = nil
     var lastConfidence: String? = nil
 
+    /// Honest, real-data label: how many community reports are active on the
+    /// stop. Replaces the old "Affluence/Drukte" line, which was just this
+    /// count relabelled as crowding (a metric STIB doesn't actually publish).
+    var activityLabel: String {
+        reportCount == 0 ? "Aucun signalement" : "\(reportCount) signalement\(reportCount > 1 ? "s" : "")"
+    }
+
     var cockpitHeadline: String {
         switch severity {
         case .normal:
-            return reportCount == 0 ? "Traffic fluide" : "1 signalement léger"
+            return reportCount == 0 ? "Trafic fluide" : "1 signalement léger"
         case .warning:
             if let type = lastProblemType {
                 return "\(type) en cours"
