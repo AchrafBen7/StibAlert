@@ -256,10 +256,28 @@ struct HomeRouteOption: Identifiable {
         realtimeDepartureTimeText ?? scheduledDepartureTimeText ?? Self.timeFormatter.string(from: Date())
     }
 
+    /// True end-of-journey time. `realtimeArrivalAt` only reflects the
+    /// realtime-tracked legs, so on a trip ending with a scheduled-only leg it
+    /// can report an *intermediate* time (e.g. the first tram's arrival),
+    /// which made the card show an arrival earlier than the last leg and a
+    /// bogus "−25 min vs prévu". You can't arrive before the final scheduled
+    /// leg completes, so take the later of the two.
+    var effectiveArrivalDate: Date? {
+        let realtime = backendAlternative?.realtimeArrivalAt
+        let scheduled = backendAlternative?.scheduledArrivalAt
+        switch (realtime, scheduled) {
+        case let (r?, s?): return max(r, s)
+        case let (r?, nil): return r
+        case let (nil, s?): return s
+        default: return nil
+        }
+    }
+
     var arrivalTimeText: String {
-        realtimeArrivalTimeText
-            ?? scheduledArrivalTimeText
-            ?? Self.timeFormatter.string(from: Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60)))
+        if let date = effectiveArrivalDate {
+            return Self.timeFormatter.string(from: date)
+        }
+        return Self.timeFormatter.string(from: Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60)))
     }
 
     var scheduledDepartureTimeText: String? {
@@ -288,29 +306,19 @@ struct HomeRouteOption: Identifiable {
     /// the same trip. The realtime arrival time is the one that matters; the
     /// scheduled value is reduced to a tiny delay note below when it differs.
     var timingHeadlineText: String {
-        if let realtimeArrivalTimeText {
-            return "Arrivée \(realtimeArrivalTimeText)"
-        }
-        if let scheduledArrivalTimeText {
-            return "Arrivée vers \(scheduledArrivalTimeText)"
-        }
-        return "Arrivée \(arrivalTimeText)"
+        "Arrivée \(arrivalTimeText)"
     }
 
-    /// Short delay note, only when realtime is meaningfully later than the
-    /// scheduled time. We compute it in minutes so the user sees "+ 3 min
-    /// par rapport à l'horaire" instead of two separate clocks.
+    /// Short delay note — only when the trip is genuinely *late* vs the
+    /// schedule. We no longer show "early" deltas: a realtime arrival earlier
+    /// than the scheduled one is almost always an intermediate-leg artifact,
+    /// not a real time saving, and showing "−25 min vs prévu" was misleading.
     var timingSecondaryText: String? {
-        guard hasRealtimeTimingDelta,
-              let realtime = backendAlternative?.realtimeArrivalAt,
+        guard let realtime = backendAlternative?.realtimeArrivalAt,
               let scheduled = backendAlternative?.scheduledArrivalAt else { return nil }
         let deltaMin = Int(realtime.timeIntervalSince(scheduled) / 60.0)
-        guard abs(deltaMin) >= 1 else { return nil }
-        if deltaMin > 0 {
-            return "+ \(deltaMin) min vs prévu"
-        } else {
-            return "\(deltaMin) min vs prévu"
-        }
+        guard deltaMin >= 1 else { return nil }
+        return "+ \(deltaMin) min vs prévu"
     }
 
     var arrivalSummaryText: String {

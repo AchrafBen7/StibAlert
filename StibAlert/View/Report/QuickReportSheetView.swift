@@ -2,6 +2,17 @@ import SwiftUI
 import CoreLocation
 import UIKit
 
+/// A selectable train at a gare for the SNCB report flow — sourced from live
+/// (iRail) departures when available, else the static schedule.
+struct SNCBTrainOption: Identifiable, Equatable {
+    let id: String
+    let line: String
+    let destination: String
+    let time: String
+    let delayMinutes: Int
+    let canceled: Bool
+}
+
 struct QuickReportSheetView: View {
     @Binding var isShowing: Bool
     let userLatitude: Double?
@@ -26,6 +37,9 @@ struct QuickReportSheetView: View {
     @State private var isStopPickerExpanded = false
     @State private var stopSearchQuery = ""
     @State private var selectedOperator: TransitOperator = .stib
+    @State private var sncbTrainOptions: [SNCBTrainOption] = []
+    @State private var selectedSncbTrain: SNCBTrainOption? = nil
+    @State private var isLoadingSncbTrains = false
     @FocusState private var focusedField: FocusedField?
 
     private enum FocusedField { case description }
@@ -104,6 +118,9 @@ struct QuickReportSheetView: View {
             resetTargetSelection()
             bootstrap()
         }
+        .onChange(of: selectedStop?.id) { _, _ in
+            Task { await loadSncbTrains() }
+        }
         .sheet(item: $createdSignalement) { signalement in
             ReportSharePromptSheet(signalement: signalement) {
                 createdSignalement = nil
@@ -127,7 +144,9 @@ struct QuickReportSheetView: View {
                         operatorSelectorSection
                         stopSection
                         if !isStopPickerExpanded {
-                            if let stop = selectedStop, !stop.issueLines.isEmpty {
+                            if selectedOperator == .sncb, selectedStop != nil {
+                                sncbTrainSection
+                            } else if let stop = selectedStop, !stop.issueLines.isEmpty {
                                 lineChipsSection(stop)
                             }
                             if !matchingActiveSignalements.isEmpty {
@@ -525,6 +544,100 @@ struct QuickReportSheetView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - SNCB train picker
+
+    /// SNCB has no numbered lines like the STIB — so "Ligne concernée" becomes
+    /// "Train concerné": the user picks the specific departure (e.g. the 16:26
+    /// to Nivelles) from this gare. Optional — "Toute la gare" reports the gare
+    /// in general. The chosen train is folded into the report description; the
+    /// report's `ligne` stays "SNCB" so it keeps showing under the SNCB filter.
+    private var sncbTrainSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle(icon: "train.side.front.car", text: "Train concerné")
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    allGareChip
+                    if isLoadingSncbTrains && sncbTrainOptions.isEmpty {
+                        ProgressView().tint(DS.Color.ink).padding(.horizontal, 8)
+                    }
+                    ForEach(sncbTrainOptions) { trainChip($0) }
+                }
+                .padding(.horizontal, 18)
+            }
+        }
+    }
+
+    private var allGareChip: some View {
+        let isSelected = selectedSncbTrain == nil
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selectedSncbTrain = nil
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "building.columns.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text("TOUTE LA GARE")
+                    .font(.system(size: 10.5, weight: .bold))
+            }
+            .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(isSelected ? DS.Color.ink : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func trainChip(_ train: SNCBTrainOption) -> some View {
+        let isSelected = selectedSncbTrain?.id == train.id
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selectedSncbTrain = isSelected ? nil : train
+        } label: {
+            HStack(spacing: 8) {
+                Text(train.time)
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
+                if !train.line.isEmpty {
+                    Text(train.line)
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .frame(height: 18)
+                        .background(Color(hex: "#0055A4"))
+                        .clipShape(Capsule())
+                }
+                Text("→ \(train.destination)")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
+                    .lineLimit(1)
+                if train.canceled {
+                    Text("SUPPR.")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(DS.Color.statusMajor)
+                } else if train.delayMinutes > 0 {
+                    Text("+\(train.delayMinutes)")
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundStyle(DS.Color.statusMinor)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(isSelected ? DS.Color.ink : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Type grid
 
     private var typeSection: some View {
@@ -852,6 +965,42 @@ struct QuickReportSheetView: View {
         submitError = nil
         isStopPickerExpanded = false
         stopSearchQuery = ""
+        sncbTrainOptions = []
+        selectedSncbTrain = nil
+    }
+
+    /// Loads the selected gare's upcoming trains for the SNCB "Train concerné"
+    /// picker — live (iRail) first so the user sees real times/delays, falling
+    /// back to the static next departures. No-op for non-SNCB.
+    @MainActor
+    private func loadSncbTrains() async {
+        selectedSncbTrain = nil
+        guard selectedOperator == .sncb, let stop = selectedStop,
+              let gareId = stop.stopId ?? stop.backendId else {
+            sncbTrainOptions = []
+            return
+        }
+        isLoadingSncbTrains = true
+        defer { isLoadingSncbTrains = false }
+
+        if let rt = await SNCBStationService.realtime(stationId: gareId), !rt.departures.isEmpty {
+            sncbTrainOptions = rt.departures.prefix(15).map {
+                SNCBTrainOption(
+                    id: "rt-\($0.scheduledMinutes)-\($0.destination)-\($0.line)",
+                    line: $0.line, destination: $0.destination, time: $0.time,
+                    delayMinutes: $0.delayMinutes, canceled: $0.canceled
+                )
+            }
+        } else {
+            let deps = await SNCBStationService.departures(stationId: gareId, limit: 15)
+            sncbTrainOptions = deps.map {
+                SNCBTrainOption(
+                    id: "sc-\($0.minutes)-\($0.destination)-\($0.line)",
+                    line: $0.line, destination: $0.destination, time: $0.time,
+                    delayMinutes: 0, canceled: false
+                )
+            }
+        }
     }
 
     // MARK: - Submit
@@ -865,7 +1014,13 @@ struct QuickReportSheetView: View {
         else { return }
 
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalDescription = trimmed.count >= 3 ? trimmed : "Signalement rapide — \(problem.title)"
+        var finalDescription = trimmed.count >= 3 ? trimmed : "Signalement rapide — \(problem.title)"
+        // SNCB: fold the chosen train into the description so the report stays
+        // tied to a specific departure while `ligne` remains "SNCB".
+        if selectedOperator == .sncb, let train = selectedSncbTrain {
+            let lineText = train.line.isEmpty ? "" : "\(train.line) "
+            finalDescription = "🚆 \(lineText)→ \(train.destination) · \(train.time)\n\(finalDescription)"
+        }
         let reportLatitude = stop.coordinate?.latitude ?? userLatitude
         let reportLongitude = stop.coordinate?.longitude ?? userLongitude
 
