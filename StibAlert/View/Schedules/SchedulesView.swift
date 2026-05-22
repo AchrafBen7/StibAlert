@@ -22,7 +22,7 @@ struct SchedulesView: View {
                 header
                 TransitOperatorRow(
                     activeOperator: selectedOperator,
-                    enabledOperators: [.stib, .sncb],
+                    enabledOperators: [.stib, .sncb, .delijn, .tec],
                     onSelect: { selectedOperator = $0 }
                 )
                     .padding(.horizontal, 18)
@@ -98,8 +98,8 @@ struct SchedulesView: View {
     private var content: some View {
         if selectedOperator == .sncb {
             sncbContent
-        } else if selectedOperator != .stib {
-            unavailableOperatorContent(selectedOperator)
+        } else if selectedOperator == .delijn || selectedOperator == .tec {
+            OperatorLineDirectory(op: selectedOperator, searchQuery: $searchQuery)
         } else if isLoading && allLines.isEmpty {
             VStack(spacing: 14) {
                 Spacer().frame(height: 60)

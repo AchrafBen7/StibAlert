@@ -677,7 +677,10 @@ struct ReportsView: View {
                     // SNCB hides the En cours / Officiel / Événements scope
                     // tabs — for trains those filters live *inside* each gare's
                     // Infos trafic page, not at the network level.
-                    if selectedOperator != .sncb {
+                    // Scope tabs (En cours / Officiel / Événements) are a
+                    // STIB-only concept. SNCB filters live inside each gare;
+                    // De Lijn / TEC show their official disruptions directly.
+                    if selectedOperator == .stib {
                         scopeSegmentedTabs
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
@@ -688,6 +691,10 @@ struct ReportsView: View {
                         // Horaires drill-down (province → gares); a tap opens
                         // that gare's own Infos trafic page.
                         sncbInfoTraficContent
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
+                    } else if selectedOperator == .delijn || selectedOperator == .tec {
+                        OperatorDisruptionsList(op: selectedOperator)
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
                     } else if !lineCatalog.isEmpty && selectedScope != .events {
@@ -719,7 +726,7 @@ struct ReportsView: View {
                     // the same details under the Infos trafic sub-tab).
                     // Set to true on the Événements tab to keep the events
                     // feed visible (no grid equivalent yet).
-                    if selectedOperator != .sncb && selectedScope == .events {
+                    if selectedOperator == .stib && selectedScope == .events {
                         Section(header: editorialStickySegments) {
                             editorialFeedSection
                         }
@@ -936,7 +943,7 @@ struct ReportsView: View {
     private var statusHUD: some View {
         TransitOperatorRow(
             activeOperator: selectedOperator,
-            enabledOperators: [.stib, .sncb],
+            enabledOperators: [.stib, .sncb, .delijn, .tec],
             onSelect: { transitOperator in
                 selectedOperator = transitOperator
                 selectedLineFilter = "Tout"
