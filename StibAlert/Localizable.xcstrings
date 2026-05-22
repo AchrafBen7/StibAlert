@@ -161,9 +161,6 @@
         }
       }
     },
-    "%@ · Gare SNCB" : {
-
-    },
     "%@ · horaire théorique%@" : {
       "localizations" : {
         "fr" : {
@@ -422,6 +419,9 @@
         }
       }
     },
+    "%lld départs" : {
+
+    },
     "%lld dépêche%@" : {
       "localizations" : {
         "fr" : {
@@ -470,6 +470,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld actieve incidenten • %@"
+          }
+        }
+      }
+    },
+    "%lld info%@ · communauté" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld info%2$@ · communauté"
           }
         }
       }
@@ -1549,6 +1559,9 @@
         }
       }
     },
+    "Aucun signalement actif sur cette gare." : {
+
+    },
     "Aucun signalement actif sur cette ligne." : {
 
     },
@@ -1572,6 +1585,9 @@
         }
       }
     },
+    "Aucune gare trouvée" : {
+
+    },
     "Aucune ligne référencée." : {
       "localizations" : {
         "nl" : {
@@ -1586,6 +1602,9 @@
 
     },
     "Aucune perturbation signalée sur les gares." : {
+
+    },
+    "Aujourd’hui · %lld départs" : {
 
     },
     "auth.activate_account" : {
@@ -5465,6 +5484,9 @@
     "Prochain" : {
 
     },
+    "PROCHAIN" : {
+
+    },
     "Prochain départ" : {
       "localizations" : {
         "nl" : {
@@ -5622,6 +5644,9 @@
           }
         }
       }
+    },
+    "Rafraîchir" : {
+
     },
     "Rafraîchir les horaires" : {
 
@@ -6001,6 +6026,9 @@
           }
         }
       }
+    },
+    "Retour" : {
+
     },
     "Revient à l'étape précédente du guidage." : {
       "comment" : "A button label that translates to \"Go back to the previous step of the guide.\"",

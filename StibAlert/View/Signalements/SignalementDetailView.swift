@@ -203,6 +203,19 @@ struct SignalementDetailView: View {
 
             Spacer()
 
+            ShareLink(item: SignalementShare.message(for: latest)) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 36, height: 36)
+                    .background(DS.Color.paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md)
+                            .stroke(DS.Color.ink.opacity(0.2), lineWidth: 1.5)
+                    )
+            }
+            .buttonStyle(.plain)
+
             if let onOpenOnMap {
                 Button(action: onOpenOnMap) {
                     Image(systemName: "map")

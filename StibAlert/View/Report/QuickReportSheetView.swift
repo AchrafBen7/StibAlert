@@ -18,6 +18,9 @@ struct QuickReportSheetView: View {
     @State private var submitSuccess: Bool = false
     @State private var confirmingExistingId: String? = nil
     @State private var showConfetti: Bool = false
+    /// Set once a report is successfully published online — drives the
+    /// "avertir vos proches" share prompt before the sheet closes.
+    @State private var createdSignalement: SignalementDTO? = nil
     @State private var nearbyStops: [NearbyStop] = []
     @State private var isLoadingStops = false
     @State private var isStopPickerExpanded = false
@@ -100,6 +103,12 @@ struct QuickReportSheetView: View {
         .onChange(of: selectedOperator) { _, _ in
             resetTargetSelection()
             bootstrap()
+        }
+        .sheet(item: $createdSignalement) { signalement in
+            ReportSharePromptSheet(signalement: signalement) {
+                createdSignalement = nil
+                handleClose()
+            }
         }
         // No manual keyboard observers — SwiftUI's safe area handles avoidance
         // for the bottom-anchored sheet (we don't .ignoresSafeArea(.keyboard)).
@@ -883,8 +892,10 @@ struct QuickReportSheetView: View {
                     submitSuccess = true
                     showConfetti = true
                 }
-                try? await Task.sleep(nanoseconds: 1_400_000_000)
-                handleClose()
+                // Let the confetti play, then offer to warn relatives instead
+                // of closing straight away.
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                createdSignalement = response.signalement
             } catch {
                 let isNetworkIssue = isNetworkRelated(error)
                 if isNetworkIssue {
