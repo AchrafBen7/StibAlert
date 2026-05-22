@@ -2,7 +2,7 @@ import CoreLocation
 import Foundation
 import SwiftUI
 
-struct SNCBStation: Decodable, Identifiable, Equatable {
+struct SNCBStation: Decodable, Identifiable, Equatable, Hashable {
     let id: String
     let uri: String
     let name: String
@@ -47,6 +47,48 @@ private struct SNCBDeparturesResponse: Decodable {
     let stationId: String
     let dayType: String
     let items: [SNCBDeparture]
+}
+
+/// The three GTFS day-types the static timetable is precomputed for.
+enum SNCBDayType: String, CaseIterable, Identifiable {
+    case weekday = "wk"
+    case saturday = "sa"
+    case sunday = "su"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .weekday: return "Semaine"
+        case .saturday: return "Samedi"
+        case .sunday: return "Dimanche"
+        }
+    }
+}
+
+/// Full theoretical timetable for a gare (every departure of the day for the
+/// three day-types), as returned by `GET /api/sncb/schedule`.
+struct SNCBSchedule: Decodable {
+    let stationId: String
+    let today: String
+    let days: Days
+
+    struct Days: Decodable {
+        let wk: [SNCBDeparture]
+        let sa: [SNCBDeparture]
+        let su: [SNCBDeparture]
+    }
+
+    func departures(for day: SNCBDayType) -> [SNCBDeparture] {
+        switch day {
+        case .weekday: return days.wk
+        case .saturday: return days.sa
+        case .sunday: return days.su
+        }
+    }
+
+    /// Day-type to preselect (the gare's "today" per Brussels time).
+    var todayType: SNCBDayType { SNCBDayType(rawValue: today) ?? .weekday }
 }
 
 enum SNCBStationService {
@@ -144,6 +186,21 @@ enum SNCBStationService {
             return try JSONDecoder().decode(SNCBDeparturesResponse.self, from: data).items
         } catch {
             return []
+        }
+    }
+
+    /// Full theoretical timetable for a gare (all three day-types in one call,
+    /// so the schedule page can switch days without re-fetching). Backend-only,
+    /// no Mobility API call. Returns nil on any failure.
+    static func fullSchedule(stationId: String) async -> SNCBSchedule? {
+        guard AppConfig.isBackendEnabled else { return nil }
+        let encoded = stationId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? stationId
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/sncb/schedule?stationId=\(encoded)") else { return nil }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return try JSONDecoder().decode(SNCBSchedule.self, from: data)
+        } catch {
+            return nil
         }
     }
 

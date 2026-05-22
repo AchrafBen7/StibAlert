@@ -11,7 +11,9 @@ struct ReportsView: View {
     @State private var selectedSegment: ReportSegment = .all
     @State private var selectedModeFilter: ReportTransportMode = .all
     @State private var selectedOperator: TransitOperator = .stib
-    @State private var isSncbAllStationsExpanded = false
+    @State private var sncbGareSearch = ""
+    @State private var selectedGareForDetail: SNCBStation?
+    @StateObject private var locationManager = HomeLocationManager()
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
     @State private var events: [TransportEventImpactDTO] = []
@@ -293,14 +295,18 @@ struct ReportsView: View {
         return "Gare SNCB"
     }
 
-    /// Hybrid SNCB view for Infos trafic: affected gares as cards first, then a
-    /// collapsible list of every station (SNCB has no numbered lines to grid).
+    /// SNCB Infos trafic — mirrors the Horaires tab (nearest + search +
+    /// province → gares drill-down), with the active community perturbations
+    /// summarised on top. Tapping a gare opens *its* Infos trafic page (the
+    /// En cours / Officiel / Twitter sub-tabs), exactly like a STIB line.
     @ViewBuilder
     private var sncbInfoTraficContent: some View {
         let active = sncbActiveReports
         VStack(alignment: .leading, spacing: DS.Spacing.lg) {
             VStack(alignment: .leading, spacing: 10) {
-                sncbSectionHeader(icon: "exclamationmark.triangle.fill", title: "Perturbations", count: active.count, tint: DS.Color.statusMajor)
+                sncbSectionHeader(icon: active.isEmpty ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
+                                  title: "Perturbations en cours", count: active.count,
+                                  tint: active.isEmpty ? DS.Color.statusOK : DS.Color.statusMajor)
                 if active.isEmpty {
                     sncbAllClearCard
                 } else {
@@ -310,27 +316,24 @@ struct ReportsView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { isSncbAllStationsExpanded.toggle() }
-                } label: {
-                    sncbCollapsibleHeader(title: "Toutes les gares", count: SNCBStationService.allStations.count, expanded: isSncbAllStationsExpanded)
-                }
-                .buttonStyle(.plain)
-
-                if isSncbAllStationsExpanded {
-                    VStack(spacing: 0) {
-                        ForEach(SNCBStationService.allStations) { sncbStationListRow($0) }
-                    }
-                    .background(DS.Color.paper.opacity(0.95))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                            .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-                }
-            }
+            SncbGareDirectory(
+                searchQuery: $sncbGareSearch,
+                showsSearchField: true,
+                userCoordinate: locationManager.userCoordinate,
+                badgeCount: { sncbActiveReportCount(for: $0) },
+                onSelect: { selectedGareForDetail = $0 }
+            )
         }
+    }
+
+    /// Active community reports targeting a specific gare — drives the red
+    /// warning badge in the directory.
+    private func sncbActiveReportCount(for station: SNCBStation) -> Int {
+        sncbActiveReports.filter { report in
+            guard case .populated(let arret) = report.arretId else { return false }
+            if let sid = arret.stopId, sid == station.id { return true }
+            return arret.nom.normalizedStopKey == station.displayName.normalizedStopKey
+        }.count
     }
 
     private func sncbSectionHeader(icon: String, title: String, count: Int, tint: Color) -> some View {
@@ -349,29 +352,6 @@ struct ReportsView: View {
                 .font(DS.Font.monoSmall.weight(.bold))
                 .foregroundStyle(DS.Color.inkMute)
         }
-    }
-
-    private func sncbCollapsibleHeader(title: String, count: Int, expanded: Bool) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "train.side.front.car")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color(hex: "#0055A4"))
-                .frame(width: 28, height: 28)
-                .background(Color(hex: "#0055A4").opacity(0.12))
-                .clipShape(Circle())
-            Text(title.uppercased())
-                .font(DS.Font.eyebrow).tracking(2)
-                .foregroundStyle(DS.Color.inkMute)
-            Spacer()
-            Text("\(count)")
-                .font(DS.Font.monoSmall.weight(.bold))
-                .foregroundStyle(DS.Color.inkMute)
-            Image(systemName: "chevron.down")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(DS.Color.inkMute)
-                .rotationEffect(.degrees(expanded ? 0 : -90))
-        }
-        .contentShape(Rectangle())
     }
 
     private var sncbAllClearCard: some View {
@@ -436,28 +416,6 @@ struct ReportsView: View {
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
-    }
-
-    private func sncbStationListRow(_ station: SNCBStation) -> some View {
-        HStack(spacing: 12) {
-            Image("operator-sncb")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 26, height: 20)
-                .frame(width: 40, height: 40)
-                .background(DS.Color.paper2.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            Text(station.displayName)
-                .font(DS.Font.bodyBold)
-                .foregroundStyle(DS.Color.ink)
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(DS.Color.paper)
-        .overlay(Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1), alignment: .bottom)
     }
 
     private var incidentsForLineGrid: [TransportIncidentDTO] {
@@ -654,14 +612,19 @@ struct ReportsView: View {
                     // same incident icon, so the user finds the same info on
                     // its line tile and can tap through to LigneDetailPage.
 
-                    scopeSegmentedTabs
-                        .padding(.horizontal, DS.Spacing.xl)
-                        .padding(.top, DS.Spacing.lg)
+                    // SNCB hides the En cours / Officiel / Événements scope
+                    // tabs — for trains those filters live *inside* each gare's
+                    // Infos trafic page, not at the network level.
+                    if selectedOperator != .sncb {
+                        scopeSegmentedTabs
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
+                    }
 
                     if selectedOperator == .sncb {
-                        // SNCB has stations, not numbered lines — a line grid
-                        // makes no sense. Show affected gares first (cards),
-                        // then a collapsible list of every station.
+                        // SNCB has stations, not numbered lines — mirror the
+                        // Horaires drill-down (province → gares); a tap opens
+                        // that gare's own Infos trafic page.
                         sncbInfoTraficContent
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
@@ -749,6 +712,17 @@ struct ReportsView: View {
                     .environmentObject(nav)
             }
         }
+        .fullScreenCover(item: $selectedGareForDetail) { gare in
+            // Same full-page treatment as a STIB line, opened on the gare's
+            // Infos trafic tab. "Signaler cette gare" routes back to the
+            // standard report flow.
+            GareDetailPage(station: gare, initialTab: .traffic, onReport: { _ in
+                selectedGareForDetail = nil
+                nav.showReportSheet = true
+            })
+            .environmentObject(session)
+            .environmentObject(nav)
+        }
         .sheet(isPresented: $isShowingSummary) {
             if let summary = currentSummary {
                 ReportsSummarySheet(
@@ -760,6 +734,7 @@ struct ReportsView: View {
             }
         }
         .task {
+            locationManager.start()
             applyPendingScopeIfPossible()
             await loadData()
             applyPendingReportFocusIfPossible()
