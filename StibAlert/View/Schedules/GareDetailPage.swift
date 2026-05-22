@@ -30,6 +30,8 @@ struct GareDetailPage: View {
     @State private var isLoadingReports = true
     @State private var isRefreshing = false
     @State private var didInitDay = false
+    @State private var selectedDeparture: SNCBDeparture?
+    @StateObject private var favorites = SNCBDepartureFavorites()
     @Namespace private var tabUnderlineNamespace
 
     init(station: SNCBStation, initialTab: DetailTab = .schedule, onReport: @escaping (SNCBStation) -> Void = { _ in }) {
@@ -60,6 +62,15 @@ struct GareDetailPage: View {
         .preferredColorScheme(.light)
         .toolbar(.hidden, for: .navigationBar)
         .task { await load() }
+        .sheet(item: $selectedDeparture) { dep in
+            SncbDepartureSheet(
+                stationName: station.displayName,
+                stationId: station.id,
+                day: selectedDay,
+                departure: dep,
+                favorites: favorites
+            )
+        }
     }
 
     // MARK: - Header
@@ -202,19 +213,47 @@ struct GareDetailPage: View {
                 .tint(DS.Color.ink)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 48)
-        } else if todaysList.isEmpty {
+        } else if visibleList.isEmpty {
             emptyStateCard(
                 icon: "calendar.badge.exclamationmark",
-                title: "Aucun départ ce jour",
-                detail: "Pas de train au départ de cette gare pour \(selectedDay.label.lowercased())."
+                title: isViewingToday ? "Plus de départ aujourd'hui" : "Aucun départ ce jour",
+                detail: isViewingToday
+                    ? "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisissez un autre jour ci-dessus."
+                    : "Pas de train au départ de cette gare pour \(selectedDay.label.lowercased())."
             )
         } else {
+            if !favoriteDepartures.isEmpty {
+                favoritesSection
+            }
             timetable
             Text("Horaires théoriques · temps réel bientôt")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.top, 4)
+        }
+    }
+
+    private var favoritesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundStyle(DS.Color.primary)
+                Text("MES DÉPARTS")
+                    .font(DS.Font.eyebrow)
+                    .tracking(1.6)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            VStack(spacing: 0) {
+                ForEach(favoriteDepartures) { scheduleRow($0) }
+            }
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         }
     }
 
@@ -229,7 +268,7 @@ struct GareDetailPage: View {
             .background(DS.Color.paper2.opacity(0.55))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-            Text(isViewingToday ? "Aujourd’hui · \(todaysList.count) départs" : "\(todaysList.count) départs")
+            Text(isViewingToday ? "Aujourd’hui · \(visibleList.count) prochains départs" : "\(visibleList.count) départs")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -265,25 +304,23 @@ struct GareDetailPage: View {
     }
 
     private var timetable: some View {
-        ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-                ForEach(hourGroups, id: \.hour) { group in
-                    hourHeader(group.hour)
-                        .id("hour-\(group.hour)")
+        LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+            ForEach(hourGroups, id: \.hour) { group in
+                Section {
                     ForEach(Array(group.items.enumerated()), id: \.offset) { _, dep in
-                        scheduleRow(dep, isNext: nextKey == key(for: dep))
+                        scheduleRow(dep)
                     }
+                } header: {
+                    hourHeader(group.hour)
                 }
             }
-            .background(DS.Color.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .onChange(of: selectedDay) { _, _ in scrollToNext(proxy) }
-            .onAppear { scrollToNext(proxy) }
         }
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     private func hourHeader(_ hour: Int) -> some View {
@@ -296,56 +333,60 @@ struct GareDetailPage: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(DS.Color.paper2.opacity(0.5))
+        .background(DS.Color.paper2)
     }
 
-    private func scheduleRow(_ dep: SNCBDeparture, isNext: Bool) -> some View {
-        HStack(spacing: 12) {
-            Text(dep.time)
-                .font(DS.Font.monoLarge)
-                .foregroundStyle(DS.Color.ink)
-                .frame(width: 52, alignment: .leading)
+    private func scheduleRow(_ dep: SNCBDeparture) -> some View {
+        let isNext = nextKey == key(for: dep)
+        let isFav = favorites.contains(SNCBDepartureFavorites.key(stationId: station.id, day: selectedDay, departure: dep))
+        return Button { selectedDeparture = dep } label: {
+            HStack(spacing: 12) {
+                Text(dep.time)
+                    .font(DS.Font.monoLarge)
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 52, alignment: .leading)
 
-            if !dep.line.isEmpty {
-                Text(dep.line)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .frame(height: 20)
-                    .background(Color(hex: "#0055A4"))
-                    .clipShape(Capsule())
+                if !dep.line.isEmpty {
+                    Text(dep.line)
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .frame(height: 20)
+                        .background(Color(hex: "#0055A4"))
+                        .clipShape(Capsule())
+                }
+
+                Text(dep.destination)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if isFav {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundStyle(DS.Color.primary)
+                }
+                if isNext {
+                    Text("PROCHAIN")
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .tracking(0.8)
+                        .foregroundStyle(DS.Color.statusOK)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
             }
-
-            Text(dep.destination)
-                .font(DS.Font.bodyBold)
-                .foregroundStyle(DS.Color.ink)
-                .lineLimit(1)
-
-            Spacer(minLength: 0)
-
-            if isNext {
-                Text("PROCHAIN")
-                    .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(DS.Color.statusOK)
+            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .background(isNext ? DS.Color.statusOK.opacity(0.08) : DS.Color.paper)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1)
             }
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 11)
-        .padding(.horizontal, 12)
-        .background(isNext ? DS.Color.statusOK.opacity(0.08) : DS.Color.paper)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1)
-        }
-    }
-
-    private func scrollToNext(_ proxy: ScrollViewProxy) {
-        guard isViewingToday, let next = nextDeparture else { return }
-        let hour = next.minutes / 60
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                proxy.scrollTo("hour-\(hour)", anchor: .top)
-            }
-        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Infos trafic tab
@@ -472,7 +513,7 @@ struct GareDetailPage: View {
 
     private func communityRow(_ signalement: SignalementDTO) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.bubble.fill")
+            Image(systemName: SignalVisuals.icon(forType: signalement.typeProbleme))
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(DS.Color.community)
                 .frame(width: 28, height: 28)
@@ -554,12 +595,27 @@ struct GareDetailPage: View {
 
     private var hasActiveTrafficIssue: Bool { !signalements.isEmpty }
 
-    private var todaysList: [SNCBDeparture] { schedule?.departures(for: selectedDay) ?? [] }
-
     private var isViewingToday: Bool { schedule?.todayType == selectedDay }
 
+    /// The departures actually shown: for today we drop everything before the
+    /// current Brussels time (the user doesn't care about this morning's 5am
+    /// trains) so the list opens on the next departure; other day-types show
+    /// the full day.
+    private var visibleList: [SNCBDeparture] {
+        let list = schedule?.departures(for: selectedDay) ?? []
+        guard isViewingToday else { return list }
+        let now = brusselsNowMinutes
+        return list.filter { $0.minutes >= now }
+    }
+
+    private var favoriteDepartures: [SNCBDeparture] {
+        visibleList.filter {
+            favorites.contains(SNCBDepartureFavorites.key(stationId: station.id, day: selectedDay, departure: $0))
+        }
+    }
+
     private var hourGroups: [(hour: Int, items: [SNCBDeparture])] {
-        let grouped = Dictionary(grouping: todaysList) { $0.minutes / 60 }
+        let grouped = Dictionary(grouping: visibleList) { $0.minutes / 60 }
         return grouped.keys.sorted().map { hour in
             (hour: hour, items: grouped[hour]!.sorted { $0.minutes < $1.minutes })
         }
@@ -567,8 +623,7 @@ struct GareDetailPage: View {
 
     private var nextDeparture: SNCBDeparture? {
         guard isViewingToday else { return nil }
-        let now = brusselsNowMinutes
-        return todaysList.first { $0.minutes >= now }
+        return visibleList.first
     }
 
     private var nextKey: String? { nextDeparture.map(key(for:)) }

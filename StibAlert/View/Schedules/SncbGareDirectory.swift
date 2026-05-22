@@ -14,9 +14,11 @@ struct SncbGareDirectory: View {
     /// Horaires passes false because its header already owns the search bar.
     var showsSearchField: Bool = false
     var userCoordinate: CLLocationCoordinate2D?
-    /// Number of active community reports on a gare — drives the small red
-    /// warning badge in the Infos trafic context. Defaults to none (Horaires).
-    var badgeCount: (SNCBStation) -> Int = { _ in 0 }
+    /// Active community report problem-types on a gare (raw `typeProbleme`,
+    /// with duplicates). Drives the per-type icons shown next to the gare in
+    /// the Infos trafic context — one icon per distinct problem, accumulating
+    /// (retard, accident, panne…). Defaults to none (Horaires).
+    var badgeTypes: (SNCBStation) -> [String] = { _ in [] }
     var onSelect: (SNCBStation) -> Void
 
     @State private var expandedProvinces: Set<String> = []
@@ -124,28 +126,19 @@ struct SncbGareDirectory: View {
     // MARK: - Rows
 
     private func gareRow(_ station: SNCBStation, subtitle: String, proximityLabel: String?) -> some View {
-        let alerts = badgeCount(station)
+        let types = badgeTypes(station)
+        let count = types.count
+        let distinct = orderedDistinct(types)
         return Button { onSelect(station) } label: {
             HStack(spacing: 12) {
-                ZStack(alignment: .topTrailing) {
-                    Image("operator-sncb")
-                        .renderingMode(.original)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 30, height: 30)
-                        .frame(width: 46, height: 46)
-                        .background(DS.Color.paper2.opacity(0.65))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    if alerts > 0 {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 9, weight: .black))
-                            .foregroundStyle(.white)
-                            .frame(width: 18, height: 18)
-                            .background(Circle().fill(DS.Color.statusMajor))
-                            .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
-                            .offset(x: 5, y: -5)
-                    }
-                }
+                Image("operator-sncb")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 30, height: 30)
+                    .frame(width: 46, height: 46)
+                    .background(DS.Color.paper2.opacity(0.65))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
                     if let proximityLabel {
@@ -158,13 +151,32 @@ struct SncbGareDirectory: View {
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
-                    Text(alerts > 0 ? "\(alerts) signalement\(alerts > 1 ? "s" : "") · \(subtitle)" : subtitle)
+                    Text(count > 0 ? "\(count) signalement\(count > 1 ? "s" : "") · \(subtitle)" : subtitle)
                         .font(DS.Font.bodySmall)
-                        .foregroundStyle(alerts > 0 ? DS.Color.statusMajor : DS.Color.inkMute)
+                        .foregroundStyle(count > 0 ? DS.Color.statusMajor : DS.Color.inkMute)
                         .lineLimit(1)
                 }
 
-                Spacer()
+                Spacer(minLength: 6)
+
+                // One icon per distinct problem type, accumulating — mirrors
+                // the STIB per-stop incident badges (retard, accident, panne…).
+                if !distinct.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(distinct.prefix(3), id: \.self) { type in
+                            Image(systemName: SignalVisuals.icon(forType: type))
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundStyle(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Circle().fill(tint(forType: type)))
+                        }
+                        if distinct.count > 3 {
+                            Text("+\(distinct.count - 3)")
+                                .font(.system(size: 10, weight: .black, design: .rounded))
+                                .foregroundStyle(DS.Color.statusMajor)
+                        }
+                    }
+                }
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -177,6 +189,24 @@ struct SncbGareDirectory: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Distinct problem types, preserving first-seen order (case-insensitive).
+    private func orderedDistinct(_ items: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for item in items where seen.insert(item.lowercased()).inserted {
+            out.append(item)
+        }
+        return out
+    }
+
+    /// Amber for low-severity nuisances, red for disruptive incidents.
+    private func tint(forType type: String) -> Color {
+        switch type.lowercased() {
+        case "retard", "affluence", "propreté": return DS.Color.statusMinor
+        default: return DS.Color.statusMajor
+        }
     }
 
     private func sectionHeader(icon: String, title: String, count: Int, expanded: Bool) -> some View {

@@ -320,20 +320,22 @@ struct ReportsView: View {
                 searchQuery: $sncbGareSearch,
                 showsSearchField: true,
                 userCoordinate: locationManager.userCoordinate,
-                badgeCount: { sncbActiveReportCount(for: $0) },
+                badgeTypes: { sncbActiveReportTypes(for: $0) },
                 onSelect: { selectedGareForDetail = $0 }
             )
         }
     }
 
-    /// Active community reports targeting a specific gare — drives the red
-    /// warning badge in the directory.
-    private func sncbActiveReportCount(for station: SNCBStation) -> Int {
-        sncbActiveReports.filter { report in
-            guard case .populated(let arret) = report.arretId else { return false }
-            if let sid = arret.stopId, sid == station.id { return true }
-            return arret.nom.normalizedStopKey == station.displayName.normalizedStopKey
-        }.count
+    /// Problem types of the active community reports targeting a gare — one
+    /// per report (duplicates kept), so the directory can show an accumulating
+    /// set of per-type icons (retard, accident, panne…).
+    private func sncbActiveReportTypes(for station: SNCBStation) -> [String] {
+        sncbActiveReports.compactMap { report -> String? in
+            guard case .populated(let arret) = report.arretId else { return nil }
+            let matches = (arret.stopId == station.id)
+                || (arret.nom.normalizedStopKey == station.displayName.normalizedStopKey)
+            return matches ? report.typeProbleme : nil
+        }
     }
 
     private func sncbSectionHeader(icon: String, title: String, count: Int, tint: Color) -> some View {
