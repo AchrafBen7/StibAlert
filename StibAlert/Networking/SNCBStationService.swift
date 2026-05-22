@@ -35,6 +35,20 @@ private struct SNCBStationsPayload: Decodable {
     let stations: [SNCBStation]
 }
 
+struct SNCBDeparture: Decodable, Identifiable {
+    let minutes: Int
+    let time: String
+    let destination: String
+    let line: String
+    var id: String { "\(minutes)-\(destination)-\(line)" }
+}
+
+private struct SNCBDeparturesResponse: Decodable {
+    let stationId: String
+    let dayType: String
+    let items: [SNCBDeparture]
+}
+
 enum SNCBStationService {
     static let allStations: [SNCBStation] = loadStations()
 
@@ -117,6 +131,20 @@ enum SNCBStationService {
             issueLines: [issueLine],
             coordinate: station.coordinate
         )
+    }
+
+    /// Next theoretical departures for a gare, from the backend's static GTFS
+    /// dataset (no live data, no Mobility API call). Returns [] on any failure.
+    static func departures(stationId: String, limit: Int = 8) async -> [SNCBDeparture] {
+        guard AppConfig.isBackendEnabled else { return [] }
+        let encoded = stationId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? stationId
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/sncb/departures?stationId=\(encoded)&limit=\(limit)") else { return [] }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return try JSONDecoder().decode(SNCBDeparturesResponse.self, from: data).items
+        } catch {
+            return []
+        }
     }
 
     private static func loadStations() -> [SNCBStation] {
