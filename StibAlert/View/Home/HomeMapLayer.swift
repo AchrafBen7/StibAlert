@@ -229,6 +229,39 @@ struct HomeMapLayer: View {
         return absorbed
     }
 
+    /// Highest-rank community signalement sitting on a De Lijn / TEC stop —
+    /// drives the warning badge on its marker, mirroring STIB stops / SNCB gares.
+    private func operatorStopWarningStyle(for stop: OperatorMapStop) -> StopWarningStyle? {
+        var best: StopWarningStyle?
+        let stopLoc = CLLocation(latitude: stop.lat, longitude: stop.lng)
+        for cluster in activeClusters {
+            guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
+            guard stopLoc.distance(from: CLLocation(latitude: lat, longitude: lng)) <= 40 else { continue }
+            let style = warningStyle(for: cluster)
+            if best == nil || style.rank > (best?.rank ?? 0) {
+                best = style
+            }
+        }
+        return best
+    }
+
+    /// Clusters now shown as a badge on a De Lijn / TEC stop — hidden as a
+    /// standalone pin so we don't draw two markers on the same spot.
+    private var absorbedOperatorClusterIndices: Set<Int> {
+        guard !mapOperatorStops.isEmpty else { return [] }
+        var absorbed = Set<Int>()
+        for cluster in activeClusters {
+            guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
+            let clusterLoc = CLLocation(latitude: lat, longitude: lng)
+            if mapOperatorStops.contains(where: {
+                CLLocation(latitude: $0.lat, longitude: $0.lng).distance(from: clusterLoc) <= 40
+            }) {
+                absorbed.insert(cluster.clusterIndex)
+            }
+        }
+        return absorbed
+    }
+
     /// Resolves which displayed stops currently host an active signalement —
     /// community cluster OR official STIB incident. Returns the per-stop badge
     /// style (highest-rank issue wins when several share a stop) plus the
@@ -270,6 +303,7 @@ struct HomeMapLayer: View {
             // Skip clusters now represented as a badge on a stop marker.
             if coloc.absorbedClusterIndices.contains(cluster.clusterIndex) { continue }
             if absorbedSncbClusterIndices.contains(cluster.clusterIndex) { continue }
+            if absorbedOperatorClusterIndices.contains(cluster.clusterIndex) { continue }
             guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "c-\(cluster.clusterIndex)",
@@ -411,7 +445,7 @@ struct HomeMapLayer: View {
                 Button {
                     onSelectOperatorStop(stop)
                 } label: {
-                    OperatorStopMarker(stop: stop)
+                    OperatorStopMarker(stop: stop, warningStyle: operatorStopWarningStyle(for: stop))
                 }
                 .buttonStyle(.plain)
             }

@@ -352,6 +352,7 @@ struct SNCBStationMarker: View {
 /// each, fetched by viewport).
 struct OperatorStopMarker: View {
     let stop: OperatorMapStop
+    var warningStyle: StopWarningStyle? = nil
 
     var body: some View {
         VStack(spacing: 2) {
@@ -364,6 +365,17 @@ struct OperatorStopMarker: View {
                 .background(Capsule().fill(DS.Color.paper.opacity(0.96)))
                 .overlay(Capsule().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
                 .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
+                .overlay(alignment: .topTrailing) {
+                    if let warningStyle {
+                        Image(systemName: warningStyle.icon)
+                            .font(.system(size: 7, weight: .black))
+                            .foregroundStyle(.white)
+                            .frame(width: 14, height: 14)
+                            .background(Circle().fill(warningStyle.color))
+                            .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                            .offset(x: 5, y: -5)
+                    }
+                }
 
             ZStack {
                 Circle()

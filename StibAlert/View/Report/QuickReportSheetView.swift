@@ -146,6 +146,11 @@ struct QuickReportSheetView: View {
                         if !isStopPickerExpanded {
                             if selectedOperator == .sncb, selectedStop != nil {
                                 sncbTrainSection
+                            } else if selectedOperator == .delijn || selectedOperator == .tec {
+                                // De Lijn / TEC: report is stop-level (no local
+                                // per-stop line list); the operator pseudo-line
+                                // is selected under the hood.
+                                EmptyView()
                             } else if let stop = selectedStop, !stop.issueLines.isEmpty {
                                 lineChipsSection(stop)
                             }
@@ -217,7 +222,7 @@ struct QuickReportSheetView: View {
             sectionTitle(icon: "square.grid.2x2.fill", text: "Réseau")
             TransitOperatorRow(
                 activeOperator: selectedOperator,
-                enabledOperators: [.stib, .sncb],
+                enabledOperators: [.stib, .sncb, .delijn, .tec],
                 onSelect: { selectedOperator = $0 }
             )
             .padding(.horizontal, 18)
@@ -949,12 +954,60 @@ struct QuickReportSheetView: View {
             selectedStop = stops.first
             selectedLine = stops.first?.issueLines.first
         case .delijn, .tec:
-            nearbyStops = []
-            selectedStop = nil
-            selectedLine = nil
+            guard let lat = userLatitude, let lng = userLongitude else {
+                nearbyStops = []; selectedStop = nil; selectedLine = nil
+                return
+            }
+            isLoadingStops = true
+            let op = selectedOperator
+            // De Lijn / TEC stops are served by viewport — fetch a small box
+            // around the user, sort by distance, convert to NearbyStop.
+            Task {
+                defer { isLoadingStops = false }
+                let d = 0.012 // ≈ 1.3 km
+                let stops = await OperatorStopService.stops(
+                    operator: op,
+                    minLat: lat - d, maxLat: lat + d, minLng: lng - d, maxLng: lng + d,
+                    limit: 60
+                )
+                guard selectedOperator == op else { return }
+                let origin = CLLocation(latitude: lat, longitude: lng)
+                let nearby = stops
+                    .map { s -> (OperatorMapStop, Int) in
+                        (s, Int(origin.distance(from: CLLocation(latitude: s.lat, longitude: s.lng)).rounded()))
+                    }
+                    .sorted { $0.1 < $1.1 }
+                    .map { operatorNearbyStop(from: $0.0, distanceMeters: $0.1) }
+                nearbyStops = nearby
+                selectedStop = nearby.first
+                selectedLine = nearby.first?.issueLines.first
+            }
         case .stib:
             break
         }
+    }
+
+    /// Build a `NearbyStop` for a De Lijn / TEC stop, with a single operator
+    /// pseudo-line (these networks expose no per-stop line list locally).
+    private func operatorNearbyStop(from stop: OperatorMapStop, distanceMeters: Int) -> NearbyStop {
+        let color = stop.op.brandColor
+        let issue = NearbyIssueLine(
+            number: stop.op.mapLabel,
+            color: color,
+            direction: stop.op.mapLabel,
+            crowding: .low,
+            reliability: 100,
+            lineTextColor: stop.op.brandTextColor
+        )
+        return NearbyStop(
+            backendId: stop.id,
+            stopId: stop.id,
+            name: stop.name,
+            lines: [StopLine(number: stop.op.mapLabel, color: color)],
+            distanceMeters: distanceMeters,
+            issueLines: [issue],
+            coordinate: stop.coordinate
+        )
     }
 
     private func resetTargetSelection() {
