@@ -480,6 +480,85 @@ struct ReportsView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - De Lijn / TEC Infos trafic
+
+    /// Community signalements for a De Lijn / TEC stop (matched by the report's
+    /// operator pseudo-line) + the official disruptions list.
+    @ViewBuilder
+    private func operatorInfoTraficContent(_ op: TransitOperator) -> some View {
+        let community = operatorActiveReports(for: op)
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+            if !community.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    sncbSectionHeader(icon: "person.2.fill", title: "Signalements communauté", count: community.count, tint: DS.Color.community)
+                    VStack(spacing: 8) {
+                        ForEach(community) { operatorReportCard($0) }
+                    }
+                }
+            }
+            OperatorDisruptionsList(op: op)
+        }
+    }
+
+    private func operatorActiveReports(for op: TransitOperator) -> [SignalementDTO] {
+        reports
+            .filter { $0.status != "resolved" && reportMatchesOperator($0, op) }
+            .sorted { ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast) }
+    }
+
+    private func reportMatchesOperator(_ s: SignalementDTO, _ op: TransitOperator) -> Bool {
+        let l = s.ligne.uppercased().trimmingCharacters(in: .whitespaces)
+        switch op {
+        case .delijn: return l == "DE LIJN" || l == "DELIJN"
+        case .tec: return l == "TEC"
+        default: return false
+        }
+    }
+
+    private func operatorStopName(_ report: SignalementDTO) -> String {
+        if case .populated(let arret) = report.arretId { return arret.nom }
+        return "Arrêt"
+    }
+
+    private func operatorReportCard(_ report: SignalementDTO) -> some View {
+        Button {
+            selectedReport = report
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: SignalVisuals.icon(forType: report.typeProbleme))
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(DS.Color.statusMajor))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(operatorStopName(report))
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    Text("\(report.displayTypeProbleme) · \(report.freshnessLabel)")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if let confirmations = report.community?.confirmations, confirmations > 0 {
+                    Text("\(confirmations)×")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.community)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var incidentsForLineGrid: [TransportIncidentDTO] {
         switch selectedScope {
         case .events:
@@ -694,7 +773,7 @@ struct ReportsView: View {
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
                     } else if selectedOperator == .delijn || selectedOperator == .tec {
-                        OperatorDisruptionsList(op: selectedOperator)
+                        operatorInfoTraficContent(selectedOperator)
                             .padding(.horizontal, DS.Spacing.xl)
                             .padding(.top, DS.Spacing.lg)
                     } else if !lineCatalog.isEmpty && selectedScope != .events {
