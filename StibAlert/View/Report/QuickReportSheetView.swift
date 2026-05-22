@@ -954,33 +954,37 @@ struct QuickReportSheetView: View {
             selectedStop = stops.first
             selectedLine = stops.first?.issueLines.first
         case .delijn, .tec:
-            guard let lat = userLatitude, let lng = userLongitude else {
-                nearbyStops = []; selectedStop = nil; selectedLine = nil
-                return
-            }
             isLoadingStops = true
             let op = selectedOperator
-            // De Lijn / TEC stops are served by viewport — fetch a small box
-            // around the user, sort by distance, convert to NearbyStop.
+            // Fall back to Brussels centre if the device location isn't ready
+            // yet (same behaviour as SNCB) so the picker is never empty.
+            let origin = userCoordinate ?? CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
+            // De Lijn / TEC stops are served by viewport — fetch a box around
+            // the user, widening once if the area is sparse.
             Task {
                 defer { isLoadingStops = false }
-                let d = 0.012 // ≈ 1.3 km
-                let stops = await OperatorStopService.stops(
-                    operator: op,
-                    minLat: lat - d, maxLat: lat + d, minLng: lng - d, maxLng: lng + d,
-                    limit: 60
-                )
+                func fetch(_ d: Double) async -> [OperatorMapStop] {
+                    await OperatorStopService.stops(
+                        operator: op,
+                        minLat: origin.latitude - d, maxLat: origin.latitude + d,
+                        minLng: origin.longitude - d, maxLng: origin.longitude + d,
+                        limit: 80
+                    )
+                }
+                var stops = await fetch(0.03)         // ≈ 3 km
+                if stops.isEmpty { stops = await fetch(0.09) } // widen if sparse/edge
                 guard selectedOperator == op else { return }
-                let origin = CLLocation(latitude: lat, longitude: lng)
+                let originLoc = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
                 let nearby = stops
                     .map { s -> (OperatorMapStop, Int) in
-                        (s, Int(origin.distance(from: CLLocation(latitude: s.lat, longitude: s.lng)).rounded()))
+                        (s, Int(originLoc.distance(from: CLLocation(latitude: s.lat, longitude: s.lng)).rounded()))
                     }
                     .sorted { $0.1 < $1.1 }
+                    .prefix(40)
                     .map { operatorNearbyStop(from: $0.0, distanceMeters: $0.1) }
-                nearbyStops = nearby
-                selectedStop = nearby.first
-                selectedLine = nearby.first?.issueLines.first
+                nearbyStops = Array(nearby)
+                selectedStop = nearbyStops.first
+                selectedLine = nearbyStops.first?.issueLines.first
             }
         case .stib:
             break
