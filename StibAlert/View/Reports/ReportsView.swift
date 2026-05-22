@@ -13,6 +13,8 @@ struct ReportsView: View {
     @State private var selectedOperator: TransitOperator = .stib
     @State private var sncbGareSearch = ""
     @State private var selectedGareForDetail: SNCBStation?
+    @State private var sncbRealtimeByGare: [String: SNCBRealtime] = [:]
+    @State private var sncbDisruptions: [SNCBDisruption] = []
     @StateObject private var locationManager = HomeLocationManager()
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
@@ -320,10 +322,42 @@ struct ReportsView: View {
                 searchQuery: $sncbGareSearch,
                 showsSearchField: true,
                 userCoordinate: locationManager.userCoordinate,
-                badgeTypes: { sncbActiveReportTypes(for: $0) },
+                badgeTypes: { sncbBadgeTypes(for: $0) },
                 onSelect: { selectedGareForDetail = $0 }
             )
         }
+    }
+
+    /// All the problem indicators for a gare, fed to the directory as per-type
+    /// icons (deduped) — combining community reports, live iRail delays/
+    /// cancellations (for the nearby gares we've fetched), and official network
+    /// disturbances that name the gare. Like the STIB line badges, but for
+    /// trains.
+    private func sncbBadgeTypes(for station: SNCBStation) -> [String] {
+        var types = sncbActiveReportTypes(for: station)
+
+        // Live delays / cancellations (iRail liveboard) — only for the nearby
+        // gares we proactively fetched (bounded calls).
+        if let rt = sncbRealtimeByGare[station.id] {
+            for d in rt.departures where d.canceled || d.delayMinutes > 0 {
+                types.append(d.canceled ? "interruption" : "retard")
+            }
+        }
+
+        // Official network disturbances that mention this gare by name.
+        if !sncbDisruptions.isEmpty {
+            let key = station.displayName.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+            if key.count >= 3 {
+                let named = sncbDisruptions.contains { d in
+                    (d.title + " " + d.description)
+                        .folding(options: .diacriticInsensitive, locale: .current)
+                        .lowercased()
+                        .contains(key)
+                }
+                if named { types.append("perturbation") }
+            }
+        }
+        return types
     }
 
     /// Problem types of the active community reports targeting a gare — one
@@ -335,6 +369,32 @@ struct ReportsView: View {
             let matches = (arret.stopId == station.id)
                 || (arret.nom.normalizedStopKey == station.displayName.normalizedStopKey)
             return matches ? report.typeProbleme : nil
+        }
+    }
+
+    /// Fetch live SNCB data for the nearby gares (bounded calls, backend-cached)
+    /// so the directory can badge them with real delays/disruptions. The
+    /// network disturbances returned apply to every gare (name match).
+    @MainActor
+    private func loadSncbRealtime() async {
+        guard selectedOperator == .sncb else { return }
+        let nearest = SNCBStationService
+            .nearbyStations(around: locationManager.userCoordinate, radiusMeters: 35_000, limit: 5)
+            .map(\.station)
+        guard !nearest.isEmpty else { return }
+
+        var map: [String: SNCBRealtime] = [:]
+        await withTaskGroup(of: (String, SNCBRealtime?).self) { group in
+            for gare in nearest {
+                group.addTask { (gare.id, await SNCBStationService.realtime(stationId: gare.id)) }
+            }
+            for await (id, rt) in group {
+                if let rt { map[id] = rt }
+            }
+        }
+        sncbRealtimeByGare = map
+        if let disruptions = map.values.first?.disruptions, !disruptions.isEmpty {
+            sncbDisruptions = disruptions
         }
     }
 
@@ -740,6 +800,10 @@ struct ReportsView: View {
             applyPendingScopeIfPossible()
             await loadData()
             applyPendingReportFocusIfPossible()
+            await loadSncbRealtime()
+        }
+        .onChange(of: selectedOperator) { _, _ in
+            Task { await loadSncbRealtime() }
         }
         .onChange(of: reports.count) { _, _ in
             applyPendingReportFocusIfPossible()

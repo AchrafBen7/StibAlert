@@ -34,6 +34,7 @@ struct GareDetailPage: View {
     @State private var didInitDay = false
     @State private var selectedDeparture: SNCBDeparture?
     @StateObject private var favorites = SNCBDepartureFavorites()
+    @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
     @Namespace private var tabUnderlineNamespace
 
     init(station: SNCBStation, initialTab: DetailTab = .schedule, onReport: @escaping (SNCBStation) -> Void = { _ in }) {
@@ -96,6 +97,21 @@ struct GareDetailPage: View {
             .buttonStyle(.plain)
 
             Spacer()
+
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                gareFavorites.toggle(station.id)
+            } label: {
+                Image(systemName: gareFavorites.contains(station.id) ? "star.fill" : "star")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(gareFavorites.contains(station.id) ? DS.Color.primary : DS.Color.ink)
+                    .frame(width: 36, height: 36)
+                    .background(DS.Color.paper)
+                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(gareFavorites.contains(station.id) ? "Retirer des favoris" : "Ajouter aux favoris")
 
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()

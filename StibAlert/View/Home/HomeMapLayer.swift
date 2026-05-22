@@ -18,6 +18,8 @@ struct HomeMapLayer: View {
     let mapVehicles: [TransportVehicleDTO]
     let vehicleBearings: [String: Double]
     let mapStops: [TransportStopSummaryDTO]
+    let favoriteStopIds: Set<String>
+    let favoriteGareIds: Set<String>
     let selectedMapStopPreview: TransportStopSummaryDTO?
     let selectedMapStopSummary: TransportStopSummaryDTO?
     let mapSncbStations: [SNCBStation]
@@ -370,7 +372,8 @@ struct HomeMapLayer: View {
                         HomeStopMarker(
                             stop: stop,
                             isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id,
-                            warningStyle: warningStyles[stop.id]
+                            warningStyle: warningStyles[stop.id],
+                            isFavorite: favoriteStopIds.contains(stop.id)
                         )
                     }
                     .buttonStyle(.plain)
@@ -389,7 +392,8 @@ struct HomeMapLayer: View {
                     SNCBStationMarker(
                         station: station,
                         isSelected: selectedSncbStation?.id == station.id,
-                        warningStyle: stationWarningStyle(for: station)
+                        warningStyle: stationWarningStyle(for: station),
+                        isFavorite: favoriteGareIds.contains(station.id)
                     )
                 }
                 .buttonStyle(.plain)

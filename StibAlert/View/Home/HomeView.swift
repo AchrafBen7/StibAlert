@@ -33,6 +33,7 @@ struct HomeView: View {
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
     @StateObject var vehicleTracker = VehicleTrackingService()
     @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
+    @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
 
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -411,7 +412,25 @@ struct HomeView: View {
         }
     }
 
+    /// Backend stop ids the user has favourited — drives the star + larger
+    /// marker on the map.
+    private var favoriteStopIds: Set<String> {
+        Set((session.currentUser?.favorisDetails ?? []).map(\.id))
+    }
+
+    private var favoriteGareIds: Set<String> { gareFavorites.ids }
+
+    /// Favourite stops are always on the map (starred), unioned on top of the
+    /// regular zoom-gated set so they show even when zoomed out / layer-filtered.
     private var baseMapStops: [TransportStopSummaryDTO] {
+        let favorites = favoriteMapStops
+        let regular = regularMapStops
+        guard !favorites.isEmpty else { return regular }
+        var seen = Set(favorites.map(\.id))
+        return favorites + regular.filter { seen.insert($0.id).inserted }
+    }
+
+    private var regularMapStops: [TransportStopSummaryDTO] {
         // Favourites filter: show the user's saved stops regardless of zoom
         // (few markers → no clutter). This is "montre-moi mes favoris".
         if activeMapFilter == .favorites { return favoriteMapStops }
@@ -538,13 +557,16 @@ struct HomeView: View {
     private var mapSncbStations: [SNCBStation] {
         guard !isFocusModeActive else { return [] }
         guard showSncbStations else { return [] }
-        // Same zoom gate as STIB stops (mapStops) so gares only appear once
-        // you're zoomed in — otherwise the whole network crowds the map.
-        guard cameraLatitudeDelta <= 0.07 else { return [] }
-        return SNCBStationService.mapStations(
-            around: cameraCenterCoordinate,
-            cameraLatitudeDelta: cameraLatitudeDelta
-        )
+        // Favourite gares are always shown (starred), regardless of zoom.
+        let favorites = gareFavorites.stations
+        // Same zoom gate as STIB stops (mapStops) so non-favourite gares only
+        // appear once you're zoomed in — otherwise the network crowds the map.
+        let zoomed = cameraLatitudeDelta <= 0.07
+            ? SNCBStationService.mapStations(around: cameraCenterCoordinate, cameraLatitudeDelta: cameraLatitudeDelta)
+            : []
+        guard !favorites.isEmpty else { return zoomed }
+        var seen = Set<String>()
+        return (favorites + zoomed).filter { seen.insert($0.id).inserted }
     }
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
@@ -899,6 +921,8 @@ struct HomeView: View {
             mapVehicles: mapVehicles,
             vehicleBearings: vehicleTracker.vehicleBearings,
             mapStops: mapStops,
+            favoriteStopIds: favoriteStopIds,
+            favoriteGareIds: favoriteGareIds,
             selectedMapStopPreview: selectedMapStopPreview,
             selectedMapStopSummary: selectedMapStopSummary,
             mapSncbStations: mapSncbStations,

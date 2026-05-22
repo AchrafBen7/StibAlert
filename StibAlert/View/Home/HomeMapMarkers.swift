@@ -172,6 +172,9 @@ struct HomeStopMarker: View {
     /// badge — coloured + iconed by the issue's type/severity — into the
     /// corner of the name pill.
     var warningStyle: StopWarningStyle? = nil
+    /// Saved favourite — drives the star badge + slightly larger marker so the
+    /// user spots their stops at a glance.
+    var isFavorite: Bool = false
 
     /// De-duplicated, normalised line list. Cap at 5 visible circles +
     /// "+N" suffix so a busy hub like Châtelet doesn't spawn a marker
@@ -221,6 +224,17 @@ struct HomeStopMarker: View {
                             .offset(x: 5, y: -5)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(.white)
+                            .frame(width: 15, height: 15)
+                            .background(Circle().fill(DS.Color.primary))
+                            .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                            .offset(x: -5, y: -5)
+                    }
+                }
 
             // Row of small line circles in their official colours.
             HStack(spacing: 2) {
@@ -242,9 +256,9 @@ struct HomeStopMarker: View {
                 }
             }
         }
-        .scaleEffect(isSelected ? 1.08 : 1)
+        .scaleEffect(isSelected ? 1.18 : (isFavorite ? 1.12 : 1))
         .accessibilityElement()
-        .accessibilityLabel("Arrêt \(stop.name)")
+        .accessibilityLabel("Arrêt \(stop.name)\(isFavorite ? ", favori" : "")")
         .accessibilityHint("Ouvre les détails et prochains passages")
     }
 
@@ -266,6 +280,7 @@ struct SNCBStationMarker: View {
     let station: SNCBStation
     let isSelected: Bool
     var warningStyle: StopWarningStyle? = nil
+    var isFavorite: Bool = false
 
     var body: some View {
         VStack(spacing: 3) {
@@ -300,6 +315,17 @@ struct SNCBStationMarker: View {
                         .offset(x: 6, y: -5)
                 }
             }
+            .overlay(alignment: .topLeading) {
+                if isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(width: 15, height: 15)
+                        .background(Circle().fill(DS.Color.primary))
+                        .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
+                        .offset(x: -6, y: -5)
+                }
+            }
 
             // Small pin dot — same footprint as a STIB line dot (was an
             // oversized blue block + pointer that dominated the map).
@@ -314,9 +340,9 @@ struct SNCBStationMarker: View {
                     .foregroundStyle(.white)
             }
         }
-        .scaleEffect(isSelected ? 1.1 : 1)
+        .scaleEffect(isSelected ? 1.18 : (isFavorite ? 1.12 : 1))
         .accessibilityElement()
-        .accessibilityLabel("Gare SNCB \(station.displayName)")
+        .accessibilityLabel("Gare SNCB \(station.displayName)\(isFavorite ? ", favori" : "")")
         .accessibilityHint("Sélectionne la gare")
     }
 }
