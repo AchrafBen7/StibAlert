@@ -34,6 +34,7 @@ struct HomeView: View {
     @StateObject var vehicleTracker = VehicleTrackingService()
     @ObservedObject private var lineShapesLoader = LineShapesLoader.shared
     @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
+    @ObservedObject private var operatorFavorites = OperatorStopFavorites.shared
 
     @State private var mapPosition: MapCameraPosition = .region(
         MKCoordinateRegion(
@@ -428,6 +429,22 @@ struct HomeView: View {
 
     private var favoriteGareIds: Set<String> { gareFavorites.ids }
 
+    private var favoriteOperatorStopKeys: Set<String> {
+        Set(operatorFavorites.stops.map(\.id))
+    }
+
+    private var favoriteOperatorMapStops: [OperatorMapStop] {
+        operatorFavorites.stops.map {
+            OperatorMapStop(
+                id: $0.stopId,
+                name: $0.name,
+                lat: $0.lat,
+                lng: $0.lng,
+                op: $0.operatorType
+            )
+        }
+    }
+
     /// Favourite stops are always on the map (starred), unioned on top of the
     /// regular zoom-gated set so they show even when zoomed out / layer-filtered.
     private var baseMapStops: [TransportStopSummaryDTO] {
@@ -564,9 +581,10 @@ struct HomeView: View {
 
     private var mapSncbStations: [SNCBStation] {
         guard !isFocusModeActive else { return [] }
-        guard showSncbStations else { return [] }
         // Favourite gares are always shown (starred), regardless of zoom.
         let favorites = gareFavorites.stations
+        if activeMapFilter == .favorites { return favorites }
+        guard showSncbStations else { return [] }
         // Same zoom gate as STIB stops (mapStops) so non-favourite gares only
         // appear once you're zoomed in — otherwise the network crowds the map.
         let zoomed = cameraLatitudeDelta <= 0.07
@@ -581,10 +599,16 @@ struct HomeView: View {
     /// zoom than STIB/SNCB (these networks have ~30k stops each, so they only
     /// appear once the user is really zoomed in).
     private var mapOperatorStops: [OperatorMapStop] {
-        guard !isFocusModeActive, cameraLatitudeDelta <= 0.018 else { return [] }
-        return operatorMapStops.filter {
+        guard !isFocusModeActive else { return [] }
+        let favorites = favoriteOperatorMapStops
+        if activeMapFilter == .favorites { return favorites }
+        guard cameraLatitudeDelta <= 0.018 else { return favorites }
+        let regular = operatorMapStops.filter {
             ($0.op == .delijn && showDelijnStops) || ($0.op == .tec && showTecStops)
         }
+        guard !favorites.isEmpty else { return regular }
+        var seen = Set(favorites.map { "\($0.op.rawValue):\($0.id)" })
+        return favorites + regular.filter { seen.insert("\($0.op.rawValue):\($0.id)").inserted }
     }
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
@@ -947,6 +971,7 @@ struct HomeView: View {
             mapStops: mapStops,
             favoriteStopIds: favoriteStopIds,
             favoriteGareIds: favoriteGareIds,
+            favoriteOperatorStopKeys: favoriteOperatorStopKeys,
             selectedMapStopPreview: selectedMapStopPreview,
             selectedMapStopSummary: selectedMapStopSummary,
             mapSncbStations: mapSncbStations,
@@ -1653,9 +1678,10 @@ struct HomeView: View {
     }
 
     var favoriteLineCount: Int {
-        // The FAVORIS chip reflects the user's saved STOPS (what the filter
-        // actually shows), not favourite lines — which were always 0 here.
-        session.currentUser?.favorisDetails?.count ?? 0
+        // The FAVORIS chip reflects every saved place the map can show:
+        // backend STIB stops + local SNCB gares + local De Lijn/TEC stops.
+        let stibStops = session.currentUser?.favorisDetails?.count ?? 0
+        return stibStops + gareFavorites.ids.count + operatorFavorites.stops.count
     }
 
     var favoriteAffectedCount: Int {

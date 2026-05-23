@@ -9,6 +9,7 @@ struct FavoritesView: View {
     @State private var selectedOperator: TransitOperator = .stib
     @State private var selectedGareForDetail: SNCBStation?
     @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
+    @ObservedObject private var operatorFavorites = OperatorStopFavorites.shared
     @State private var selectedItem: FavoriteTransitItem?
     @State private var remoteItems: [FavoriteTransitItem] = []
     @State private var isLoadingRemote = false
@@ -83,7 +84,7 @@ struct FavoritesView: View {
                             header
                             TransitOperatorRow(
                                 activeOperator: selectedOperator,
-                                enabledOperators: [.stib, .sncb],
+                                enabledOperators: [.stib, .sncb, .delijn, .tec],
                                 onSelect: { selectedOperator = $0 }
                             )
                             .padding(.horizontal, 20)
@@ -91,6 +92,8 @@ struct FavoritesView: View {
 
                             if selectedOperator == .sncb {
                                 sncbFavoritesContent
+                            } else if selectedOperator == .delijn || selectedOperator == .tec {
+                                operatorFavoritesContent(selectedOperator)
                             } else {
                                 stibFavoritesContent
                             }
@@ -120,11 +123,19 @@ struct FavoritesView: View {
             .sheet(isPresented: $showAddSheet, onDismiss: {
                 Task { await loadFavoris() }
             }) {
-                AddFavoriteSheet(
-                    existingIds: Set(remoteItems.compactMap(\.stopBackendId)),
-                    onClose: { showAddSheet = false }
-                )
-                .environmentObject(session)
+                // The + adds a favourite for the *currently selected* operator.
+                switch selectedOperator {
+                case .sncb:
+                    AddSncbFavoriteSheet(onClose: { showAddSheet = false })
+                case .delijn, .tec:
+                    AddOperatorFavoriteSheet(op: selectedOperator, onClose: { showAddSheet = false })
+                default:
+                    AddFavoriteSheet(
+                        existingIds: Set(remoteItems.compactMap(\.stopBackendId)),
+                        onClose: { showAddSheet = false }
+                    )
+                    .environmentObject(session)
+                }
             }
         } // end else (guest check)
     }
@@ -242,6 +253,66 @@ struct FavoritesView: View {
         .padding(.horizontal, 24)
         .padding(.top, 20)
         .padding(.bottom, 96)
+    }
+
+    @ViewBuilder
+    private func operatorFavoritesContent(_ op: TransitOperator) -> some View {
+        let favs = operatorFavorites.stops(for: op)
+        if favs.isEmpty {
+            VStack(spacing: 10) {
+                Spacer().frame(height: 50)
+                Image(systemName: "star").font(.system(size: 26)).foregroundStyle(DS.Color.inkMute)
+                Text("Aucun arrêt \(op.mapLabel) en favori").font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
+                Text("Appuyez sur + pour épingler un arrêt \(op.mapLabel) proche.")
+                    .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute).multilineTextAlignment(.center)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 96)
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                FavoriteSectionHeading(text: "ARRÊTS ÉPINGLÉS", systemImage: "star.fill")
+                VStack(spacing: 0) {
+                    ForEach(favs) { operatorFavoriteRow($0) }
+                }
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            }
+            .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 96)
+        }
+    }
+
+    private func operatorFavoriteRow(_ fav: FavoriteOperatorStop) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle().fill(fav.operatorType.brandColor).frame(width: 40, height: 40)
+                Image(systemName: "bus.fill").font(.system(size: 14, weight: .black)).foregroundStyle(fav.operatorType.brandTextColor)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fav.name).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink).lineLimit(1)
+                Text("Arrêt \(fav.operatorType.mapLabel)").font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+            }
+            Spacer()
+            Button {
+                operatorFavorites.remove(fav)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.primary)
+                    .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Retirer des favoris")
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(DS.Color.paper)
+        .overlay(Rectangle().fill(DS.Color.ink.opacity(0.10)).frame(height: 1), alignment: .bottom)
     }
 
     private var header: some View {
@@ -1904,11 +1975,21 @@ private struct AddFavoriteSheet: View {
     @State private var addingId: String? = nil
     @State private var addedIds: Set<String> = []
     @State private var errorMessage: String? = nil
+    @State private var searchQuery = ""
 
     let existingIds: Set<String>
     let onClose: () -> Void
 
     private var pendingIds: Set<String> { existingIds.union(addedIds) }
+    private var filteredNearbyStops: [NearbyStop] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return nearbyStops }
+
+        return nearbyStops.filter { stop in
+            stop.name.localizedCaseInsensitiveContains(query)
+            || stop.lines.contains { $0.number.localizedCaseInsensitiveContains(query) }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -1945,6 +2026,11 @@ private struct AddFavoriteSheet: View {
                             .font(.system(size: 13.5))
                             .foregroundStyle(DS.Color.inkSoft)
 
+                        FavoritePickerSearchField(
+                            placeholder: "Chercher un arrêt ou une ligne",
+                            text: $searchQuery
+                        )
+
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.system(size: 12.5, weight: .semibold))
@@ -1979,9 +2065,23 @@ private struct AddFavoriteSheet: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 56)
+                        } else if filteredNearbyStops.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 30, weight: .light))
+                                    .foregroundStyle(DS.Color.inkMute)
+                                Text("Aucun arrêt trouvé")
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                                Text("Essaie le nom d’un arrêt ou un numéro de ligne.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 44)
                         } else {
                             VStack(spacing: 10) {
-                                ForEach(nearbyStops) { stop in
+                                ForEach(filteredNearbyStops) { stop in
                                     addFavoriteRow(stop)
                                 }
                             }
@@ -2117,40 +2217,6 @@ private struct AddFavoriteSheet: View {
             print("Add favori failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
         }
-    }
-}
-
-private final class OneShotLocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
-    private let manager = CLLocationManager()
-    private var continuation: CheckedContinuation<CLLocationCoordinate2D, Never>?
-
-    static let fallback = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
-
-    override init() {
-        super.init()
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-    }
-
-    func getCurrentLocation() async -> CLLocationCoordinate2D {
-        let status = manager.authorizationStatus
-        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
-            return Self.fallback
-        }
-        return await withCheckedContinuation { cont in
-            continuation = cont
-            manager.requestLocation()
-        }
-    }
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        continuation?.resume(returning: locations.last?.coordinate ?? Self.fallback)
-        continuation = nil
-    }
-
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        continuation?.resume(returning: Self.fallback)
-        continuation = nil
     }
 }
 

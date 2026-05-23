@@ -69,7 +69,16 @@ struct AppRoot: View {
                     HomeView()
                 }
             case .signedIn:
-                HomeView()
+                // New sign-ups also go through onboarding (favorites picker)
+                // until they've completed it once on this device, otherwise the
+                // tester lands on an empty Favoris/Map and never sees the setup.
+                if !hasSeenOnboarding {
+                    OnboardingView {
+                        hasSeenOnboarding = true
+                    }
+                } else {
+                    HomeView()
+                }
             }
         }
     }
@@ -135,6 +144,20 @@ struct AppRoot: View {
                 )
             )
             session.applyCurrentUserUpdate(updated)
+
+            // Apply STIB favourite stops picked during onboarding. Dedupe
+            // against the user's current favouris so we don't accidentally
+            // toggle (= remove) an already-favourited stop.
+            let alreadyFav = Set(updated.favoris ?? [])
+            var didToggle = false
+            for stopId in preferences.stibFavoriteStopIds where !alreadyFav.contains(stopId) {
+                _ = try? await UtilisateurService.toggleFavori(userId: user.id, arretId: stopId)
+                didToggle = true
+            }
+            if didToggle {
+                await session.refreshCurrentUser()
+            }
+
             OnboardingPreferenceStore.markApplied(for: user.id)
             await requestDeferredPushPermissionIfNeeded()
         } catch {

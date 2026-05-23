@@ -353,6 +353,7 @@ struct SNCBStationMarker: View {
 struct OperatorStopMarker: View {
     let stop: OperatorMapStop
     var warningStyle: StopWarningStyle? = nil
+    var isFavorite: Bool = false
 
     var body: some View {
         VStack(spacing: 2) {
@@ -364,7 +365,18 @@ struct OperatorStopMarker: View {
                 .frame(height: 16)
                 .background(Capsule().fill(DS.Color.paper.opacity(0.96)))
                 .overlay(Capsule().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
-                .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
+                    .overlay(alignment: .topLeading) {
+                        if isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 7, weight: .black))
+                                .foregroundStyle(DS.Color.primary)
+                                .frame(width: 14, height: 14)
+                                .background(Circle().fill(DS.Color.paper))
+                                .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                                .offset(x: -5, y: -5)
+                        }
+                    }
                 .overlay(alignment: .topTrailing) {
                     if let warningStyle {
                         Image(systemName: warningStyle.icon)
@@ -388,8 +400,9 @@ struct OperatorStopMarker: View {
                     .foregroundStyle(stop.op.brandTextColor)
             }
         }
+        .scaleEffect(isFavorite ? 1.12 : 1)
         .accessibilityElement()
-        .accessibilityLabel("\(stop.op.mapLabel) — \(stop.name)")
+        .accessibilityLabel("\(stop.op.mapLabel) — \(stop.name)\(isFavorite ? ", favori" : "")")
     }
 }
 

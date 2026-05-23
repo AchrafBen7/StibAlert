@@ -5,6 +5,7 @@ enum AppStorageKeys {
     static let hasLaunchedBefore = "hasLaunchedBefore"
     static let lastUpdateDate = "lastUpdateDate"
     static let onboardingFavoriteLines = "onboardingFavoriteLines"
+    static let onboardingStibFavoriteStops = "onboardingStibFavoriteStops"
     static let onboardingHomeLabel = "onboardingHomeLabel"
     static let onboardingDepartureTime = "onboardingDepartureTime"
     static let onboardingNeedsProfileSync = "onboardingNeedsProfileSync"
@@ -24,11 +25,17 @@ enum PrivacyConsent {
 
 struct OnboardingPreferences: Equatable {
     let favoriteLines: [String]
+    /// STIB stop backend ids the user picked during onboarding. Applied to the
+    /// backend favourites once they sign in (SNCB / De Lijn / TEC favourites
+    /// live in their own local stores and don't need this).
+    let stibFavoriteStopIds: [String]
     let homeLabel: String
     let departureTime: String
 
     var hasUsefulData: Bool {
-        !favoriteLines.isEmpty || !homeLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !favoriteLines.isEmpty
+            || !stibFavoriteStopIds.isEmpty
+            || !homeLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -37,6 +44,7 @@ enum OnboardingPreferenceStore {
         let defaults = UserDefaults.standard
         return OnboardingPreferences(
             favoriteLines: defaults.stringArray(forKey: AppStorageKeys.onboardingFavoriteLines) ?? [],
+            stibFavoriteStopIds: defaults.stringArray(forKey: AppStorageKeys.onboardingStibFavoriteStops) ?? [],
             homeLabel: defaults.string(forKey: AppStorageKeys.onboardingHomeLabel) ?? "",
             departureTime: defaults.string(forKey: AppStorageKeys.onboardingDepartureTime) ?? "08:15"
         )
@@ -45,6 +53,7 @@ enum OnboardingPreferenceStore {
     static func save(_ preferences: OnboardingPreferences) {
         let defaults = UserDefaults.standard
         defaults.set(preferences.favoriteLines, forKey: AppStorageKeys.onboardingFavoriteLines)
+        defaults.set(preferences.stibFavoriteStopIds, forKey: AppStorageKeys.onboardingStibFavoriteStops)
         defaults.set(preferences.homeLabel, forKey: AppStorageKeys.onboardingHomeLabel)
         defaults.set(preferences.departureTime, forKey: AppStorageKeys.onboardingDepartureTime)
         defaults.set(true, forKey: AppStorageKeys.onboardingNeedsProfileSync)

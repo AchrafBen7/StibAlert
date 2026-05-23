@@ -83,16 +83,12 @@ enum HomeTipKind {
 
 extension View {
     /// Apply a HomeFeatureTour tip on iOS 17+, no-op on older iOS.
-    @ViewBuilder
+    ///
+    /// Currently DISABLED: the popoverTip rendered as an empty white card on
+    /// the first TestFlight build (no title/message visible, just an X), so we
+    /// short-circuit it. Re-enable once we've reproduced + fixed the rendering
+    /// issue (likely a TipKit datastore / iOS version quirk).
     func homeFeatureTip(_ kind: HomeTipKind) -> some View {
-        if #available(iOS 17.0, *) {
-            switch kind {
-            case .map:     self.popoverTip(HomeFeatureTour.map)
-            case .verdict: self.popoverTip(HomeFeatureTour.verdict)
-            case .report:  self.popoverTip(HomeFeatureTour.report)
-            }
-        } else {
-            self
-        }
+        self
     }
 }

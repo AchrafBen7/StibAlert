@@ -20,6 +20,7 @@ struct HomeMapLayer: View {
     let mapStops: [TransportStopSummaryDTO]
     let favoriteStopIds: Set<String>
     let favoriteGareIds: Set<String>
+    let favoriteOperatorStopKeys: Set<String>
     let selectedMapStopPreview: TransportStopSummaryDTO?
     let selectedMapStopSummary: TransportStopSummaryDTO?
     let mapSncbStations: [SNCBStation]
@@ -445,7 +446,11 @@ struct HomeMapLayer: View {
                 Button {
                     onSelectOperatorStop(stop)
                 } label: {
-                    OperatorStopMarker(stop: stop, warningStyle: operatorStopWarningStyle(for: stop))
+                    OperatorStopMarker(
+                        stop: stop,
+                        warningStyle: operatorStopWarningStyle(for: stop),
+                        isFavorite: favoriteOperatorStopKeys.contains("\(stop.op.rawValue):\(stop.id)")
+                    )
                 }
                 .buttonStyle(.plain)
             }

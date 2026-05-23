@@ -257,6 +257,7 @@ struct OnboardingRoutineStep: View {
         let storedTime = skipDeparture ? "" : formattedTime
         OnboardingPreferenceStore.save(OnboardingPreferences(
             favoriteLines: existing.favoriteLines,
+            stibFavoriteStopIds: existing.stibFavoriteStopIds,
             homeLabel: homeLabel.trimmingCharacters(in: .whitespacesAndNewlines),
             departureTime: storedTime.isEmpty ? "08:15" : storedTime
         ))

@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Entry point
 
 struct OnboardingView: View {
-    @State private var step: OnboardingStep = .lines
+    @State private var step: OnboardingStep = .favorites
     @State private var savedLines: [String] = []
     var onFinish: () -> Void = {}
 
@@ -11,6 +11,12 @@ struct OnboardingView: View {
         ZStack {
             DS.Color.background.ignoresSafeArea()
             switch step {
+            case .favorites:
+                OnboardingFavoritesStep(
+                    onContinue: { step = .lines },
+                    onSkip: { step = .lines }
+                )
+                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
             case .lines:
                 OnboardingLinesStep(
                     onContinue: { lines in
@@ -37,7 +43,7 @@ struct OnboardingView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.88), value: step)
     }
 
-    private enum OnboardingStep { case lines, routine, push }
+    private enum OnboardingStep { case favorites, lines, routine, push }
 }
 
 // MARK: - Step 1 — Lignes
@@ -159,6 +165,7 @@ private struct OnboardingLinesStep: View {
         let existing = OnboardingPreferenceStore.load()
         OnboardingPreferenceStore.save(OnboardingPreferences(
             favoriteLines: selectedLines.sorted(),
+            stibFavoriteStopIds: existing.stibFavoriteStopIds,
             homeLabel: existing.homeLabel,
             departureTime: existing.departureTime
         ))
