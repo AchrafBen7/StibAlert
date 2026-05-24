@@ -335,7 +335,7 @@ struct QuickReportSheetView: View {
 
     private var stopPickerExpanded: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(alignment: .center) {
                 Text(selectedOperator == .sncb ? "Choisir une autre gare" : "Choisir un autre arrêt")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
@@ -352,8 +352,10 @@ struct QuickReportSheetView: View {
                         .frame(width: 28, height: 28)
                         .background(DS.Color.paper2)
                         .clipShape(Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .offset(y: 2)
             }
             .padding(.horizontal, 18)
 
@@ -404,6 +406,7 @@ struct QuickReportSheetView: View {
         let isSelected = selectedStop?.id == stop.id
         let primaryLine = stop.issueLines.first?.number ?? stop.lines.first?.number ?? "?"
         let direction = stop.issueLines.first?.direction ?? "Direction à confirmer"
+        let shouldUseOperatorLogo = selectedOperator == .sncb || selectedOperator == .delijn || selectedOperator == .tec
         let borderColor = isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.08)
         let selectedFill = LinearGradient(
             colors: [DS.Color.primary.opacity(0.16), DS.Color.statusMinor.opacity(0.10), DS.Color.paper],
@@ -430,19 +433,24 @@ struct QuickReportSheetView: View {
                     Spacer(minLength: 8)
                 }
 
-                HStack(spacing: 6) {
-                    LineBadge(line: primaryLine, size: .sm)
-                    ForEach(Array(stop.lines.dropFirst().prefix(2))) { line in
-                        LineBadge(line: line.number, size: .sm)
+                if shouldUseOperatorLogo {
+                    operatorStopLogo(selectedOperator)
+                        .padding(.top, 12)
+                } else {
+                    HStack(spacing: 6) {
+                        LineBadge(line: primaryLine, size: .sm)
+                        ForEach(Array(stop.lines.dropFirst().prefix(2))) { line in
+                            LineBadge(line: line.number, size: .sm)
+                        }
                     }
-                }
-                .padding(.top, 11)
+                    .padding(.top, 11)
 
-                Text(direction.uppercased())
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(2)
-                    .padding(.top, 10)
+                    Text(direction.uppercased())
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(2)
+                        .padding(.top, 10)
+                }
 
                 Spacer(minLength: 8)
 
@@ -465,6 +473,22 @@ struct QuickReportSheetView: View {
             .shadow(color: DS.Color.ink.opacity(isSelected ? 0.06 : 0.035), radius: 8, x: 0, y: 4)
         }
         .buttonStyle(.plain)
+    }
+
+    private func operatorStopLogo(_ op: TransitOperator) -> some View {
+        Image(op.assetName)
+            .renderingMode(.original)
+            .resizable()
+            .scaledToFit()
+            .frame(width: op == .delijn ? 40 : 34, height: 28)
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .background(DS.Color.paper2.opacity(0.72))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 
     @ViewBuilder

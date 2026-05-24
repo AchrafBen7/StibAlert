@@ -51,18 +51,75 @@ struct OnboardingView: View {
 private struct OnboardingLinesStep: View {
     @ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = AppTheme.ButtonHeight.primary
 
-    @State private var selectedLines: Set<String> = Set(OnboardingPreferenceStore.load().favoriteLines.map(Self.normalizedLineId))
-    @State private var availableLines: [String] = [
+    @State private var selectedOperator: TransitOperator = .stib
+    @State private var selectedLines: Set<String> = Set(OnboardingPreferenceStore.load().favoriteLines.map(Self.normalizedStoredLine))
+    @State private var stibLines: [String] = [
         "1","2","3","4","5","6","7","8","9","10","12","19","25","38","46","47","53","55","56","58","59","71","81","92","95"
     ]
-    @State private var isLoading = false
+    @State private var delijnLines: [OperatorLine] = []
+    @State private var tecLines: [OperatorLine] = []
+    @State private var isLoadingStib = false
+    @State private var isLoadingDelijn = false
+    @State private var isLoadingTec = false
 
     let onContinue: ([String]) -> Void
     let onSkip: () -> Void
 
-    private let maxSelection = 4
+    private let maxSelection = 6
     private var canContinue: Bool { !selectedLines.isEmpty }
-    private var sortedSelectedLines: [String] { selectedLines.sorted(by: Self.lineSort) }
+    private var sortedSelectedLines: [String] { selectedLines.sorted(by: Self.storedLineSort) }
+
+    private var activeCandidates: [OnboardingLineCandidate] {
+        switch selectedOperator {
+        case .stib:
+            return stibLines.map {
+                OnboardingLineCandidate(
+                    storageKey: $0,
+                    displayCode: $0,
+                    title: "Ligne \($0)",
+                    subtitle: Self.modeLabel(for: $0),
+                    operatorType: .stib,
+                    colorHex: nil,
+                    textHex: nil
+                )
+            }
+        case .sncb:
+            return Self.sncbCandidates
+        case .delijn:
+            return delijnLines.map {
+                OnboardingLineCandidate(
+                    storageKey: "DELIJN:\($0.shortName)",
+                    displayCode: $0.shortName,
+                    title: $0.longName.isEmpty ? "Ligne \($0.shortName)" : $0.longName,
+                    subtitle: $0.modeLabel,
+                    operatorType: .delijn,
+                    colorHex: $0.color,
+                    textHex: $0.textColor
+                )
+            }
+        case .tec:
+            return tecLines.map {
+                OnboardingLineCandidate(
+                    storageKey: "TEC:\($0.shortName)",
+                    displayCode: $0.shortName,
+                    title: $0.longName.isEmpty ? "Ligne \($0.shortName)" : $0.longName,
+                    subtitle: $0.modeLabel,
+                    operatorType: .tec,
+                    colorHex: $0.color,
+                    textHex: $0.textColor
+                )
+            }
+        }
+    }
+
+    private var isLoadingActiveOperator: Bool {
+        switch selectedOperator {
+        case .stib: return isLoadingStib
+        case .sncb: return false
+        case .delijn: return isLoadingDelijn
+        case .tec: return isLoadingTec
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -74,11 +131,17 @@ private struct OnboardingLinesStep: View {
                         maxSelection: maxSelection,
                         onRemove: removeLine
                     )
+                    TransitOperatorRow(
+                        activeOperator: selectedOperator,
+                        enabledOperators: [.stib, .sncb, .delijn, .tec],
+                        onSelect: { selectedOperator = $0 }
+                    )
                     OnboardingLinePickerCard(
-                        lines: availableLines,
+                        operatorType: selectedOperator,
+                        lines: activeCandidates,
                         selectedLines: selectedLines,
                         maxSelection: maxSelection,
-                        isLoading: isLoading,
+                        isLoading: isLoadingActiveOperator,
                         onToggle: toggleLine
                     )
                 }
@@ -147,11 +210,11 @@ private struct OnboardingLinesStep: View {
         .buttonStyle(.plain)
     }
 
-    private func toggleLine(_ line: String) {
-        if selectedLines.contains(line) {
-            selectedLines.remove(line)
+    private func toggleLine(_ candidate: OnboardingLineCandidate) {
+        if selectedLines.contains(candidate.storageKey) {
+            selectedLines.remove(candidate.storageKey)
         } else if selectedLines.count < maxSelection {
-            selectedLines.insert(line)
+            selectedLines.insert(candidate.storageKey)
         }
         AppHaptics.soft()
     }
@@ -164,44 +227,122 @@ private struct OnboardingLinesStep: View {
     private func saveLines() {
         let existing = OnboardingPreferenceStore.load()
         OnboardingPreferenceStore.save(OnboardingPreferences(
-            favoriteLines: selectedLines.sorted(),
+            favoriteLines: sortedSelectedLines,
             stibFavoriteStopIds: existing.stibFavoriteStopIds,
             homeLabel: existing.homeLabel,
             departureTime: existing.departureTime
         ))
     }
 
-    private static func normalizedLineId(_ rawValue: String) -> String {
+    private static func normalizedStoredLine(_ rawValue: String) -> String {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = trimmed.split(separator: ":").first.map(String.init) ?? trimmed
-        return base.uppercased().replacingOccurrences(of: "BUS", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return trimmed }
+        if trimmed.contains(":") {
+            let parts = trimmed.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return trimmed.uppercased() }
+            return "\(parts[0].uppercased()):\(parts[1].trimmingCharacters(in: .whitespacesAndNewlines).uppercased())"
+        }
+        return trimmed.uppercased().replacingOccurrences(of: "BUS", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func lineSort(_ lhs: String, _ rhs: String) -> Bool {
-        let left = Int(lhs.filter(\.isNumber)) ?? 999
-        let right = Int(rhs.filter(\.isNumber)) ?? 999
+    private static func storedLineSort(_ lhs: String, _ rhs: String) -> Bool {
+        let lhsOp = operatorPrefix(for: lhs).rawValue
+        let rhsOp = operatorPrefix(for: rhs).rawValue
+        if lhsOp != rhsOp { return lhsOp < rhsOp }
+        let left = Int(displayCode(for: lhs).filter(\.isNumber)) ?? 999
+        let right = Int(displayCode(for: rhs).filter(\.isNumber)) ?? 999
         if left == right { return lhs < rhs }
         return left < right
     }
 
+    static func operatorPrefix(for storedLine: String) -> TransitOperator {
+        let prefix = storedLine.split(separator: ":", maxSplits: 1).first.map(String.init)?.lowercased()
+        switch prefix {
+        case "delijn": return .delijn
+        case "sncb": return .sncb
+        case "tec": return .tec
+        default: return .stib
+        }
+    }
+
+    static func displayCode(for storedLine: String) -> String {
+        if storedLine.contains(":") {
+            return storedLine.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? storedLine
+        }
+        return storedLine
+    }
+
     @MainActor
     private func loadLines() async {
+        async let stib: () = loadStibLines()
+        async let delijn: () = loadOperatorLines(.delijn)
+        async let tec: () = loadOperatorLines(.tec)
+        _ = await (stib, delijn, tec)
+    }
+
+    @MainActor
+    private func loadStibLines() async {
         guard AppConfig.isBackendEnabled else { return }
-        isLoading = true
-        defer { isLoading = false }
+        isLoadingStib = true
+        defer { isLoadingStib = false }
         do {
             let lignes = try await LigneService.etatLignes()
             let ids = lignes
                 .map(\.lineid)
-                .map(Self.normalizedLineId)
+                .map(Self.normalizedStoredLine)
                 .filter { !$0.isEmpty }
-            let uniqueIds = Array(Set(ids)).sorted(by: Self.lineSort)
+            let uniqueIds = Array(Set(ids)).sorted(by: Self.storedLineSort)
             if !uniqueIds.isEmpty {
-                availableLines = uniqueIds
-                selectedLines = selectedLines.filter { availableLines.contains($0) }
+                stibLines = uniqueIds
             }
         } catch {}
     }
+
+    @MainActor
+    private func loadOperatorLines(_ op: TransitOperator) async {
+        guard op == .delijn || op == .tec else { return }
+        if op == .delijn { isLoadingDelijn = true } else { isLoadingTec = true }
+        defer {
+            if op == .delijn { isLoadingDelijn = false } else { isLoadingTec = false }
+        }
+        let lines = await OperatorCatalogService.lines(operator: op)
+            .sorted { $0.shortName.compare($1.shortName, options: .numeric) == .orderedAscending }
+        if op == .delijn { delijnLines = lines } else { tecLines = lines }
+    }
+
+    private static func modeLabel(for line: String) -> String {
+        guard let number = Int(line.filter(\.isNumber)) else { return "Tram" }
+        if (1...6).contains(number) { return "Métro" }
+        if number >= 12 && number < 20 { return "Bus" }
+        if number >= 90 { return "Tram" }
+        return number >= 50 ? "Bus" : "Tram"
+    }
+
+    private static let sncbCandidates: [OnboardingLineCandidate] = [
+        "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "IC", "L", "P"
+    ].map {
+        OnboardingLineCandidate(
+            storageKey: "SNCB:\($0)",
+            displayCode: $0,
+            title: $0.hasPrefix("S") ? "Train suburbain \($0)" : "Train \($0)",
+            subtitle: "SNCB · Bruxelles",
+            operatorType: .sncb,
+            colorHex: nil,
+            textHex: nil
+        )
+    }
+}
+
+private struct OnboardingLineCandidate: Identifiable, Hashable {
+    let storageKey: String
+    let displayCode: String
+    let title: String
+    let subtitle: String
+    let operatorType: TransitOperator
+    let colorHex: String?
+    let textHex: String?
+
+    var id: String { storageKey }
 }
 
 private struct OnboardingLinesHeader: View {
@@ -276,7 +417,7 @@ private struct OnboardingSelectedLinesCard: View {
                             onRemove(line)
                         } label: {
                             HStack(spacing: 8) {
-                                LineBadge(line: line, size: .sm)
+                                OnboardingStoredLineBadge(storedLine: line, size: 34)
                                 Image(systemName: "xmark")
                                     .font(.system(size: 10, weight: .black))
                                     .foregroundStyle(DS.Color.inkMute)
@@ -307,11 +448,12 @@ private struct OnboardingSelectedLinesCard: View {
 }
 
 private struct OnboardingLinePickerCard: View {
-    let lines: [String]
+    let operatorType: TransitOperator
+    let lines: [OnboardingLineCandidate]
     let selectedLines: Set<String>
     let maxSelection: Int
     let isLoading: Bool
-    let onToggle: (String) -> Void
+    let onToggle: (OnboardingLineCandidate) -> Void
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 72), spacing: 10)]
@@ -321,7 +463,7 @@ private struct OnboardingLinePickerCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Toutes les lignes STIB")
+                    Text("Toutes les lignes \(operatorType.mapLabel)")
                         .font(DS.Font.monoSmall)
                         .tracking(1.8)
                         .textCase(.uppercase)
@@ -340,14 +482,22 @@ private struct OnboardingLinePickerCard: View {
                 }
             }
 
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(lines, id: \.self) { line in
-                    OnboardingLineButton(
-                        line: line,
-                        isSelected: selectedLines.contains(line),
-                        isDisabled: !selectedLines.contains(line) && selectedLines.count >= maxSelection,
-                        onTap: { onToggle(line) }
-                    )
+            if !isLoading && lines.isEmpty {
+                Text("Aucune ligne \(operatorType.mapLabel) disponible pour le moment.")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 18)
+            } else {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(lines) { line in
+                        OnboardingLineButton(
+                            candidate: line,
+                            isSelected: selectedLines.contains(line.storageKey),
+                            isDisabled: !selectedLines.contains(line.storageKey) && selectedLines.count >= maxSelection,
+                            onTap: { onToggle(line) }
+                        )
+                    }
                 }
             }
         }
@@ -362,7 +512,7 @@ private struct OnboardingLinePickerCard: View {
 }
 
 private struct OnboardingLineButton: View {
-    let line: String
+    let candidate: OnboardingLineCandidate
     let isSelected: Bool
     let isDisabled: Bool
     let onTap: () -> Void
@@ -370,10 +520,10 @@ private struct OnboardingLineButton: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 8) {
-                LineBadge(line: line, size: .lg)
+                OnboardingOperatorLineBadge(candidate: candidate, size: 42)
                     .opacity(isDisabled ? 0.32 : 1)
 
-                Text(isSelected ? "Choisie" : modeLabel)
+                Text(isSelected ? "Choisie" : candidate.subtitle)
                     .font(DS.Font.monoSmall)
                     .tracking(0.8)
                     .foregroundStyle(isSelected ? DS.Color.primary : DS.Color.inkMute)
@@ -391,16 +541,66 @@ private struct OnboardingLineButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
-        .accessibilityLabel("Ligne \(line)")
+        .accessibilityLabel("Ligne \(candidate.displayCode)")
         .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
     }
+}
 
-    private var modeLabel: String {
-        guard let number = Int(line.filter(\.isNumber)) else { return "Tram" }
-        if (1...6).contains(number) { return "Métro" }
-        if number >= 12 && number < 20 { return "Bus" }
-        if number >= 90 { return "Tram" }
-        return number >= 50 ? "Bus" : "Tram"
+private struct OnboardingOperatorLineBadge: View {
+    let candidate: OnboardingLineCandidate
+    let size: CGFloat
+
+    var body: some View {
+        Text(candidate.displayCode)
+            .font(.system(size: size * 0.38, weight: .black, design: .rounded))
+            .minimumScaleFactor(0.62)
+            .foregroundStyle(textColor)
+            .lineLimit(1)
+            .frame(minWidth: size, minHeight: size)
+            .padding(.horizontal, candidate.displayCode.count > 3 ? 6 : 0)
+            .background(backgroundColor)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+            )
+    }
+
+    private var backgroundColor: Color {
+        if let colorHex = candidate.colorHex?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !colorHex.isEmpty,
+           colorHex.uppercased() != "FFFFFF" {
+            return Color(hex: colorHex.hasPrefix("#") ? colorHex : "#\(colorHex)")
+        }
+        return candidate.operatorType.brandColor
+    }
+
+    private var textColor: Color {
+        if let textHex = candidate.textHex?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !textHex.isEmpty {
+            return Color(hex: textHex.hasPrefix("#") ? textHex : "#\(textHex)")
+        }
+        return candidate.operatorType.brandTextColor
+    }
+}
+
+private struct OnboardingStoredLineBadge: View {
+    let storedLine: String
+    let size: CGFloat
+
+    var body: some View {
+        OnboardingOperatorLineBadge(
+            candidate: OnboardingLineCandidate(
+                storageKey: storedLine,
+                displayCode: OnboardingLinesStep.displayCode(for: storedLine),
+                title: storedLine,
+                subtitle: OnboardingLinesStep.operatorPrefix(for: storedLine).mapLabel,
+                operatorType: OnboardingLinesStep.operatorPrefix(for: storedLine),
+                colorHex: nil,
+                textHex: nil
+            ),
+            size: size
+        )
     }
 }
 
@@ -414,6 +614,10 @@ private struct OnboardingPushStep: View {
     @State private var selectedScenario = 0
     @State private var notifAppeared = false
     @State private var isRequesting = false
+
+    private var primaryLineLabel: String {
+        OnboardingLinesStep.displayCode(for: primaryLine)
+    }
 
     // MARK: Scénarios
 
@@ -432,21 +636,21 @@ private struct OnboardingPushStep: View {
                 tabIcon: "exclamationmark.triangle.fill",
                 tabLabel: "Alerte",
                 badgeColor: Color(hex: "#FF6B3D"),
-                body: "Incident à Ixelles · ligne \(primaryLine) perturbée dès 8h40. Envisage un départ avant 8h25."
+                body: "Incident à Ixelles · ligne \(primaryLineLabel) perturbée dès 8h40. Envisage un départ avant 8h25."
             ),
             NotifScenario(
                 id: 1,
                 tabIcon: "checkmark.circle.fill",
                 tabLabel: "Tout roule",
                 badgeColor: Color(hex: "#73F0D2"),
-                body: "Ligne \(primaryLine) · 8h07 · Trafic normal ce matin. Prochain tram dans 4 min."
+                body: "Ligne \(primaryLineLabel) · 8h07 · Trafic normal ce matin. Prochain départ dans 4 min."
             ),
             NotifScenario(
                 id: 2,
                 tabIcon: "clock.badge.fill",
                 tabLabel: "Retard",
                 badgeColor: Color(hex: "#B5CFF8"),
-                body: "Ligne \(primaryLine) retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min."
+                body: "Ligne \(primaryLineLabel) retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min."
             ),
         ]
     }
@@ -464,18 +668,19 @@ private struct OnboardingPushStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 28) {
-                    Spacer(minLength: 64).fixedSize()
+                VStack(alignment: .leading, spacing: 22) {
                     pushHeader
                     notificationPreviewCard
                     trustSignalsCard
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 32)
+                .padding(.horizontal, 22)
+                .padding(.top, 56)
+                .padding(.bottom, 150)
             }
 
             ctaArea
         }
+        .background(DS.Color.background)
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.75).delay(0.15)) {
                 notifAppeared = true
@@ -486,15 +691,21 @@ private struct OnboardingPushStep: View {
     // MARK: Header
 
     private var pushHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("StibAlert prévient.\nToi, tu prends le bon tram.")
-                .font(.custom("DelaGothicOne-Regular", size: 26))
-                .foregroundStyle(AppTheme.Colors.onboardingTitleSand)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ÉTAPE 3 / 3")
+                .font(DS.Font.mono)
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute)
+
+            Text("Être prévenu avant d’attendre.")
+                .font(DesignSystem.Typography.display)
+                .foregroundStyle(DS.Color.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Active les alertes pour être informé avant ton départ, pas après.")
-                .font(.custom("Montserrat-Regular", size: 15))
-                .foregroundStyle(AppTheme.Colors.onboardingTextSecondary)
+            Text("Blayse t’envoie uniquement les alertes utiles sur tes lignes, tes gares et tes trajets importants.")
+                .font(DesignSystem.Typography.body)
+                .foregroundStyle(DS.Color.inkSoft)
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -503,66 +714,54 @@ private struct OnboardingPushStep: View {
 
     private var notificationPreviewCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Barre de titre style iOS
             iOSNotifHeader
 
             Divider()
-                .background(Color.white.opacity(0.08))
+                .background(DS.Color.ink.opacity(0.08))
 
-            // Corps de la notif animé
             notifBody
                 .padding(16)
                 .offset(y: notifAppeared ? 0 : 16)
                 .opacity(notifAppeared ? 1 : 0)
 
             Divider()
-                .background(Color.white.opacity(0.06))
+                .background(DS.Color.ink.opacity(0.08))
 
-            // Onglets de scénarios
             scenarioTabs
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
         }
-        .background(Color(hex: "#0E1520"))
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.18), Color.white.opacity(0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.4), radius: 24, x: 0, y: 12)
+        .shadow(color: DS.Color.ink.opacity(0.08), radius: 24, x: 0, y: 12)
     }
 
     private var iOSNotifHeader: some View {
         HStack(spacing: 8) {
-            // App icon
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.Colors.onboardingTitleSand)
+                .fill(DS.Color.primary)
                 .frame(width: 28, height: 28)
                 .overlay(
-                    Image(systemName: "tram.fill")
+                    Image(systemName: "bell.badge.fill")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(DS.Color.primaryForeground)
                 )
 
-            Text("STIBALERT")
-                .font(.custom("Montserrat-SemiBold", size: 11))
-                .foregroundStyle(Color.white.opacity(0.5))
-                .kerning(0.6)
+            Text("BLAYSE")
+                .font(DS.Font.mono)
+                .tracking(1.6)
+                .foregroundStyle(DS.Color.inkMute)
 
             Spacer()
 
             Text("maintenant")
-                .font(.custom("Montserrat-Regular", size: 11))
-                .foregroundStyle(Color.white.opacity(0.35))
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(DS.Color.inkMute)
 
-            // Badge indicateur scénario
             Circle()
                 .fill(scenarios[selectedScenario].badgeColor)
                 .frame(width: 8, height: 8)
@@ -577,15 +776,18 @@ private struct OnboardingPushStep: View {
             Image(systemName: scenario.tabIcon)
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(scenario.badgeColor)
+                .frame(width: 42, height: 42)
+                .background(scenario.badgeColor.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Ligne \(primaryLine) · Perturbation réseau")
-                    .font(.custom("Montserrat-SemiBold", size: 13))
-                    .foregroundStyle(.white)
+                Text("Ligne \(primaryLineLabel) · Perturbation réseau")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
 
                 Text(scenario.body)
-                    .font(.custom("Montserrat-Regular", size: 13))
-                    .foregroundStyle(Color.white.opacity(0.78))
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(2)
             }
@@ -606,17 +808,21 @@ private struct OnboardingPushStep: View {
                         Image(systemName: scenario.tabIcon)
                             .font(.system(size: 10, weight: .semibold))
                         Text(scenario.tabLabel)
-                            .font(.custom("Montserrat-SemiBold", size: 11))
+                            .font(DS.Font.bodySmall.weight(.bold))
                     }
-                    .foregroundStyle(selectedScenario == scenario.id ? .black : Color.white.opacity(0.55))
+                    .foregroundStyle(selectedScenario == scenario.id ? DS.Color.primaryForeground : DS.Color.inkMute)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
                     .background(
                         selectedScenario == scenario.id
-                        ? scenario.badgeColor
-                        : Color.white.opacity(0.07)
+                        ? DS.Color.primary
+                        : DS.Color.paper2
                     )
                     .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .stroke(DS.Color.ink.opacity(selectedScenario == scenario.id ? 0 : 0.08), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -627,34 +833,47 @@ private struct OnboardingPushStep: View {
     // MARK: Trust signals
 
     private var trustSignalsCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pourquoi l’activer")
+                .font(DS.Font.mono)
+                .tracking(1.8)
+                .textCase(.uppercase)
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+
             ForEach(Array(trustSignals.enumerated()), id: \.offset) { index, signal in
                 HStack(spacing: 14) {
                     Image(systemName: signal.icon)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppTheme.Colors.onboardingTitleSand.opacity(0.85))
-                        .frame(width: 20)
+                        .foregroundStyle(DS.Color.primary)
+                        .frame(width: 32, height: 32)
+                        .background(DS.Color.primary.opacity(0.10))
+                        .clipShape(Circle())
 
                     Text(signal.text)
-                        .font(.custom("Montserrat-Regular", size: 13))
-                        .foregroundStyle(Color.white.opacity(0.72))
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.ink)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
                 }
-                .padding(.vertical, 14)
+                .padding(.vertical, 10)
                 .padding(.horizontal, 16)
 
                 if index < trustSignals.count - 1 {
                     Divider()
-                        .background(Color.white.opacity(0.06))
-                        .padding(.leading, 50)
+                        .background(DS.Color.ink.opacity(0.08))
+                        .padding(.leading, 62)
                 }
             }
         }
-        .background(AppTheme.Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous))
+        .padding(.bottom, 6)
+        .background(DS.Color.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.Radius.xl, style: .continuous)
-                .stroke(AppTheme.Palette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
     }
 
@@ -662,9 +881,8 @@ private struct OnboardingPushStep: View {
 
     private var ctaArea: some View {
         VStack(spacing: 0) {
-            // Fade gradient pour indiquer que le contenu continue
             LinearGradient(
-                colors: [AppTheme.Colors.onboardingBackground.opacity(0), AppTheme.Colors.onboardingBackground],
+                colors: [DS.Color.background.opacity(0), DS.Color.background],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -678,7 +896,7 @@ private struct OnboardingPushStep: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
-            .background(AppTheme.Colors.onboardingBackground)
+            .background(DS.Color.background)
         }
     }
 
@@ -701,13 +919,17 @@ private struct OnboardingPushStep: View {
                         Text("Autoriser les notifications")
                             .font(DesignSystem.Typography.bodyStrong)
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(DS.Color.primaryForeground)
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: buttonHeight)
-            .background(AppTheme.Colors.onboardingTitleSand)
+            .background(DS.Color.primary)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.95), lineWidth: 1.4)
+            )
         }
         .buttonStyle(.plain)
         .disabled(isRequesting)
@@ -719,10 +941,10 @@ private struct OnboardingPushStep: View {
         HStack(spacing: 5) {
             Image(systemName: "hand.tap.fill")
                 .font(.system(size: 10))
-                .foregroundStyle(Color.white.opacity(0.28))
+                .foregroundStyle(DS.Color.inkMute)
             Text("Une fenêtre iOS va s'ouvrir pour confirmer")
-                .font(.custom("Montserrat-Regular", size: 11))
-                .foregroundStyle(Color.white.opacity(0.28))
+                .font(DS.Font.monoSmall)
+                .foregroundStyle(DS.Color.inkMute)
         }
         .frame(maxWidth: .infinity)
     }
@@ -731,7 +953,7 @@ private struct OnboardingPushStep: View {
         Button(action: onFinish) {
             Text("Plus tard")
                 .font(DesignSystem.Typography.caption)
-                .foregroundStyle(Color.white.opacity(0.38))
+                .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }

@@ -15,6 +15,7 @@ struct FavoritesView: View {
     @State private var isLoadingRemote = false
     @State private var hasLoadedFavorites = false
     @State private var showAddSheet = false
+    @State private var stibLineMetadata: [String: FavoriteFollowedLineMetadata] = [:]
 
     private var displayItems: [FavoriteTransitItem] {
         AppConfig.isBackendEnabled ? remoteItems : (remoteItems.isEmpty ? FavoritesMockData.items : remoteItems)
@@ -45,6 +46,29 @@ struct FavoritesView: View {
             item.detailLines.map(\.code)
         })
         return Array(derived).sorted(by: sortLine)
+    }
+
+    private var followedLineDisplays: [FavoriteFollowedLineDisplay] {
+        followedLines.map { rawLine in
+            let parsed = parseFavoriteLine(rawLine)
+            let metadata = stibLineMetadata[rawLine.uppercased()]
+                ?? stibLineMetadata[parsed.code.uppercased()]
+
+            let operatorType = parsed.operatorType ?? .stib
+            let fill = metadata?.color ?? (operatorType == .stib ? TransitLinePalette.fill(for: parsed.code) : operatorType.brandColor)
+            let foreground = metadata?.textColor ?? (operatorType == .stib ? TransitLinePalette.foreground(for: parsed.code) : operatorType.brandTextColor)
+            let subtitle = metadata?.directionLabel ?? parsed.operatorType?.shortName
+            let isDisrupted = disruptedLines.contains(parsed.code) || disruptedLines.contains(rawLine)
+
+            return FavoriteFollowedLineDisplay(
+                rawLine: rawLine,
+                code: parsed.code,
+                subtitle: subtitle,
+                color: fill,
+                textColor: foreground,
+                isDisrupted: isDisrupted
+            )
+        }
     }
 
     private var disruptedLines: Set<String> {
@@ -113,6 +137,9 @@ struct FavoritesView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task(id: session.currentUser?.id) {
                 await loadFavoris()
+            }
+            .task(id: followedLines.joined(separator: "|")) {
+                await loadFollowedLineMetadata()
             }
             .onChange(of: session.currentUser?.favorisDetails?.map(\.id) ?? []) { _, _ in
                 syncRemoteItemsFromSession()
@@ -630,25 +657,12 @@ struct FavoritesView: View {
             ]
 
             LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(followedLines, id: \.self) { line in
-                    let disrupted = disruptedLines.contains(line)
+                ForEach(followedLineDisplays) { line in
                     Button {
-                        nav.pendingLineFocus = line
+                        nav.pendingLineFocus = line.code
                         nav.currentPage = .reports
                     } label: {
-                        HStack {
-                            LineBadge(line: line, size: .sm)
-                            Spacer(minLength: 4)
-                            StatusDot(level: disrupted ? .major : .ok, size: 8)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(DS.Color.paper)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        FavoriteFollowedLineCard(line: line)
                     }
                     .buttonStyle(PressableScaleStyle())
                 }
@@ -767,11 +781,130 @@ struct FavoritesView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
+    @MainActor
+    private func loadFollowedLineMetadata() async {
+        guard AppConfig.isBackendEnabled else { return }
+        guard !followedLines.isEmpty else {
+            stibLineMetadata = [:]
+            return
+        }
+
+        do {
+            async let catalogTask: [LigneCatalogDTO] = LigneService.toutesLesLignes()
+            async let statesTask: [LigneEtatDTO] = LigneService.etatLignes()
+            let (catalog, states) = try await (catalogTask, statesTask)
+            stibLineMetadata = buildFollowedLineMetadata(catalog: catalog, states: states)
+        } catch {
+            ErrorReporting.capture(error, tag: "favorites.followedLines.metadata")
+        }
+    }
+
+    private func buildFollowedLineMetadata(
+        catalog: [LigneCatalogDTO],
+        states: [LigneEtatDTO]
+    ) -> [String: FavoriteFollowedLineMetadata] {
+        var output: [String: FavoriteFollowedLineMetadata] = [:]
+
+        for line in catalog {
+            let code = baseLineId(line.lineid)
+            let metadata = FavoriteFollowedLineMetadata(
+                code: code,
+                directionLabel: readableDirectionLabel(
+                    primary: line.nomComplet,
+                    secondary: line.nomCompletRetour,
+                    destination: nil
+                ),
+                color: color(from: line.couleur, fallbackLine: code),
+                textColor: TransitLinePalette.foreground(for: code)
+            )
+
+            output[line.lineid.uppercased()] = metadata
+            if output[code.uppercased()] == nil {
+                output[code.uppercased()] = metadata
+            }
+            if let direction = line.direction?.trimmingCharacters(in: .whitespacesAndNewlines), !direction.isEmpty {
+                output["\(code):\(direction)".uppercased()] = metadata
+            }
+        }
+
+        for state in states {
+            let code = baseLineId(state.lineid)
+            let existing = output[state.lineid.uppercased()] ?? output[code.uppercased()]
+            let metadata = FavoriteFollowedLineMetadata(
+                code: code,
+                directionLabel: readableDirectionLabel(
+                    primary: state.nom,
+                    secondary: state.nomRetour,
+                    destination: state.destination?.fr
+                ) ?? existing?.directionLabel,
+                color: color(from: state.couleur, fallbackLine: code),
+                textColor: TransitLinePalette.foreground(for: code)
+            )
+
+            output[state.lineid.uppercased()] = metadata
+            if output[code.uppercased()] == nil {
+                output[code.uppercased()] = metadata
+            }
+            if let direction = state.direction?.trimmingCharacters(in: .whitespacesAndNewlines), !direction.isEmpty {
+                output["\(code):\(direction)".uppercased()] = metadata
+            }
+        }
+
+        return output
+    }
+
+    private func readableDirectionLabel(primary: String?, secondary: String?, destination: String?) -> String? {
+        let values = [destination, primary, secondary]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { value in
+                let lowered = value.lowercased()
+                return lowered != "city" && lowered != "suburb"
+            }
+
+        if let destination, let primary, !destination.isEmpty, !primary.isEmpty, destination != primary {
+            return "\(primary) → \(destination)"
+        }
+
+        return values.first
+    }
+
+    private func color(from hex: String?, fallbackLine: String) -> Color {
+        guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else {
+            return TransitLinePalette.fill(for: fallbackLine)
+        }
+        return Color(hex: hex)
+    }
+
+    private func parseFavoriteLine(_ rawLine: String) -> (operatorType: TransitOperator?, code: String) {
+        let parts = rawLine.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else {
+            return (nil, rawLine)
+        }
+
+        switch parts[0].uppercased() {
+        case "DELIJN":
+            return (.delijn, parts[1])
+        case "TEC":
+            return (.tec, parts[1])
+        case "SNCB":
+            return (.sncb, parts[1])
+        default:
+            return (nil, parts[0])
+        }
+    }
+
+    private func baseLineId(_ rawLine: String) -> String {
+        parseFavoriteLine(rawLine).code
+    }
+
     private func sortLine(_ lhs: String, _ rhs: String) -> Bool {
-        if let a = Int(lhs), let b = Int(rhs) {
+        let left = baseLineId(lhs)
+        let right = baseLineId(rhs)
+        if let a = Int(left), let b = Int(right) {
             return a < b
         }
-        return lhs < rhs
+        return left.localizedStandardCompare(right) == .orderedAscending
     }
 
     private func mapFavoriteItems(from stops: [FavoriDetailDTO], fallbackStops: [FavoriDetailDTO]) -> [FavoriteTransitItem] {
@@ -782,7 +915,14 @@ struct FavoritesView: View {
             let primaryLine = stop.primaryLine ?? stop.lignesDesservies?.first ?? "\(index + 1)"
             let modes = FavoriteTransportFilter.modes(for: stop.lignesDesservies ?? [])
             let severity = FavoriteSeverity.from(status: stop.status)
-            let problemLabel = stop.status ?? "Normal"
+            let problemLabel: String = {
+                switch severity {
+                case .normal:
+                    return "Aucun actif"
+                case .warning, .blocked:
+                    return stop.status ?? "À vérifier"
+                }
+            }()
 
             return FavoriteTransitItem(
                 stopBackendId: stop.id,
@@ -1853,13 +1993,13 @@ private struct FavoriteTransitItem: Identifiable {
     /// stop. Replaces the old "Affluence/Drukte" line, which was just this
     /// count relabelled as crowding (a metric STIB doesn't actually publish).
     var activityLabel: String {
-        reportCount == 0 ? "Aucun signalement" : "\(reportCount) signalement\(reportCount > 1 ? "s" : "")"
+        reportCount == 0 ? "Aucun signalement actif" : "\(reportCount) signalement\(reportCount > 1 ? "s" : "") actif\(reportCount > 1 ? "s" : "")"
     }
 
     var cockpitHeadline: String {
         switch severity {
         case .normal:
-            return reportCount == 0 ? "Trafic fluide" : "1 signalement léger"
+            return reportCount == 0 ? "Aucun incident actif" : "1 signalement actif"
         case .warning:
             if let type = lastProblemType {
                 return "\(type) en cours"
@@ -1897,6 +2037,59 @@ private struct FavoriteLineChip: Identifiable {
     let code: String
     let color: Color
     let textColor: Color
+}
+
+private struct FavoriteFollowedLineMetadata {
+    let code: String
+    let directionLabel: String?
+    let color: Color
+    let textColor: Color
+}
+
+private struct FavoriteFollowedLineDisplay: Identifiable {
+    var id: String { rawLine }
+    let rawLine: String
+    let code: String
+    let subtitle: String?
+    let color: Color
+    let textColor: Color
+    let isDisrupted: Bool
+}
+
+private struct FavoriteFollowedLineCard: View {
+    let line: FavoriteFollowedLineDisplay
+
+    var body: some View {
+        HStack(spacing: 8) {
+            LineBadge(line: line.code, size: .sm, fill: line.color, foreground: line.textColor)
+            if let subtitle = line.subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 4)
+            StatusDot(level: line.isDisrupted ? .major : .ok, size: 8)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        if let subtitle = line.subtitle, !subtitle.isEmpty {
+            return "Ligne \(line.code), \(subtitle)"
+        }
+        return "Ligne \(line.code)"
+    }
 }
 
 private struct FavoriteSectionHeading: View {

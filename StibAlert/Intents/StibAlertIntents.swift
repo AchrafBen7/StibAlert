@@ -34,7 +34,7 @@ enum TypeProblemeIntentEnum: String, AppEnum {
 struct SignalerArretIntent: AppIntent {
     static let title: LocalizedStringResource = "Signaler un problème STIB"
     static let description = IntentDescription(
-        "Créez un signalement directement via Siri. L'app n'a pas besoin d'être ouverte.",
+        "Créez un signalement vocalement. L'app n'a pas besoin d'être ouverte.",
         categoryName: "Transport"
     )
     static let openAppWhenRun = false
@@ -45,7 +45,7 @@ struct SignalerArretIntent: AppIntent {
     @Parameter(title: "Type de problème", default: .retard)
     var typeProbleme: TypeProblemeIntentEnum
 
-    @Parameter(title: "Description", description: "Détails supplémentaires (optionnel)", default: "Signalé via Siri")
+    @Parameter(title: "Description", description: "Détails supplémentaires (optionnel)", default: "Signalé vocalement")
     var details: String
 
     static var parameterSummary: some ParameterSummary {
@@ -72,7 +72,7 @@ struct SignalerArretIntent: AppIntent {
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "nomArret": nomArret,
             "typeProbleme": typeProbleme.rawValue,
-            "description": details.isEmpty ? "Signalé via Siri" : details,
+            "description": details.isEmpty ? "Signalé vocalement" : details,
         ])
 
         do {

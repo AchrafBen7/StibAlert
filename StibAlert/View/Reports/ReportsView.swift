@@ -496,7 +496,7 @@ struct ReportsView: View {
                     }
                 }
             }
-            OperatorDisruptionsList(op: op)
+            OperatorDisruptionsList(op: op, userCoordinate: locationManager.userCoordinate)
         }
     }
 

@@ -136,6 +136,32 @@ extension HomeView {
     }
 
     @ViewBuilder
+    var proactiveAlertOverlay: some View {
+        if let cluster = proactiveAlertCluster,
+           selectedClusterIndex == nil,
+           !nav.showReportSheet {
+            HomeProactiveAlertCard(
+                cluster: cluster,
+                onClose: closeProactiveAlert,
+                onOpenDetails: {
+                    openProactiveAlertCluster(cluster)
+                },
+                onStillBlocked: {
+                    await confirmProactiveAlertStillBlocked(cluster)
+                },
+                onResolved: {
+                    await confirmProactiveAlertResolved(cluster)
+                }
+            )
+            .padding(.horizontal, 14)
+            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zLayer(.stopPreview)
+            .accessibilitySortPriority(20)
+        }
+    }
+
+    @ViewBuilder
     var signalementPreviewOverlay: some View {
         if let preview = selectedSignalementPreview,
            shouldShowSignalementPreview {

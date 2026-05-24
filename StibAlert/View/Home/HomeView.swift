@@ -45,6 +45,7 @@ struct HomeView: View {
     @State private var showSearch = false
     @State var showLegend = false
     @State var showRoutePlanner = false
+    @State private var showStibAI = false
     @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -123,8 +124,8 @@ struct HomeView: View {
     @State private var clustersTask: Task<Void, Never>? = nil
     @State private var lastClustersFetchCoordinate: CLLocationCoordinate2D? = nil
 
-    @State private var showDecisionSheet = false
     @State private var hasAutoShownDecision = false
+    @State var proactiveAlertCluster: ClusterDTO? = nil
     @State var tripDestination: TripDestination? = nil
     @State private var showDestinationPicker = false
 
@@ -715,6 +716,167 @@ struct HomeView: View {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
 
+    private var stibAILocationLabel: String {
+        if let stop = selectedMapStopDetail?.stop.name ?? selectedMapStopPreview?.name {
+            return "📍 \(stop)"
+        }
+        if locationManager.userCoordinate != nil {
+            return "📍 autour de moi"
+        }
+        return "📍 localisation non active"
+    }
+
+    private var stibAIContextSnapshot: STIBAIContext {
+        let position = locationManager.userCoordinate.map(GeoPoint.init)
+        let currentStop = stibAICurrentStartStop()
+        let nearby = stibAINearbyStops(currentStopId: currentStop?.id)
+        let activeReports = remoteSignalements
+            .filter { $0.status != "resolved" }
+            .prefix(14)
+            .map { signalement in
+                CommunityReport(
+                    line: signalement.ligne,
+                    stop: arretName(for: signalement),
+                    type: signalement.displayTypeProbleme,
+                    ageMin: signalement.effectiveFreshnessMinutes
+                )
+            }
+
+        let affectedLines = Array(Set(remoteSignalements.filter { $0.status != "resolved" }.map(\.ligne))).sorted()
+        let overviewIncidents = (selectedMapStopDetail?.activeIncidents ?? transportOverview?.activeIncidents ?? [])
+
+        return STIBAIContext(
+            position: position,
+            currentStartStop: currentStop,
+            activeTrip: stibAIActiveTrip(),
+            network: NetworkState(
+                level: transportOverview?.severity ?? selectedMapStopDetail?.severity ?? "unknown",
+                headline: transportOverview?.perturbationSummary?.shortText
+                    ?? selectedMapStopDetail?.perturbationSummary?.shortText
+                    ?? "Données réseau chargées depuis l'app.",
+                affectedLines: affectedLines
+            ),
+            disruptedLines: affectedLines,
+            travellersInfo: overviewIncidents.prefix(10).map { incident in
+                TravellerInfo(
+                    priority: nil,
+                    type: incident.type,
+                    title: incident.type ?? "Perturbation",
+                    description: incident.description,
+                    lines: incident.line.map { [$0] },
+                    points: incident.stop?.id.map { [$0] }
+                )
+            },
+            nearbyStops: nearby,
+            followedLines: session.currentUser?.favoriteLines,
+            reports: Array(activeReports),
+            proposedDestination: selectedRouteOption?.destinationName,
+            proposedRoutes: stibAIProposedRoutes()
+        )
+    }
+
+    private func stibAICurrentStartStop() -> NearStop? {
+        if let detail = selectedMapStopDetail {
+            return NearStop(
+                id: detail.stop.id,
+                name: detail.stop.name,
+                distance: stibAIDistance(to: detail.stop),
+                lines: detail.stop.lines,
+                mode: stibAIMode(for: detail.stop.lines)
+            )
+        }
+        if let preview = selectedMapStopPreview {
+            return NearStop(
+                id: preview.id,
+                name: preview.name,
+                distance: stibAIDistance(to: preview),
+                lines: preview.lines,
+                mode: stibAIMode(for: preview.lines)
+            )
+        }
+        return stibAINearbyStops(currentStopId: nil).first
+    }
+
+    private func stibAINearbyStops(currentStopId: String?) -> [NearStop] {
+        let coordinate = locationManager.userCoordinate ?? locationManager.displayCoordinate
+        return baseMapStops
+            .filter { summary in
+                guard let lat = summary.latitude, let lng = summary.longitude else { return false }
+                let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                    .distance(from: CLLocation(latitude: lat, longitude: lng))
+                return distance <= 1800 || summary.id == currentStopId
+            }
+            .sorted { stibAIDistance(to: $0) < stibAIDistance(to: $1) }
+            .prefix(8)
+            .map { summary in
+                NearStop(
+                    id: summary.id,
+                    name: summary.name,
+                    distance: stibAIDistance(to: summary),
+                    lines: summary.lines,
+                    mode: stibAIMode(for: summary.lines)
+                )
+            }
+    }
+
+    private func stibAIActiveTrip() -> ActiveTrip? {
+        guard let option = selectedRouteOption else { return nil }
+        let steps = option.backendAlternative?.steps ?? []
+        return ActiveTrip(
+            fromName: option.originName,
+            toName: option.destinationName,
+            lines: Array(Set(steps.compactMap(\.line))).sorted(),
+            stopIds: steps.compactMap(\.stopName)
+        )
+    }
+
+    private func stibAIProposedRoutes() -> [ProposedRoute]? {
+        let options = routeOptions.isEmpty ? selectedRouteOption.map { [$0] } ?? [] : routeOptions
+        guard !options.isEmpty else { return nil }
+        return options.prefix(3).map { option in
+            let backend = option.backendAlternative
+            let steps = backend?.steps?.sorted { $0.order < $1.order }.map { step in
+                RouteStep(
+                    line: step.line,
+                    fromName: step.stopName ?? step.instruction,
+                    toName: step.arrivalStopName ?? step.destination ?? option.destinationName,
+                    minutes: step.durationMinutes,
+                    disrupted: !(step.alerts ?? []).isEmpty,
+                    reason: step.alerts?.first?.description ?? step.alerts?.first?.title
+                )
+            }
+            return ProposedRoute(
+                totalMin: backend?.totalDurationMinutes ?? Int(option.durationText.filter(\.isNumber)) ?? nil,
+                walkMin: backend?.walkingMinutes,
+                transitMin: backend.map { max($0.totalDurationMinutes - $0.walkingMinutes, 0) },
+                fromStop: option.originName,
+                toStop: option.destinationName,
+                accessFromMeters: nil,
+                accessToMeters: nil,
+                steps: steps,
+                transfers: backend?.transfers,
+                hasDisruption: backend?.severity != "normal",
+                disruptionReasons: backend?.officialAlerts?.compactMap { $0.description ?? $0.title },
+                walkOnly: backend == nil && option.transitSummary.localizedCaseInsensitiveContains("pied"),
+                info: [option.transitSummary, option.walkingSummary, option.reliabilityText]
+            )
+        }
+    }
+
+    private func stibAIDistance(to summary: TransportStopSummaryDTO) -> Double {
+        guard let lat = summary.latitude, let lng = summary.longitude else { return 0 }
+        let origin = locationManager.userCoordinate ?? locationManager.displayCoordinate
+        return CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+            .distance(from: CLLocation(latitude: lat, longitude: lng))
+    }
+
+    private func stibAIMode(for lines: [String]) -> String? {
+        let normalized = lines.map { $0.uppercased() }
+        if normalized.contains(where: { $0 == "1" || $0 == "2" || $0 == "5" || $0 == "6" }) { return "metro" }
+        if normalized.contains(where: { $0.hasPrefix("T") || ["3", "4", "7", "8", "9", "10", "18", "19", "25", "39", "44", "51", "55", "62", "81", "82", "92", "93", "97"].contains($0) }) { return "tram" }
+        return lines.isEmpty ? nil : "bus"
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -729,6 +891,7 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) { reportSheetOverlay }
         .overlay(alignment: .top) { searchHeaderOverlay }
+        .overlay(alignment: .top) { proactiveAlertOverlay }
         .overlay(alignment: .top) { allClearChipOverlay }
         .overlay(alignment: .bottom) { signalementPreviewOverlay }
         .overlay(alignment: .bottom) { clusterDetailOverlay }
@@ -770,6 +933,13 @@ struct HomeView: View {
                 }
             )
         }
+        .fullScreenCover(isPresented: $showStibAI) {
+            STIBAIView(
+                locationLabel: stibAILocationLabel,
+                contextProvider: { stibAIContextSnapshot },
+                onClose: { showStibAI = false }
+            )
+        }
         .sheet(item: $selectedVilloStation) { station in
             HomeVilloStationSheet(station: station)
                 .presentationDetents([.height(260), .medium])
@@ -791,34 +961,6 @@ struct HomeView: View {
                 selectedOperatorStop = nil
                 nav.showReportSheet = true
             })
-        }
-        // VehicleDetailSheet is rendered as an overlay (vehicleDetailOverlay)
-        // — see HomeViewOverlays. We avoid SwiftUI's .sheet() here because
-        // its UIViewController-backed presentation adds ~200 ms of latency
-        // between the tap and the panel appearing on iPhone 11-era devices.
-        .sheet(isPresented: $showDecisionSheet) {
-            DecisionView(
-                coordinate: locationManager.userCoordinate,
-                preferredLine: session.currentUser?.favoriteLines?.first,
-                onDismiss: { showDecisionSheet = false },
-                onOpenMap: { clusterIndex in
-                    showDecisionSheet = false
-                    selectedClusterIndex = clusterIndex
-                },
-                onOpenItinerary: { walkStop in
-                    showDecisionSheet = false
-                    let target = MKMapItem(placemark: MKPlacemark(
-                        coordinate: CLLocationCoordinate2D(
-                            latitude: walkStop.latitude,
-                            longitude: walkStop.longitude
-                        )
-                    ))
-                    target.name = walkStop.name
-                    Task { await buildRoute(to: target) }
-                }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
         // Trip mode used to detour through DecisionView (the "Verdict" sheet
         // with a 0 min recommendation that confused users). Now we jump
@@ -1079,16 +1221,19 @@ struct HomeView: View {
     @MainActor
     private func considerAutoShowDecision() async {
         guard !hasAutoShownDecision,
-              !showDecisionSheet,
+              proactiveAlertCluster == nil,
               nav.currentPage == .home,
               !nav.showReportSheet else { return }
 
         guard let user = session.currentUser else { return }
-        let favoriteLines = Set((user.favoriteLines ?? []).map { $0.uppercased() })
+        let favoriteLines = Set((user.favoriteLines ?? []).compactMap { rawLine -> String? in
+            let normalized = rawLine.uppercased()
+            return normalized.contains(":") ? nil : normalized
+        })
         let hasRoutine = user.routine?.enabled == true
         guard !favoriteLines.isEmpty || hasRoutine else { return }
 
-        let affectsUser = activeClusters.contains { cluster in
+        let affectedCluster = activeClusters.first { cluster in
             let line = cluster.ligne.uppercased()
             if favoriteLines.contains(line) { return true }
             if let homeStopId = user.routine?.homeStopId, cluster.arretId == homeStopId { return true }
@@ -1096,12 +1241,12 @@ struct HomeView: View {
             return false
         }
 
-        guard affectsUser else { return }
+        guard let affectedCluster else { return }
 
         hasAutoShownDecision = true
         try? await Task.sleep(nanoseconds: 600_000_000)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-            showDecisionSheet = true
+            proactiveAlertCluster = affectedCluster
         }
     }
 
@@ -1127,6 +1272,10 @@ struct HomeView: View {
                     Spacer()
 
                     VStack(spacing: 12) {
+                        STIBAIFloatingButton {
+                            showStibAI = true
+                        }
+
                         LocationFloatingButton {
                             recenterOnUser()
                         }
@@ -2129,6 +2278,57 @@ struct HomeView: View {
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
         } catch {
             signalementLoadError = "Impossible d'envoyer ton vote. Réessaie."
+        }
+    }
+
+    @MainActor
+    func closeProactiveAlert() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            proactiveAlertCluster = nil
+        }
+    }
+
+    @MainActor
+    func openProactiveAlertCluster(_ cluster: ClusterDTO) {
+        closeProactiveAlert()
+        selectedClusterIndex = cluster.clusterIndex
+        if let latitude = cluster.latitude, let longitude = cluster.longitude {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                mapPosition = .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+                ))
+            }
+        }
+    }
+
+    func confirmProactiveAlertStillBlocked(_ cluster: ClusterDTO) async {
+        do {
+            _ = try await ClusterService.confirmStillBlocked(cluster.clusterIndex)
+            await MainActor.run {
+                closeProactiveAlert()
+                lastClustersFetchCoordinate = nil
+                scheduleActiveClustersRefresh()
+            }
+        } catch {
+            ErrorReporting.capture(error, tag: "home.proactiveAlert.stillBlocked", context: [
+                "clusterIndex": "\(cluster.clusterIndex)"
+            ])
+        }
+    }
+
+    func confirmProactiveAlertResolved(_ cluster: ClusterDTO) async {
+        do {
+            _ = try await ClusterService.confirmResolved(cluster.clusterIndex)
+            await MainActor.run {
+                closeProactiveAlert()
+                lastClustersFetchCoordinate = nil
+                scheduleActiveClustersRefresh()
+            }
+        } catch {
+            ErrorReporting.capture(error, tag: "home.proactiveAlert.resolved", context: [
+                "clusterIndex": "\(cluster.clusterIndex)"
+            ])
         }
     }
 

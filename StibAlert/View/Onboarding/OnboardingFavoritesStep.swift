@@ -1,5 +1,6 @@
 import CoreLocation
 import SwiftUI
+import UIKit
 
 /// Onboarding step that lets the user pick favourite stops across all four
 /// operators (STIB, SNCB, De Lijn, TEC) — so the app feels populated as soon
@@ -26,6 +27,7 @@ struct OnboardingFavoritesStep: View {
     @State private var tecStops: [OperatorMapStop] = []
     @State private var isLoadingDelijn = true
     @State private var isLoadingTec = true
+    @State private var locationState: LocationState = .requesting
 
     @State private var userCoordinate: CLLocationCoordinate2D = OneShotLocationManager.fallback
 
@@ -41,12 +43,16 @@ struct OnboardingFavoritesStep: View {
                 VStack(alignment: .leading, spacing: 18) {
                     header
                     counter
-                    TransitOperatorRow(
-                        activeOperator: selectedOperator,
-                        enabledOperators: [.stib, .sncb, .delijn, .tec],
-                        onSelect: { selectedOperator = $0 }
-                    )
-                    operatorContent
+                    if locationState == .ready {
+                        TransitOperatorRow(
+                            activeOperator: selectedOperator,
+                            enabledOperators: [.stib, .sncb, .delijn, .tec],
+                            onSelect: { selectedOperator = $0 }
+                        )
+                        operatorContent
+                    } else {
+                        locationGate
+                    }
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 56)
@@ -78,6 +84,12 @@ struct OnboardingFavoritesStep: View {
         .task { await loadAll() }
     }
 
+    private enum LocationState {
+        case requesting
+        case denied
+        case ready
+    }
+
     // MARK: - Header / counter / continue
 
     private var header: some View {
@@ -107,6 +119,61 @@ struct OnboardingFavoritesStep: View {
                 .stroke(DS.Color.ink.opacity(canContinue ? 0.5 : 0.15), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+    }
+
+    private var locationGate: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: locationState == .requesting ? "location.fill" : "location.slash.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(locationState == .requesting ? DS.Color.primary : DS.Color.statusMajor)
+                    .frame(width: 46, height: 46)
+                    .background((locationState == .requesting ? DS.Color.primary : DS.Color.statusMajor).opacity(0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(locationState == .requesting ? "Localisation en cours" : "Position nécessaire")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                    Text(locationState == .requesting
+                         ? "Autorise ta position pour afficher les vrais arrêts proches de toi."
+                         : "Sans position, on ne peut pas proposer des arrêts réellement à proximité.")
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if locationState == .requesting {
+                ProgressView()
+                    .tint(DS.Color.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Button {
+                    openAppSettings()
+                } label: {
+                    Text("Ouvrir les réglages")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(DS.Color.paper)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                                .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     private var continueButton: some View {
@@ -281,7 +348,18 @@ struct OnboardingFavoritesStep: View {
 
     @MainActor
     private func loadAll() async {
-        userCoordinate = await locator.getCurrentLocation()
+        locationState = .requesting
+        guard let coordinate = await locator.requestCurrentLocation() else {
+            locationState = .denied
+            isLoadingStib = false
+            isLoadingSncb = false
+            isLoadingDelijn = false
+            isLoadingTec = false
+            return
+        }
+
+        userCoordinate = coordinate
+        locationState = .ready
         // STIB nearby + SNCB nearest + De Lijn/TEC viewport in parallel
         async let stib: () = loadStib()
         async let sncb: () = loadSncb()
@@ -296,7 +374,7 @@ struct OnboardingFavoritesStep: View {
         defer { isLoadingStib = false }
         do {
             let stops = try await NearbyStopService.fetchNearby(lat: userCoordinate.latitude, lng: userCoordinate.longitude, radius: 1500)
-            stibStops = stops.prefix(25).map { $0 }
+            stibStops = dedupedRealStibStops(stops).prefix(25).map { $0 }
         } catch {
             stibStops = []
         }
@@ -336,6 +414,43 @@ struct OnboardingFavoritesStep: View {
             .prefix(25)
             .map { $0 }
         if op == .delijn { delijnStops = sorted } else { tecStops = sorted }
+    }
+
+    private func dedupedRealStibStops(_ stops: [NearbyStop]) -> [NearbyStop] {
+        var bestByName: [String: NearbyStop] = [:]
+
+        for stop in stops {
+            let key = normalizedStopName(stop.name)
+            guard !key.isEmpty, !key.contains("TEST") else { continue }
+
+            if let current = bestByName[key] {
+                if stop.distanceMeters < current.distanceMeters {
+                    bestByName[key] = stop
+                }
+            } else {
+                bestByName[key] = stop
+            }
+        }
+
+        return bestByName.values.sorted {
+            if $0.distanceMeters == $1.distanceMeters {
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+            return $0.distanceMeters < $1.distanceMeters
+        }
+    }
+
+    private func normalizedStopName(_ name: String) -> String {
+        name
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: AppLocale.current)
+            .replacingOccurrences(of: #"[^A-Z0-9]+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
