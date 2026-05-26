@@ -46,6 +46,8 @@ struct HomeView: View {
     @State var showLegend = false
     @State var showRoutePlanner = false
     @State private var showStibAI = false
+    @State private var showVoiceOverlay = false
+    @StateObject private var tripTracker = ActiveTripTracker()
     @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -775,6 +777,27 @@ struct HomeView: View {
         )
     }
 
+    @MainActor
+    private func stibAIContextSnapshot(for userMessage: String) async -> STIBAIContext {
+        var context = stibAIContextSnapshot
+        guard context.proposedRoutes == nil,
+              let destinationText = STIBAIDestinationExtractor.extract(from: userMessage) else {
+            return context
+        }
+
+        context.proposedDestination = destinationText
+        guard let destination = await resolveSTIBAIDestination(destinationText) else {
+            return context
+        }
+
+        let options = await stibAIRouteOptions(to: destination)
+        if let proposedRoutes = stibAIProposedRoutes(from: options) {
+            context.proposedDestination = destination.name ?? destinationText
+            context.proposedRoutes = proposedRoutes
+        }
+        return context
+    }
+
     private func stibAICurrentStartStop() -> NearStop? {
         if let detail = selectedMapStopDetail {
             return NearStop(
@@ -832,6 +855,10 @@ struct HomeView: View {
 
     private func stibAIProposedRoutes() -> [ProposedRoute]? {
         let options = routeOptions.isEmpty ? selectedRouteOption.map { [$0] } ?? [] : routeOptions
+        return stibAIProposedRoutes(from: options)
+    }
+
+    private func stibAIProposedRoutes(from options: [HomeRouteOption]) -> [ProposedRoute]? {
         guard !options.isEmpty else { return nil }
         return options.prefix(3).map { option in
             let backend = option.backendAlternative
@@ -936,9 +963,25 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showStibAI) {
             STIBAIView(
                 locationLabel: stibAILocationLabel,
-                contextProvider: { stibAIContextSnapshot },
+                contextProvider: { message in
+                    await stibAIContextSnapshot(for: message)
+                },
                 onClose: { showStibAI = false }
             )
+        }
+        .fullScreenCover(isPresented: $showVoiceOverlay) {
+            VoiceOverlay(
+                contextProvider: { message in
+                    await stibAIContextSnapshot(for: message)
+                },
+                onDestination: { destination in
+                    Task { await resolveVoiceDestination(destination) }
+                },
+                onClose: { showVoiceOverlay = false }
+            )
+        }
+        .onReceive(locationManager.$userCoordinate) { coord in
+            tripTracker.onLocationUpdate(coord)
         }
         .sheet(item: $selectedVilloStation) { station in
             HomeVilloStationSheet(station: station)
@@ -1272,6 +1315,10 @@ struct HomeView: View {
                     Spacer()
 
                     VStack(spacing: 12) {
+                        MapVoiceFloatingButton {
+                            showVoiceOverlay = true
+                        }
+
                         STIBAIFloatingButton {
                             showStibAI = true
                         }
@@ -1483,6 +1530,7 @@ struct HomeView: View {
 
     @MainActor
     private func clearRouteSelection(keepDestination: Bool) {
+        tripTracker.stop()
         routeOptions = []
         routeModeSummaries = []
         selectedRouteID = nil
@@ -2598,6 +2646,62 @@ struct HomeView: View {
     }
 
     @MainActor
+    private func resolveSTIBAIDestination(_ text: String) async -> MKMapItem? {
+        let query = text.localizedCaseInsensitiveContains("bruxelles")
+            ? text
+            : "\(text), Bruxelles"
+        let req = MKLocalSearch.Request()
+        req.naturalLanguageQuery = query
+        req.resultTypes = [.address, .pointOfInterest]
+        req.region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
+            span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)
+        )
+
+        guard let response = try? await MKLocalSearch(request: req).start() else {
+            return nil
+        }
+
+        let origin = CLLocation(
+            latitude: locationManager.displayCoordinate.latitude,
+            longitude: locationManager.displayCoordinate.longitude
+        )
+        return response.mapItems
+            .filter { $0.placemark.location != nil }
+            .min { lhs, rhs in
+                let lhsDistance = lhs.placemark.location.map { origin.distance(from: $0) } ?? .greatestFiniteMagnitude
+                let rhsDistance = rhs.placemark.location.map { origin.distance(from: $0) } ?? .greatestFiniteMagnitude
+                return lhsDistance < rhsDistance
+            }
+    }
+
+    @MainActor
+    private func stibAIRouteOptions(to destination: MKMapItem) async -> [HomeRouteOption] {
+        let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
+        async let recommendationTask = fetchBackendRecommendation(source: source, destination: destination)
+        async let transitRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .transit)
+        async let walkingRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .walking)
+
+        let recommendation = await recommendationTask
+        let transitRoutes = await transitRoutesTask
+        let walkingRoutes = await walkingRoutesTask
+        let destinationName = destination.name ?? destination.placemark.title ?? "Destination"
+        let fallbackOptions = buildFallbackRouteOptions(
+            transitRoutes: transitRoutes,
+            walkingRoutes: walkingRoutes,
+            originName: "Votre position",
+            destinationName: destinationName
+        )
+
+        return buildBackendFirstRouteOptions(
+            recommendation: recommendation,
+            fallbackOptions: fallbackOptions,
+            originName: "Votre position",
+            destinationName: destinationName
+        )
+    }
+
+    @MainActor
     private func buildRoute(to destination: MKMapItem) async {
         let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
         await buildRoute(from: source, to: destination, originName: "Votre position")
@@ -2936,6 +3040,32 @@ struct HomeView: View {
         return "walk"
     }
 
+    /// Geocode the destination string returned by the voice assistant (e.g.
+    /// "Flagey", "Gare Centrale") around the user's location, then hand it to
+    /// the existing `tripDestination` pipeline so the route is built + shown
+    /// on the map just like a manual search.
+    @MainActor
+    private func resolveVoiceDestination(_ name: String) async {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = name
+        request.region = MKCoordinateRegion(
+            center: locationManager.userCoordinate ?? cameraCenterCoordinate,
+            latitudinalMeters: 25_000,
+            longitudinalMeters: 25_000
+        )
+        do {
+            let response = try await MKLocalSearch(request: request).start()
+            guard let first = response.mapItems.first else { return }
+            showVoiceOverlay = false
+            tripDestination = HomeView.TripDestination(
+                coordinate: first.placemark.coordinate,
+                label: first.name ?? name
+            )
+        } catch {
+            // Voice reply still plays; we just don't auto-route.
+        }
+    }
+
     private func applyRouteOption(_ option: HomeRouteOption) {
         currentRoute = option.route
         currentRouteCoordinates = option.routeCoordinates
@@ -2945,6 +3075,9 @@ struct HomeView: View {
         withAnimation(.easeOut(duration: 0.35)) {
             mapPosition = .rect(routeFramingRect(for: option))
         }
+
+        // Start the voice trip announcer on this option.
+        tripTracker.start(option: option)
     }
 
     /// Frame a route so it sits in the visible upper area of the map rather

@@ -9,7 +9,7 @@ struct STIBAIView: View {
 
     init(
         locationLabel: String,
-        contextProvider: @escaping () -> STIBAIContext,
+        contextProvider: @escaping @MainActor (_ userMessage: String) async -> STIBAIContext,
         onClose: @escaping () -> Void
     ) {
         self.locationLabel = locationLabel
@@ -155,18 +155,30 @@ struct STIBAIView: View {
         HStack(alignment: .top) {
             if isUser { Spacer(minLength: 44) }
 
-            Text(markdownText(message.content.isEmpty ? "…" : message.content))
-                .font(DS.Font.body)
-                .lineSpacing(5)
-                .foregroundStyle(isUser ? DS.Color.primaryForeground : DS.Color.ink)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(isUser ? DS.Color.primary : DS.Color.paper2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(isUser ? DS.Color.ink : DS.Color.border, lineWidth: 1.2)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            if isUser {
+                Text(markdownText(message.content.isEmpty ? "…" : message.content))
+                    .font(DS.Font.body)
+                    .lineSpacing(5)
+                    .foregroundStyle(DS.Color.primaryForeground)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(DS.Color.primary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(DS.Color.ink, lineWidth: 1.2)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                STIBAIResponseRenderer(text: message.content.isEmpty ? "…" : message.content)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 18)
+                    .background(DS.Color.paper2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(DS.Color.border, lineWidth: 1.2)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
 
             if !isUser { Spacer(minLength: 44) }
         }
