@@ -201,10 +201,14 @@ struct STIBAIView: View {
                             .stroke(DS.Color.border, lineWidth: 1.5)
                     )
                     .submitLabel(.send)
-                    .onSubmit { viewModel.send() }
+                    .onSubmit {
+                        viewModel.send()
+                        inputFocused = false
+                    }
 
                 Button {
                     viewModel.send()
+                    inputFocused = false
                 } label: {
                     Image(systemName: viewModel.isStreaming ? "stop.fill" : "paperplane.fill")
                         .font(.system(size: 18, weight: .bold))

@@ -2651,6 +2651,21 @@ struct HomeView: View {
 
     @MainActor
     private func resolveSTIBAIDestination(_ text: String) async -> MKMapItem? {
+        // 1) Try the local STIB stops catalog first. Apple's MKLocalSearch has
+        //    been observed returning random POIs like "Kathleen Dandoy" or
+        //    "Rue de la Croix de Fer" for a query like "delacroix" because of
+        //    its fuzzy substring matching. The STIB catalog has the canonical
+        //    stop names ("DELACROIX", "BAILLI", "TRÔNE"…) so when the user
+        //    asks about a real stop we hit it first.
+        if let stop = await NearbyStopService.searchStopByName(text) {
+            let placemark = MKPlacemark(coordinate: stop.coordinate)
+            let item = MKMapItem(placemark: placemark)
+            item.name = stop.name
+            return item
+        }
+
+        // 2) Fallback to MKLocalSearch for non-transit destinations
+        //    (addresses, POIs, monuments…). Biased to Brussels region.
         let query = text.localizedCaseInsensitiveContains("bruxelles")
             ? text
             : "\(text), Bruxelles"
@@ -3056,17 +3071,27 @@ struct HomeView: View {
     /// describe the actual lines/stops instead of fabricating them.
     @MainActor
     private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = name
-        request.region = MKCoordinateRegion(
-            center: locationManager.userCoordinate ?? cameraCenterCoordinate,
-            latitudinalMeters: 25_000,
-            longitudinalMeters: 25_000
-        )
-        guard let response = try? await MKLocalSearch(request: request).start(),
-              let destination = response.mapItems.first else {
-            pendingVoiceTrip = nil
-            return nil
+        let destination: MKMapItem
+        // Try the STIB catalog first (same reason as resolveSTIBAIDestination:
+        // MKLocalSearch fuzzy-matches "delacroix" to random POIs).
+        if let stop = await NearbyStopService.searchStopByName(name) {
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: stop.coordinate))
+            item.name = stop.name
+            destination = item
+        } else {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = name
+            request.region = MKCoordinateRegion(
+                center: locationManager.userCoordinate ?? cameraCenterCoordinate,
+                latitudinalMeters: 25_000,
+                longitudinalMeters: 25_000
+            )
+            guard let response = try? await MKLocalSearch(request: request).start(),
+                  let first = response.mapItems.first else {
+                pendingVoiceTrip = nil
+                return nil
+            }
+            destination = first
         }
         let options = await stibAIRouteOptions(to: destination)
         guard !options.isEmpty else {

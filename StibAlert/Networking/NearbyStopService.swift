@@ -275,6 +275,61 @@ private enum StaticTransitCatalogStore {
 }
 
 enum NearbyStopService {
+    /// Search the local static STIB catalog for a stop whose name best matches
+    /// `query` (token-based scoring, accent-insensitive). Used by the STIB AI
+    /// chat / voice flow to resolve a spoken/typed destination like
+    /// "Delacroix" to the real STIB stop coordinate before falling back to
+    /// MKLocalSearch (which has been seen returning random street/POI matches
+    /// like "Rue de la Croix de Fer" or "Kathleen Dandoy" on partial words).
+    static func searchStopByName(_ query: String) async -> (name: String, coordinate: CLLocationCoordinate2D)? {
+        let queryNorm = normalize(query)
+        let queryTokens = queryNorm.split(separator: " ").map(String.init).filter { $0.count >= 3 }
+        guard !queryTokens.isEmpty else { return nil }
+
+        guard let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
+              !catalog.stops.isEmpty else {
+            return nil
+        }
+
+        var best: (stop: StaticTransitStop, score: Int)?
+        for stop in catalog.stops {
+            let stopName = normalize(stop.name)
+            let stopTokens = Set(stopName.split(separator: " ").map(String.init))
+            var score = 0
+            for token in queryTokens {
+                if stopTokens.contains(token) {
+                    score += 100 + token.count // exact word match
+                } else if stopName.contains(" " + token) || stopName.hasPrefix(token + " ") {
+                    score += 50 + token.count // word starts/contains
+                } else if stopName.contains(token) {
+                    score += 10 + token.count // substring (weaker)
+                }
+            }
+            // Bonus when the query is essentially the whole stop name (avoids
+            // a 1-token query matching a 5-word stop with only 1 word shared).
+            if stopTokens.count >= queryTokens.count,
+               queryTokens.allSatisfy({ stopTokens.contains($0) }) {
+                score += 50
+            }
+            if score > (best?.score ?? 0) {
+                best = (stop, score)
+            }
+        }
+
+        guard let best, best.score >= 100 else { return nil }
+        return (best.stop.name, CLLocationCoordinate2D(latitude: best.stop.latitude, longitude: best.stop.longitude))
+    }
+
+    private static func normalize(_ text: String) -> String {
+        let folded = text
+            .lowercased()
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR"))
+        return folded
+            .replacingOccurrences(of: #"[^a-z0-9\s]"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     static func fetchNearby(lat: Double, lng: Double, radius: Double = 600) async throws -> [NearbyStop] {
         if AppConfig.isBackendEnabled {
             do {
