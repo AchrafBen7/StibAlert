@@ -275,16 +275,33 @@ private enum StaticTransitCatalogStore {
 }
 
 enum NearbyStopService {
+    /// Generic street/transit words that shouldn't drive a stop match on their
+    /// own. Without this filter "avenue des desirs" was matching "AVENUE DU
+    /// ROI" on the single word "avenue", and "rue de la fontaine" was matching
+    /// any random street stop containing "rue".
+    private static let genericLocationWords: Set<String> = [
+        "rue", "avenue", "boulevard", "chaussee", "place", "square", "parc",
+        "porte", "pont", "quai", "esplanade", "voie", "venelle", "passage",
+        "impasse", "drève", "dreve", "carrefour", "gare", "station", "metro",
+        "métro", "tram", "bus", "arret", "arrêt", "rond-point", "rondpoint",
+        "des", "les", "aux", "sur", "sous", "par", "pour", "avec", "vers",
+    ]
+
     /// Search the local static STIB catalog for a stop whose name best matches
     /// `query` (token-based scoring, accent-insensitive). Used by the STIB AI
     /// chat / voice flow to resolve a spoken/typed destination like
     /// "Delacroix" to the real STIB stop coordinate before falling back to
-    /// MKLocalSearch (which has been seen returning random street/POI matches
-    /// like "Rue de la Croix de Fer" or "Kathleen Dandoy" on partial words).
+    /// Google geocoding (which has the right address coverage for non-transit
+    /// destinations like "avenue des Désirs").
     static func searchStopByName(_ query: String) async -> (name: String, coordinate: CLLocationCoordinate2D)? {
         let queryNorm = normalize(query)
-        let queryTokens = queryNorm.split(separator: " ").map(String.init).filter { $0.count >= 3 }
-        guard !queryTokens.isEmpty else { return nil }
+        let allTokens = queryNorm.split(separator: " ").map(String.init).filter { $0.count >= 3 }
+        // Significant tokens = NOT generic street words ("avenue", "rue"…)
+        // and NOT short articles ("des", "les"…). If none remain after the
+        // filter, the query is "rue avenue place" or similar — there's no
+        // way to disambiguate a stop, so let Google handle it.
+        let significantTokens = allTokens.filter { !genericLocationWords.contains($0) }
+        guard !significantTokens.isEmpty else { return nil }
 
         guard let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
               !catalog.stops.isEmpty else {
@@ -296,7 +313,9 @@ enum NearbyStopService {
             let stopName = normalize(stop.name)
             let stopTokens = Set(stopName.split(separator: " ").map(String.init))
             var score = 0
-            for token in queryTokens {
+            // Score uniquement sur les tokens significatifs — un stop qui
+            // partage seulement "avenue" avec la query ne match plus.
+            for token in significantTokens {
                 if stopTokens.contains(token) {
                     score += 100 + token.count // exact word match
                 } else if stopName.contains(" " + token) || stopName.hasPrefix(token + " ") {
@@ -305,17 +324,20 @@ enum NearbyStopService {
                     score += 10 + token.count // substring (weaker)
                 }
             }
-            // Bonus when the query is essentially the whole stop name (avoids
-            // a 1-token query matching a 5-word stop with only 1 word shared).
-            if stopTokens.count >= queryTokens.count,
-               queryTokens.allSatisfy({ stopTokens.contains($0) }) {
-                score += 50
+            // Bonus si TOUS les tokens significatifs sont présents dans le
+            // nom du stop (couvre "delacroix" → DELACROIX, et évite qu'un
+            // stop avec 1 mot partagé sur 3 ne gagne).
+            if significantTokens.allSatisfy({ stopTokens.contains($0) }) {
+                score += 100
             }
             if score > (best?.score ?? 0) {
                 best = (stop, score)
             }
         }
 
+        // Seuil : il faut au minimum un EXACT WORD MATCH sur un token
+        // significatif (100+) sinon on retombe sur Google plutôt que de
+        // pousser un stop fragile.
         guard let best, best.score >= 100 else { return nil }
         return (best.stop.name, CLLocationCoordinate2D(latitude: best.stop.latitude, longitude: best.stop.longitude))
     }
