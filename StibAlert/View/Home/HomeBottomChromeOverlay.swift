@@ -10,13 +10,22 @@ struct HomeBottomChromeOverlay: View {
     let refreshedAt: Date?
     let onOpenReports: () -> Void
     let onOpenReportSheet: () -> Void
+    let onOpenVoice: () -> Void
+    let onOpenStibAI: () -> Void
+    let onRecenter: () -> Void
     let onSelectTab: (AppTab) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
+                // Layout: [Mic] far-left  ........  [Location] [AI] [+] right-grouped.
+                // Mic stays visually distinct (round red) on the left while the
+                // three right-side controls cluster next to the report FAB.
                 HStack(alignment: .center, spacing: 10) {
-                    Spacer()
+                    MapVoiceFloatingButton(action: onOpenVoice)
+                    Spacer(minLength: 8)
+                    LocationFloatingButton(action: onRecenter)
+                    STIBAIFloatingButton(action: onOpenStibAI)
                     HomeReportFloatingButton(action: onOpenReportSheet)
                         .homeFeatureTip(.report)
                 }
@@ -117,19 +126,13 @@ struct LocationFloatingButton: View {
 
     var body: some View {
         Button(action: action) {
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .fill(DS.Color.paper.opacity(0.96))
-                .frame(width: 42, height: 44)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
-                )
-                .overlay(
-                    Image(systemName: "location.north.fill")
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-                        .rotationEffect(.degrees(18))
-                )
+            Image(systemName: "location.north.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .rotationEffect(.degrees(18))
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(DS.Color.paper.opacity(0.96)))
+                .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
                 .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)

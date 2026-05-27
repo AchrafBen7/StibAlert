@@ -20,6 +20,11 @@ final class ActiveTripTracker: ObservableObject {
     private var checkpoints: [Checkpoint] = []
     private var announced: Set<String> = []
     private var lastTriggerAt: Date = .distantPast
+    /// Skip the per-update distance scan if the previous tick was less than
+    /// 3s ago. `locationManager.$userCoordinate` can fire several times per
+    /// second; running the loop every time + computing CLLocation.distance
+    /// over all checkpoints would add measurable CPU/heat on long trips.
+    private var lastScanAt: Date = .distantPast
     /// Once active, only announce when the user has actually moved a bit —
     /// avoids the tracker firing all checkpoints at once if the trip starts
     /// already very close to the next stop.
@@ -39,14 +44,20 @@ final class ActiveTripTracker: ObservableObject {
         checkpoints = []
         announced = []
         startCoordinate = nil
+        lastScanAt = .distantPast
+        lastTriggerAt = .distantPast
         player.stop()
     }
 
     func onLocationUpdate(_ coord: CLLocationCoordinate2D?) {
         guard let coord, isActive, !checkpoints.isEmpty else { return }
         if startCoordinate == nil { startCoordinate = coord }
-        // Throttle: at most one announcement every 6s.
-        guard Date().timeIntervalSince(lastTriggerAt) > 6 else { return }
+        let now = Date()
+        // Throttle: at most one scan every 3s (caps CPU + battery), and at
+        // most one announcement every 6s after a previous one.
+        guard now.timeIntervalSince(lastScanAt) > 3 else { return }
+        lastScanAt = now
+        guard now.timeIntervalSince(lastTriggerAt) > 6 else { return }
 
         let userLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
         for cp in checkpoints where !announced.contains(cp.id) {

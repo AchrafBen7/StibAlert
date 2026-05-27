@@ -240,13 +240,9 @@ struct STIBAIFloatingButton: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 17, weight: .heavy))
                 .foregroundStyle(DS.Color.accentForeground)
-                .frame(width: 42, height: 44)
-                .background(DS.Color.accent)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(DS.Color.accent))
+                .overlay(Circle().stroke(DS.Color.ink, lineWidth: 1.5))
                 .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)

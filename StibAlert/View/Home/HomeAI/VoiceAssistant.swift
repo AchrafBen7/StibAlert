@@ -125,19 +125,22 @@ final class VoiceAssistant: NSObject, ObservableObject {
         }
 
         // Combined watchdog:
-        // - silence-after-speech: 1.4s of no transcript update once started → final.
-        // - no-speech-at-all: 7s with empty transcript → surface "Je n'entends rien".
+        // - silence-after-speech: 2.5s of no transcript update once started →
+        //   final (more forgiving than 1.4s: gives time to breathe mid-sentence).
+        // - no-speech-at-all: 12s with empty transcript → surface "Je n'entends
+        //   rien" (was 7s, but the recogniser sometimes takes 2-3s to warm up
+        //   on a fresh tap so the user thought it wasn't listening).
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isListening else { return }
                 if !self.transcript.isEmpty {
-                    if Date().timeIntervalSince(self.lastTranscriptUpdate) > 1.4 {
+                    if Date().timeIntervalSince(self.lastTranscriptUpdate) > 2.5 {
                         let final = self.transcript
                         self.stopListening()
                         onFinal(final)
                     }
-                } else if Date().timeIntervalSince(listenStart) > 7 {
+                } else if Date().timeIntervalSince(listenStart) > 12 {
                     self.lastError = "Je n'ai rien entendu. Vérifie le micro et réessaie."
                     self.stopListening()
                 }

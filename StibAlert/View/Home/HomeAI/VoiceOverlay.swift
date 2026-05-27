@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The "Hey Mobi" voice modal — full-screen overlay launched from the map mic
 /// button. Listens, asks the AI in one shot, speaks the reply, and (when the
@@ -235,6 +236,9 @@ struct VoiceOverlay: View {
         reply = ""
         errorText = nil
         phase = .listening
+        // Haptic cue so the user knows the mic is hot and they can talk now —
+        // visual "Je t'écoute…" alone wasn't unambiguous in testing.
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         voice.startListening { final in
             Task { await handleTranscript(final) }
         }
@@ -263,35 +267,28 @@ struct VoiceOverlay: View {
     }
 }
 
-/// Big animated mic button on the map — launches the `VoiceOverlay`. Sits next
-/// to the STIB AI chat button.
+/// Compact round mic button on the map — launches the `VoiceOverlay`.
+/// Same size as the other small map FABs (location, AI) so the row reads
+/// cleanly, with the brand red as the only colour cue.
 struct MapVoiceFloatingButton: View {
     let action: () -> Void
-    @State private var pulse = false
 
     var body: some View {
         Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(
+            Image(systemName: "mic.fill")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .background(
+                    Circle().fill(LinearGradient(
                         colors: [Color(hex: "#FF5A5F"), Color(hex: "#D63A3F")],
                         startPoint: .top, endPoint: .bottom
                     ))
-                    .frame(width: 60, height: 60)
-                Circle()
-                    .stroke(Color.white.opacity(0.7), lineWidth: 2)
-                    .frame(width: 70, height: 70)
-                    .scaleEffect(pulse ? 1.10 : 0.95)
-                    .opacity(pulse ? 0 : 0.7)
-                    .animation(.easeOut(duration: 1.6).repeatForever(autoreverses: false), value: pulse)
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 22, weight: .black))
-                    .foregroundStyle(.white)
-            }
-            .shadow(color: Color(hex: "#FF5A5F").opacity(0.45), radius: 10, y: 4)
+                )
+                .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                .shadow(color: Color(hex: "#FF5A5F").opacity(0.30), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Parler à Mobi")
-        .onAppear { pulse = true }
     }
 }

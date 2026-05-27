@@ -1307,32 +1307,9 @@ struct HomeView: View {
     // MARK: - Controls (search + floating buttons)
 
     @ViewBuilder private var controlsLayer: some View {
-        if !isStopDetailPresented {
-            VStack {
-                Spacer()
-
-                HStack {
-                    Spacer()
-
-                    VStack(spacing: 12) {
-                        MapVoiceFloatingButton {
-                            showVoiceOverlay = true
-                        }
-
-                        STIBAIFloatingButton {
-                            showStibAI = true
-                        }
-
-                        LocationFloatingButton {
-                            recenterOnUser()
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 156)
-                .zLayer(.controls)
-            }
-        }
+        // Mic / AI / Location / + are all rendered in HomeBottomChromeOverlay's
+        // pulse-bar row now (one homogeneous line above the tab bar).
+        EmptyView()
     }
 
     // MARK: - ZStack overlays (legend, sheets, AR, page)
@@ -1464,6 +1441,23 @@ struct HomeView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             nav.showReportSheet = true
         }
+    }
+
+    @MainActor
+    func openVoiceFromHome() {
+        showVoiceOverlay = true
+    }
+
+    @MainActor
+    func openStibAIFromHome() {
+        showStibAI = true
+    }
+
+    /// Internal wrapper so the bottom-chrome extension can recenter without
+    /// touching the private recenterOnUser() implementation.
+    @MainActor
+    func recenterFromHome() {
+        recenterOnUser()
     }
 
     @MainActor
