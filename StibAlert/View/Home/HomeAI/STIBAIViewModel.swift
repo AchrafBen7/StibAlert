@@ -148,7 +148,16 @@ enum STIBAIDestinationExtractor {
             " est-ce", " est ce", " y a-t-il", " y a t il",
             " ça va", " ca va", " c'est bon", " cest bon",
             " c est bon", " c’est bon", " possible", " dangereux",
-            " perturbé", " perturbée", " retard", " bloqué", " bloquée"
+            " perturbé", " perturbée", " retard", " bloqué", " bloquée",
+            // Sentence-continuation / interrogative markers — sans ça l'extracteur
+            // ramène "delacroix c est quoi la meilleure route" et MKLocalSearch
+            // matche n'importe quel mot (ex: trouve "Rue de la Croix de Fer" sur
+            // "croix") au lieu de l'arrêt Delacroix.
+            " c est ", " c'est ", " c’est ", " ça ", " ca ",
+            " quoi", " que ", " qui ", " comment ",
+            " pourquoi ", " quand ", " où ",
+            " peux ", " peux-tu", " peut-on", " pourrais ", " pourriez ",
+            " stp", " svp", " merci", " s'il te plait", " s il te plait", " s'il vous plaît"
         ]
         let lower = text.lowercased()
         let firstTransition = transitions
