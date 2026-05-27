@@ -58,7 +58,14 @@ struct AppRoot: View {
             case .unknown:
                 ZStack {
                     DS.Color.background.ignoresSafeArea()
-                    ProgressView().tint(.white)
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .tint(DS.Color.ink)
+                            .scaleEffect(1.3)
+                        Text("Connexion…")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
                 }
             case .signedOut:
                 if !hasSeenOnboarding {
