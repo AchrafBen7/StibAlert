@@ -74,8 +74,18 @@ final class VoiceAssistant: NSObject, ObservableObject {
         request = req
 
         let input = audioEngine.inputNode
-        let format = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
+        // outputFormat / inputFormat can return a zero-sampleRate format on
+        // the iOS simulator (no real audio hardware) — installing a tap with
+        // that crashes inside CoreAudio with
+        // `IsFormatSampleRateAndChannelCountValid`. We validate first and
+        // fail with a clear message instead of aborting the whole app.
+        let format = input.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            lastError = "Micro indisponible (simulateur ?). Teste sur un vrai iPhone, ou autorise l'entrée audio Mac dans les réglages du simulateur."
+            cleanupAudio()
+            return
+        }
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.request?.append(buffer)
         }
