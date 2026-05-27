@@ -420,14 +420,41 @@ struct VoiceOverlay: View {
         thinkingDetail = nil
         let context = await contextProvider(text)
         do {
-            // Call 1: extract destination (and get a fallback reply for non-
-            // itinerary questions like "y a-t-il des perturbations").
+            // Fast path : regex client-side. Si on extrait une destination
+            // tout de suite, on saute l'appel #1 (extraction) et on va
+            // directement plan + appel #2 (description riche). Économise
+            // 1-2 sec sur les phrases simples type "trajet vers Delacroix".
+            if let regexDest = STIBAIDestinationExtractor.extract(from: text) {
+                pendingDestination = regexDest
+                thinkingDetail = "Je calcule le meilleur trajet vers \(regexDest)…"
+
+                guard let proposedRoutes = await prepareTrip(regexDest), !proposedRoutes.isEmpty else {
+                    phase = .error
+                    errorText = "Je n'ai pas trouvé de trajet vers \"\(regexDest)\". Essaie une adresse plus précise ou ouvre le planner."
+                    return
+                }
+
+                var enrichedContext = context
+                enrichedContext.proposedRoutes = proposedRoutes
+                enrichedContext.proposedDestination = regexDest
+
+                let richResult = try await STIBAIVoiceClient.ask(text: text, context: enrichedContext)
+                reply = richResult.spokenReply
+                displayReply = richResult.displayReply ?? richResult.spokenReply
+                thinkingDetail = nil
+                phase = .speaking
+                player.speak(richResult.spokenReply)
+                return
+            }
+
+            // Regex n'a rien trouvé → flow 2-calls classique. Le 1er appel
+            // sert à la fois de fallback pour les questions non-trajet (état
+            // du réseau, perturbations…) et d'extraction Gemini.
             let firstResult = try await STIBAIVoiceClient.ask(text: text, context: context)
             let dest = firstResult.destination?.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard let dest, !dest.isEmpty else {
-                // No destination → it's a question about disruptions/state/etc.
-                // Play the first reply directly.
+                // Pas de destination → question hors trajet. On joue le 1er reply.
                 reply = firstResult.spokenReply
                 displayReply = firstResult.displayReply ?? firstResult.spokenReply
                 pendingDestination = nil
@@ -436,25 +463,15 @@ struct VoiceOverlay: View {
                 return
             }
 
-            // Destination detected. Compute the real trip BEFORE asking the AI
-            // to describe it, so the 2nd call has real lines/stops/durations
-            // in context instead of fabricating them.
             pendingDestination = dest
             thinkingDetail = "Je calcule le meilleur trajet vers \(dest)…"
 
             guard let proposedRoutes = await prepareTrip(dest), !proposedRoutes.isEmpty else {
-                // Couldn't geocode or no trip found → keep destination so the
-                // user can still tap "Voir la route" (which will show its own
-                // error), but tell them the trip wasn't found.
                 phase = .error
                 errorText = "Je n'ai pas trouvé de trajet vers \"\(dest)\". Essaie une adresse plus précise ou ouvre le planner."
                 return
             }
 
-            // Call 2: same transcript, but with the real proposedRoutes in
-            // context. The backend's voice prompt has a branch "AVEC trajet
-            // calculé" → 3-5 phrases with [[L:NUM]] badges describing the
-            // actual steps.
             var enrichedContext = context
             enrichedContext.proposedRoutes = proposedRoutes
             enrichedContext.proposedDestination = dest

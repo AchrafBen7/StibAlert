@@ -31,6 +31,23 @@ enum STIBAIVoiceClient {
 
     private struct ErrorBody: Decodable { let message: String? }
 
+    /// Lightweight "extraction probe" used by STIB·AI typed chat when its
+    /// local regex extractor can't find a destination. Re-uses the same
+    /// `/api/stib-ai/voice` endpoint but only consumes the `destination`
+    /// field — Gemini is more tolerant of phrasings the regex misses
+    /// ("Comment je peux faire pour aller à Delacroix avec ma poussette ?").
+    /// Returns nil on any error so the caller silently falls back to the
+    /// regex-less behaviour (AI asks for clarification).
+    static func extractDestinationOnly(text: String, context: STIBAIContext?) async -> String? {
+        do {
+            let reply = try await ask(text: text, context: context)
+            let trimmed = reply.destination?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (trimmed?.isEmpty == false) ? trimmed : nil
+        } catch {
+            return nil
+        }
+    }
+
     static func ask(text: String, context: STIBAIContext?) async throws -> STIBAIVoiceReply {
         guard AppConfig.isBackendEnabled,
               let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib-ai/voice") else {

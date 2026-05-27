@@ -784,10 +784,21 @@ struct HomeView: View {
     @MainActor
     private func stibAIContextSnapshot(for userMessage: String) async -> STIBAIContext {
         var context = stibAIContextSnapshot
-        guard context.proposedRoutes == nil,
-              let destinationText = STIBAIDestinationExtractor.extract(from: userMessage) else {
-            return context
+        guard context.proposedRoutes == nil else { return context }
+
+        // Fast path : regex client-side (gratuit, instantané).
+        var destinationText = STIBAIDestinationExtractor.extract(from: userMessage)
+
+        // Fallback : si le regex échoue ET que le message ressemble à une
+        // demande d'itinéraire, on demande au backend (Gemini) d'extraire la
+        // destination — bien plus tolérant aux phrasings exotiques. Sans
+        // cette branche, l'IA refusait avec "j'ai besoin d'une destination
+        // plus précise" sur les phrases que le regex ne capture pas.
+        if destinationText == nil, Self.looksLikeTripRequest(userMessage) {
+            destinationText = await STIBAIVoiceClient.extractDestinationOnly(text: userMessage, context: context)
         }
+
+        guard let destinationText else { return context }
 
         context.proposedDestination = destinationText
         guard let destination = await resolveSTIBAIDestination(destinationText) else {
@@ -800,6 +811,19 @@ struct HomeView: View {
             context.proposedRoutes = proposedRoutes
         }
         return context
+    }
+
+    /// Heuristique pour limiter le fallback backend aux questions qui ont
+    /// l'air d'une demande de trajet. Sans ça, "y a-t-il des perturbations ?"
+    /// ferait un appel Gemini inutile à chaque message.
+    private static func looksLikeTripRequest(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let triggers = [
+            "aller", "trajet", "itinéraire", "itineraire", "route", "chemin",
+            "rendre", "arriver", "amène", "amene", "meilleur", "comment je vais",
+            "comment aller", "direction de", "se rendre", "y aller", "destination",
+        ]
+        return triggers.contains { lower.contains($0) }
     }
 
     private func stibAICurrentStartStop() -> NearStop? {
@@ -2651,54 +2675,7 @@ struct HomeView: View {
 
     @MainActor
     private func resolveSTIBAIDestination(_ text: String) async -> MKMapItem? {
-        // 3-tier destination resolution :
-        //   1) Catalogue STIB local (arrêts canoniques : DELACROIX, BAILLI…)
-        //   2) Google forward geocoding via backend /api/geocode (adresses,
-        //      monuments, POIs — couverture BE largement supérieure à Apple)
-        //   3) MKLocalSearch en dernier recours si Google indisponible
-
-        // 1) STIB stops catalog
-        if let stop = await NearbyStopService.searchStopByName(text) {
-            let item = MKMapItem(placemark: MKPlacemark(coordinate: stop.coordinate))
-            item.name = stop.name
-            return item
-        }
-
-        // 2) Google forward geocoding (backend, biaisé Bruxelles)
-        if let g = await GeocodeService.search(text) {
-            let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
-            item.name = g.name
-            return item
-        }
-
-        // 3) Fallback MKLocalSearch — gardé car Google peut être down /
-        //    quota dépassé / timeout
-        let query = text.localizedCaseInsensitiveContains("bruxelles")
-            ? text
-            : "\(text), Bruxelles"
-        let req = MKLocalSearch.Request()
-        req.naturalLanguageQuery = query
-        req.resultTypes = [.address, .pointOfInterest]
-        req.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
-            span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)
-        )
-
-        guard let response = try? await MKLocalSearch(request: req).start() else {
-            return nil
-        }
-
-        let origin = CLLocation(
-            latitude: locationManager.displayCoordinate.latitude,
-            longitude: locationManager.displayCoordinate.longitude
-        )
-        return response.mapItems
-            .filter { $0.placemark.location != nil }
-            .min { lhs, rhs in
-                let lhsDistance = lhs.placemark.location.map { origin.distance(from: $0) } ?? .greatestFiniteMagnitude
-                let rhsDistance = rhs.placemark.location.map { origin.distance(from: $0) } ?? .greatestFiniteMagnitude
-                return lhsDistance < rhsDistance
-            }
+        await STIBAIDestinationResolver.resolve(text, near: locationManager.displayCoordinate)
     }
 
     @MainActor
@@ -3078,33 +3055,12 @@ struct HomeView: View {
     /// describe the actual lines/stops instead of fabricating them.
     @MainActor
     private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
-        // Même résolution 3-tiers que resolveSTIBAIDestination :
-        //   1) Catalogue STIB → arrêts
-        //   2) Google /api/geocode → adresses / POIs
-        //   3) MKLocalSearch → fallback ultime
-        let destination: MKMapItem
-        if let stop = await NearbyStopService.searchStopByName(name) {
-            let item = MKMapItem(placemark: MKPlacemark(coordinate: stop.coordinate))
-            item.name = stop.name
-            destination = item
-        } else if let g = await GeocodeService.search(name) {
-            let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
-            item.name = g.name
-            destination = item
-        } else {
-            let request = MKLocalSearch.Request()
-            request.naturalLanguageQuery = name
-            request.region = MKCoordinateRegion(
-                center: locationManager.userCoordinate ?? cameraCenterCoordinate,
-                latitudinalMeters: 25_000,
-                longitudinalMeters: 25_000
-            )
-            guard let response = try? await MKLocalSearch(request: request).start(),
-                  let first = response.mapItems.first else {
-                pendingVoiceTrip = nil
-                return nil
-            }
-            destination = first
+        guard let destination = await STIBAIDestinationResolver.resolve(
+            name,
+            near: locationManager.userCoordinate ?? cameraCenterCoordinate
+        ) else {
+            pendingVoiceTrip = nil
+            return nil
         }
         let options = await stibAIRouteOptions(to: destination)
         guard !options.isEmpty else {
