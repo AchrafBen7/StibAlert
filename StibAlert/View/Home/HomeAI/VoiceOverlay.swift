@@ -100,20 +100,37 @@ struct VoiceOverlay: View {
     private var transcriptOrReply: some View {
         switch phase {
         case .listening:
-            if !voice.transcript.isEmpty {
-                Text("« \(voice.transcript) »")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-                    .transition(.opacity)
-            } else {
-                Text("Vas-y, parle…")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
+            VStack(spacing: 10) {
+                // Live "EN ÉCOUTE" indicator with pulsing red dot — like
+                // ChatGPT/Siri: the user instantly knows the mic is hot.
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: "#FF5A5F"))
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(pulse ? 1.3 : 0.85)
+                        .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+                    Text("EN ÉCOUTE")
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .tracking(1.5)
+                        .foregroundStyle(Color(hex: "#FF5A5F"))
+                }
+                if voice.transcript.isEmpty {
+                    Text("Vas-y, parle…")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                } else {
+                    // Big live transcript — same vibe as ChatGPT's voice mode.
+                    Text(voice.transcript)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 22)
+                        .lineLimit(5)
+                        .animation(.easeOut(duration: 0.18), value: voice.transcript)
+                }
             }
         case .idle:
-            Text("Appuie sur le micro et parle.")
+            Text("Appuie sur Parler et pose ta question.")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.white.opacity(0.55))
         case .speaking, .thinking:
@@ -154,22 +171,49 @@ struct VoiceOverlay: View {
             }
             .buttonStyle(.plain)
 
-            Button(action: { Task { await restart() } }) {
+            Button(action: { Task { await handleAction() } }) {
                 HStack(spacing: 10) {
-                    Image(systemName: phase == .listening ? "stop.fill" : "mic.fill")
+                    Image(systemName: actionIcon)
                         .font(.system(size: 18, weight: .black))
-                    Text(phase == .listening ? "Arrêter" : "Reparler")
+                    Text(actionLabel)
                         .font(.system(size: 16, weight: .bold))
                 }
-                .foregroundStyle(.black)
+                .foregroundStyle(actionForeground)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
-                .background(Color.white)
+                .background(actionBackground)
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
             .disabled(phase == .thinking || phase == .speaking)
         }
+    }
+
+    /// Whether the user has spoken something we can send right now.
+    private var hasSpeechReady: Bool {
+        voice.isListening && !voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var actionIcon: String {
+        if hasSpeechReady { return "paperplane.fill" }
+        if voice.isListening { return "stop.fill" }
+        return "mic.fill"
+    }
+
+    private var actionLabel: String {
+        if hasSpeechReady { return "Envoyer" }
+        if voice.isListening { return "Arrêter" }
+        return "Parler"
+    }
+
+    private var actionBackground: Color {
+        if hasSpeechReady { return Color(hex: "#5FB8FF") }
+        return .white
+    }
+
+    private var actionForeground: Color {
+        if hasSpeechReady { return .white }
+        return .black
     }
 
     // MARK: - Visual helpers
@@ -216,19 +260,27 @@ struct VoiceOverlay: View {
         beginListening()
     }
 
-    private func restart() async {
-        // If we're actively listening, the user wants to stop.
-        if phase == .listening || voice.isListening {
+    /// Smart bottom-button handler:
+    /// - Listening + transcript non-empty → **send** what was heard now (no
+    ///   need to wait for the silence watchdog).
+    /// - Listening + nothing heard      → cancel (back to idle).
+    /// - Not listening (idle/error/after-speaking) → start a fresh listen.
+    private func handleAction() async {
+        if voice.isListening {
+            let current = voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
             player.stop()
             voice.stopListening()
-            phase = .idle
+            if !current.isEmpty {
+                await handleTranscript(current)
+            } else {
+                phase = .idle
+            }
             return
         }
-        // Otherwise (idle, error, after-speaking) → start a fresh listen.
         player.stop()
         // Small breath so the audio session has time to switch from playback
         // back to record after a TTS reply finished.
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(nanoseconds: 250_000_000)
         beginListening()
     }
 

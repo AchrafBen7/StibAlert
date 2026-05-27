@@ -80,9 +80,18 @@ extension VoicePlayer: AVSpeechSynthesizerDelegate {
         Task { @MainActor in self.isSpeaking = true }
     }
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor in
+            self.isSpeaking = false
+            // Release the session so STT can grab .playAndRecord cleanly on
+            // the next tap. Without this, the 2nd "Parler" sometimes failed
+            // because the session was still held in .playback by AVSynthesizer.
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor in
+            self.isSpeaking = false
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 }
