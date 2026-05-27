@@ -130,6 +130,10 @@ struct HomeView: View {
     @State var proactiveAlertCluster: ClusterDTO? = nil
     @State var tripDestination: TripDestination? = nil
     @State private var showDestinationPicker = false
+    /// Trip prepared from the voice flow (geocoded + planned), kept around so
+    /// the "Voir la route sur la carte" button can apply it instantly without
+    /// re-running MKLocalSearch + the planner.
+    @State private var pendingVoiceTrip: (destination: MKMapItem, options: [HomeRouteOption])?
 
     struct TripDestination: Identifiable, Equatable {
         let id = UUID()
@@ -974,10 +978,16 @@ struct HomeView: View {
                 contextProvider: { message in
                     await stibAIContextSnapshot(for: message)
                 },
-                onDestination: { destination in
-                    await resolveVoiceDestination(destination)
+                prepareTrip: { name in
+                    await prepareVoiceTrip(name)
                 },
-                onClose: { showVoiceOverlay = false }
+                applyTrip: {
+                    applyPreparedVoiceTrip()
+                },
+                onClose: {
+                    pendingVoiceTrip = nil
+                    showVoiceOverlay = false
+                }
             )
         }
         .onReceive(locationManager.$userCoordinate) { coord in
@@ -3038,8 +3048,14 @@ struct HomeView: View {
     /// "Flagey", "Gare Centrale") around the user's location, then hand it to
     /// the existing `tripDestination` pipeline so the route is built + shown
     /// on the map just like a manual search.
+    /// Voice-flow step 1 of 2: geocode the spoken destination + compute the
+    /// real route options (transit + walking), without changing any UI state.
+    /// The planned trip is stashed in `pendingVoiceTrip` so the user can
+    /// confirm it via "Voir la route sur la carte" without a second search.
+    /// Returns the proposedRoutes for the backend's 2nd AI call so Gemini can
+    /// describe the actual lines/stops instead of fabricating them.
     @MainActor
-    private func resolveVoiceDestination(_ name: String) async -> Bool {
+    private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = name
         request.region = MKCoordinateRegion(
@@ -3047,17 +3063,44 @@ struct HomeView: View {
             latitudinalMeters: 25_000,
             longitudinalMeters: 25_000
         )
-        do {
-            let response = try await MKLocalSearch(request: request).start()
-            guard let first = response.mapItems.first else { return false }
-            showVoiceOverlay = false
-            tripDestination = HomeView.TripDestination(
-                coordinate: first.placemark.coordinate,
-                label: first.name ?? name
-            )
-            return true
-        } catch {
-            return false
+        guard let response = try? await MKLocalSearch(request: request).start(),
+              let destination = response.mapItems.first else {
+            pendingVoiceTrip = nil
+            return nil
+        }
+        let options = await stibAIRouteOptions(to: destination)
+        guard !options.isEmpty else {
+            pendingVoiceTrip = nil
+            return nil
+        }
+        pendingVoiceTrip = (destination, options)
+        return stibAIProposedRoutes(from: options)
+    }
+
+    /// Voice-flow step 2 of 2: surface the already-planned trip on the map.
+    /// No async work — `prepareVoiceTrip` did the heavy lifting.
+    @MainActor
+    private func applyPreparedVoiceTrip() {
+        guard let trip = pendingVoiceTrip else { return }
+        pendingVoiceTrip = nil
+        showVoiceOverlay = false
+
+        destinationCoord = trip.destination.placemark.coordinate
+        searchSuggestions = []
+        searchQuery = trip.destination.name ?? ""
+
+        let preferredOption = preferredRouteOption(in: trip.options)
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+            routeOptions = trip.options
+            routeModeSummaries = buildModeSummaries(recommendation: nil, options: trip.options)
+            selectedRouteID = preferredOption?.id
+            isRouteSheetExpanded = false
+            enterInteractionMode(.routePreview)
+        }
+
+        if let preferredOption {
+            applyRouteOption(preferredOption)
         }
     }
 

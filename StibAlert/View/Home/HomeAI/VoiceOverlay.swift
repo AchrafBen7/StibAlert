@@ -2,15 +2,22 @@ import SwiftUI
 import UIKit
 
 /// The "Hey Mobi" voice modal — full-screen overlay launched from the map mic
-/// button. Listens, asks the AI in one shot, speaks the reply, and (when the
-/// AI returns a destination) hands it back to HomeView via `onDestination` so
-/// the trip pipeline kicks in.
+/// button. Two-call flow:
+///   1) ask backend with the transcript to extract `destination`.
+///   2) iOS geocodes + computes the real trip via `prepareTrip`, then asks
+///      the backend AGAIN with `proposedRoutes` populated → backend describes
+///      the real trip with line badges (same renderer as the typed chat).
+/// "Voir la route sur la carte" then applies the already-computed trip via
+/// `applyTrip` — no extra search/planning happens at button time.
 struct VoiceOverlay: View {
     let contextProvider: (String) async -> STIBAIContext
-    /// Returns `true` if the destination was geocoded + handed to the trip
-    /// pipeline; `false` if MKLocalSearch found nothing. On `false` we keep the
-    /// overlay open and surface an error so the user can rephrase.
-    let onDestination: (String) async -> Bool
+    /// Geocode `name` + compute trip options. Returns the proposedRoutes for
+    /// the backend's 2nd call (or nil if geocoding/planning failed). The host
+    /// view also stashes the planned trip internally so `applyTrip` can use it.
+    let prepareTrip: (String) async -> [ProposedRoute]?
+    /// Apply the trip planned by the most recent `prepareTrip`. Closes the
+    /// overlay and shows the route on the map.
+    let applyTrip: () -> Void
     let onClose: () -> Void
 
     @StateObject private var voice = VoiceAssistant()
@@ -22,7 +29,11 @@ struct VoiceOverlay: View {
     @State private var pendingDestination: String?
     @State private var errorText: String?
     @State private var pulse = false
-    @State private var isResolvingDestination = false
+    /// Optional sub-line shown under the main "Je réfléchis…" status during the
+    /// `prepareTrip` step ("Je calcule le meilleur trajet vers X…"). Lets the
+    /// user know we're not stuck during the 3-5s round-trip for geocoding +
+    /// planning + describing.
+    @State private var thinkingDetail: String?
 
     enum Phase {
         case idle, listening, thinking, speaking, error
@@ -95,11 +106,22 @@ struct VoiceOverlay: View {
     }
 
     private var statusLine: some View {
-        Text(statusText)
-            .font(.system(size: 22, weight: .black))
-            .foregroundStyle(.white)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 24)
+        VStack(spacing: 6) {
+            Text(statusText)
+                .font(.system(size: 22, weight: .black))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+            if phase == .thinking, let detail = thinkingDetail {
+                Text(detail)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 24)
+        .animation(.easeOut(duration: 0.2), value: thinkingDetail)
     }
 
     @ViewBuilder
@@ -187,48 +209,27 @@ struct VoiceOverlay: View {
         if pendingDestination != nil && phase != .listening {
             VStack(spacing: 10) {
                 Button {
-                    let dest = pendingDestination ?? ""
+                    // Trip is already planned by prepareTrip during the AI
+                    // call, so applying is instant — no spinner needed.
                     player.stop()
                     voice.stopListening()
-                    // Immediate haptic + visible loading state so the user
-                    // doesn't think the button is dead during MKLocalSearch
-                    // (the geocoding can take 200-800ms).
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    isResolvingDestination = true
-                    Task {
-                        let ok = await onDestination(dest)
-                        isResolvingDestination = false
-                        if ok {
-                            // HomeView closes the overlay on success.
-                            pendingDestination = nil
-                        } else {
-                            phase = .error
-                            errorText = "Je n'ai pas trouvé \"\(dest)\" sur la carte. Essaie de reformuler (adresse, place, monument…) ou ouvre le planner."
-                        }
-                    }
+                    pendingDestination = nil
+                    applyTrip()
                 } label: {
                     HStack(spacing: 10) {
-                        if isResolvingDestination {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .tint(.white)
-                            Text("Recherche du trajet…")
-                                .font(.system(size: 16, weight: .bold))
-                        } else {
-                            Image(systemName: "map.fill")
-                                .font(.system(size: 18, weight: .black))
-                            Text("Voir la route sur la carte")
-                                .font(.system(size: 16, weight: .bold))
-                        }
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 18, weight: .black))
+                        Text("Voir la route sur la carte")
+                            .font(.system(size: 16, weight: .bold))
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
-                    .background(isResolvingDestination ? Color(hex: "#5FB8FF").opacity(0.7) : Color(hex: "#5FB8FF"))
+                    .background(Color(hex: "#5FB8FF"))
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .disabled(isResolvingDestination)
 
                 HStack(spacing: 14) {
                     secondaryCloseButton
@@ -416,17 +417,54 @@ struct VoiceOverlay: View {
             return
         }
         phase = .thinking
+        thinkingDetail = nil
         let context = await contextProvider(text)
         do {
-            let result = try await STIBAIVoiceClient.ask(text: text, context: context)
-            reply = result.spokenReply
-            displayReply = result.displayReply ?? result.spokenReply
-            // Stash the destination — we don't fire `onDestination` automatically
-            // anymore. The user reads/listens to the response, then taps
-            // "Voir la route sur la carte" to actually navigate.
-            pendingDestination = result.destination?.isEmpty == false ? result.destination : nil
+            // Call 1: extract destination (and get a fallback reply for non-
+            // itinerary questions like "y a-t-il des perturbations").
+            let firstResult = try await STIBAIVoiceClient.ask(text: text, context: context)
+            let dest = firstResult.destination?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard let dest, !dest.isEmpty else {
+                // No destination → it's a question about disruptions/state/etc.
+                // Play the first reply directly.
+                reply = firstResult.spokenReply
+                displayReply = firstResult.displayReply ?? firstResult.spokenReply
+                pendingDestination = nil
+                phase = .speaking
+                player.speak(firstResult.spokenReply)
+                return
+            }
+
+            // Destination detected. Compute the real trip BEFORE asking the AI
+            // to describe it, so the 2nd call has real lines/stops/durations
+            // in context instead of fabricating them.
+            pendingDestination = dest
+            thinkingDetail = "Je calcule le meilleur trajet vers \(dest)…"
+
+            guard let proposedRoutes = await prepareTrip(dest), !proposedRoutes.isEmpty else {
+                // Couldn't geocode or no trip found → keep destination so the
+                // user can still tap "Voir la route" (which will show its own
+                // error), but tell them the trip wasn't found.
+                phase = .error
+                errorText = "Je n'ai pas trouvé de trajet vers \"\(dest)\". Essaie une adresse plus précise ou ouvre le planner."
+                return
+            }
+
+            // Call 2: same transcript, but with the real proposedRoutes in
+            // context. The backend's voice prompt has a branch "AVEC trajet
+            // calculé" → 3-5 phrases with [[L:NUM]] badges describing the
+            // actual steps.
+            var enrichedContext = context
+            enrichedContext.proposedRoutes = proposedRoutes
+            enrichedContext.proposedDestination = dest
+
+            let richResult = try await STIBAIVoiceClient.ask(text: text, context: enrichedContext)
+            reply = richResult.spokenReply
+            displayReply = richResult.displayReply ?? richResult.spokenReply
+            thinkingDetail = nil
             phase = .speaking
-            player.speak(result.spokenReply)
+            player.speak(richResult.spokenReply)
         } catch {
             phase = .error
             errorText = error.localizedDescription
