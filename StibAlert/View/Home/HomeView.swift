@@ -975,7 +975,7 @@ struct HomeView: View {
                     await stibAIContextSnapshot(for: message)
                 },
                 onDestination: { destination in
-                    Task { await resolveVoiceDestination(destination) }
+                    await resolveVoiceDestination(destination)
                 },
                 onClose: { showVoiceOverlay = false }
             )
@@ -3039,7 +3039,7 @@ struct HomeView: View {
     /// the existing `tripDestination` pipeline so the route is built + shown
     /// on the map just like a manual search.
     @MainActor
-    private func resolveVoiceDestination(_ name: String) async {
+    private func resolveVoiceDestination(_ name: String) async -> Bool {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = name
         request.region = MKCoordinateRegion(
@@ -3049,14 +3049,15 @@ struct HomeView: View {
         )
         do {
             let response = try await MKLocalSearch(request: request).start()
-            guard let first = response.mapItems.first else { return }
+            guard let first = response.mapItems.first else { return false }
             showVoiceOverlay = false
             tripDestination = HomeView.TripDestination(
                 coordinate: first.placemark.coordinate,
                 label: first.name ?? name
             )
+            return true
         } catch {
-            // Voice reply still plays; we just don't auto-route.
+            return false
         }
     }
 

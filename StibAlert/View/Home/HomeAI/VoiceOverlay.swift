@@ -7,7 +7,10 @@ import UIKit
 /// the trip pipeline kicks in.
 struct VoiceOverlay: View {
     let contextProvider: (String) async -> STIBAIContext
-    let onDestination: (String) -> Void
+    /// Returns `true` if the destination was geocoded + handed to the trip
+    /// pipeline; `false` if MKLocalSearch found nothing. On `false` we keep the
+    /// overlay open and surface an error so the user can rephrase.
+    let onDestination: (String) async -> Bool
     let onClose: () -> Void
 
     @StateObject private var voice = VoiceAssistant()
@@ -183,10 +186,18 @@ struct VoiceOverlay: View {
             VStack(spacing: 10) {
                 Button {
                     let dest = pendingDestination ?? ""
-                    pendingDestination = nil
                     player.stop()
                     voice.stopListening()
-                    onDestination(dest)
+                    Task {
+                        let ok = await onDestination(dest)
+                        if ok {
+                            // HomeView closes the overlay on success.
+                            pendingDestination = nil
+                        } else {
+                            phase = .error
+                            errorText = "Je n'ai pas trouvé \"\(dest)\" sur la carte. Essaie de reformuler (adresse, place, monument…) ou ouvre le planner."
+                        }
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "map.fill")
