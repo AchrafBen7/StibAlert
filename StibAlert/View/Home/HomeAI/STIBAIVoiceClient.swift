@@ -15,7 +15,7 @@ enum STIBAIVoiceClient {
         var errorDescription: String? {
             switch self {
             case .invalidURL: return "URL assistant vocal invalide."
-            case .http(let code, let msg): return "Assistant (\(code)): \(msg)"
+            case .http(_, let msg): return msg
             case .decode(let msg): return "Réponse invalide: \(msg)"
             }
         }
@@ -26,6 +26,8 @@ enum STIBAIVoiceClient {
         let context: STIBAIContext?
     }
 
+    private struct ErrorBody: Decodable { let message: String? }
+
     static func ask(text: String, context: STIBAIContext?) async throws -> STIBAIVoiceReply {
         guard AppConfig.isBackendEnabled,
               let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib-ai/voice") else {
@@ -34,7 +36,7 @@ enum STIBAIVoiceClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 20
+        req.timeoutInterval = 25
         req.httpBody = try JSONEncoder().encode(Request(text: text, context: context))
 
         let (data, response) = try await URLSession.shared.data(for: req)
@@ -42,8 +44,11 @@ enum STIBAIVoiceClient {
             throw Error.http(0, "Réponse invalide")
         }
         guard (200..<300).contains(http.statusCode) else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw Error.http(http.statusCode, body.prefix(120).description)
+            // The backend returns {"message": "..."} on errors. Surface that
+            // text (e.g. "L'assistant est saturé…") instead of the raw HTTP
+            // status, so the overlay shows something readable.
+            let backendMessage = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.message
+            throw Error.http(http.statusCode, backendMessage ?? "Service indisponible.")
         }
         do {
             return try JSONDecoder().decode(STIBAIVoiceReply.self, from: data)
