@@ -96,6 +96,11 @@ private struct STIBAIResponseBlock: Identifiable {
                 kind = .bullet(String(line.dropFirst(2)).trimmedAIText)
             } else if line.hasPrefix("• ") {
                 kind = .bullet(String(line.dropFirst(2)).trimmedAIText)
+            } else if line.hasPrefix("* ") {
+                // Some Gemini outputs use `*` despite the prompt asking for `-`.
+                // Treat it as a bullet too instead of rendering the asterisk
+                // literally.
+                kind = .bullet(String(line.dropFirst(2)).trimmedAIText)
             } else {
                 kind = .paragraph(line.trimmedAIText)
             }

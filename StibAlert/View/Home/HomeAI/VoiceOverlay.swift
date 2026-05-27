@@ -22,6 +22,7 @@ struct VoiceOverlay: View {
     @State private var pendingDestination: String?
     @State private var errorText: String?
     @State private var pulse = false
+    @State private var isResolvingDestination = false
 
     enum Phase {
         case idle, listening, thinking, speaking, error
@@ -142,18 +143,19 @@ struct VoiceOverlay: View {
             if !displayReply.isEmpty {
                 // Rich reply with line badges (parses `[[L:NUM]]` markers via
                 // STIBAIResponseRenderer) — same look as the typed STIB AI
-                // chat. Wrapped in a dark card on top of the overlay halo so
-                // it reads cleanly.
-                ScrollView(showsIndicators: false) {
+                // chat. Background is on the OUTER frame so the white card
+                // covers the full scroll area even when content is short, and
+                // shows a thin scrollbar when the user needs to scroll.
+                ScrollView(.vertical, showsIndicators: true) {
                     STIBAIResponseRenderer(text: displayReply)
                         .environment(\.colorScheme, .light)
-                        .padding(16)
+                        .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .frame(maxHeight: 260)
-                .padding(.horizontal, 18)
+                .frame(maxHeight: 380)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal, 14)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else if !reply.isEmpty {
                 Text(reply)
@@ -188,8 +190,14 @@ struct VoiceOverlay: View {
                     let dest = pendingDestination ?? ""
                     player.stop()
                     voice.stopListening()
+                    // Immediate haptic + visible loading state so the user
+                    // doesn't think the button is dead during MKLocalSearch
+                    // (the geocoding can take 200-800ms).
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    isResolvingDestination = true
                     Task {
                         let ok = await onDestination(dest)
+                        isResolvingDestination = false
                         if ok {
                             // HomeView closes the overlay on success.
                             pendingDestination = nil
@@ -200,18 +208,27 @@ struct VoiceOverlay: View {
                     }
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "map.fill")
-                            .font(.system(size: 18, weight: .black))
-                        Text("Voir la route sur la carte")
-                            .font(.system(size: 16, weight: .bold))
+                        if isResolvingDestination {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                            Text("Recherche du trajet…")
+                                .font(.system(size: 16, weight: .bold))
+                        } else {
+                            Image(systemName: "map.fill")
+                                .font(.system(size: 18, weight: .black))
+                            Text("Voir la route sur la carte")
+                                .font(.system(size: 16, weight: .bold))
+                        }
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
-                    .background(Color(hex: "#5FB8FF"))
+                    .background(isResolvingDestination ? Color(hex: "#5FB8FF").opacity(0.7) : Color(hex: "#5FB8FF"))
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .disabled(isResolvingDestination)
 
                 HStack(spacing: 14) {
                     secondaryCloseButton
@@ -372,13 +389,23 @@ struct VoiceOverlay: View {
 
     private func beginListening() {
         reply = ""
+        displayReply = ""
+        pendingDestination = nil
         errorText = nil
         phase = .listening
         // Haptic cue so the user knows the mic is hot and they can talk now —
         // visual "Je t'écoute…" alone wasn't unambiguous in testing.
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        voice.startListening { final in
-            Task { await handleTranscript(final) }
+        // Defer the heavy AVAudioEngine setup by one frame so SwiftUI gets
+        // to render the .listening phase (red halo + "EN ÉCOUTE") BEFORE the
+        // main thread blocks on audioSession.setActive + audioEngine.start
+        // (~100-300ms on first tap). Without this the overlay looked frozen.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 30_000_000) // ~2 frames
+            guard phase == .listening else { return }
+            voice.startListening { final in
+                Task { await handleTranscript(final) }
+            }
         }
     }
 

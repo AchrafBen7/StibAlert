@@ -478,21 +478,27 @@ private struct RouteLineMiniBadge: View {
 
 /// Google-style journey flow: 🚶 → line → line → 🚶, with chevrons between
 /// legs. Makes a multi-leg trip readable at a glance instead of a bare list of
-/// line badges.
+/// line badges. Wrapped in a horizontal ScrollView so multi-correspondance
+/// trips (e.g. walk → 7 → walk → IC → walk → 9 → walk) don't overflow the
+/// card edge on small screens.
 private struct RouteLegFlowStrip: View {
     let chips: [RouteLegChip]
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
-                chipView(chip)
-                if index < chips.count - 1 {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .black))
-                        .foregroundStyle(DS.Color.inkMute)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 5) {
+                ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+                    chipView(chip)
+                    if index < chips.count - 1 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
                 }
             }
+            .padding(.trailing, 8)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
