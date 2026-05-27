@@ -45,7 +45,19 @@ final class STIBAIViewModel: ObservableObject {
         streamTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let context = await self.contextProvider(content)
+                // Send the last 3 user messages joined as one "extraction
+                // string" so the destination extractor can pick up a
+                // destination mentioned in a previous turn (e.g. user says
+                // "Je voudrais le trajet vers Delacroix" then "Oui station"
+                // — without this, "Oui station" alone has no destination so
+                // proposedRoutes never gets computed and the AI keeps
+                // refusing with "veuillez utiliser le planner").
+                let recentUserText = self.messages
+                    .filter { $0.role == .user }
+                    .suffix(3)
+                    .map(\.content)
+                    .joined(separator: " ")
+                let context = await self.contextProvider(recentUserText)
                 try await client.stream(messages: Array(outbound), context: context) { delta in
                     guard let index = self.messages.firstIndex(where: { $0.id == assistantID }) else { return }
                     self.messages[index].content += delta
@@ -77,7 +89,16 @@ enum STIBAIDestinationExtractor {
         guard cleaned.count >= 4 else { return nil }
 
         let patterns = [
+            // "aller à X" / "trajet à X" / "route à X" (verbe/nom + préposition directe)
             #"(?i)(?:aller|vais|va|trajet|itin[eé]raire|route)\s+(?:à|a|au|aux|vers|jusqu['’]à|jusqu a)\s+(.+)"#,
+            // "trajet/route/itinéraire/chemin pour [aller/arriver/me rendre/y aller] [à/au/vers/chez] X"
+            // — couvre "route pour arriver a delacroix", "trajet pour aller à Schaerbeek",
+            //   "itinéraire pour me rendre au Sablon", "chemin pour Atomium"
+            #"(?i)\b(?:trajet|itin[eé]raire|route|chemin)\s+pour\s+(?:(?:aller|arriver|me\s+rendre|se\s+rendre|y\s+aller)\s+)?(?:[àa]\s+|au\s+|aux\s+|vers\s+|chez\s+)?(.+)"#,
+            // "comment aller / comment arriver / comment je peux aller / comment faire pour aller à X"
+            #"(?i)comment\s+(?:(?:je\s+(?:peux|pourrais|fais))\s+)?(?:aller|arriver|faire\s+pour\s+(?:aller|arriver))\s+(?:à|a|au|aux|vers|chez)?\s*(.+)"#,
+            // "(le )?meilleur (trajet/route/...) (pour|vers) X"
+            #"(?i)(?:le\s+|la\s+)?meilleur(?:e)?\s+(?:trajet|itin[eé]raire|route|chemin)\s+(?:pour\s+(?:aller\s+|arriver\s+)?|vers\s+|à\s+)?(?:à|a|au|aux|vers|chez)?\s*(.+)"#,
             #"(?i)(?:comment\s+aller\s+)(?:à|a|au|aux|vers)?\s*(.+)"#,
             #"(?i)(?:destination\s*:)\s*(.+)"#
         ]
