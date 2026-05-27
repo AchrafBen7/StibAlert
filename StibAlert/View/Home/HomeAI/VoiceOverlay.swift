@@ -44,6 +44,22 @@ struct VoiceOverlay: View {
             voice.stopListening()
             player.stop()
         }
+        // Surface any recogniser error (audio session blocked, no speech
+        // detected, recognizer offline…) so the user knows what's happening
+        // instead of staring at a stuck "Parle à Mobi".
+        .onChange(of: voice.lastError) { _, newError in
+            guard let newError, !newError.isEmpty else { return }
+            phase = .error
+            errorText = newError
+        }
+        // Sync phase with the recogniser: if listening was ended (silence
+        // detected, error), and we hadn't already transitioned to thinking/
+        // speaking/error, drop back to idle so the button re-engages cleanly.
+        .onChange(of: voice.isListening) { _, listening in
+            if !listening && phase == .listening && errorText == nil {
+                phase = .idle
+            }
+        }
     }
 
     // MARK: - Animations
@@ -90,7 +106,15 @@ struct VoiceOverlay: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
                     .transition(.opacity)
+            } else {
+                Text("Vas-y, parle…")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
             }
+        case .idle:
+            Text("Appuie sur le micro et parle.")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.55))
         case .speaking, .thinking:
             if !reply.isEmpty {
                 Text(reply)
@@ -192,12 +216,18 @@ struct VoiceOverlay: View {
     }
 
     private func restart() async {
-        player.stop()
-        if phase == .listening {
+        // If we're actively listening, the user wants to stop.
+        if phase == .listening || voice.isListening {
+            player.stop()
             voice.stopListening()
             phase = .idle
             return
         }
+        // Otherwise (idle, error, after-speaking) → start a fresh listen.
+        player.stop()
+        // Small breath so the audio session has time to switch from playback
+        // back to record after a TTS reply finished.
+        try? await Task.sleep(nanoseconds: 200_000_000)
         beginListening()
     }
 

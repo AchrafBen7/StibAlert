@@ -36,23 +36,35 @@ final class VoiceAssistant: NSObject, ObservableObject {
 
     /// Starts a recognition task. `onFinal` is called once the user stops
     /// talking (silence > 1.4s) OR when the recognizer marks the result final.
+    /// Always cleans up any prior session first so a re-tap is reliable.
     func startListening(onFinal: @escaping (String) -> Void) {
-        guard !isListening else { return }
-        guard let recognizer, recognizer.isAvailable else {
-            lastError = "Reconnaissance vocale indisponible."
+        // Defensive: force-tear-down any stale session before starting a new
+        // one (e.g. after a failed first attempt or after TTS). Without this,
+        // tapping "Reparler" sometimes fell into the !isListening guard
+        // because state was inconsistent across the engine + recognizer.
+        cleanupAudio()
+        isListening = false
+
+        guard let recognizer else {
+            lastError = "Reconnaissance vocale indisponible sur cet appareil."
+            return
+        }
+        guard recognizer.isAvailable else {
+            lastError = "Reconnaissance vocale indisponible (vérifie ta connexion)."
             return
         }
 
         transcript = ""
         lastError = nil
         lastTranscriptUpdate = Date()
+        let listenStart = Date()
 
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
-            lastError = "Audio session: \(error.localizedDescription)"
+            lastError = "Audio: \(error.localizedDescription)"
             return
         }
 
@@ -95,24 +107,29 @@ final class VoiceAssistant: NSObject, ObservableObject {
                     let code = (error as NSError).code
                     // "no speech detected" / cancellation → ignore
                     if code != 203 && code != 216 && code != 1110 {
-                        self.lastError = "Reco: \(error.localizedDescription)"
+                        self.lastError = "Reco (\(code)): \(error.localizedDescription)"
                     }
                     self.stopListening()
                 }
             }
         }
 
-        // Silence watchdog: if no transcript update for 1.4s after the user
-        // started speaking, treat the current transcript as final.
+        // Combined watchdog:
+        // - silence-after-speech: 1.4s of no transcript update once started → final.
+        // - no-speech-at-all: 7s with empty transcript → surface "Je n'entends rien".
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isListening else { return }
-                guard !self.transcript.isEmpty else { return }
-                if Date().timeIntervalSince(self.lastTranscriptUpdate) > 1.4 {
-                    let final = self.transcript
+                if !self.transcript.isEmpty {
+                    if Date().timeIntervalSince(self.lastTranscriptUpdate) > 1.4 {
+                        let final = self.transcript
+                        self.stopListening()
+                        onFinal(final)
+                    }
+                } else if Date().timeIntervalSince(listenStart) > 7 {
+                    self.lastError = "Je n'ai rien entendu. Vérifie le micro et réessaie."
                     self.stopListening()
-                    onFinal(final)
                 }
             }
         }
