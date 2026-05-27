@@ -342,6 +342,55 @@ enum NearbyStopService {
         return (best.stop.name, CLLocationCoordinate2D(latitude: best.stop.latitude, longitude: best.stop.longitude))
     }
 
+    /// Top-N variant used by the autocomplete searchbar : returns the N best
+    /// stop matches (sorted by score). Used to PREPEND STIB stops to the
+    /// MKLocalSearch suggestions list so typing "dela" surfaces DELACROIX
+    /// before random "Dela…" street matches.
+    static func topStopsByName(_ query: String, limit: Int = 5) async -> [(name: String, coordinate: CLLocationCoordinate2D, lines: [String])] {
+        let queryNorm = normalize(query)
+        let allTokens = queryNorm.split(separator: " ").map(String.init).filter { $0.count >= 2 }
+        let significantTokens = allTokens.filter { !genericLocationWords.contains($0) }
+        // Pour l'autocomplete on accepte les prefixes courts ("del", "fla") —
+        // si tous les tokens sont génériques, on retombe sur allTokens.
+        let scoringTokens = significantTokens.isEmpty ? allTokens : significantTokens
+        guard !scoringTokens.isEmpty else { return [] }
+
+        guard let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
+              !catalog.stops.isEmpty else {
+            return []
+        }
+
+        var scored: [(stop: StaticTransitStop, score: Int)] = []
+        for stop in catalog.stops {
+            let stopName = normalize(stop.name)
+            let stopTokens = Set(stopName.split(separator: " ").map(String.init))
+            var score = 0
+            for token in scoringTokens {
+                if stopTokens.contains(token) {
+                    score += 100 + token.count
+                } else if stopName.contains(" " + token) || stopName.hasPrefix(token) {
+                    // Prefix match accepté ici (autocomplete) : "del" → "DELACROIX"
+                    score += 60 + token.count
+                } else if stopName.contains(token) {
+                    score += 10 + token.count
+                }
+            }
+            if scoringTokens.allSatisfy({ stopTokens.contains($0) }) {
+                score += 80
+            }
+            if score >= 60 {
+                scored.append((stop, score))
+            }
+        }
+
+        return scored
+            .sorted { $0.score > $1.score }
+            .prefix(limit)
+            .map { (name: $0.stop.name,
+                    coordinate: CLLocationCoordinate2D(latitude: $0.stop.latitude, longitude: $0.stop.longitude),
+                    lines: $0.stop.lines) }
+    }
+
     private static func normalize(_ text: String) -> String {
         let folded = text
             .lowercased()

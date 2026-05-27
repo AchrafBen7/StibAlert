@@ -2654,6 +2654,13 @@ struct HomeView: View {
 
     @MainActor
     private func searchSuggestions(for text: String) async {
+        // STIB stops d'abord (préfixe accepté → "del" → DELACROIX) puis
+        // MKLocalSearch pour les adresses / monuments. Avant on n'avait que
+        // MKLocalSearch et l'utilisateur tapait "delacroix" → résultats
+        // pourris ("Croix-Rouge", "Kathleen Dandoy"). Les arrêts STIB doivent
+        // dominer la liste pour une app de mobilité.
+        async let stibTask = NearbyStopService.topStopsByName(text, limit: 5)
+
         let req = MKLocalSearch.Request()
         req.naturalLanguageQuery = text
         req.resultTypes = [.address, .pointOfInterest]
@@ -2661,16 +2668,39 @@ struct HomeView: View {
             center: CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517),
             span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25)
         )
-        let results = try? await MKLocalSearch(request: req).start()
-        var unique: [MKMapItem] = []
+        async let mkTask = (try? await MKLocalSearch(request: req).start())?.mapItems ?? []
+
+        let (stibStops, mkItems) = await (stibTask, mkTask)
+
+        var merged: [MKMapItem] = []
         var seen = Set<String>()
-        for item in results?.mapItems ?? [] {
-            let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
+
+        // 1) STIB stops en tête, convertis en MKMapItem pour rester compatibles
+        //    avec le picker existant.
+        for stop in stibStops {
+            let placemark = MKPlacemark(coordinate: stop.coordinate)
+            let item = MKMapItem(placemark: placemark)
+            item.name = stop.name
+            let key = "stib|\(stop.name)"
             if seen.insert(key).inserted {
-                unique.append(item)
+                merged.append(item)
             }
         }
-        searchSuggestions = Array(unique.prefix(8))
+
+        // 2) MKLocalSearch en dessous, en évitant de re-suggérer un arrêt déjà
+        //    proposé en tête.
+        for item in mkItems {
+            let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
+            // Skip si le nom est déjà dans la liste STIB (case-insensitive).
+            if stibStops.contains(where: { $0.name.compare(item.name ?? "", options: .caseInsensitive) == .orderedSame }) {
+                continue
+            }
+            if seen.insert(key).inserted {
+                merged.append(item)
+            }
+        }
+
+        searchSuggestions = Array(merged.prefix(8))
     }
 
     @MainActor
