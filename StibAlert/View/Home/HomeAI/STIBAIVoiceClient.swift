@@ -4,6 +4,9 @@ import Foundation
 /// triggers the existing trip-building pipeline on the iOS side.
 struct STIBAIVoiceReply: Decodable {
     let spokenReply: String
+    /// Same content but with `[[L:NUM]]` markers so the UI can render line
+    /// badges via `STIBAIResponseRenderer`. Optional for backward compatibility.
+    let displayReply: String?
     let destination: String?
 }
 

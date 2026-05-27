@@ -115,8 +115,12 @@ final class VoiceAssistant: NSObject, ObservableObject {
                 }
                 if let error {
                     let code = (error as NSError).code
-                    // "no speech detected" / cancellation → ignore
-                    if code != 203 && code != 216 && code != 1110 {
+                    // Ignored codes — all are normal cancellations triggered
+                    // by us stopping listening, not real failures:
+                    //   203, 216, 301 → "recognition request was cancelled"
+                    //   1110          → "no speech detected"
+                    let cancellations: Set<Int> = [203, 216, 301, 1110]
+                    if !cancellations.contains(code) {
                         self.lastError = "Reco (\(code)): \(error.localizedDescription)"
                     }
                     self.stopListening()

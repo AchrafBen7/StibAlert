@@ -15,6 +15,8 @@ struct VoiceOverlay: View {
 
     @State private var phase: Phase = .idle
     @State private var reply: String = ""
+    @State private var displayReply: String = ""
+    @State private var pendingDestination: String?
     @State private var errorText: String?
     @State private var pulse = false
 
@@ -134,13 +136,29 @@ struct VoiceOverlay: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.white.opacity(0.55))
         case .speaking, .thinking:
-            if !reply.isEmpty {
+            if !displayReply.isEmpty {
+                // Rich reply with line badges (parses `[[L:NUM]]` markers via
+                // STIBAIResponseRenderer) — same look as the typed STIB AI
+                // chat. Wrapped in a dark card on top of the overlay halo so
+                // it reads cleanly.
+                ScrollView(showsIndicators: false) {
+                    STIBAIResponseRenderer(text: displayReply)
+                        .environment(\.colorScheme, .light)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .frame(maxHeight: 260)
+                .padding(.horizontal, 18)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if !reply.isEmpty {
                 Text(reply)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .transition(.opacity)
             }
         case .error:
             if let errorText {
@@ -155,38 +173,95 @@ struct VoiceOverlay: View {
         }
     }
 
+    @ViewBuilder
     private var bottomBar: some View {
-        HStack(spacing: 14) {
-            Button(action: {
-                voice.stopListening()
-                player.stop()
-                onClose()
-            }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .bold))
+        // When we have a route destination from the AI's reply, the primary
+        // action becomes "Voir la route sur la carte" (the trip pipeline takes
+        // over and closes the overlay). Otherwise the standard
+        // listen/send/cancel button is shown.
+        if pendingDestination != nil && phase != .listening {
+            VStack(spacing: 10) {
+                Button {
+                    let dest = pendingDestination ?? ""
+                    pendingDestination = nil
+                    player.stop()
+                    voice.stopListening()
+                    onDestination(dest)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 18, weight: .black))
+                        Text("Voir la route sur la carte")
+                            .font(.system(size: 16, weight: .bold))
+                    }
                     .foregroundStyle(.white)
-                    .frame(width: 64, height: 64)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-
-            Button(action: { Task { await handleAction() } }) {
-                HStack(spacing: 10) {
-                    Image(systemName: actionIcon)
-                        .font(.system(size: 18, weight: .black))
-                    Text(actionLabel)
-                        .font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 60)
+                    .background(Color(hex: "#5FB8FF"))
+                    .clipShape(Capsule())
                 }
-                .foregroundStyle(actionForeground)
-                .frame(maxWidth: .infinity)
-                .frame(height: 64)
-                .background(actionBackground)
-                .clipShape(Capsule())
+                .buttonStyle(.plain)
+
+                HStack(spacing: 14) {
+                    secondaryCloseButton
+                    secondaryAskAgainButton
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(phase == .thinking || phase == .speaking)
+        } else {
+            HStack(spacing: 14) {
+                secondaryCloseButton
+
+                Button(action: { Task { await handleAction() } }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: actionIcon)
+                            .font(.system(size: 18, weight: .black))
+                        Text(actionLabel)
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(actionForeground)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    .background(actionBackground)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(phase == .thinking || phase == .speaking)
+            }
         }
+    }
+
+    private var secondaryCloseButton: some View {
+        Button(action: {
+            voice.stopListening()
+            player.stop()
+            onClose()
+        }) {
+            Image(systemName: "xmark")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.white.opacity(0.12))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var secondaryAskAgainButton: some View {
+        Button(action: { Task { await handleAction() } }) {
+            HStack(spacing: 8) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 14, weight: .bold))
+                Text("Reparler")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(Color.white.opacity(0.18))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(phase == .thinking)
     }
 
     /// Whether the user has spoken something we can send right now.
@@ -307,11 +382,13 @@ struct VoiceOverlay: View {
         do {
             let result = try await STIBAIVoiceClient.ask(text: text, context: context)
             reply = result.spokenReply
+            displayReply = result.displayReply ?? result.spokenReply
+            // Stash the destination — we don't fire `onDestination` automatically
+            // anymore. The user reads/listens to the response, then taps
+            // "Voir la route sur la carte" to actually navigate.
+            pendingDestination = result.destination?.isEmpty == false ? result.destination : nil
             phase = .speaking
             player.speak(result.spokenReply)
-            if let destination = result.destination, !destination.isEmpty {
-                onDestination(destination)
-            }
         } catch {
             phase = .error
             errorText = error.localizedDescription
