@@ -2651,21 +2651,28 @@ struct HomeView: View {
 
     @MainActor
     private func resolveSTIBAIDestination(_ text: String) async -> MKMapItem? {
-        // 1) Try the local STIB stops catalog first. Apple's MKLocalSearch has
-        //    been observed returning random POIs like "Kathleen Dandoy" or
-        //    "Rue de la Croix de Fer" for a query like "delacroix" because of
-        //    its fuzzy substring matching. The STIB catalog has the canonical
-        //    stop names ("DELACROIX", "BAILLI", "TRÔNE"…) so when the user
-        //    asks about a real stop we hit it first.
+        // 3-tier destination resolution :
+        //   1) Catalogue STIB local (arrêts canoniques : DELACROIX, BAILLI…)
+        //   2) Google forward geocoding via backend /api/geocode (adresses,
+        //      monuments, POIs — couverture BE largement supérieure à Apple)
+        //   3) MKLocalSearch en dernier recours si Google indisponible
+
+        // 1) STIB stops catalog
         if let stop = await NearbyStopService.searchStopByName(text) {
-            let placemark = MKPlacemark(coordinate: stop.coordinate)
-            let item = MKMapItem(placemark: placemark)
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: stop.coordinate))
             item.name = stop.name
             return item
         }
 
-        // 2) Fallback to MKLocalSearch for non-transit destinations
-        //    (addresses, POIs, monuments…). Biased to Brussels region.
+        // 2) Google forward geocoding (backend, biaisé Bruxelles)
+        if let g = await GeocodeService.search(text) {
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
+            item.name = g.name
+            return item
+        }
+
+        // 3) Fallback MKLocalSearch — gardé car Google peut être down /
+        //    quota dépassé / timeout
         let query = text.localizedCaseInsensitiveContains("bruxelles")
             ? text
             : "\(text), Bruxelles"
@@ -3071,12 +3078,18 @@ struct HomeView: View {
     /// describe the actual lines/stops instead of fabricating them.
     @MainActor
     private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
+        // Même résolution 3-tiers que resolveSTIBAIDestination :
+        //   1) Catalogue STIB → arrêts
+        //   2) Google /api/geocode → adresses / POIs
+        //   3) MKLocalSearch → fallback ultime
         let destination: MKMapItem
-        // Try the STIB catalog first (same reason as resolveSTIBAIDestination:
-        // MKLocalSearch fuzzy-matches "delacroix" to random POIs).
         if let stop = await NearbyStopService.searchStopByName(name) {
             let item = MKMapItem(placemark: MKPlacemark(coordinate: stop.coordinate))
             item.name = stop.name
+            destination = item
+        } else if let g = await GeocodeService.search(name) {
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
+            item.name = g.name
             destination = item
         } else {
             let request = MKLocalSearch.Request()
