@@ -40,6 +40,8 @@ struct ProfileView: View {
     /// Number of community signalements the user has made — fetched from
     /// /me/contributions. 0 for a fresh account.
     @State private var signalementCount = 0
+    /// P11 — activité récente : 3 dernières contributions du user.
+    @State private var recentContributions: [ContributionItem] = []
 
     var body: some View {
         ZStack {
@@ -226,6 +228,14 @@ struct ProfileView: View {
                             }
                         }
 
+                        // P11 — Activité récente : affichée UNIQUEMENT si
+                        // l'utilisateur a au moins 1 contribution, sinon on
+                        // n'occupe pas l'écran avec un état vide pour les
+                        // nouveaux comptes.
+                        if !recentContributions.isEmpty {
+                            recentActivitySection
+                        }
+
                         profileGroup(title: "Confidentialité") {
                             profileRow(icon: "lock", label: "Données & confidentialité") {
                                 selectedSubpage = .privacy
@@ -350,11 +360,15 @@ struct ProfileView: View {
     private func loadContributionCount() async {
         guard AppConfig.isBackendEnabled, session.isSignedIn else {
             signalementCount = 0
+            recentContributions = []
             return
         }
         do {
             let response = try await ContributionsService.mine()
             signalementCount = response.summary.totalContributions
+            // P11 : capture aussi les 3 dernières contributions pour la
+            // section "Activité récente" du root profile.
+            recentContributions = Array(response.recent.prefix(3))
         } catch {
             // P1 fix : on ne reset PAS à 0 sur erreur réseau. Le user verrait
             // sinon son compteur tomber à 0 à chaque petit hoquet réseau,
@@ -493,6 +507,103 @@ struct ProfileView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
+
+    private var recentActivitySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Activité récente")
+                    .font(.system(size: 13, weight: .black, design: .monospaced))
+                    .tracking(1.4)
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer()
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    nav.currentPage = .reports
+                } label: {
+                    Text("Tout voir")
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundStyle(DS.Color.primary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(recentContributions) { item in
+                    recentActivityRow(item)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func recentActivityRow(_ item: ContributionItem) -> some View {
+        let (icon, tint) = roleIconAndTint(for: item.role)
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.12))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(activityTitle(for: item))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Text(activitySubtitle(for: item))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let helped = item.peopleHelped, helped > 0 {
+                Text("+\(helped)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(DS.Color.statusOK)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func roleIconAndTint(for role: String) -> (String, Color) {
+        switch role {
+        case "first_reporter":      return ("exclamationmark.bubble.fill", DS.Color.statusMajor)
+        case "confirmer":           return ("checkmark.circle.fill", DS.Color.primary)
+        case "resolver":            return ("checkmark.seal.fill", DS.Color.statusOK)
+        case "still_blocked_voter": return ("exclamationmark.octagon.fill", DS.Color.statusMinor)
+        default:                    return ("dot.radiowaves.left.and.right", DS.Color.inkMute)
+        }
+    }
+
+    private func activityTitle(for item: ContributionItem) -> String {
+        let role = item.roleLabel
+        if let ligne = item.ligne, !ligne.isEmpty {
+            return "\(role) · Ligne \(ligne)"
+        }
+        return role
+    }
+
+    private func activitySubtitle(for item: ContributionItem) -> String {
+        let type = item.typeProbleme ?? "Incident"
+        let when = item.createdAt.map { Self.relativeFormatter.localizedString(for: $0, relativeTo: .now) } ?? ""
+        return when.isEmpty ? type : "\(type) · \(when)"
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "fr_BE")
+        f.unitsStyle = .short
+        return f
+    }()
 
     private var accountActionsSection: some View {
         VStack(spacing: 10) {
