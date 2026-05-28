@@ -7,6 +7,19 @@ import Speech
 /// `startListening(onFinal:)` fires once the user stops speaking.
 @MainActor
 final class VoiceAssistant: NSObject, ObservableObject {
+    /// Pre-warm utilisé au démarrage de l'app : charge le modèle SFSpeechRecognizer
+    /// hors thread main avant le premier tap micro. Sans ça, le 1er
+    /// `startListening()` doit JIT-charger les ressources Speech.framework
+    /// (~200-300 ms perçu comme un freeze de l'overlay). Idempotent.
+    nonisolated static func prewarm() {
+        Task.detached(priority: .utility) {
+            // Instancier un SFSpeechRecognizer + s'assurer que availability
+            // est connue charge le datastore Speech en background. Peut
+            // échouer en silence si la locale n'est pas dispo offline.
+            _ = SFSpeechRecognizer(locale: Locale(identifier: "fr-FR"))?.isAvailable
+        }
+    }
+
     @Published private(set) var transcript: String = ""
     @Published private(set) var isListening: Bool = false
     @Published private(set) var lastError: String?

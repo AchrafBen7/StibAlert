@@ -151,8 +151,16 @@ struct STIBAIView: View {
     @ViewBuilder
     private func messageBubble(_ message: STIBAIMessage) -> some View {
         let isUser = message.role == .user
+        // Si c'est le DERNIER message assistant ET le stream tourne ET pas
+        // encore de texte reçu, on affiche un loading shimmer au lieu d'une
+        // bulle vide avec "…" — Gemini SSE peut mettre 3-5 s à émettre son
+        // premier token sur cold start ou modèle saturé.
+        let showTypingIndicator = !isUser
+            && message.content.isEmpty
+            && viewModel.isStreaming
+            && viewModel.messages.last?.id == message.id
 
-        HStack(alignment: .top) {
+        return HStack(alignment: .top) {
             if isUser { Spacer(minLength: 44) }
 
             if isUser {
@@ -168,6 +176,16 @@ struct STIBAIView: View {
                             .stroke(DS.Color.ink, lineWidth: 1.2)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else if showTypingIndicator {
+                STIBAITypingIndicator()
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 18)
+                    .background(DS.Color.paper2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(DS.Color.border, lineWidth: 1.2)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
                 STIBAIResponseRenderer(text: message.content.isEmpty ? "…" : message.content)
                     .padding(.horizontal, 20)
@@ -233,6 +251,34 @@ struct STIBAIView: View {
 
     private func markdownText(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text)) ?? AttributedString(text)
+    }
+}
+
+/// 3 dots pulsantes pour l'attente de Gemini SSE — même esprit que
+/// ThinkingDotsIndicator de VoiceOverlay mais aux couleurs du chat texte
+/// (encre sombre sur fond clair). Affichées dans la bulle assistant tant
+/// que le 1er token n'est pas arrivé.
+private struct STIBAITypingIndicator: View {
+    @State private var step: Int = 0
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3) { i in
+                Circle()
+                    .fill(DS.Color.ink.opacity(step == i ? 0.85 : 0.20))
+                    .frame(width: 7, height: 7)
+                    .scaleEffect(step == i ? 1.15 : 1.0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.35), value: step)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                if Task.isCancelled { return }
+                step = (step + 1) % 3
+            }
+        }
     }
 }
 

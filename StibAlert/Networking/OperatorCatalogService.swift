@@ -54,8 +54,47 @@ enum OperatorCatalogService {
         let fetchedAt: Date?
     }
 
+    /// Cache mémoire pour éviter de re-fetch des payloads disruptions
+    /// volumineux (TEC = 5+ MB, 1300+ alertes) à chaque ouverture de
+    /// l'onglet Infos trafic. TTL court : 60 s pour disruptions, 1 h pour
+    /// lines (catalogue stable, change rarement).
+    private actor Cache {
+        var disruptions: [TransitOperator: (bundle: OperatorDisruptionsBundle, at: Date)] = [:]
+        var lines: [TransitOperator: (data: [OperatorLine], at: Date)] = [:]
+        let disruptionsTTL: TimeInterval = 60
+        let linesTTL: TimeInterval = 3600
+
+        func getDisruptions(_ op: TransitOperator) -> OperatorDisruptionsBundle? {
+            guard let entry = disruptions[op], Date().timeIntervalSince(entry.at) < disruptionsTTL else { return nil }
+            return entry.bundle
+        }
+        func setDisruptions(_ op: TransitOperator, _ bundle: OperatorDisruptionsBundle) {
+            disruptions[op] = (bundle, Date())
+        }
+        func getLines(_ op: TransitOperator) -> [OperatorLine]? {
+            guard let entry = lines[op], Date().timeIntervalSince(entry.at) < linesTTL else { return nil }
+            return entry.data
+        }
+        func setLines(_ op: TransitOperator, _ data: [OperatorLine]) {
+            lines[op] = (data, Date())
+        }
+        func invalidate() {
+            disruptions.removeAll()
+            lines.removeAll()
+        }
+    }
+    private static let cache = Cache()
+
+    /// Force le prochain appel à re-fetch — utile sur pull-to-refresh.
+    static func invalidateCache() async {
+        await cache.invalidate()
+    }
+
     static func lines(operator op: TransitOperator) async -> [OperatorLine] {
-        await fetch(path: "lines", op: op, decode: { try JSONDecoder().decode(LinesResponse.self, from: $0).lines }) ?? []
+        if let cached = await cache.getLines(op) { return cached }
+        let fresh = await fetch(path: "lines", op: op, decode: { try JSONDecoder().decode(LinesResponse.self, from: $0).lines }) ?? []
+        if !fresh.isEmpty { await cache.setLines(op, fresh) }
+        return fresh
     }
 
     /// Compatibilité ascendante — les call-sites existants reçoivent juste la liste.
@@ -64,8 +103,11 @@ enum OperatorCatalogService {
     }
 
     /// Version enrichie pour les nouveaux call-sites qui veulent afficher
-    /// un badge LIVE et la fraicheur des données.
+    /// un badge LIVE et la fraicheur des données. Cache TTL 60 s — évite
+    /// de retélécharger le payload TEC complet (1300+ alertes, ~5 MB) à
+    /// chaque retour sur l'onglet Infos trafic.
     static func disruptionsBundle(operator op: TransitOperator) async -> OperatorDisruptionsBundle {
+        if let cached = await cache.getDisruptions(op) { return cached }
         let decoder = JSONDecoder()
         // Important : Node émet des dates avec millisecondes ("2026-05-28T13:08:44.387Z")
         // que `.iso8601` Swift NE parse PAS. Sans ce custom decoder, n'importe
@@ -85,11 +127,15 @@ enum OperatorCatalogService {
         let resp: DisruptionsResponse? = await fetch(path: "disruptions", op: op, decode: { data in
             try decoder.decode(DisruptionsResponse.self, from: data)
         })
-        return OperatorDisruptionsBundle(
+        let bundle = OperatorDisruptionsBundle(
             alerts: resp?.alerts ?? [],
             live: resp?.live ?? false,
             fetchedAt: resp?.fetchedAt
         )
+        // Cache même un bundle vide (live=false) pour éviter de bombarder le
+        // backend si l'API est down — on retentera dans 60 s.
+        await cache.setDisruptions(op, bundle)
+        return bundle
     }
 
     private static func fetch<T>(path: String, op: TransitOperator, decode: (Data) throws -> T) async -> T? {

@@ -26,7 +26,16 @@ enum TransportService {
         if !query.isEmpty {
             path += "?" + query.joined(separator: "&")
         }
-        return try await APIClient.shared.request(path)
+        // 1 retry sur erreurs réseau pour absorber les cold start Render
+        // (~10 s) — la 1ère tentative réveille le dyno, la 2e après 2 s
+        // tombe presque toujours sur un backend déjà chaud. Spécifique à
+        // overview() parce que c'est l'appel critique au launch.
+        do {
+            return try await APIClient.shared.request(path)
+        } catch let error as URLError where error.code == .timedOut || error.code == .notConnectedToInternet || error.code == .networkConnectionLost {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            return try await APIClient.shared.request(path)
+        }
     }
 
     static func stop(id: String) async throws -> TransportStopDTO {
