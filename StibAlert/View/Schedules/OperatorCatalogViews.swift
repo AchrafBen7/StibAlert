@@ -639,6 +639,14 @@ struct OperatorDisruptionsList: View {
         lines: [OperatorLine],
         disruptions: [OperatorDisruption]
     ) -> [OperatorLineIssue] {
+        // Indexation par DEUX clés possibles : l'id GTFS complet
+        // ("gr:tec:L0076-23207") ET le short_name brut ("128"). Le backend
+        // émet l'un OU l'autre selon l'opérateur :
+        //   - TEC : routeIds = id GTFS complet (match direct sur line.id)
+        //   - De Lijn : routeIds = short_name brut (impossible de
+        //     reconstruire l'id GTFS depuis l'API De Lijn)
+        // Sans ce double-index, De Lijn affichait "Réseau OK" alors qu'il y
+        // a 300+ alertes actives.
         var disruptionsByRoute: [String: [OperatorDisruption]] = [:]
         for disruption in disruptions {
             for routeId in disruption.routeIds {
@@ -647,9 +655,12 @@ struct OperatorDisruptionsList: View {
         }
 
         return lines.compactMap { line in
-            let related = (disruptionsByRoute[line.id] ?? []).deduplicatedById()
-            guard !related.isEmpty else { return nil }
-            return OperatorLineIssue(line: line, disruptions: related)
+            var related: [OperatorDisruption] = []
+            if let byId = disruptionsByRoute[line.id] { related.append(contentsOf: byId) }
+            if let byShort = disruptionsByRoute[line.shortName] { related.append(contentsOf: byShort) }
+            let unique = related.deduplicatedById()
+            guard !unique.isEmpty else { return nil }
+            return OperatorLineIssue(line: line, disruptions: unique)
         }
         .sorted { lhs, rhs in
             if lhs.line.mode != rhs.line.mode {

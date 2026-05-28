@@ -67,7 +67,21 @@ enum OperatorCatalogService {
     /// un badge LIVE et la fraicheur des données.
     static func disruptionsBundle(operator op: TransitOperator) async -> OperatorDisruptionsBundle {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        // Important : Node émet des dates avec millisecondes ("2026-05-28T13:08:44.387Z")
+        // que `.iso8601` Swift NE parse PAS. Sans ce custom decoder, n'importe
+        // quelle date dans la réponse fait planter tout le décodage → alerts
+        // vides → "Réseau OK" alors qu'on a 300+ alertes en prod. On utilise
+        // donc ISO8601DateFormatter en mode .withFractionalSeconds.
+        decoder.dateDecodingStrategy = .custom { dec in
+            let s = try dec.singleValueContainer().decode(String.self)
+            let withFrac = ISO8601DateFormatter()
+            withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = withFrac.date(from: s) { return d }
+            let noFrac = ISO8601DateFormatter()
+            noFrac.formatOptions = [.withInternetDateTime]
+            if let d = noFrac.date(from: s) { return d }
+            throw DecodingError.dataCorruptedError(in: try dec.singleValueContainer(), debugDescription: "Invalid ISO8601: \(s)")
+        }
         let resp: DisruptionsResponse? = await fetch(path: "disruptions", op: op, decode: { data in
             try decoder.decode(DisruptionsResponse.self, from: data)
         })

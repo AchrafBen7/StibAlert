@@ -52,7 +52,19 @@ enum OperatorRealtimeService {
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let http = response as? HTTPURLResponse else { return nil }
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            // Custom date strategy : Node émet "...387Z" (fractional seconds)
+            // que `.iso8601` Swift refuse → tout le décodage plante en
+            // silence et on affiche du vide. Cf. note dans OperatorCatalogService.
+            decoder.dateDecodingStrategy = .custom { dec in
+                let s = try dec.singleValueContainer().decode(String.self)
+                let withFrac = ISO8601DateFormatter()
+                withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = withFrac.date(from: s) { return d }
+                let noFrac = ISO8601DateFormatter()
+                noFrac.formatOptions = [.withInternetDateTime]
+                if let d = noFrac.date(from: s) { return d }
+                throw DecodingError.dataCorruptedError(in: try dec.singleValueContainer(), debugDescription: "Invalid ISO8601: \(s)")
+            }
             // 200 OK or 503 (not configured server-side) — both can carry a
             // body we want to decode (503 returns {live:false, passages:[]}).
             if http.statusCode == 200 || http.statusCode == 503 {
