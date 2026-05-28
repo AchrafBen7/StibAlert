@@ -219,7 +219,7 @@ struct ProfileView: View {
                             }
                         }
 
-                        Text("STIBALERT · V1.0.0 · BRUXELLES")
+                        Text("STIBALERT · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
                             .font(DS.Font.monoSmall)
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
@@ -542,60 +542,8 @@ private struct ProfileRootRowPressableStyle: ButtonStyle {
     }
 }
 
-private struct SettingsTile: View {
-    let item: SettingsTileItem
-    let action: () -> Void
-    @State private var isPressed = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    Text(item.title)
-                        .font(.custom("DelaGothicOne-Regular", size: 20))
-                        .foregroundStyle(.black)
-
-                    Spacer()
-
-                    Circle()
-                        .fill(Color(hex: "#7CB2FF"))
-                        .frame(width: 12, height: 12)
-                }
-
-                Text(item.description)
-                    .font(.custom("Montserrat-Regular", size: 11))
-                    .foregroundStyle(.black)
-                    .multilineTextAlignment(.leading)
-                    .padding(.top, 10)
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 14)
-            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 120, alignment: .topLeading)
-            .background(isPressed || item.isInitiallyHighlighted ? Color(hex: "#BBDCFF") : .white)
-            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .stroke(Color(hex: "#81B7FF"), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .pressEvents {
-            withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
-        } onRelease: {
-            withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
-        }
-    }
-}
-
-private struct SettingsTileItem: Identifiable {
-    let id = UUID()
-    let title: String
-    let description: String
-    let isInitiallyHighlighted: Bool
-    let subpage: SettingsSubpage?
-}
+// SettingsTile + SettingsTileItem retirés (jamais référencés) — voir note
+// dans SettingsMockData ci-dessous.
 
 private enum SettingsSubpage {
     case account
@@ -606,17 +554,9 @@ private enum SettingsSubpage {
     case transitPass
 }
 
-private enum SettingsMockData {
-    static let items: [SettingsTileItem] = [
-        .init(title: "Compte", description: "Gérer vos informations\npersonnelles et préférences.", isInitiallyHighlighted: true, subpage: .account),
-        .init(title: "Ma carte STIB", description: "Associer votre carte\net retrouver votre abonnement.", isInitiallyHighlighted: false, subpage: .transitPass),
-        .init(title: "Notifications", description: "Choisir quand et comment\nrecevoir des alertes.", isInitiallyHighlighted: false, subpage: .notifications),
-        .init(title: "Langues", description: "Sélectionner votre langue\npréférée dans l’app.", isInitiallyHighlighted: false, subpage: .languages),
-        .init(title: "A propos", description: "Découvrir la mission et\nl’équipe derrière l’application", isInitiallyHighlighted: false, subpage: nil),
-        .init(title: "Privé", description: "Contrôler vos données et\nparamètres de confidentialité.", isInitiallyHighlighted: false, subpage: .privacy),
-        .init(title: "Support", description: "Obtenir de l’aide ou signaler\nun problème.", isInitiallyHighlighted: false, subpage: .support)
-    ]
-}
+// SettingsMockData / SettingsTile / SettingsTileItem ont été retirés —
+// reliquat d'un ancien design de page Settings sous forme de tuiles, jamais
+// référencé après la migration vers le rootContent en liste (l. 175+).
 
 private struct ProfileSubpageScaffold<Content: View>: View {
     let eyebrow: String
@@ -1644,6 +1584,8 @@ private struct SupportSettingsView: View {
     let onBack: () -> Void
     let onClose: () -> Void
 
+    @State private var showFeatureTour = false
+
     var body: some View {
         ProfileSubpageScaffold(
             eyebrow: "Profil · Assistance",
@@ -1651,6 +1593,41 @@ private struct SupportSettingsView: View {
             onBack: onBack,
             onClose: onClose
         ) {
+            // Nouvelle section "Démarrage" — rejouer le tour 3-cards explique
+            // carte/signalement/voix. Visible AVANT "Aide & contact" parce
+            // qu'on a constaté que les nouveaux utilisateurs qui skippent
+            // l'onboarding initial cherchent souvent ces explications dans
+            // le profil.
+            ProfileSettingsSection(title: "Démarrage") {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showFeatureTour = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundColor(DS.Color.primary)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Revoir la visite guidée")
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundColor(DS.Color.ink)
+                            Text("3 cartes : carte, signalement, voix")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(DS.Color.inkMute)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(DS.Color.inkMute)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(ProfileRootRowPressableStyle())
+            }
+
             ProfileSettingsSection(title: "Aide & contact") {
                 ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
                     SupportRow(item: item)
@@ -1687,6 +1664,12 @@ private struct SupportSettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
+        }
+        .fullScreenCover(isPresented: $showFeatureTour) {
+            // À la demande — n'écrit PAS hasSeenFeatureTour : si l'utilisateur
+            // l'a déjà vu une fois, c'est juste un replay manuel ; pas
+            // besoin de toucher au flag global.
+            FeatureTourView { showFeatureTour = false }
         }
     }
 }
