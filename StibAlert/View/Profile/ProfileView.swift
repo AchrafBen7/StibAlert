@@ -15,6 +15,12 @@ struct ProfileView: View {
     /// backend qui dirait à tort "Activées".
     @State private var systemNotificationsAuthorized = true
     @State private var maskedTransitCardCached: String = "Non configurée"
+    // P5/P6 — confirmations pour Logout + Supprimer le compte rendus
+    // discoverable au root.
+    @State private var showLogoutConfirm = false
+    @State private var showDeleteConfirm = false
+    @State private var isWorkingOnAccount = false
+    @State private var accountActionError: String?
     @State private var preTripPushEnabled = true
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
@@ -226,6 +232,44 @@ struct ProfileView: View {
                             }
                         }
 
+                        // P12 — Inviter un ami : partage du lien App Store
+                        // de StibAlert via ShareLink. Apple recommande ce
+                        // pattern pour la viralité organique. Texte du lien
+                        // pré-rempli avec accroche FR.
+                        profileGroup(title: "Communauté") {
+                            ShareLink(
+                                item: URL(string: "https://apps.apple.com/app/id0000000000")!,
+                                message: Text("Tu prends les transports à Bruxelles ? Avec StibAlert je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :")
+                            ) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "person.2.fill")
+                                        .font(.system(size: 14, weight: .regular))
+                                        .foregroundColor(DS.Color.ink)
+                                        .frame(width: 18)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Inviter un ami")
+                                            .font(.system(size: 13.5, weight: .semibold))
+                                            .foregroundStyle(DS.Color.ink)
+                                        Text("Partage StibAlert avec tes proches qui prennent les transports.")
+                                            .font(.system(size: 11.5))
+                                            .foregroundStyle(DS.Color.inkMute)
+                                            .lineLimit(2)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(DS.Color.inkMute)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(ProfileRootRowPressableStyle())
+                            .simultaneousGesture(TapGesture().onEnded {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            })
+                        }
+
                         profileGroup(title: "Support") {
                             profileRow(icon: "questionmark.circle", label: "Aide & FAQ") {
                                 selectedSubpage = .support
@@ -243,6 +287,12 @@ struct ProfileView: View {
                                 }
                             }
                         }
+
+                        // P5 / P6 — Logout + Supprimer au ROOT (visibles
+                        // immédiatement, pas cachés 2 niveaux plus bas).
+                        // Apple App Review reject les apps où le delete
+                        // account n'est pas "easily discoverable".
+                        accountActionsSection
 
                         Text("STIBALERT · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
                             .font(DS.Font.monoSmall)
@@ -265,33 +315,16 @@ struct ProfileView: View {
     }
 
     private var profileHeader: some View {
+        // P7 : gear icon top-right SUPPRIMÉ — il dupliquait l'entrée
+        // "Mon compte" plus bas dans rootContent. On garde l'entrée
+        // explicite (texte) qui est plus claire qu'une icône abstraite.
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                // Compact title — kept consistent with Infos trafic /
-                // Horaires / Favoris (the other 4 tab pages). The eyebrow
-                // "Compte StibAlert" was dropped to match the cleaner
-                // single-line header pattern.
                 Text("Profil")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-
                 Spacer()
-
-                Button {
-                    selectedSubpage = .account
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(DS.Color.ink)
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(DS.Color.ink.opacity(0.20), lineWidth: 1.5)
-                        )
-                }
-                .buttonStyle(.plain)
             }
-
             Rectangle()
                 .fill(DS.Color.ink.opacity(0.14))
                 .frame(height: 2)
@@ -382,16 +415,9 @@ struct ProfileView: View {
                 }
 
                 Spacer()
-
-                Button {
-                    selectedSubpage = .account
-                } label: {
-                    Text("Modifier")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(DS.Color.ink)
-                        .underline()
-                }
-                .buttonStyle(.plain)
+                // P7 : bouton "Modifier" SUPPRIMÉ — 3e entrée vers le même
+                // sous-page Compte. On garde l'entrée "Mon compte" dans le
+                // groupe Préférences plus bas, c'est suffisant.
             }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -402,12 +428,34 @@ struct ProfileView: View {
                 .frame(height: 1.5)
                 .padding(.horizontal, 16)
 
+            // P9 : stats clickables — tap ouvre le tab correspondant.
+            // Avant elles étaient muettes (display only). Maintenant Favoris
+            // → tab Favoris, Lignes → tab Favoris aussi (qui liste les lignes
+            // favorites), Signalements → tab Infos trafic.
             HStack(spacing: 0) {
-                profileStatCell(icon: "star.fill", label: "Favoris", value: "\(session.currentUser?.favorisDetails?.count ?? 0)")
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    nav.currentPage = .favorites
+                } label: {
+                    profileStatCell(icon: "star.fill", label: "Favoris", value: "\(session.currentUser?.favorisDetails?.count ?? 0)")
+                }
+                .buttonStyle(.plain)
                 Divider().background(DS.Color.ink.opacity(0.15))
-                profileStatCell(icon: "tram.fill", label: "Lignes", value: "\(favoriteLinesSelection.count)")
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    nav.currentPage = .favorites
+                } label: {
+                    profileStatCell(icon: "tram.fill", label: "Lignes", value: "\(session.currentUser?.favoriteLines?.count ?? 0)")
+                }
+                .buttonStyle(.plain)
                 Divider().background(DS.Color.ink.opacity(0.15))
-                profileStatCell(icon: "exclamationmark.bubble.fill", label: "Signalements", value: "\(signalementCount)")
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    nav.currentPage = .reports
+                } label: {
+                    profileStatCell(icon: "exclamationmark.bubble.fill", label: "Signalements", value: "\(signalementCount)")
+                }
+                .buttonStyle(.plain)
             }
             .frame(height: 72)
         }
@@ -444,6 +492,104 @@ struct ProfileView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
+    }
+
+    private var accountActionsSection: some View {
+        VStack(spacing: 10) {
+            // Logout — neutre, action réversible (l'utilisateur peut se
+            // reconnecter immédiatement). Lance la confirmation.
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showLogoutConfirm = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Se déconnecter")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundStyle(DS.Color.ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(DS.Color.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorkingOnAccount)
+
+            // Supprimer le compte — action destructive, demande double
+            // confirmation. App Store reviewer doit pouvoir trouver cette
+            // option en ≤ 2 taps depuis le launch — ici c'est 1 tap (root
+            // profile). Texte explicite "définitivement" + couleur rouge.
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showDeleteConfirm = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Supprimer mon compte")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(DS.Color.statusMajor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 42)
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorkingOnAccount)
+
+            if let accountActionError {
+                Text(accountActionError)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(DS.Color.statusMajor)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+            }
+        }
+        // Alert Logout — réversible
+        .alert("Se déconnecter ?", isPresented: $showLogoutConfirm) {
+            Button("Annuler", role: .cancel) {}
+            Button("Se déconnecter", role: .destructive) {
+                Task { await performLogout() }
+            }
+        } message: {
+            Text("Tes favoris et préférences locales restent sur cet appareil. Tu peux te reconnecter à tout moment.")
+        }
+        // Alert Supprimer — IRRÉVERSIBLE
+        .alert("Supprimer le compte définitivement ?", isPresented: $showDeleteConfirm) {
+            Button("Annuler", role: .cancel) {}
+            Button("Supprimer définitivement", role: .destructive) {
+                Task { await performDeleteAccount() }
+            }
+        } message: {
+            Text("Cette action est IRRÉVERSIBLE. Toutes tes données (profil, signalements, favoris) seront supprimées de nos serveurs sous 30 jours conformément au RGPD.")
+        }
+    }
+
+    @MainActor
+    private func performLogout() async {
+        isWorkingOnAccount = true
+        accountActionError = nil
+        await session.deconnexion()
+        isWorkingOnAccount = false
+        // Retour automatique au signedOut → AppRoot rebascule sur AuthFlow.
+    }
+
+    @MainActor
+    private func performDeleteAccount() async {
+        isWorkingOnAccount = true
+        accountActionError = nil
+        do {
+            try await session.supprimerCompte()
+        } catch {
+            accountActionError = (error as? LocalizedError)?.errorDescription
+                ?? "Suppression impossible. Réessaie dans un instant."
+        }
+        isWorkingOnAccount = false
     }
 
     private func profileStatCell(icon: String, label: String, value: String) -> some View {
