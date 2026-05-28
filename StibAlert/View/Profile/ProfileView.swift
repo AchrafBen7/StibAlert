@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
@@ -8,6 +9,12 @@ struct ProfileView: View {
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
     @State private var pushNotificationsEnabled = true
+    /// État réel iOS du droit notifications (UNNotificationSettings).
+    /// Si l'utilisateur a accepté côté backend mais bloqué côté système,
+    /// la valeur effective est "Désactivées" — on affiche ÇA, pas le
+    /// backend qui dirait à tort "Activées".
+    @State private var systemNotificationsAuthorized = true
+    @State private var maskedTransitCardCached: String = "Non configurée"
     @State private var preTripPushEnabled = true
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
@@ -53,9 +60,16 @@ struct ProfileView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task {
             syncFromSession()
+            refreshMaskedTransitCard()
+            await refreshSystemNotificationsAuth()
         }
         .task(id: session.currentUser?.id) {
             await loadContributionCount()
+        }
+        // Rafraîchit la carte MoBIB cachée quand l'utilisateur revient du
+        // sous-page TransitPass (où il a pu la modifier) — P3.
+        .task(id: selectedSubpage) {
+            refreshMaskedTransitCard()
         }
         .onChange(of: session.currentUser?.id) { _, _ in
             syncFromSession()
@@ -182,13 +196,18 @@ struct ProfileView: View {
                         identityCard
 
                         profileGroup(title: "Carte de transport") {
-                            profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCard) {
+                            // P3 : on lit le cache @State au lieu de
+                            // recharger UserDefaults à chaque render
+                            profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCardCached) {
                                 selectedSubpage = .transitPass
                             }
                         }
 
                         profileGroup(title: "Préférences") {
-                            profileRow(icon: "bell", label: "Notifications", value: pushNotificationsEnabled ? "Activées" : "Désactivées") {
+                            // P2 : on affiche l'état EFFECTIF (backend ET
+                            // autorisé par iOS) — sinon le user voit
+                            // "Activées" alors qu'iOS bloque tout
+                            profileRow(icon: "bell", label: "Notifications", value: effectiveNotificationsEnabled ? "Activées" : "Désactivées") {
                                 selectedSubpage = .notifications
                             }
                             profileDivider
@@ -212,8 +231,14 @@ struct ProfileView: View {
                                 selectedSubpage = .support
                             }
                             profileDivider
+                            // P4 : "contact@stib-alert.be" hardcodé (qui ne
+                            // résolvait rien) remplacé par l'URL Support
+                            // publique servie depuis le backend. La page
+                            // affiche l'email de contact + FAQ + redirige
+                            // si on clique l'email. URL parité avec le
+                            // Support URL App Store Connect.
                             profileRow(icon: "bubble.left", label: "Contacter l'équipe") {
-                                if let url = URL(string: "mailto:contact@stib-alert.be?subject=Avis%20StibAlert") {
+                                if let url = URL(string: "\(AppConfig.backendBaseURL)/support") {
                                     openURL(url)
                                 }
                             }
@@ -285,13 +310,9 @@ struct ProfileView: View {
         }
     }
 
-    private var maskedTransitCard: String {
-        let raw = TransitPassStorage.load().cardNumber
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: " ", with: "")
-        guard !raw.isEmpty else { return "Non liée" }
-        return "•••• \(raw.suffix(4))"
-    }
+    // P3 : `maskedTransitCard` (computed property qui chargeait UserDefaults
+    // à chaque render) supprimée — remplacée par maskedTransitCardCached
+    // refresh-é dans .task + .task(id: selectedSubpage).
 
     private func loadContributionCount() async {
         guard AppConfig.isBackendEnabled, session.isSignedIn else {
@@ -302,10 +323,41 @@ struct ProfileView: View {
             let response = try await ContributionsService.mine()
             signalementCount = response.summary.totalContributions
         } catch {
-            // Network/decoding failure → leave at 0 rather than show a stale
-            // or misleading number.
-            signalementCount = 0
+            // P1 fix : on ne reset PAS à 0 sur erreur réseau. Le user verrait
+            // sinon son compteur tomber à 0 à chaque petit hoquet réseau,
+            // puis remonter — c'est plus alarmant qu'utile. On garde
+            // l'ancienne valeur jusqu'au prochain succès.
         }
+    }
+
+    /// P2 fix : vérifie si iOS autorise les notifs au niveau système. Le
+    /// backend (`user.notifications`) peut dire "true" alors que l'utilisateur
+    /// a bloqué dans Réglages iOS → l'app reçoit ZÉRO push mais affichait
+    /// "Activées" partout. Désormais on prend le ET logique des deux.
+    private func refreshSystemNotificationsAuth() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        await MainActor.run {
+            systemNotificationsAuthorized = settings.authorizationStatus == .authorized
+                || settings.authorizationStatus == .provisional
+                || settings.authorizationStatus == .ephemeral
+        }
+    }
+
+    /// Valeur effective combinant backend + état système iOS.
+    private var effectiveNotificationsEnabled: Bool {
+        pushNotificationsEnabled && systemNotificationsAuthorized
+    }
+
+    /// P3 fix : avant `maskedTransitCard` était une computed property qui
+    /// faisait UN ACCÈS UserDefaults + un décodage JSON à CHAQUE render
+    /// (lors de profileRow, identityCard, etc.). On lit maintenant une
+    /// fois dans .task et après modification (via .task(id:selectedSubpage)
+    /// quand on revient de transitPass subpage).
+    private func refreshMaskedTransitCard() {
+        let raw = TransitPassStorage.load().cardNumber
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+        maskedTransitCardCached = raw.count >= 4 ? "•••• \(raw.suffix(4))" : "Non configurée"
     }
 
     private var identityCard: some View {
