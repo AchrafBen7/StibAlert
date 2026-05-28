@@ -111,6 +111,12 @@ struct VoiceOverlay: View {
                 .font(.system(size: 22, weight: .black))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
+            if phase == .thinking {
+                // Dots animées sous "Je réfléchis…" pour montrer que ça bouge
+                // (sans ça l'utilisateur voit un écran figé pendant 5-8 s).
+                ThinkingDotsIndicator()
+                    .padding(.top, 4)
+            }
             if phase == .thinking, let detail = thinkingDetail {
                 Text(detail)
                     .font(.system(size: 13, weight: .medium))
@@ -428,12 +434,20 @@ struct VoiceOverlay: View {
             // 1-2 sec sur les phrases simples type "trajet vers Delacroix".
             if let regexDest = STIBAIDestinationExtractor.extract(from: text) {
                 pendingDestination = regexDest
-                thinkingDetail = "Je calcule le meilleur trajet vers \(regexDest)…"
+                // Étape 1/2 : recherche du trajet (MKLocalSearch + planner)
+                withAnimation(.easeOut(duration: 0.2)) {
+                    thinkingDetail = "🔎 Je cherche le trajet vers \(regexDest)…"
+                }
 
                 guard let proposedRoutes = await prepareTrip(regexDest), !proposedRoutes.isEmpty else {
                     phase = .error
                     errorText = "Je n'ai pas trouvé de trajet vers \"\(regexDest)\". Essaie une adresse plus précise ou ouvre le planner."
                     return
+                }
+
+                // Étape 2/2 : description par l'IA
+                withAnimation(.easeOut(duration: 0.2)) {
+                    thinkingDetail = "✨ Je prépare ta réponse…"
                 }
 
                 var enrichedContext = context
@@ -449,14 +463,16 @@ struct VoiceOverlay: View {
                 return
             }
 
-            // Regex n'a rien trouvé → flow 2-calls classique. Le 1er appel
-            // sert à la fois de fallback pour les questions non-trajet (état
-            // du réseau, perturbations…) et d'extraction Gemini.
+            // Pas de regex → flow 2-calls classique.
+            withAnimation(.easeOut(duration: 0.2)) {
+                thinkingDetail = "💭 Je comprends ta demande…"
+            }
+
             let firstResult = try await STIBAIVoiceClient.ask(text: text, context: context)
             let dest = firstResult.destination?.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard let dest, !dest.isEmpty else {
-                // Pas de destination → question hors trajet. On joue le 1er reply.
+                // Question hors trajet → on joue directement.
                 reply = firstResult.spokenReply
                 displayReply = firstResult.displayReply ?? firstResult.spokenReply
                 pendingDestination = nil
@@ -466,12 +482,18 @@ struct VoiceOverlay: View {
             }
 
             pendingDestination = dest
-            thinkingDetail = "Je calcule le meilleur trajet vers \(dest)…"
+            withAnimation(.easeOut(duration: 0.2)) {
+                thinkingDetail = "🔎 Je cherche le trajet vers \(dest)…"
+            }
 
             guard let proposedRoutes = await prepareTrip(dest), !proposedRoutes.isEmpty else {
                 phase = .error
                 errorText = "Je n'ai pas trouvé de trajet vers \"\(dest)\". Essaie une adresse plus précise ou ouvre le planner."
                 return
+            }
+
+            withAnimation(.easeOut(duration: 0.2)) {
+                thinkingDetail = "✨ Je prépare ta réponse…"
             }
 
             var enrichedContext = context
@@ -487,6 +509,35 @@ struct VoiceOverlay: View {
         } catch {
             phase = .error
             errorText = error.localizedDescription
+        }
+    }
+}
+
+/// 3 dots that pulse in sequence — classic "typing" indicator used in
+/// chat apps. Apparaît sous le statusText pendant la phase .thinking pour
+/// éviter que l'utilisateur ait l'impression que l'app est figée pendant
+/// les 5-8 s de pipeline AI (extraction → planner → description).
+private struct ThinkingDotsIndicator: View {
+    @State private var phase: Int = 0
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3) { i in
+                Circle()
+                    .fill(Color.white.opacity(phase == i ? 0.95 : 0.30))
+                    .frame(width: 7, height: 7)
+                    .scaleEffect(phase == i ? 1.15 : 1.0)
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: phase)
+        .task {
+            // Task est automatiquement annulée quand la vue est démontée —
+            // pas de Timer qui survit comme avec scheduledTimer.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 450_000_000) // 0.45 s
+                if Task.isCancelled { return }
+                phase = (phase + 1) % 3
+            }
         }
     }
 }
