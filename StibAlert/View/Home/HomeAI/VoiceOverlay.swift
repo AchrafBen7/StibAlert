@@ -202,11 +202,13 @@ struct VoiceOverlay: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        // When we have a route destination from the AI's reply, the primary
-        // action becomes "Voir la route sur la carte" (the trip pipeline takes
-        // over and closes the overlay). Otherwise the standard
-        // listen/send/cancel button is shown.
-        if pendingDestination != nil && phase != .listening {
+        // "Voir la route sur la carte" n'apparaît QUE quand on a réellement
+        // décrit un trajet à l'utilisateur (phase = .speaking ET on a un
+        // displayReply non vide). Avant on l'affichait dès qu'une destination
+        // était détectée → le user voyait le bouton pendant le "Je calcule…"
+        // et même quand prepareTrip échouait, sans qu'aucun trajet n'ait
+        // été décrit. C'était trompeur.
+        if pendingDestination != nil && phase == .speaking && !displayReply.isEmpty {
             VStack(spacing: 10) {
                 Button {
                     // Trip is already planned by prepareTrip during the AI
