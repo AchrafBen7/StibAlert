@@ -20,9 +20,6 @@ struct StibAlertApp: App {
         ErrorReporting.setUp()
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
-        if #available(iOS 17.0, *) {
-            HomeFeatureTour.configure()
-        }
     }
 
     var body: some Scene {

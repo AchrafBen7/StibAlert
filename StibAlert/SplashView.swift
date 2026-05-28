@@ -119,6 +119,16 @@ struct SplashView: View {
                         .font(.system(size: 13.5))
                         .foregroundStyle(DS.Color.inkSoft)
                         .frame(maxWidth: 320, alignment: .leading)
+                    // App Store : disclaimer obligatoire — Apple peut rejeter
+                    // une app qui s'affiche comme officielle d'un opérateur
+                    // sans accord. On le met dès le splash + dans Profile/
+                    // Confidentialité (section À propos).
+                    Text("Application indépendante non affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .tracking(0.2)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .frame(maxWidth: 320, alignment: .leading)
+                        .padding(.top, 2)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 34)

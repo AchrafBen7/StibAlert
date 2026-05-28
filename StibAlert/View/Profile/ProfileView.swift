@@ -1665,8 +1665,35 @@ private struct SupportSettingsView: View {
                 .font(.system(size: 11.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .padding(.horizontal, 4)
+
+            // Disclaimer App Store (parité avec Splash + Auth) — Apple peut
+            // rejeter une app qui s'affiche comme officielle STIB-MIVB sans
+            // mention claire d'indépendance.
+            ProfileSettingsSection(title: "À propos") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("StibAlert est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+                        .font(.system(size: 12.5))
+                        .foregroundColor(DS.Color.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté StibAlert. Les marques citées appartiennent à leurs propriétaires respectifs.")
+                        .font(.system(size: 12))
+                        .foregroundColor(DS.Color.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Version \(Bundle.main.shortVersion) · Build \(Bundle.main.buildNumber)")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(DS.Color.inkMute)
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
         }
     }
+}
+
+private extension Bundle {
+    var shortVersion: String { infoDictionary?["CFBundleShortVersionString"] as? String ?? "?" }
+    var buildNumber: String { infoDictionary?["CFBundleVersion"] as? String ?? "?" }
 }
 
 private struct SupportRow: View {

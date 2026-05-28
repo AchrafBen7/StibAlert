@@ -147,7 +147,16 @@ private struct WelcomePage: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.bottom, 4)
+
+            // Disclaimer App Store : voir SplashView.
+            Text("Application indépendante — non affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+                .font(.system(size: 10, weight: .medium))
+                .tracking(0.2)
+                .foregroundColor(DS.Color.inkMute)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
 
             DS.Rule(thick: true)
                 .padding(.horizontal, 20)

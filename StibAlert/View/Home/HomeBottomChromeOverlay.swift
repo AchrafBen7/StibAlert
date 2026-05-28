@@ -27,7 +27,6 @@ struct HomeBottomChromeOverlay: View {
                     LocationFloatingButton(action: onRecenter)
                     STIBAIFloatingButton(action: onOpenStibAI)
                     HomeReportFloatingButton(action: onOpenReportSheet)
-                        .homeFeatureTip(.report)
                 }
                 .padding(.horizontal, 14)
                 .transition(.opacity)

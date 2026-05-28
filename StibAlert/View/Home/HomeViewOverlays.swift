@@ -129,7 +129,6 @@ extension HomeView {
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .zLayer(.searchHeader)
-                    .homeFeatureTip(.verdict)
                 }
             }
         }

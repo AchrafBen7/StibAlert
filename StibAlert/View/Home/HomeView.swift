@@ -937,7 +937,6 @@ struct HomeView: View {
     var body: some View {
         ZStack {
             mapLayer
-                .homeFeatureTip(.map)
             OfflineMapFallback(isConnected: connectivity.isConnected)
                 .allowsHitTesting(false)
             mapGradient
@@ -2092,9 +2091,6 @@ struct HomeView: View {
         loadStopDetail(for: stop)
         if let selectedStopLineNumber {
             focusMap(onLineShapesFor: selectedStopLineNumber)
-        }
-        if #available(iOS 17.0, *) {
-            HomeFeatureTour.map.invalidate(reason: .actionPerformed)
         }
     }
 
