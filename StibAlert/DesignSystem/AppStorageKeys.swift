@@ -2,6 +2,10 @@ import Foundation
 
 enum AppStorageKeys {
     static let hasSeenOnboarding = "hasSeenOnboarding"
+    /// Tour 3-cards montré APRÈS l'onboarding (carte → signalement → voix).
+    /// Mis à true à la fin du tour OU sur skip. Réinitialisable depuis
+    /// Profil → Aide → "Revoir la visite guidée".
+    static let hasSeenFeatureTour = "hasSeenFeatureTour"
     static let hasLaunchedBefore = "hasLaunchedBefore"
     static let lastUpdateDate = "lastUpdateDate"
     static let onboardingFavoriteLines = "onboardingFavoriteLines"
