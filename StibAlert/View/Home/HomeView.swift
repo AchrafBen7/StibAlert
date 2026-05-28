@@ -11,13 +11,11 @@ struct HomeView: View {
         case stopDetail
         case routePreview
         case routeDetail
-        case ar
     }
 
     private enum HomeSurfaceMode: Equatable {
         case unavailable
         case stopDetail
-        case ar
         case routeDetail
         case routePreview
         case stopPreview
@@ -58,7 +56,6 @@ struct HomeView: View {
     @State private var selectedRouteID: UUID?
     @State private var isRouteSheetExpanded = false
     @State private var selectedRouteDetail: HomeRouteOption?
-    @State private var selectedARRoute: HomeRouteOption?
     @State var searchQuery = ""
     @State var searchSuggestions: [MKMapItem] = []
     @State var isRouting = false
@@ -639,13 +636,12 @@ struct HomeView: View {
     }
 
     private var hasRouteSurface: Bool {
-        !routeOptions.isEmpty || selectedRouteDetail != nil || selectedARRoute != nil
+        !routeOptions.isEmpty || selectedRouteDetail != nil
     }
 
     private var homeSurfaceMode: HomeSurfaceMode {
         guard isHomeSurfaceInteractive else { return .unavailable }
         if interactionMode == .stopDetail, selectedMapStopSummary != nil { return .stopDetail }
-        if interactionMode == .ar, selectedARRoute != nil { return .ar }
         if interactionMode == .routeDetail, selectedRouteDetail != nil { return .routeDetail }
         if interactionMode == .routePreview, !routeOptions.isEmpty { return .routePreview }
         if interactionMode == .stopPreview, selectedMapStopPreview != nil, selectedMapStopSummary == nil { return .stopPreview }
@@ -660,7 +656,7 @@ struct HomeView: View {
             // header overlay instead of the bottom preview sheet, so we keep
             // the header slot visible to host it.
             return true
-        case .unavailable, .stopDetail, .routeDetail, .ar:
+        case .unavailable, .stopDetail, .routeDetail:
             return false
         }
     }
@@ -712,10 +708,6 @@ struct HomeView: View {
 
     private var shouldShowRouteDetail: Bool {
         homeSurfaceMode == .routeDetail
-    }
-
-    private var shouldShowAR: Bool {
-        homeSurfaceMode == .ar
     }
 
     var transitionSpring: Animation {
@@ -1405,17 +1397,13 @@ struct HomeView: View {
             selectedRouteID: $selectedRouteID,
             isRouteSheetExpanded: $isRouteSheetExpanded,
             selectedRouteDetail: selectedRouteDetail,
-            selectedARRoute: selectedARRoute,
             shouldShowRouteSheet: shouldShowRouteSheet,
             shouldShowRouteDetail: shouldShowRouteDetail,
-            shouldShowAR: shouldShowAR,
             onSelect: applyRouteOption(_:),
             onCloseRouteSheet: closeRouteSurface,
             onBackFromRouteDetail: showRoutePreviewFromDetail,
             onCloseRouteDetail: closeRouteSurface,
-            onShowRouteMap: showRoutePreviewFromDetail,
-            onStartAR: startARRoute(_:),
-            onCloseAR: closeARRoute
+            onShowRouteMap: showRoutePreviewFromDetail
         )
 
         if nav.currentPage != .home {
@@ -1436,19 +1424,13 @@ struct HomeView: View {
         case .stopPreview:
             selectedMapStopSummary = nil
             selectedRouteDetail = nil
-            selectedARRoute = nil
         case .stopDetail:
             selectedMapStopPreview = nil
             selectedRouteDetail = nil
-            selectedARRoute = nil
         case .routePreview:
             clearStopSelection()
             selectedRouteDetail = nil
-            selectedARRoute = nil
         case .routeDetail:
-            clearStopSelection()
-            selectedARRoute = nil
-        case .ar:
             clearStopSelection()
         }
     }
@@ -1575,7 +1557,6 @@ struct HomeView: View {
         currentTransportRecommendation = nil
         isRouteSheetExpanded = false
         selectedRouteDetail = nil
-        selectedARRoute = nil
     }
 
     @MainActor
@@ -1590,22 +1571,6 @@ struct HomeView: View {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
             selectedRouteDetail = nil
             enterInteractionMode(.routePreview)
-        }
-    }
-
-    @MainActor
-    private func startARRoute(_ route: HomeRouteOption) {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-            selectedARRoute = route
-            enterInteractionMode(.ar)
-        }
-    }
-
-    @MainActor
-    private func closeARRoute() {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-            selectedARRoute = nil
-            enterInteractionMode(routeOptions.isEmpty ? .map : .routePreview)
         }
     }
 

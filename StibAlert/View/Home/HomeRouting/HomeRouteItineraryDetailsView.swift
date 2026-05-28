@@ -5,7 +5,6 @@ struct RouteItineraryDetailsView: View {
     let onBack: () -> Void
     let onClose: () -> Void
     let onShowMap: () -> Void
-    let onStartAR: () -> Void
 
     var body: some View {
         ZStack {
@@ -80,21 +79,6 @@ struct RouteItineraryDetailsView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            Button(action: onStartAR) {
-                HStack(spacing: 10) {
-                    Image(systemName: "camera.viewfinder")
-                        .font(.system(size: 18, weight: .medium))
-                    Text("Guidage caméra")
-                        .font(.system(size: 14, weight: .bold))
-                }
-                .foregroundStyle(DS.Color.primaryForeground)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(DS.Color.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
             Button(action: onShowMap) {
                 Text("Voir sur la carte")
                     .font(.system(size: 14, weight: .semibold))

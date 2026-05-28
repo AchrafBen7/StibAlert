@@ -80,12 +80,6 @@ struct RouteTransitServiceInfo {
     let waitTime: String
 }
 
-struct RouteARInstruction {
-    let primaryText: String
-    let secondaryText: String?
-    let distanceText: String
-}
-
 extension Int {
     func clockString(from startDate: Date) -> String {
         let date = startDate.addingTimeInterval(TimeInterval(self * 60))

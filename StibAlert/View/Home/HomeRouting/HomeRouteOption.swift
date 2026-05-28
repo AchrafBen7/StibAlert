@@ -140,60 +140,6 @@ struct HomeRouteOption: Identifiable {
         return rect.insetBy(dx: -rect.width * 0.35, dy: -rect.height * 0.35)
     }
 
-    func primaryBearing(from current: CLLocationCoordinate2D) -> Double? {
-        let coords = routeCoordinates
-        guard coords.count > 1 else { return nil }
-        let nextCoord = nextCoordinate(from: current, in: coords) ?? coords[1]
-        return current.bearing(to: nextCoord)
-    }
-
-    func arInstruction(from current: CLLocationCoordinate2D) -> RouteARInstruction {
-        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
-            let nextStep = steps.first { step in
-                guard let coordinate = Self.primaryCoordinate(for: step) else { return false }
-                return current.distance(to: coordinate) > 20
-            } ?? steps.first
-
-            let primaryText = nextStep?.instruction ?? "Suivez l’itinéraire vers \(destinationName)"
-            let secondaryText = nextStep.map(Self.summaryText(for:)) ?? walkingSummary
-            let distanceText = nextStep
-                .flatMap(Self.primaryCoordinate(for:))
-                .map { current.distance(to: $0).distanceLabel }
-                ?? durationText
-
-            return RouteARInstruction(
-                primaryText: primaryText,
-                secondaryText: secondaryText,
-                distanceText: distanceText
-            )
-        }
-
-        guard let route else {
-            return RouteARInstruction(
-                primaryText: "Suivez l’itinéraire vers \(destinationName)",
-                secondaryText: walkingSummary,
-                distanceText: durationText
-            )
-        }
-
-        let usefulSteps = route.steps.filter { !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        let nextStep = usefulSteps.first { step in
-            guard let coord = step.polyline.firstCoordinate else { return false }
-            return current.distance(to: coord) > 20
-        } ?? usefulSteps.first
-
-        let cleanedInstruction = nextStep?.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
-        let primaryText = (cleanedInstruction?.isEmpty == false ? cleanedInstruction : nil) ?? "Suivez l’itinéraire vers \(destinationName)"
-        let distance = nextStep?.distance ?? route.distance
-        let transportType = nextStep?.transportType ?? .walking
-
-        return RouteARInstruction(
-            primaryText: primaryText,
-            secondaryText: transportType == .transit ? transitSummary : walkingSummary,
-            distanceText: distance.distanceLabel
-        )
-    }
-
     private func detailSegments(from steps: [TransportRouteStepDTO]) -> [RouteItinerarySegment] {
         let startDate = Date()
         var elapsedMinutes = 0

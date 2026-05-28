@@ -1617,6 +1617,9 @@
     "Aucun passage prévu" : {
 
     },
+    "Aucun passage prévu dans les prochaines minutes." : {
+
+    },
     "Aucun passage prévu pour le moment." : {
       "localizations" : {
         "nl" : {
@@ -7384,6 +7387,9 @@
           }
         }
       }
+    },
+    "Voir la route sur la carte" : {
+
     },
     "Voir les itinéraires" : {
       "localizations" : {

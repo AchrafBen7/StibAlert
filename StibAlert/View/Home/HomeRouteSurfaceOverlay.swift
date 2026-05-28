@@ -6,17 +6,13 @@ struct HomeRouteSurfaceOverlay: View {
     @Binding var selectedRouteID: UUID?
     @Binding var isRouteSheetExpanded: Bool
     let selectedRouteDetail: HomeRouteOption?
-    let selectedARRoute: HomeRouteOption?
     let shouldShowRouteSheet: Bool
     let shouldShowRouteDetail: Bool
-    let shouldShowAR: Bool
     let onSelect: (HomeRouteOption) -> Void
     let onCloseRouteSheet: () -> Void
     let onBackFromRouteDetail: () -> Void
     let onCloseRouteDetail: () -> Void
     let onShowRouteMap: () -> Void
-    let onStartAR: (HomeRouteOption) -> Void
-    let onCloseAR: () -> Void
 
     var body: some View {
         Group {
@@ -38,22 +34,10 @@ struct HomeRouteSurfaceOverlay: View {
                     option: selectedRouteDetail,
                     onBack: onBackFromRouteDetail,
                     onClose: onCloseRouteDetail,
-                    onShowMap: onShowRouteMap,
-                    onStartAR: {
-                        onStartAR(selectedRouteDetail)
-                    }
+                    onShowMap: onShowRouteMap
                 )
                 .transition(.move(edge: .trailing).combined(with: .opacity))
                 .zLayer(.routeDetail)
-            }
-
-            if shouldShowAR, let selectedARRoute {
-                RouteARNavigationView(
-                    option: selectedARRoute,
-                    onClose: onCloseAR
-                )
-                .transition(.opacity)
-                .zLayer(.clusterDetail)
             }
         }
     }

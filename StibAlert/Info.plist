@@ -17,8 +17,6 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>StibAlert utilise la caméra pour la navigation en réalité augmentée vers votre arrêt.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>StibAlert utilise le NFC pour associer votre carte MoBIB à votre profil et retrouver votre abonnement plus facilement.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
