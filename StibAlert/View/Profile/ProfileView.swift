@@ -47,6 +47,10 @@ struct ProfileView: View {
     @State private var signalementCount = 0
     /// P11 — activité récente : 3 dernières contributions du user.
     @State private var recentContributions: [ContributionItem] = []
+    /// Community polish — summary chargé en même temps que recent[] pour
+    /// le badge de contribution score. nil tant que le 1er fetch n'a pas eu
+    /// lieu (cas signed-out ou backend down).
+    @State private var contributionsSummary: ContributionsSummary?
 
     var body: some View {
         ZStack {
@@ -251,6 +255,15 @@ struct ProfileView: View {
                             }
                         }
 
+                        // Community polish — mini-card score & impact :
+                        // visible si l'utilisateur a au moins 1 contribution.
+                        // Pose les bases de la gamification (level visible)
+                        // sans backend changes — calcul local depuis summary.
+                        if let summary = contributionsSummary,
+                           summary.totalContributions > 0 {
+                            contributionScoreCard(summary)
+                        }
+
                         // P11 — Activité récente : affichée UNIQUEMENT si
                         // l'utilisateur a au moins 1 contribution, sinon on
                         // n'occupe pas l'écran avec un état vide pour les
@@ -409,6 +422,8 @@ struct ProfileView: View {
             // P11 : capture aussi les 3 dernières contributions pour la
             // section "Activité récente" du root profile.
             recentContributions = Array(response.recent.prefix(3))
+            // Community polish — summary pour le contribution score.
+            contributionsSummary = response.summary
         } catch {
             // P1 fix : on ne reset PAS à 0 sur erreur réseau. Le user verrait
             // sinon son compteur tomber à 0 à chaque petit hoquet réseau,
@@ -588,6 +603,63 @@ struct ProfileView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
+    }
+
+    /// Score = 1*totalContributions + 3*publishedClusters + 2*firstReporterCount
+    /// + 1 par tranche de 5 personnes aidées. Pondération qui valorise l'impact
+    /// communauté > volume brut. Tiers : Bronze 0-50, Argent 51-150, Or 151+.
+    private func contributionScore(_ s: ContributionsSummary) -> (score: Int, tier: String, tint: Color) {
+        let score = s.totalContributions
+            + (s.publishedClusters * 3)
+            + (s.firstReporterCount * 2)
+            + (s.peopleHelpedTotal / 5)
+        if score >= 151 { return (score, "OR", DS.Color.statusMinor) }
+        if score >= 51  { return (score, "ARGENT", DS.Color.inkSoft) }
+        return (score, "BRONZE", DS.Color.statusMajor.opacity(0.7))
+    }
+
+    @ViewBuilder
+    private func contributionScoreCard(_ summary: ContributionsSummary) -> some View {
+        let result = contributionScore(summary)
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(result.tint.opacity(0.15)).frame(width: 50, height: 50)
+                Image(systemName: "rosette")
+                    .font(.system(size: 22, weight: .black))
+                    .foregroundStyle(result.tint)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(result.score) pts · niveau \(result.tier)")
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                HStack(spacing: 6) {
+                    miniStat(label: "Validés", value: "\(summary.publishedClusters)")
+                    Text("·")
+                        .foregroundStyle(DS.Color.inkMute)
+                    miniStat(label: "Aidés", value: "\(summary.peopleHelpedTotal)")
+                    Text("·")
+                        .foregroundStyle(DS.Color.inkMute)
+                    miniStat(label: "1ers", value: "\(summary.firstReporterCount)")
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func miniStat(label: String, value: String) -> some View {
+        Text("\(value) \(label.lowercased())")
+            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+            .tracking(0.5)
+            .foregroundStyle(DS.Color.inkMute)
     }
 
     private var recentActivitySection: some View {

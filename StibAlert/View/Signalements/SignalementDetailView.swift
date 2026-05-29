@@ -243,10 +243,19 @@ struct SignalementDetailView: View {
                     CommunitySourceBadge()
                 }
 
-                Text(latest.freshnessLabel.uppercased())
-                    .font(DS.Font.monoSmall)
-                    .tracking(0.8)
-                    .foregroundStyle(DS.Color.inkMute)
+                // Community polish — pastille colorée selon le decay tier
+                // (fresh: vert / recent: orange / stale: gris). Permet à
+                // l'utilisateur de jauger la fiabilité d'un coup d'œil sans
+                // lire le texte complet.
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(freshnessTierColor(latest.freshnessTier))
+                        .frame(width: 6, height: 6)
+                    Text(latest.freshnessLabel.uppercased())
+                        .font(DS.Font.monoSmall)
+                        .tracking(0.8)
+                        .foregroundStyle(DS.Color.inkMute)
+                }
             }
             .padding(.bottom, 8)
 
@@ -487,15 +496,46 @@ struct SignalementDetailView: View {
         voteState = next
         isVoting = true
         feedback = nil
+        // Community polish — haptic medium au tap pour confirmer
+        // l'enregistrement avant le round-trip réseau (l'utilisateur sait
+        // immédiatement que son tap est passé, sans attendre le retour
+        // serveur qui peut prendre 200-800 ms).
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         Task {
             do {
                 try await SignalementService.voter(signalementId: latest.id, vote: apiValue)
+                // Success notification haptic + texte de confirmation
+                // discret qui disparaît après 2.5 s (toast inline géré par
+                // le `feedback` state + auto-clear).
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                if next != .none {
+                    feedback = next == .up
+                        ? "Confirmation enregistrée — merci !"
+                        : "Vote enregistré"
+                    // Auto-clear discret après 2.5 s, sans bloquer le user.
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 2_500_000_000)
+                        if feedback?.contains("enregistré") == true {
+                            feedback = nil
+                        }
+                    }
+                }
             } catch {
                 voteState = previous
                 feedback = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
             isVoting = false
+        }
+    }
+
+    private func freshnessTierColor(_ tier: SignalementDTO.FreshnessTier) -> Color {
+        switch tier {
+        case .fresh:   return DS.Color.statusOK
+        case .recent:  return DS.Color.statusMinor
+        case .stale:   return DS.Color.inkMute
+        case .unknown: return DS.Color.ink.opacity(0.3)
         }
     }
 

@@ -303,6 +303,19 @@ extension SignalementDTO {
         return "Signalé il y a \(minutes / 60) h"
     }
 
+    /// Community polish — decay tier visuel pour les badges de la timeline.
+    /// Vert (fresh, 0-15 min), orange (recent, 15-60 min), gris (stale,
+    /// 60+ min). Permet à l'utilisateur de jauger la fiabilité du
+    /// signalement d'un coup d'œil dans la feed Reports / map preview.
+    enum FreshnessTier { case fresh, recent, stale, unknown }
+
+    var freshnessTier: FreshnessTier {
+        guard let minutes = effectiveFreshnessMinutes else { return .unknown }
+        if minutes < 15 { return .fresh }
+        if minutes < 60 { return .recent }
+        return .stale
+    }
+
     var confirmationsSummaryLabel: String? {
         guard let freshness = effectiveFreshnessMinutes else { return nil }
         let confirmations = community?.confirmations ?? 0
