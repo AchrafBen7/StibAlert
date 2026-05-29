@@ -17,6 +17,17 @@ struct ReportsFeedView: View {
     let onOpenItem: (EditorialFeedItem) -> Void
     let onUpvote: (SignalementDTO) -> Void
     let onNotifyLine: (String) -> Void
+    /// Closure triggered when the user has scrolled near the end of the
+    /// list. Used to fetch the next page in scroll-to-load (infinite feed).
+    /// Default no-op pour rester compat sans casser les call-sites
+    /// existants qui ne passent rien.
+    var onReachEnd: () -> Void = {}
+    /// True quand la fetch "page suivante" est en cours. Affiche un loader
+    /// en bas de la liste.
+    var isLoadingMore: Bool = false
+    /// True quand le backend signale qu'on a tout chargé : on remplace le
+    /// loader par un small notice "Fin de la liste".
+    var hasReachedEnd: Bool = false
 
     var body: some View {
         if isLoading && !hasLoaded {
@@ -40,8 +51,39 @@ struct ReportsFeedView: View {
                         modeSection(section)
                     }
                 } else {
-                    ForEach(feedItems) { item in
+                    ForEach(Array(feedItems.enumerated()), id: \.element.id) { idx, item in
                         feedCard(for: item)
+                            .onAppear {
+                                // Pagination infinite : dès que la dernière
+                                // card (ou avant-dernière) apparaît, on
+                                // déclenche le fetch de la page suivante.
+                                if idx >= feedItems.count - 2 {
+                                    onReachEnd()
+                                }
+                            }
+                    }
+                }
+
+                // Footer : loader pendant la fetch suivante OU notice de fin.
+                if !shouldGroupFeedByLine {
+                    if isLoadingMore {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.85)
+                            Text("Chargement…")
+                                .font(DS.Font.monoSmall.weight(.bold))
+                                .tracking(1.2)
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                    } else if hasReachedEnd && feedItems.count > 6 {
+                        Text("FIN DU FEED")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .tracking(1.5)
+                            .foregroundStyle(DS.Color.inkMute.opacity(0.6))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                     }
                 }
             }

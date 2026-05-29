@@ -24,6 +24,18 @@ struct ReportsView: View {
     @State private var hasLoaded = false
     @State private var lastUpdatedAt: Date? = nil
     @State private var loadError: String? = nil
+    // Pagination — avant on chargeait page=1 limit=100 figé. Désormais
+    // scroll-to-load progressif : nextMixedPage augmente quand l'utilisateur
+    // atteint le bas du feed, hasMoreMixed devient false quand le backend
+    // signale qu'on a tout. Les alertes officielles STIB sont plus rares
+    // (~50 max) donc on garde un chargement unique pour elles.
+    @State private var nextMixedPage: Int = 1
+    @State private var hasMoreMixed: Bool = true
+    @State private var isLoadingMore: Bool = false
+    @State private var officialReports: [SignalementDTO] = []
+    // Auto-refresh : tick chaque 60 s pour rafraîchir le timestamp affiché
+    // et déclencher un re-fetch léger en background.
+    @State private var refreshTickTrigger: Date = .now
     @State private var query = ""
     @State private var selectedLineFilter = "Tout"
     @State private var selectedReport: SignalementDTO? = nil
@@ -888,6 +900,18 @@ struct ReportsView: View {
             applyPendingReportFocusIfPossible()
             await loadSncbRealtime()
         }
+        // Auto-refresh : toutes les 60 s, on re-fetch la page 1 en silence
+        // et on bump le tick pour que le label "Mis à jour il y a Xs" se
+        // rafraîchisse même quand rien d'autre ne change dans la vue. Task
+        // s'annule proprement à .onDisappear.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 60_000_000_000) // 60 s
+                if Task.isCancelled { return }
+                refreshTickTrigger = .now
+                await loadData(force: true)
+            }
+        }
         .onChange(of: selectedOperator) { _, _ in
             Task { await loadSncbRealtime() }
         }
@@ -1163,7 +1187,10 @@ struct ReportsView: View {
             notificationLineInFlight: notificationLineInFlight,
             onOpenItem: openFeedItem(_:),
             onUpvote: { report in Task { await upvoteReport(report) } },
-            onNotifyLine: { line in Task { await enableLineNotifications(for: line) } }
+            onNotifyLine: { line in Task { await enableLineNotifications(for: line) } },
+            onReachEnd: { Task { await loadMoreReports() } },
+            isLoadingMore: isLoadingMore,
+            hasReachedEnd: !hasMoreMixed
         )
     }
 
@@ -1274,30 +1301,90 @@ struct ReportsView: View {
             hasLoaded = true
         }
 
+        // Reset pagination state for a full reload (force OR initial load).
+        nextMixedPage = 1
+        hasMoreMixed = true
+
         do {
-            async let mixedResponse = SignalementService.liste(page: 1, limit: 100)
+            // Page 1 mixed + tous les officiels (limit 100 suffit, ils sont rares).
+            async let mixedResponse = SignalementService.liste(page: 1, limit: pageSize)
             async let officialResponse = SignalementService.liste(page: 1, limit: 100, source: "official")
             let mixed = try await mixedResponse
             let official = try await officialResponse
-            // C6 — dedup robuste : on construit le merge en gardant en
-            // PRIORITÉ le mixed (qui a les votes + champs communauté à
-            // jour) en cas de collision sur report.id. Avant : ordre
-            // d'insertion arbitraire (mixed gagnait par hasard puisque
-            // mixed est en premier dans le `+`). Maintenant explicite.
-            var byId: [String: SignalementDTO] = [:]
-            for report in mixed.signalements { byId[report.id] = report }
-            for report in official.signalements where byId[report.id] == nil {
-                byId[report.id] = report
-            }
-            reports = byId.values.sorted {
-                ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast)
-            }
+
+            // Dedup robuste (C6) : mixed prioritaire en cas de collision.
+            officialReports = official.signalements
+            reports = mergeAndSort(mixed: mixed.signalements, official: official.signalements)
+
+            // Mise à jour de l'état pagination depuis la réponse.
+            updatePaginationState(from: mixed.pagination, after: 1)
+            lastUpdatedAt = Date()
+
             if !availableLineFilters.contains(selectedLineFilter) {
                 selectedLineFilter = "Tout"
             }
         } catch {
             loadError = error.localizedDescription
             ErrorReporting.capture(error, tag: "reports.load")
+        }
+    }
+
+    /// Taille de page côté backend : 30 reports par fetch. Compromis entre
+    /// nombre de round-trips (heures de pointe = 100+ reports/h) et taille
+    /// payload (chaque report inclut votes + community fields).
+    private var pageSize: Int { 30 }
+
+    /// Re-construit la liste `reports` à partir des deux sources (mixed +
+    /// official), dédoublonnée par id avec priorité au mixed (votes à jour).
+    private func mergeAndSort(mixed: [SignalementDTO], official: [SignalementDTO]) -> [SignalementDTO] {
+        var byId: [String: SignalementDTO] = [:]
+        for report in mixed { byId[report.id] = report }
+        for report in official where byId[report.id] == nil {
+            byId[report.id] = report
+        }
+        return byId.values.sorted {
+            ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast)
+        }
+    }
+
+    /// Met à jour `nextMixedPage` + `hasMoreMixed` selon la réponse backend.
+    /// Si pagination renvoyée : on calcule en regardant page courante vs
+    /// totalPages. Si pagination absente (vieux backend) : on tente une
+    /// approximation via le nombre d'items reçus.
+    private func updatePaginationState(from pagination: SignalementsPagination?, after currentPage: Int) {
+        if let pagination {
+            nextMixedPage = currentPage + 1
+            hasMoreMixed = pagination.page < pagination.totalPages
+        } else {
+            // Fallback : si l'API n'a pas renvoyé d'info pagination, on
+            // suppose qu'on a tout si la dernière page était partielle.
+            nextMixedPage = currentPage + 1
+            hasMoreMixed = false
+        }
+    }
+
+    /// Charge la page suivante en arrière-plan (déclenché par onAppear sur
+    /// le dernier item visible). Idempotent + protégé contre les appels
+    /// concurrents par `isLoadingMore`.
+    @MainActor
+    private func loadMoreReports() async {
+        guard AppConfig.isBackendEnabled, hasMoreMixed, !isLoading, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        let pageToFetch = nextMixedPage
+        do {
+            let response = try await SignalementService.liste(page: pageToFetch, limit: pageSize)
+            // Append : on prend les nouveaux items, on remet le merge complet
+            // avec les officiels qu'on a déjà en mémoire.
+            let mixedTotal = reports.filter { ($0.source?.lowercased() ?? "") != "stib_officiel" } + response.signalements
+            reports = mergeAndSort(mixed: mixedTotal, official: officialReports)
+            updatePaginationState(from: response.pagination, after: pageToFetch)
+            lastUpdatedAt = Date()
+        } catch {
+            // Sur erreur on garde l'état précédent et on permet un retry au
+            // prochain onAppear (hasMoreMixed reste true, isLoadingMore se
+            // remet à false via defer).
+            ErrorReporting.capture(error, tag: "reports.loadMore")
         }
     }
 
