@@ -4,6 +4,7 @@ import MapKit
 private enum StopDetailTab: String, CaseIterable, Identifiable {
     case live
     case lines
+    case schedule
     case around
 
     var id: String { rawValue }
@@ -118,6 +119,11 @@ struct ArretDetailPage: View {
     @State private var isFavorite = false
     @State private var isUpdatingFavorite = false
     @State private var selectedDisruption: TransportIncidentDTO?
+
+    // Onglet Horaires — théoriques GTFS chargés à la demande.
+    @State private var scheduleData: StibStopSchedule?
+    @State private var isLoadingSchedule = false
+    @State private var selectedScheduleDayType: String = StibScheduleService.currentDayType()
 
     private var effectiveStop: TransportStopSummaryDTO {
         stopDetail?.stop ?? stopSummary
@@ -723,6 +729,8 @@ struct ArretDetailPage: View {
             liveTab
         case .lines:
             linesTab
+        case .schedule:
+            scheduleTab
         case .around:
             aroundTab
         }
@@ -914,6 +922,165 @@ struct ArretDetailPage: View {
         }
     }
 
+    // MARK: - Schedule tab (horaires théoriques STIB)
+
+    private var scheduleTab: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            scheduleDayPicker
+
+            if isLoadingSchedule && scheduleData == nil {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .tint(DS.Color.ink)
+                    Spacer()
+                }
+                .padding(.vertical, 30)
+            } else if let lines = scheduleData?.lines, !lines.isEmpty {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(lines) { lineSchedule in
+                        scheduleLineCard(lineSchedule)
+                    }
+                }
+            } else if scheduleData != nil {
+                emptyScheduleNotice
+            }
+        }
+        .task(id: effectiveStop.id) {
+            await loadScheduleIfNeeded()
+        }
+    }
+
+    private var scheduleDayPicker: some View {
+        HStack(spacing: 6) {
+            ForEach(["weekday", "saturday", "sunday"], id: \.self) { dayType in
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    selectedScheduleDayType = dayType
+                } label: {
+                    Text(scheduleDayLabel(dayType))
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .tracking(1)
+                        .foregroundStyle(selectedScheduleDayType == dayType ? DS.Color.paper : DS.Color.ink)
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(selectedScheduleDayType == dayType ? DS.Color.ink : DS.Color.paper2)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private func scheduleLineCard(_ lineSchedule: StibScheduleLine) -> some View {
+        let times = lineSchedule.departures(for: selectedScheduleDayType)
+        let nextIndex = nextDepartureIndex(in: times)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                LineBadge(line: lineSchedule.line, size: .sm)
+                if let destination = lineSchedule.destination {
+                    Text("→ \(destination)")
+                        .font(DS.Font.bodySmall.weight(.semibold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if selectedScheduleDayType == StibScheduleService.currentDayType(),
+                   let nextIndex, times.indices.contains(nextIndex) {
+                    Text("Prochain · \(times[nextIndex])")
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundStyle(DS.Color.primary)
+                }
+            }
+
+            if times.isEmpty {
+                Text("Pas de passages prévus.")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            } else {
+                // LazyVGrid : grille adaptive 5-6 colonnes selon largeur, plus
+                // simple qu'un FlowLayout custom et performant pour 50+ horaires.
+                let columns = [GridItem(.adaptive(minimum: 56), spacing: 6)]
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
+                    ForEach(Array(times.enumerated()), id: \.offset) { idx, time in
+                        Text(time)
+                            .font(DS.Font.monoSmall.weight(.semibold))
+                            .foregroundStyle(idx == nextIndex ? DS.Color.paper : DS.Color.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 5)
+                            .background(idx == nextIndex ? DS.Color.primary : DS.Color.paper2)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private var emptyScheduleNotice: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "clock.badge.questionmark")
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(DS.Color.inkMute)
+            Text("Horaires théoriques non disponibles pour cet arrêt.")
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkMute)
+                .multilineTextAlignment(.center)
+            Text("Consulte l'onglet « Temps réel » pour les prochains passages.")
+                .font(.system(size: 11))
+                .foregroundStyle(DS.Color.inkMute)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 30)
+    }
+
+    private func scheduleDayLabel(_ dayType: String) -> String {
+        switch dayType {
+        case "weekday":  return "LUN-VEN"
+        case "saturday": return "SAMEDI"
+        case "sunday":   return "DIMANCHE"
+        default:         return dayType.uppercased()
+        }
+    }
+
+    /// Index du prochain passage à venir dans `times` selon l'heure
+    /// courante Bruxelles. nil si aucun futur (tous les passages sont
+    /// passés) ou si on n'est pas sur le bon dayType.
+    private func nextDepartureIndex(in times: [String]) -> Int? {
+        guard selectedScheduleDayType == StibScheduleService.currentDayType() else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
+        let now = calendar.dateComponents([.hour, .minute], from: Date())
+        let nowMinutes = (now.hour ?? 0) * 60 + (now.minute ?? 0)
+        for (idx, time) in times.enumerated() {
+            let parts = time.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2 else { continue }
+            let mins = parts[0] * 60 + parts[1]
+            if mins >= nowMinutes { return idx }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func loadScheduleIfNeeded() async {
+        guard scheduleData == nil, !isLoadingSchedule else { return }
+        isLoadingSchedule = true
+        defer { isLoadingSchedule = false }
+        scheduleData = await StibScheduleService.fetch(stopId: effectiveStop.id)
+    }
+
     private var aroundTab: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
@@ -1077,6 +1244,8 @@ struct ArretDetailPage: View {
             return "Temps réel"
         case .lines:
             return "Lignes · \(servedLines.count)"
+        case .schedule:
+            return "Horaires"
         case .around:
             return "Autour"
         }
