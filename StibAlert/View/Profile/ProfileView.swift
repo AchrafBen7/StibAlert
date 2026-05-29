@@ -233,6 +233,19 @@ struct ProfileView: View {
                                 selectedSubpage = .languages
                             }
                             profileDivider
+                            // Smart Commute LITE — entrée vers les paramètres
+                            // routine (sub-page Compte qui contient la
+                            // section Routine quotidienne). Affiche un
+                            // résumé inline (homeLabel → workLabel · 08:15)
+                            // si la routine est activée, sinon "Activer".
+                            profileRow(
+                                icon: "tram.fill",
+                                label: "Mon trajet quotidien",
+                                value: commuteSummary
+                            ) {
+                                selectedSubpage = .account
+                            }
+                            profileDivider
                             profileRow(icon: "person.crop.circle", label: "Mon compte", value: username.isEmpty ? nil : "@\(username)") {
                                 selectedSubpage = .account
                             }
@@ -370,6 +383,19 @@ struct ProfileView: View {
     // P3 : `maskedTransitCard` (computed property qui chargeait UserDefaults
     // à chaque render) supprimée — remplacée par maskedTransitCardCached
     // refresh-é dans .task + .task(id: selectedSubpage).
+
+    /// Résumé court de la routine pour la row "Mon trajet quotidien".
+    /// `nil` si la routine est désactivée — la row affichera juste son
+    /// label sans badge value à droite.
+    private var commuteSummary: String? {
+        guard let routine = session.currentUser?.routine, routine.enabled else {
+            return "Activer"
+        }
+        // "Bailli → Schuman · 08:15" (sans les labels si trop longs)
+        let home = String(routine.homeLabel.prefix(12))
+        let work = String(routine.workLabel.prefix(12))
+        return "\(home) → \(work) · \(routine.departureTime)"
+    }
 
     private func loadContributionCount() async {
         guard AppConfig.isBackendEnabled, session.isSignedIn else {

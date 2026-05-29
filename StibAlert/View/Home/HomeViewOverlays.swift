@@ -134,6 +134,30 @@ extension HomeView {
         }
     }
 
+    /// Quick-launch du trajet quotidien (Smart Commute LITE J-7).
+    /// Affichée UNIQUEMENT pendant les fenêtres d'utilité (matin + soir) et
+    /// quand aucun autre overlay prioritaire (proactive alert, report sheet,
+    /// route preview) ne prend la place.
+    @ViewBuilder
+    var commuteOverlay: some View {
+        if let user = session.currentUser,
+           CommuteQuickLaunchCard.shouldShow(routine: user.routine, now: Date()),
+           proactiveAlertCluster == nil,
+           selectedClusterIndex == nil,
+           !nav.showReportSheet,
+           routeOptions.isEmpty,
+           let routine = user.routine {
+            CommuteQuickLaunchCard(routine: routine, onLaunch: { direction in
+                Task { await launchCommute(direction: direction, routine: routine) }
+            })
+            .padding(.horizontal, 14)
+            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zLayer(.stopPreview)
+            .accessibilitySortPriority(15)
+        }
+    }
+
     @ViewBuilder
     var proactiveAlertOverlay: some View {
         if let cluster = proactiveAlertCluster,

@@ -24,7 +24,9 @@ struct HomeView: View {
     }
 
     @EnvironmentObject var nav: AppNavigation
-    @EnvironmentObject private var session: AuthSession
+    // internal (not private) — utilisé par l'extension HomeViewOverlays
+    // pour le commuteOverlay (Smart Commute LITE).
+    @EnvironmentObject var session: AuthSession
     @EnvironmentObject private var connectivity: NetworkConnectivityMonitor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject var locationManager = HomeLocationManager()
@@ -51,7 +53,9 @@ struct HomeView: View {
     @State private var currentRoute: MKRoute? = nil
     @State private var currentRouteCoordinates: [CLLocationCoordinate2D] = []
     @State private var destinationCoord: CLLocationCoordinate2D? = nil
-    @State private var routeOptions: [HomeRouteOption] = []
+    // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
+    // n'affiche pas la card si une route est déjà sélectionnée).
+    @State var routeOptions: [HomeRouteOption] = []
     @State private var routeModeSummaries: [RouteModeSummary] = []
     @State private var selectedRouteID: UUID?
     @State private var isRouteSheetExpanded = false
@@ -937,6 +941,7 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) { reportSheetOverlay }
         .overlay(alignment: .top) { searchHeaderOverlay }
+        .overlay(alignment: .top) { commuteOverlay }
         .overlay(alignment: .top) { proactiveAlertOverlay }
         .overlay(alignment: .top) { allClearChipOverlay }
         .overlay(alignment: .bottom) { signalementPreviewOverlay }
@@ -3044,6 +3049,47 @@ struct HomeView: View {
     /// confirm it via "Voir la route sur la carte" without a second search.
     /// Returns the proposedRoutes for the backend's 2nd AI call so Gemini can
     /// describe the actual lines/stops instead of fabricating them.
+    /// Smart Commute LITE — lance le trajet quotidien à partir de la
+    /// routine sauvegardée. Résout les 2 stop IDs en coords via
+    /// `TransportService.stop`, puis pipe sur `buildRoute` (existant).
+    /// Pas de nouveau code routing. Si la résolution rate (stop archivé,
+    /// backend down), on ne fait rien — l'utilisateur retentera ou
+    /// passera par le planner.
+    @MainActor
+    func launchCommute(direction: CommuteQuickLaunchCard.Direction, routine: CommuteRoutineDTO) async {
+        let (originId, destinationId, originName, destinationName) = direction == .toWork
+            ? (routine.homeStopId, routine.workStopId, routine.homeLabel, routine.workLabel)
+            : (routine.workStopId, routine.homeStopId, routine.workLabel, routine.homeLabel)
+        guard let originId, let destinationId else { return }
+        // Print event pour valider l'adoption (sans backend analytics).
+        print("commute_quick_launch_tapped direction=\(direction == .toWork ? "toWork" : "toHome")")
+
+        async let originDTO = try? TransportService.stop(id: originId)
+        async let destinationDTO = try? TransportService.stop(id: destinationId)
+        let (origin, destination) = await (originDTO, destinationDTO)
+
+        guard let origin = origin?.stop,
+              let destination = destination?.stop,
+              let oLat = origin.latitude, let oLng = origin.longitude,
+              let dLat = destination.latitude, let dLng = destination.longitude else {
+            // Fallback : utilise la position courante pour l'origine, et tente
+            // une recherche de nom pour la destination.
+            if let destStop = destination?.stop,
+               let dLat = destStop.latitude, let dLng = destStop.longitude {
+                let destItem = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: dLat, longitude: dLng)))
+                destItem.name = destinationName
+                await buildRoute(to: destItem)
+            }
+            return
+        }
+
+        let originItem = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: oLat, longitude: oLng)))
+        originItem.name = originName
+        let destItem = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: dLat, longitude: dLng)))
+        destItem.name = destinationName
+        await buildRoute(from: originItem, to: destItem, originName: originName)
+    }
+
     @MainActor
     private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
         guard let destination = await STIBAIDestinationResolver.resolve(
