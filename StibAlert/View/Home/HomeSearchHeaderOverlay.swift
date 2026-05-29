@@ -106,6 +106,14 @@ private struct HomeEditorialSearchField: View {
     let onSubmit: () -> Void
 
     @FocusState private var isFocused: Bool
+    /// État LOCAL du champ. Avant TextField était bound à `$query`
+    /// (= @State de HomeView, 3700 lignes) → chaque caractère invalidait
+    /// tout HomeView.body. Maintenant le local absorbe la frappe sans
+    /// solliciter le parent, et on synchronise via debounce 150 ms (assez
+    /// rapide pour que les suggestions de recherche se mettent à jour
+    /// fluidement, assez lent pour que la frappe soit naturelle).
+    @State private var localText: String = ""
+    @State private var debounceTask: Task<Void, Never>?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -113,20 +121,38 @@ private struct HomeEditorialSearchField: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DS.Color.inkSoft)
 
-            TextField("Où vas-tu ?", text: $query)
+            TextField("Où vas-tu ?", text: $localText)
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.ink)
                 .focused($isFocused)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .onSubmit {
-                    guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    guard !localText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                    // Sync immédiat avant submit pour que le parent ait la
+                    // valeur finale avant d'ouvrir le planner.
+                    query = localText
                     isFocused = false
                     onSubmit()
                 }
+                .onChange(of: localText) { _, newValue in
+                    debounceTask?.cancel()
+                    debounceTask = Task {
+                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        if Task.isCancelled { return }
+                        if query != newValue { query = newValue }
+                    }
+                }
+                .onAppear { localText = query }
+                .onChange(of: query) { _, newValue in
+                    // Reset externe (HomeView set query = "" ou
+                    // = destination.name après sélection) → on rapatrie.
+                    if newValue != localText { localText = newValue }
+                }
 
-            if !query.isEmpty {
+            if !localText.isEmpty {
                 Button {
+                    localText = ""
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
