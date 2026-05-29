@@ -47,7 +47,7 @@ struct HomeView: View {
     @State var showRoutePlanner = false
     @State private var showStibAI = false
     @State private var showVoiceOverlay = false
-    @StateObject private var tripTracker = ActiveTripTracker()
+    @StateObject var tripTracker = ActiveTripTracker()
     @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
     @State private var currentRoute: MKRoute? = nil
@@ -957,6 +957,7 @@ struct HomeView: View {
         }
         .overlay(alignment: .bottom) { reportSheetOverlay }
         .overlay(alignment: .top) { searchHeaderOverlay }
+        .overlay(alignment: .top) { activeTripIndicatorOverlay }
         .overlay(alignment: .top) { commuteOverlay }
         .overlay(alignment: .top) { proactiveAlertOverlay }
         .overlay(alignment: .top) { allClearChipOverlay }
@@ -992,8 +993,6 @@ struct HomeView: View {
                 userCoordinate: locationManager.userCoordinate ?? locationManager.displayCoordinate,
                 isRouting: isRouting,
                 onPlanRoute: { _, destination, _ in
-                    // Route through trip-mode DecisionView so the user sees disruption
-                    // awareness BEFORE the route is built. They can launch the trip from there.
                     let coord = destination.placemark.coordinate
                     let label = destination.name ?? destination.placemark.title
                     tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
@@ -1051,11 +1050,8 @@ struct HomeView: View {
                 nav.showReportSheet = true
             })
         }
-        // Trip mode used to detour through DecisionView (the "Verdict" sheet
-        // with a 0 min recommendation that confused users). Now we jump
-        // straight to buildRoute and let the route recommendations sheet do
-        // the work. .onChange fires when the user picks a destination in the
-        // route planner; we consume `tripDestination` immediately.
+        // .onChange fires when the user picks a destination in the route
+        // planner ; we consume `tripDestination` immediately + lance buildRoute.
         .onChange(of: tripDestination) { _, destination in
             guard let destination else { return }
             tripDestination = nil
@@ -1567,7 +1563,7 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func clearRouteSelection(keepDestination: Bool) {
+    func clearRouteSelection(keepDestination: Bool) {
         tripTracker.stop()
         routeOptions = []
         routeModeSummaries = []
@@ -1601,13 +1597,6 @@ struct HomeView: View {
             selectedRouteDetail = nil
             enterInteractionMode(.routePreview)
         }
-    }
-
-    private var homeDashboardData: HomeDashboardData {
-        HomeDecisionAdapter.makeDashboardData(
-            transportOverview: transportOverview,
-            remoteSignalements: remoteSignalements
-        )
     }
 
     private func syncFavoritesToWidget(_ lines: Set<String>) {

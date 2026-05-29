@@ -117,8 +117,6 @@ extension HomeView {
                             }
                         },
                         onSelectSuggestion: { item in
-                            // Route every search through the trip-mode DecisionView so users see
-                            // their best option in light of current disruptions before launching it.
                             let coord = item.placemark.coordinate
                             tripDestination = HomeView.TripDestination(
                                 coordinate: coord,
@@ -138,6 +136,22 @@ extension HomeView {
     /// Affichée UNIQUEMENT pendant les fenêtres d'utilité (matin + soir) et
     /// quand aucun autre overlay prioritaire (proactive alert, report sheet,
     /// route preview) ne prend la place.
+    /// Bandeau persistant pendant qu'un trip est actif. Pose-le tout en haut
+    /// (au-dessus de la search bar) pour qu'il soit le 1er thing visible
+    /// quand l'utilisateur regarde la carte pendant son trajet.
+    @ViewBuilder
+    var activeTripIndicatorOverlay: some View {
+        if tripTracker.isActive {
+            ActiveTripIndicatorView(
+                tracker: tripTracker,
+                onCancel: { clearRouteSelection(keepDestination: false) }
+            )
+            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .zLayer(.stopPreview)
+            .accessibilitySortPriority(20)
+        }
+    }
+
     @ViewBuilder
     var commuteOverlay: some View {
         if let user = session.currentUser,

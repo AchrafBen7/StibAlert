@@ -8,12 +8,13 @@ import CoreLocation
 /// ~50 KB max: a few hundred clusters and ~50 queued reports.
 ///
 /// Three concerns are persisted:
-///  1. **Last known clusters** — so the map and DecisionView can render
-///     a degraded version instead of going blank.
+///  1. **Last known clusters** — so the map can render a degraded version
+///     instead of going blank.
 ///  2. **Queued signalements** — when the user signals offline, we keep
 ///     the intent in a queue and POST it as soon as connectivity returns.
-///  3. **Last known user routine summary** — so the DecisionView can hint
-///     "ta routine était ligne 56 → Schuman" without a network round-trip.
+///  3. **Last known user routine summary** — used by the home views to
+///     hint "ta routine était ligne 56 → Schuman" without a network
+///     round-trip.
 enum OfflineCache {
     private enum Keys {
         static let clusters = "offlineCache.clusters.v1"

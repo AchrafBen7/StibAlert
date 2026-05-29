@@ -8,6 +8,20 @@ import Foundation
 @MainActor
 final class ActiveTripTracker: ObservableObject {
     @Published private(set) var isActive = false
+    /// Métadonnées du trip courant — utilisées par ActiveTripIndicatorView
+    /// pour afficher destination + durée + prochaine instruction.
+    @Published private(set) var summary: ActiveTripSummary?
+    /// Dernière annonce vocale entendue. Affichée comme sous-titre pour que
+    /// l'utilisateur puisse re-lire si la voix lui a échappé.
+    @Published private(set) var lastAnnouncement: String?
+    /// 0..1 — fraction de checkpoints déjà annoncés (rough progress).
+    @Published private(set) var progress: Double = 0
+
+    struct ActiveTripSummary {
+        let destinationName: String
+        let totalMinutes: Int
+        let firstLineCode: String?
+    }
 
     private struct Checkpoint: Identifiable {
         let id: String
@@ -36,7 +50,21 @@ final class ActiveTripTracker: ObservableObject {
         checkpoints = Self.buildCheckpoints(from: steps)
         guard !checkpoints.isEmpty else { return }
         isActive = true
-        player.speak(Self.initialAnnouncement(option: option))
+        progress = 0
+        let firstLine: String? = {
+            for chip in option.legChips {
+                if case .line(let code) = chip { return code }
+            }
+            return nil
+        }()
+        summary = ActiveTripSummary(
+            destinationName: option.destinationName,
+            totalMinutes: option.totalDurationMinutes,
+            firstLineCode: firstLine
+        )
+        let initial = Self.initialAnnouncement(option: option, firstLine: firstLine)
+        lastAnnouncement = initial
+        player.speak(initial)
     }
 
     func stop() {
@@ -46,6 +74,9 @@ final class ActiveTripTracker: ObservableObject {
         startCoordinate = nil
         lastScanAt = .distantPast
         lastTriggerAt = .distantPast
+        progress = 0
+        summary = nil
+        lastAnnouncement = nil
         player.stop()
     }
 
@@ -66,10 +97,15 @@ final class ActiveTripTracker: ObservableObject {
             if dist <= cp.triggerDistance {
                 announced.insert(cp.id)
                 lastTriggerAt = Date()
+                lastAnnouncement = cp.announcement
+                progress = Double(announced.count) / Double(max(checkpoints.count, 1))
                 player.speak(cp.announcement)
                 // If we've announced the final arrival, the trip is done.
                 if cp.id == "final" {
                     isActive = false
+                    summary = nil
+                    // lastAnnouncement reste ("Tu es arrivé") pour rester
+                    // visible 2-3 s avant que la sheet route ne soit fermée.
                 }
                 return
             }
@@ -115,15 +151,9 @@ final class ActiveTripTracker: ObservableObject {
         return out
     }
 
-    private static func initialAnnouncement(option: HomeRouteOption) -> String {
+    private static func initialAnnouncement(option: HomeRouteOption, firstLine: String?) -> String {
         let mins = option.totalDurationMinutes
         let dest = option.destinationName
-        let firstLine: String? = {
-            for chip in option.legChips {
-                if case .line(let code) = chip { return code }
-            }
-            return nil
-        }()
         if let firstLine {
             return "Itinéraire vers \(dest) démarré. Environ \(mins) minutes. Prends la ligne \(firstLine)."
         }
