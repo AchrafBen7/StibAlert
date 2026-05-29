@@ -24,6 +24,17 @@ final class MobibNFCReader: NSObject, ObservableObject {
             return
         }
 
+        // BUG #4 — Si une session précédente est encore vivante (cas où user
+        // cancel le system sheet et re-tap rapidement avant que le delegate
+        // ait nettoyé `self.session`), on l'invalide explicitement avant
+        // d'en créer une nouvelle. Évite l'effet "rien ne se passe au re-tap"
+        // observé sur iOS < 16 quand la 1ère session bloque encore le NFC.
+        if let existing = self.session {
+            existing.invalidate()
+            self.session = nil
+            appendDebug(level: "warning", "Session NFC précédente forcée à se terminer avant re-scan.")
+        }
+
         errorMessage = nil
         isScanning = true
         scanState = .scanning

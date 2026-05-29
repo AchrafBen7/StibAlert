@@ -1145,6 +1145,18 @@ struct HomeView: View {
             guard nav.currentPage == .home, newValue != nil else { return }
             Task { await applyPendingMapStopFocusIfPossible() }
         }
+        // BUG #3 — observe pendingClusterFocusIndex (set par AppRoot quand
+        // un push communityCluster est tappé). On ouvre le ClusterDetailSheet
+        // via le state existant selectedClusterIndex en s'assurant qu'on
+        // close les autres bottom sheets d'abord (cf. mutex C1).
+        .onChange(of: nav.pendingClusterFocusIndex) { _, newValue in
+            guard let index = newValue else { return }
+            dismissOtherBottomDetails(except: .cluster)
+            withAnimation(transitionSpring) {
+                selectedClusterIndex = index
+            }
+            nav.pendingClusterFocusIndex = nil
+        }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }) { coord in
             if !hasAutoCenteredOnUser || isFollowingUser {
                 suppressNextCameraInteraction = true

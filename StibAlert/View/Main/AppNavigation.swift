@@ -23,4 +23,9 @@ final class AppNavigation: ObservableObject {
     @Published var pendingReportStopBackendId: String?
     @Published var pendingMapStopFocusBackendId: String?
     @Published var pendingReportsScopeRawValue: String?
+    /// BUG #3 — push communityClusterAlertService envoyait
+    /// `stibalert://clusters/{idx}` qui tombait dans le default du
+    /// DeepLinkRouter. Désormais on capture le clusterIndex ici et HomeView
+    /// l'observe pour ouvrir le ClusterDetailSheet sur la bonne entrée.
+    @Published var pendingClusterFocusIndex: Int?
 }

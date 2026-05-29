@@ -141,6 +141,11 @@ struct AppRoot: View {
             case .report:
                 nav.currentPage = .home
                 nav.showReportSheet = true
+            case .clusterDetail(let clusterIndex):
+                // BUG #3 — bascule sur Home + pose le clusterIndex pour que
+                // HomeView ouvre la sheet detail au prochain render.
+                nav.currentPage = .home
+                nav.pendingClusterFocusIndex = Int(clusterIndex)
             case .route(let fromName, let fromLat, let fromLng, let toName, let toLat, let toLng):
                 nav.currentPage = .home
                 NotificationCenter.default.post(

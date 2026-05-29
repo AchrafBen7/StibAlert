@@ -8,6 +8,11 @@ enum DeepLink: Equatable {
     case report(signalementId: String?)
     case line(number: String)
     case signalementDetail(id: String)
+    /// BUG #3 — push communityClusterAlertService envoyait
+    /// `stibalert://clusters/{clusterIndex}` mais cette case n'existait pas
+    /// → fallback nil → AppRoot ne routait pas → tap push atterrissait sur
+    /// Home sans contexte.
+    case clusterDetail(clusterIndex: String)
     case route(fromName: String, fromLat: Double, fromLng: Double, toName: String, toLat: Double, toLng: Double)
 }
 
@@ -38,6 +43,12 @@ enum DeepLinkRouter {
         case "signalement":
             guard let id = segments.first else { return nil }
             return .signalementDetail(id: id)
+        case "clusters", "cluster":
+            // BUG #3 — Routing nouveau pour les push community cluster.
+            // Accepte "clusters" (envoyé par backend) ET "cluster" (cas où
+            // un futur callsite oublierait le pluriel).
+            guard let clusterIndex = segments.first else { return nil }
+            return .clusterDetail(clusterIndex: clusterIndex)
         case "route":
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
             let qis = comps?.queryItems ?? []

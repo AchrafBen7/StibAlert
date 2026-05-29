@@ -56,16 +56,29 @@ enum TransitPassStorage {
     static func load() -> TransitPass {
         guard
             let data = UserDefaults.standard.data(forKey: key),
-            let pass = try? JSONDecoder().decode(TransitPass.self, from: data)
+            var pass = try? JSONDecoder().decode(TransitPass.self, from: data)
         else {
             return .empty
         }
-
+        // BUG #5 — Restaure le fingerprint depuis Keychain (stocké séparément
+        // pour ne PAS apparaître dans le JSON UserDefaults qui peut être
+        // lu via capture d'écran / backup iCloud non chiffré).
+        pass.nfcFingerprint = KeychainHelper.readMobibFingerprint()
         return pass
     }
 
     static func save(_ pass: TransitPass) {
-        guard let data = try? JSONEncoder().encode(pass) else { return }
+        // Persist le fingerprint en Keychain et le retire du JSON avant
+        // sérialisation. Si le user a wipé le pass (nfcFingerprint nil),
+        // on delete aussi en Keychain pour pas garder un secret orphelin.
+        if let fingerprint = pass.nfcFingerprint, !fingerprint.isEmpty {
+            KeychainHelper.saveMobibFingerprint(fingerprint)
+        } else {
+            KeychainHelper.deleteMobibFingerprint()
+        }
+        var stripped = pass
+        stripped.nfcFingerprint = nil
+        guard let data = try? JSONEncoder().encode(stripped) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
 }

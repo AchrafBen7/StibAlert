@@ -83,6 +83,30 @@ enum KeychainHelper {
         SecItemDelete(query as CFDictionary)
     }
 
+    // BUG #5 — Stockage Keychain du fingerprint MoBIB (UID de la carte
+    // scannée). Avant : encodé dans le TransitPass JSON qui partait en clair
+    // dans UserDefaults → screen sharing, backups iCloud non chiffrés, etc.
+    // Désormais isolé en Keychain (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    // non synced iCloud par défaut).
+    private static let mobibFingerprintAccount = "mobib.fingerprint"
+
+    static func saveMobibFingerprint(_ fingerprint: String) {
+        saveString(fingerprint, account: mobibFingerprintAccount)
+    }
+
+    static func readMobibFingerprint() -> String? {
+        readString(account: mobibFingerprintAccount)
+    }
+
+    static func deleteMobibFingerprint() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: mobibFingerprintAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
     static func anonymousDeviceId() -> String {
         if let existing = readString(account: anonymousDeviceAccount), !existing.isEmpty {
             return existing
