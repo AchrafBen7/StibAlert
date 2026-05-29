@@ -155,17 +155,61 @@ struct TransitPassSettingsView: View {
         TransitCardValidity.from(expiryDate: draftPass.expiryDate)
     }
 
-    /// Apple Wallet refuses passes with empty primary fields, so the button
-    /// stays disabled until the user has at least a card number AND a name.
-    private var canAddToWallet: Bool {
-        let cardOK = !draftPass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let nameOK = !(previewPass.holderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        return cardOK && nameOK
+    /// C1 fix : avant on lisait `previewPass.holderName` qui a un fallback
+    /// "Titulaire" si vide → le bouton s'activait même si draftPass.holderName
+    /// ET session.currentUser?.nom étaient vides, donnant un Wallet pass
+    /// rejected par Apple. Désormais on vérifie strictement le draft fourni
+    /// par l'utilisateur ET on signale via walletValidationIssue ce qui
+    /// manque.
+    /// C3 fix : si le scan NFC a renvoyé un état "partial", on bloque aussi
+    /// la création du pass — l'utilisateur doit compléter manuellement
+    /// avant.
+    private var canAddToWallet: Bool { walletValidationIssue == nil }
+
+    /// Première raison qui empêche d'ajouter le pass (ordre de priorité).
+    /// nil quand tout est OK. Affiché dans walletButtonLabel + en hint
+    /// statusBanner sous le bouton.
+    private var walletValidationIssue: WalletValidationIssue? {
+        if !PKPassLibrary.isPassLibraryAvailable() {
+            return .walletUnavailable
+        }
+        if case .partial = nfcReader.scanState {
+            return .nfcPartial
+        }
+        let trimmedCard = draftPass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedCard.isEmpty { return .missingCardNumber }
+        if trimmedCard.count < 8 { return .invalidCardNumber }
+        let trimmedName = draftPass.holderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Pour le name : on accepte le fallback session.currentUser.nom si
+        // pas vide. Le "Titulaire" générique reste rejeté.
+        if trimmedName.isEmpty {
+            let sessionName = (session.currentUser?.nom ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if sessionName.isEmpty { return .missingHolderName }
+        }
+        return nil
+    }
+
+    enum WalletValidationIssue {
+        case walletUnavailable
+        case nfcPartial
+        case missingCardNumber
+        case invalidCardNumber
+        case missingHolderName
+
+        var userMessage: String {
+            switch self {
+            case .walletUnavailable:  return "Apple Wallet n'est pas disponible sur cet appareil."
+            case .nfcPartial:         return "Le scan NFC est incomplet — complète les infos manuellement."
+            case .missingCardNumber:  return "Saisis le numéro de la carte MoBIB."
+            case .invalidCardNumber:  return "Le numéro de carte semble trop court."
+            case .missingHolderName:  return "Indique le nom du titulaire."
+            }
+        }
     }
 
     private var walletButtonLabel: String {
         if isFetchingWalletPass { return "Génération du pass…" }
-        if !canAddToWallet { return "Complète la carte d'abord" }
+        if let issue = walletValidationIssue { return issue.userMessage }
         return "Ajouter à Apple Wallet"
     }
 

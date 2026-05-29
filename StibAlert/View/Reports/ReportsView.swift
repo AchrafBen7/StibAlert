@@ -593,9 +593,32 @@ struct ReportsView: View {
     /// entry in the current summary that isn't already represented in
     /// `incidentsBaseline`. Lets the LineStatusGrid badge those lines even
     /// when the backend ships them only in the summary aggregate.
+    ///
+    /// A2 fix : auparavant on synthétisait DEPUIS summary directement, ce
+    /// qui badgeait des "incidents fantômes" si le summary backend était
+    /// stale (perturbation déjà résolue mais summary pas régénéré). Désormais
+    /// on n'utilise summary QUE pour les lignes qu'on retrouve aussi dans
+    /// le feed live (reports/community/official des 24 dernières heures).
+    /// Si le feed live ne mentionne plus la ligne, on considère le summary
+    /// stale pour cette ligne et on ne la badge plus.
     private func syntheticIncidentsFromSummary(missingFrom incidentsBaseline: [TransportIncidentDTO]) -> [TransportIncidentDTO] {
         var knownLines = Set(incidentsBaseline.compactMap { $0.line?.uppercased() })
         var synthesised: [TransportIncidentDTO] = []
+
+        // Indexe les lignes effectivement présentes dans le feed live (la
+        // ground truth). Une ligne dans summary mais absente d'ici = stale.
+        let liveLinesFromFeed: Set<String> = {
+            var set = Set<String>()
+            for report in reports {
+                set.insert(report.ligne.uppercased())
+            }
+            for item in reportFeedItems {
+                for line in item.lines {
+                    set.insert(line.uppercased())
+                }
+            }
+            return set
+        }()
 
         // 1. Lines mentioned in the perturbation summary's affected list.
         if let summary = currentSummary {
@@ -604,6 +627,9 @@ struct ReportsView: View {
             for line in summary.affectedLines {
                 let normalized = line.uppercased()
                 guard !knownLines.contains(normalized) else { continue }
+                // A2 : exiger qu'on ait au moins UN report live sur cette
+                // ligne. Sinon le summary est probablement stale.
+                guard liveLinesFromFeed.contains(normalized) else { continue }
                 synthesised.append(TransportIncidentDTO(
                     id: "summary-\(normalized)",
                     type: summaryType,

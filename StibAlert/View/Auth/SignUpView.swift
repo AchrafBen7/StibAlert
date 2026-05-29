@@ -141,10 +141,31 @@ struct SignUpView: View {
             }
 
             if let errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 12))
-                    .foregroundColor(DS.Color.statusMajor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(errorMessage)
+                        .font(.system(size: 12))
+                        .foregroundColor(DS.Color.statusMajor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // D — Si l'email est déjà utilisé, on propose direct un
+                    // CTA "Se connecter à la place" plutôt que de laisser
+                    // l'utilisateur naviguer manuellement vers Sign In.
+                    if errorMessage.lowercased().contains("déjà utilisé") ||
+                       errorMessage.lowercased().contains("already") {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onGoToSignIn()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.right.circle.fill")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Se connecter à la place")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundStyle(DS.Color.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
 
             Button(action: submit) {

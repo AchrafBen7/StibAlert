@@ -133,28 +133,32 @@ struct SearchJourneySummaryCard: View {
                 .accessibilityLabel("Modifier la destination")
                 .accessibilityHint("Rouvre la recherche pour changer le trajet.")
 
-                if let shareURL = DeepLinkRouter.routeURL(
+                // E2 — Fallback texte si DeepLinkRouter.routeURL retourne nil
+                // (coords haute précision rejetées, scheme indispo, etc.).
+                // Avant : ShareLink absent sans explication. Désormais :
+                // partage un texte descriptif avec un lien web si possible.
+                let shareURL = DeepLinkRouter.routeURL(
                     fromName: journey.origin.name,
                     fromLat: journey.origin.coordinate.latitude,
                     fromLng: journey.origin.coordinate.longitude,
                     toName: journey.destination.name,
                     toLat: journey.destination.coordinate.latitude,
                     toLng: journey.destination.coordinate.longitude
+                )
+                let shareMessage = "\(journey.origin.name) → \(journey.destination.name) • \(journey.eta) min • \(journey.lineSummary) (via StibAlert)"
+                ShareLink(
+                    item: shareURL ?? URL(string: "https://stib-alert-backend.onrender.com/")!,
+                    subject: Text("Trajet StibAlert"),
+                    message: Text(shareMessage)
                 ) {
-                    ShareLink(
-                        item: shareURL,
-                        subject: Text("Trajet StibAlert"),
-                        message: Text("\(journey.origin.name) → \(journey.destination.name) • \(journey.eta) min • \(journey.lineSummary)")
-                    ) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(DesignSystem.Colors.primaryText)
-                            .frame(width: 44, height: 44)
-                            .background(DesignSystem.Colors.cardBackground.opacity(0.7))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .accessibilityLabel("Partager ce trajet")
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DesignSystem.Colors.primaryText)
+                        .frame(width: 44, height: 44)
+                        .background(DesignSystem.Colors.cardBackground.opacity(0.7))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .accessibilityLabel("Partager ce trajet")
             }
         }
         .padding(18)

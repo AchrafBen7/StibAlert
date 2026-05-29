@@ -5,11 +5,24 @@ struct OnboardingRoutineStep: View {
 
     @State private var homeLabel: String = OnboardingPreferenceStore.load().homeLabel
     @State private var departureTime: Date = {
+        // B3 — validation stricte du format "HH:mm" lu depuis storage.
+        // Avant : Int(parts.first ?? "8") ?? 8 acceptait toute string +
+        // tombait en fallback "8h15" silencieux sur malformé. Désormais :
+        // - exige deux composants séparés par ":"
+        // - exige des heures dans [0..23] et minutes dans [0..59]
+        // - tout autre cas → fallback explicite 8:15 (heure rush hour
+        //   matin par défaut)
         let stored = OnboardingPreferenceStore.load().departureTime
-        let parts = stored.split(separator: ":").map(String.init)
         var components = DateComponents()
-        components.hour = Int(parts.first ?? "8") ?? 8
-        components.minute = Int(parts.count > 1 ? parts[1] : "15") ?? 15
+        components.hour = 8
+        components.minute = 15
+        let parts = stored.split(separator: ":").map(String.init)
+        if parts.count == 2,
+           let hour = Int(parts[0]), (0...23).contains(hour),
+           let minute = Int(parts[1]), (0...59).contains(minute) {
+            components.hour = hour
+            components.minute = minute
+        }
         return Calendar.current.date(from: components) ?? Date()
     }()
     @State private var skipDeparture: Bool = false

@@ -128,6 +128,11 @@ final class AuthSession: ObservableObject {
         pendingActivationEmail = nil
         activationSuccessVisible = false
         PushNotificationManager.current?.logoutOneSignal()
+        // B2 — reset des @AppStorage onboarding pour éviter la contamination
+        // cross-user (user 1 logout + user 2 login → user 2 sautait
+        // l'onboarding et héritait des favoris/routine de user 1 stockés
+        // dans @AppStorage globaux).
+        Self.clearOnboardingState()
         state = .signedOut
     }
 
@@ -140,7 +145,27 @@ final class AuthSession: ObservableObject {
         pendingActivationEmail = nil
         activationSuccessVisible = false
         PushNotificationManager.current?.logoutOneSignal()
+        Self.clearOnboardingState()
         state = .signedOut
+    }
+
+    /// B2 — reset des @AppStorage liés à l'onboarding au logout / delete.
+    /// Le tour `hasSeenFeatureTour` est aussi réinitialisé pour que le
+    /// prochain compte voie les 3 cards d'explication.
+    private static func clearOnboardingState() {
+        let defaults = UserDefaults.standard
+        let keysToWipe: [String] = [
+            AppStorageKeys.hasSeenOnboarding,
+            AppStorageKeys.hasSeenFeatureTour,
+            AppStorageKeys.onboardingFavoriteLines,
+            AppStorageKeys.onboardingStibFavoriteStops,
+            AppStorageKeys.onboardingHomeLabel,
+            AppStorageKeys.onboardingDepartureTime,
+            AppStorageKeys.onboardingNeedsProfileSync,
+            AppStorageKeys.onboardingLastAppliedUserId,
+            AppStorageKeys.onboardingPendingPushPermission,
+        ]
+        for key in keysToWipe { defaults.removeObject(forKey: key) }
     }
 
     func refreshCurrentUser() async {

@@ -184,7 +184,42 @@ struct RouteRecommendationsSheet: View {
                 }
             )
             .padding(.horizontal, 16)
+        } else {
+            // E1 — État vide : avant la feuille s'affichait sans contenu
+            // (zéro option + tous les modeSummaries à "—"). Désormais on
+            // explique pourquoi et on guide le user vers la solution.
+            emptyTripState
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
         }
+    }
+
+    private var emptyTripState: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "location.slash.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMinor)
+                    .frame(width: 32, height: 32)
+                    .background(DS.Color.statusMinor.opacity(0.12))
+                    .clipShape(Circle())
+                Text("Aucun itinéraire calculé")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                Spacer()
+            }
+            Text("Active la localisation pour qu'on puisse calculer un trajet depuis ta position, ou choisis un point de départ dans la barre de recherche.")
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkMute)
+                .lineSpacing(2)
+        }
+        .padding(14)
+        .background(DS.Color.paper2.opacity(0.7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private var optionsHeader: some View {
