@@ -6,6 +6,13 @@ struct STIBAIView: View {
     private let onClose: () -> Void
 
     @FocusState private var inputFocused: Bool
+    /// État LOCAL du champ texte. Avant le TextField était bound à
+    /// `viewModel.input` (@Published) → chaque caractère tapé déclenchait
+    /// `objectWillChange` → tout le body re-render (transcript + ForEach +
+    /// STIBAIResponseRenderer qui re-parse markdown/badges). En debug,
+    /// latence visible à chaque touche. Maintenant le champ vit en local
+    /// (@State), on sync vers viewModel.input UNIQUEMENT à l'envoi.
+    @State private var draftText: String = ""
 
     init(
         locationLabel: String,
@@ -207,7 +214,11 @@ struct STIBAIView: View {
             Divider().overlay(DS.Color.ink.opacity(0.16))
 
             HStack(spacing: 10) {
-                TextField("Pose ta question sur le réseau…", text: $viewModel.input, axis: .vertical)
+                // Bound à $draftText (local) au lieu de $viewModel.input
+                // → frappe n'invalide plus le viewModel → plus de re-render
+                // du transcript à chaque caractère. La synchronisation se
+                // fait au submit via submitDraft().
+                TextField("Pose ta question sur le réseau…", text: $draftText, axis: .vertical)
                     .font(DS.Font.body)
                     .lineLimit(1...4)
                     .focused($inputFocused)
@@ -219,24 +230,20 @@ struct STIBAIView: View {
                             .stroke(DS.Color.border, lineWidth: 1.5)
                     )
                     .submitLabel(.send)
-                    .onSubmit {
-                        viewModel.send()
-                        inputFocused = false
-                    }
+                    .onSubmit { submitDraft() }
 
                 Button {
-                    viewModel.send()
-                    inputFocused = false
+                    submitDraft()
                 } label: {
                     Image(systemName: viewModel.isStreaming ? "stop.fill" : "paperplane.fill")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(DS.Color.primaryForeground)
                         .frame(width: 54, height: 54)
-                        .background(viewModel.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isStreaming ? DS.Color.inkMute : DS.Color.primary)
+                        .background(draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isStreaming ? DS.Color.inkMute : DS.Color.primary)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .disabled(viewModel.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isStreaming)
+                .disabled(draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isStreaming)
             }
             .padding(.horizontal, 16)
 
@@ -251,6 +258,16 @@ struct STIBAIView: View {
 
     private func markdownText(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text)) ?? AttributedString(text)
+    }
+
+    /// Envoi du brouillon local. Pas de re-render du transcript pendant la
+    /// frappe, sync vers viewModel UNIQUEMENT au tap.
+    private func submitDraft() {
+        let trimmed = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        viewModel.send(trimmed)
+        draftText = ""
+        inputFocused = false
     }
 }
 
