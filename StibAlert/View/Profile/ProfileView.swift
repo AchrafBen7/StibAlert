@@ -755,10 +755,22 @@ struct ProfileView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            if let helped = item.peopleHelped, helped > 0 {
-                Text("+\(helped)")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(DS.Color.statusOK)
+            VStack(alignment: .trailing, spacing: 3) {
+                // #2 — Statut vivant du signalement (À vérifier/Confirmé/Résolu…).
+                if let badge = item.statusBadge {
+                    Text(badge.label)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(statusColor(badge.systemColor))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(statusColor(badge.systemColor).opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                if let helped = item.peopleHelped, helped > 0 {
+                    Text("+\(helped)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(DS.Color.statusOK)
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -769,6 +781,15 @@ struct ProfileView: View {
                 .stroke(DS.Color.ink.opacity(0.08), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func statusColor(_ token: String) -> Color {
+        switch token {
+        case "ok": return DS.Color.statusOK
+        case "primary": return DS.Color.primary
+        case "warning": return DS.Color.warning
+        default: return DS.Color.inkMute
+        }
     }
 
     private func roleIconAndTint(for role: String) -> (String, Color) {

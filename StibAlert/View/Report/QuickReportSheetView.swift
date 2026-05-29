@@ -74,11 +74,38 @@ struct QuickReportSheetView: View {
 
     private var matchingActiveSignalements: [SignalementDTO] {
         guard let stop = selectedStop else { return [] }
-        return activeSignalements.filter { s in
+        let atStop = activeSignalements.filter { s in
             guard s.status != "resolved" else { return false }
             if case .populated(let arret) = s.arretId, arret.nom == stop.name { return true }
             return false
         }
+        // #3 — Tri par pertinence : même type + même ligne d'abord (doublon
+        // probable), puis même type, puis le reste. La dédup devient ciblée,
+        // pas juste "tout ce qu'il y a à cet arrêt".
+        return atStop.sorted { a, b in
+            relevanceRank(a) > relevanceRank(b)
+        }
+    }
+
+    /// Rang de pertinence d'un signalement existant vs ce que l'utilisateur
+    /// est en train de signaler (type + ligne sélectionnés).
+    private func relevanceRank(_ s: SignalementDTO) -> Int {
+        var rank = 0
+        if let problem = selectedProblem,
+           s.typeProbleme.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+            == problem.title.folding(options: .diacriticInsensitive, locale: .current).lowercased() {
+            rank += 2
+        }
+        if let line = selectedLine, s.ligne.uppercased() == line.number.uppercased() {
+            rank += 1
+        }
+        return rank
+    }
+
+    /// Doublon EXACT : même type + même ligne déjà actif à cet arrêt.
+    private var exactDuplicateSignalement: SignalementDTO? {
+        guard selectedProblem != nil, selectedLine != nil else { return nil }
+        return matchingActiveSignalements.first { relevanceRank($0) >= 3 }
     }
 
     private var canSubmit: Bool {
@@ -169,33 +196,48 @@ struct QuickReportSheetView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         sheetHeader
                         operatorSelectorSection
-                        stopSection
-                        if !isStopPickerExpanded {
-                            if selectedOperator == .sncb, selectedStop != nil {
-                                sncbTrainSection
-                            } else if selectedOperator == .delijn || selectedOperator == .tec {
-                                // De Lijn / TEC: report is stop-level (no local
-                                // per-stop line list); the operator pseudo-line
-                                // is selected under the hood.
-                                EmptyView()
-                            } else if let stop = selectedStop, !stop.issueLines.isEmpty {
-                                lineChipsSection(stop)
+
+                        // PARCOURS TYPE-FIRST : on pense "problème" avant "lieu".
+                        // 1) Quel est le problème ?
+                        typeSection
+
+                        // 2) Une fois le type choisi → où (arrêt pré-rempli GPS),
+                        //    quelle ligne, dédup, détails.
+                        if let problem = selectedProblem {
+                            if problem.isCritical {
+                                criticalResponsibilityBanner
                             }
-                            if !matchingActiveSignalements.isEmpty {
-                                activeHereSection
-                            }
-                            typeSection
-                            if selectedProblem != nil {
+
+                            stopSection
+                                .id("whereSection")
+                            if !isStopPickerExpanded {
+                                if selectedOperator == .sncb, selectedStop != nil {
+                                    sncbTrainSection
+                                } else if selectedOperator == .delijn || selectedOperator == .tec {
+                                    // De Lijn / TEC: report stop-level (pas de
+                                    // liste de lignes par arrêt en local).
+                                    EmptyView()
+                                } else if let stop = selectedStop, !stop.issueLines.isEmpty {
+                                    lineChipsSection(stop)
+                                }
+
+                                // #3 — Dédup proactive : signalement actif de
+                                // MÊME TYPE ici → propose de confirmer.
+                                if !matchingActiveSignalements.isEmpty {
+                                    activeHereSection
+                                }
+
                                 optionalDescriptionField
                                 photoAttachmentField
                             }
-                            if let submitError {
-                                Text(submitError)
-                                    .font(DS.Font.bodySmall)
-                                    .foregroundStyle(DS.Color.statusMajor)
-                                    .padding(.horizontal, 18)
-                                    .id("submitError")
-                            }
+                        }
+
+                        if let submitError {
+                            Text(submitError)
+                                .font(DS.Font.bodySmall)
+                                .foregroundStyle(DS.Color.statusMajor)
+                                .padding(.horizontal, 18)
+                                .id("submitError")
                         }
                         Spacer(minLength: 12)
                     }
@@ -210,8 +252,17 @@ struct QuickReportSheetView: View {
                     scrollToDescription(proxy, delay: 0.05)
                 }
                 .onChange(of: selectedProblem) { _, newValue in
+                    // Type-first : sélectionner le type révèle "où / ligne /
+                    // détails". On NE scrolle PLUS jusqu'à la description (ça
+                    // sauterait l'arrêt) — on laisse l'utilisateur voir l'arrêt
+                    // pré-rempli juste en dessous.
                     guard newValue != nil else { return }
-                    scrollToDescription(proxy)
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 60_000_000)
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo("whereSection", anchor: .top)
+                        }
+                    }
                 }
                 // U4 — quand un submitError apparaît, on scroll vers son id
                 // pour que l'utilisateur le voie. Sinon, si le user est sur
@@ -874,14 +925,54 @@ struct QuickReportSheetView: View {
         }
     }
 
+    // #4 — Bandeau de responsabilisation pour les types critiques
+    // (Accident / Agression) : ces alertes notifient immédiatement les
+    // voyageurs proches même en mode silencieux, donc on cadre l'usage.
+    private var criticalResponsibilityBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "bell.badge.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Color.statusMajor)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Alerte prioritaire")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("Ce type prévient immédiatement les voyageurs proches, même en mode silencieux. À utiliser seulement si c'est réel.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(DS.Color.statusMajor.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(DS.Color.statusMajor.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 18)
+    }
+
     // MARK: - Already reported here
 
     private var activeHereSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle(
-                icon: "bubble.left.and.bubble.right.fill",
-                text: "Déjà signalé ici (\(matchingActiveSignalements.count))"
-            )
+            // #3 — Si doublon EXACT (même type + ligne) : nudge fort à confirmer
+            // plutôt que créer un doublon.
+            if exactDuplicateSignalement != nil {
+                sectionTitle(icon: "exclamationmark.bubble.fill", text: "D'autres signalent déjà ça")
+                Text("Confirme l'alerte existante au lieu d'en créer une nouvelle — elle gagnera en fiabilité.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.horizontal, 18)
+            } else {
+                sectionTitle(
+                    icon: "bubble.left.and.bubble.right.fill",
+                    text: "Déjà signalé ici (\(matchingActiveSignalements.count))"
+                )
+            }
             VStack(spacing: 8) {
                 ForEach(matchingActiveSignalements.prefix(3)) { signalement in
                     activeHereCard(signalement)
