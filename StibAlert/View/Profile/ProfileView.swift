@@ -257,8 +257,12 @@ struct ProfileView: View {
                         // pattern pour la viralité organique. Texte du lien
                         // pré-rempli avec accroche FR.
                         profileGroup(title: "Communauté") {
+                            // B3 — URL extraite dans AppConfig.shareAppURL.
+                            // Pointe vers /support tant qu'on n'a pas l'App
+                            // Store ID (page publique stable). Remplacer la
+                            // constante dans AppConfig dès attribution.
                             ShareLink(
-                                item: URL(string: "https://apps.apple.com/app/id0000000000")!,
+                                item: AppConfig.shareAppURL,
                                 message: Text("Tu prends les transports à Bruxelles ? Avec StibAlert je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :")
                             ) {
                                 HStack(spacing: 12) {
@@ -736,7 +740,6 @@ struct ProfileView: View {
     @MainActor
     private func uploadPickedAvatar(_ item: PhotosPickerItem) async {
         avatarError = nil
-        // Charge en Data depuis PhotosPickerItem (peut être HEIC, JPEG, PNG…)
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
             avatarError = "Impossible de lire l'image."
@@ -744,21 +747,25 @@ struct ProfileView: View {
             return
         }
         isUploadingAvatar = true
-        defer {
-            isUploadingAvatar = false
-            pickedItem = nil
-        }
         do {
             _ = try await AvatarService.upload(image)
-            // Refresh session pour récupérer le user à jour (avec nouvelle
-            // photoProfil URL Cloudinary) → AsyncImage se rafraîchit
-            // automatiquement parce qu'on observe session.currentUser?.photoProfil.
-            await session.refreshCurrentUser()
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            // B5 — check cancellation avant de toucher au state UI : si la
+            // view a été dismissée pendant l'upload (Profile → autre tab),
+            // ne pas tenter refresh ni haptic. `defer` synchrone aurait
+            // reset les flags immédiatement, laissant le callback success
+            // tomber dans le vide. On reset manuellement APRÈS le do/catch.
+            if !Task.isCancelled {
+                await session.refreshCurrentUser()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
         } catch {
-            avatarError = (error as? LocalizedError)?.errorDescription
-                ?? "Upload impossible."
+            if !Task.isCancelled {
+                avatarError = (error as? LocalizedError)?.errorDescription
+                    ?? "Upload impossible."
+            }
         }
+        isUploadingAvatar = false
+        pickedItem = nil
     }
 
     @MainActor

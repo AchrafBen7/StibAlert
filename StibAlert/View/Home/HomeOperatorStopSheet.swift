@@ -251,7 +251,11 @@ struct HomeOperatorStopSheet: View {
 
     private func startAutoRefresh() {
         guard supportsRealtime else { return }
+        // B1 — annule TOUJOURS la précédente boucle avant d'en démarrer une
+        // nouvelle (sinon dismiss + re-open rapide → 2 tasks concurrentes
+        // qui réécrivent reply en alternance → UI glitch).
         refreshTask?.cancel()
+        refreshTask = nil
         refreshTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 s

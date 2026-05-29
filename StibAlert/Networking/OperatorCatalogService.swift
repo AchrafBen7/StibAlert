@@ -127,15 +127,22 @@ enum OperatorCatalogService {
         let resp: DisruptionsResponse? = await fetch(path: "disruptions", op: op, decode: { data in
             try decoder.decode(DisruptionsResponse.self, from: data)
         })
-        let bundle = OperatorDisruptionsBundle(
-            alerts: resp?.alerts ?? [],
-            live: resp?.live ?? false,
-            fetchedAt: resp?.fetchedAt
-        )
-        // Cache même un bundle vide (live=false) pour éviter de bombarder le
-        // backend si l'API est down — on retentera dans 60 s.
-        await cache.setDisruptions(op, bundle)
-        return bundle
+        // B6 — ne CACHER que les succès. Avant on cachait même les bundles
+        // vides (`resp == nil`), bloquant le user sur "Réseau OK" pendant
+        // 60 s après un cold start raté. Maintenant si l'appel échoue, on
+        // retourne un bundle vide MAIS sans le mémoriser → le prochain
+        // affichage (pull-to-refresh, retour sur l'onglet) retentera tout
+        // de suite.
+        if let resp {
+            let bundle = OperatorDisruptionsBundle(
+                alerts: resp.alerts,
+                live: resp.live ?? false,
+                fetchedAt: resp.fetchedAt
+            )
+            await cache.setDisruptions(op, bundle)
+            return bundle
+        }
+        return OperatorDisruptionsBundle(alerts: [], live: false, fetchedAt: nil)
     }
 
     private static func fetch<T>(path: String, op: TransitOperator, decode: (Data) throws -> T) async -> T? {

@@ -65,12 +65,37 @@ enum OperatorRealtimeService {
                 if let d = noFrac.date(from: s) { return d }
                 throw DecodingError.dataCorruptedError(in: try dec.singleValueContainer(), debugDescription: "Invalid ISO8601: \(s)")
             }
-            // 200 OK or 503 (not configured server-side) — both can carry a
-            // body we want to decode (503 returns {live:false, passages:[]}).
-            if http.statusCode == 200 || http.statusCode == 503 {
+            // B4 — différencier 200 (succès parse) vs 503 (backend non
+            // configuré OU API De Lijn down). Avant les 2 retombaient sur
+            // `{live:false, passages:[]}` indistinct → l'utilisateur voyait
+            // "Aucun passage prévu" au lieu de "Service temporairement
+            // indisponible" pour un backend down.
+            switch http.statusCode {
+            case 200:
                 return try? decoder.decode(OperatorRealtimeReply.self, from: data)
+            case 503:
+                // Le backend peut renvoyer un body informatif — on essaie
+                // de le parser, sinon on synthétise un message dégradé clair.
+                if let decoded = try? decoder.decode(OperatorRealtimeReply.self, from: data) {
+                    if decoded.error == nil {
+                        return OperatorRealtimeReply(
+                            stopId: decoded.stopId,
+                            entity: decoded.entity,
+                            live: false,
+                            fetchedAt: decoded.fetchedAt,
+                            passages: decoded.passages,
+                            error: "Service temps réel temporairement indisponible."
+                        )
+                    }
+                    return decoded
+                }
+                return OperatorRealtimeReply(
+                    stopId: nil, entity: nil, live: false, fetchedAt: nil,
+                    passages: [], error: "Service temps réel temporairement indisponible."
+                )
+            default:
+                return nil
             }
-            return nil
         } catch {
             return nil
         }

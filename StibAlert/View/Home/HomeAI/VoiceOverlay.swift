@@ -424,6 +424,14 @@ struct VoiceOverlay: View {
             phase = .idle
             return
         }
+        // B2 — reset systématique des états dérivés AVANT chaque tentative.
+        // Sans ça, après un .error d'un précédent appel, pendingDestination
+        // pouvait rester pollué + le bouton "Voir la route" apparaissait
+        // brièvement quand on chaînait vers .speaking sans nouvel destination.
+        pendingDestination = nil
+        displayReply = ""
+        reply = ""
+        errorText = nil
         phase = .thinking
         thinkingDetail = nil
         let context = await contextProvider(text)
@@ -440,6 +448,7 @@ struct VoiceOverlay: View {
                 }
 
                 guard let proposedRoutes = await prepareTrip(regexDest), !proposedRoutes.isEmpty else {
+                    pendingDestination = nil
                     phase = .error
                     errorText = "Je n'ai pas trouvé de trajet vers \"\(regexDest)\". Essaie une adresse plus précise ou ouvre le planner."
                     return
@@ -487,6 +496,7 @@ struct VoiceOverlay: View {
             }
 
             guard let proposedRoutes = await prepareTrip(dest), !proposedRoutes.isEmpty else {
+                pendingDestination = nil
                 phase = .error
                 errorText = "Je n'ai pas trouvé de trajet vers \"\(dest)\". Essaie une adresse plus précise ou ouvre le planner."
                 return

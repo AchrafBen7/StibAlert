@@ -26,15 +26,17 @@ enum TransportService {
         if !query.isEmpty {
             path += "?" + query.joined(separator: "&")
         }
-        // 1 retry sur erreurs réseau pour absorber les cold start Render
-        // (~10 s) — la 1ère tentative réveille le dyno, la 2e après 2 s
-        // tombe presque toujours sur un backend déjà chaud. Spécifique à
-        // overview() parce que c'est l'appel critique au launch.
-        do {
-            return try await APIClient.shared.request(path)
-        } catch let error as URLError where error.code == .timedOut || error.code == .notConnectedToInternet || error.code == .networkConnectionLost {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            return try await APIClient.shared.request(path)
+        // B7 — helper coldStartRetry partagé. Voir ColdStartRetry.swift.
+        return try await coldStartRetry {
+            try await APIClient.shared.request(path)
+        }
+    }
+
+    /// `events` est aussi appelée tôt au launch (Reports tab) → mêmes
+    /// conditions de cold start, donc même retry policy.
+    static func eventsWithColdStartRetry(activeOnly: Bool = false, limit: Int = 60) async throws -> TransportEventsResponseDTO {
+        try await coldStartRetry {
+            try await events(activeOnly: activeOnly, limit: limit)
         }
     }
 
