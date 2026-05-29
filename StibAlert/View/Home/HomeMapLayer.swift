@@ -23,6 +23,7 @@ struct HomeMapLayer: View {
     let favoriteOperatorStopKeys: Set<String>
     let selectedMapStopPreview: TransportStopSummaryDTO?
     let selectedMapStopSummary: TransportStopSummaryDTO?
+    var loadingMapStopId: String? = nil
     let mapSncbStations: [SNCBStation]
     let selectedSncbStation: SNCBStation?
     let mapOperatorStops: [OperatorMapStop]
@@ -411,7 +412,8 @@ struct HomeMapLayer: View {
                             stop: stop,
                             isSelected: selectedMapStopPreview?.id == stop.id || selectedMapStopSummary?.id == stop.id,
                             warningStyle: warningStyles[stop.id],
-                            isFavorite: favoriteStopIds.contains(stop.id)
+                            isFavorite: favoriteStopIds.contains(stop.id),
+                            isLoading: loadingMapStopId == stop.id
                         )
                     }
                     .buttonStyle(.plain)

@@ -21,11 +21,12 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
     let quietHoursEnabled: Bool?
     let quietHoursStartHour: Int?
     let quietHoursEndHour: Int?
+    let operatorFavorites: [OperatorFavoriteDTO]?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, routine, votes, oneSignalPlayerId, favoriteLines, weeklyDigestEnabled, preTripPushEnabled
-        case communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled, quietHoursStartHour, quietHoursEndHour
+        case communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled, quietHoursStartHour, quietHoursEndHour, operatorFavorites
     }
 
     init(
@@ -48,7 +49,8 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         mercisPushEnabled: Bool? = nil,
         quietHoursEnabled: Bool? = nil,
         quietHoursStartHour: Int? = nil,
-        quietHoursEndHour: Int? = nil
+        quietHoursEndHour: Int? = nil,
+        operatorFavorites: [OperatorFavoriteDTO]? = nil
     ) {
         self.id = id
         self.nom = nom
@@ -70,6 +72,7 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         self.quietHoursEnabled = quietHoursEnabled
         self.quietHoursStartHour = quietHoursStartHour
         self.quietHoursEndHour = quietHoursEndHour
+        self.operatorFavorites = operatorFavorites
     }
 
     /// Custom decoder so `favoris` accepts both shapes the backend can ship:
@@ -98,6 +101,7 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         quietHoursEnabled = try container.decodeIfPresent(Bool.self, forKey: .quietHoursEnabled)
         quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
         quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
+        operatorFavorites = try container.decodeIfPresent([OperatorFavoriteDTO].self, forKey: .operatorFavorites)
 
         // Try string array first; fall back to populated objects.
         var resolvedFavoris: [String]? = nil
@@ -152,6 +156,36 @@ struct CommuteRoutineDTO: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case enabled, homeLabel, workLabel, departureTime, homeStopId, workStopId
     }
+}
+
+/// #3 — Favori multi-opérateur (SNCB / De Lijn / TEC) synchronisé serveur.
+/// `op` : "sncb" | "delijn" | "tec". Le `lat`/`lng` est optionnel pour SNCB
+/// (résolu via le catalogue local des gares).
+struct OperatorFavoriteDTO: Codable, Equatable, Hashable {
+    let op: String
+    let stopId: String
+    let name: String?
+    let lat: Double?
+    let lng: Double?
+
+    init(op: String, stopId: String, name: String? = nil, lat: Double? = nil, lng: Double? = nil) {
+        self.op = op
+        self.stopId = stopId
+        self.name = name
+        self.lat = lat
+        self.lng = lng
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        op = (try? c.decode(String.self, forKey: .op)) ?? ""
+        stopId = (try? c.decode(String.self, forKey: .stopId)) ?? ""
+        name = try? c.decodeIfPresent(String.self, forKey: .name)
+        lat = try? c.decodeIfPresent(Double.self, forKey: .lat)
+        lng = try? c.decodeIfPresent(Double.self, forKey: .lng)
+    }
+
+    private enum CodingKeys: String, CodingKey { case op, stopId, name, lat, lng }
 }
 
 struct FavoriDetailDTO: Codable, Identifiable, Equatable {
@@ -297,10 +331,21 @@ extension SignalementDTO {
     }
 
     var freshnessLabel: String {
-        guard let minutes = effectiveFreshnessMinutes else { return "Signalé à l'instant" }
-        if minutes < 1 { return "Signalé à l'instant" }
-        if minutes < 60 { return "Signalé il y a \(minutes) min" }
-        return "Signalé il y a \(minutes / 60) h"
+        // S4 — Ne JAMAIS inventer une fraîcheur quand la date est inconnue.
+        // Avant : nil → "Signalé à l'instant" = fausse confiance. Désormais
+        // on est honnête : "Date inconnue".
+        guard let minutes = effectiveFreshnessMinutes else {
+            return String(localized: "report.freshness.unknown", defaultValue: "Date inconnue")
+        }
+        if minutes < 1 { return String(localized: "report.freshness.now", defaultValue: "Signalé à l'instant") }
+        if minutes < 60 {
+            return String(format: String(localized: "report.freshness.minutes", defaultValue: "Signalé il y a %lld min"), minutes)
+        }
+        // S7 — palier "jours" au-delà de 24 h (avant : "il y a 72 h").
+        if minutes < 1440 {
+            return String(format: String(localized: "report.freshness.hours", defaultValue: "Signalé il y a %lld h"), minutes / 60)
+        }
+        return String(format: String(localized: "report.freshness.days", defaultValue: "Signalé il y a %lld j"), minutes / 1440)
     }
 
     /// Community polish — decay tier visuel pour les badges de la timeline.

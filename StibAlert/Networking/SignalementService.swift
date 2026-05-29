@@ -69,9 +69,13 @@ enum SignalementService {
     }
 
     static func signalerFaux(signalementId: String) async throws {
+        // #4 — requiresAuth attache le JWT s'il existe (route backend en
+        // protect.optional) → flag identifié + pondéré pour les comptes
+        // connectés, anonyme accepté pour les invités.
         let _: MessageResponse = try await APIClient.shared.request(
             "/api/signalements/\(signalementId)/signalement-faux",
-            method: .POST
+            method: .POST,
+            requiresAuth: true
         )
     }
 

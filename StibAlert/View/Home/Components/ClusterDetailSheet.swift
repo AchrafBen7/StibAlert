@@ -95,7 +95,13 @@ struct ClusterDetailSheet: View {
     private func confidenceLabel(for cluster: ClusterDetailDTO) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                confidenceBadge(cluster.confidence)
+                // A1 — badge de statut unifié (Confirmé/Probable/À vérifier)
+                // si le backend le fournit, sinon fallback sur low/med/high.
+                if cluster.confidenceStatus != nil {
+                    unifiedConfidenceBadge(cluster)
+                } else {
+                    confidenceBadge(cluster.confidence)
+                }
                 Text("\(cluster.reportCount) rapport\(cluster.reportCount > 1 ? "s" : "")")
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkMute)
@@ -160,6 +166,29 @@ struct ClusterDetailSheet: View {
         }
     }
 
+    /// A1 — Badge du statut de confiance unifié (≥0.80 confirmé / ≥0.50
+    /// probable / sinon à vérifier), avec le score 0–100 si disponible.
+    private func unifiedConfidenceBadge(_ cluster: ClusterDetailDTO) -> some View {
+        let status = cluster.confidenceStatus ?? "unverified"
+        let label: String
+        let color: Color
+        switch status {
+        case "confirmed": label = "Confirmé"; color = DS.Color.success
+        case "likely": label = "Probable"; color = DS.Color.warning
+        default: label = "À vérifier"; color = Color(hex: "#9CA3AF")
+        }
+        let pct = cluster.confidenceScore.map { " · \(Int(($0 * 100).rounded()))%" } ?? ""
+        return Text("\(label)\(pct)")
+            .font(DS.Font.monoSmall.weight(.bold))
+            .tracking(0.8)
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12))
+            .clipShape(Capsule())
+            .accessibilityLabel("Fiabilité : \(label)")
+    }
+
     private func confidenceBadge(_ confidence: ClusterConfidence) -> some View {
         let color: Color
         switch confidence {
@@ -201,6 +230,11 @@ struct ClusterDetailSheet: View {
         } else if let detail {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    // A6 — Résumé IA "wat/waarom/hoelang/wat nu" en tête.
+                    if let summary = detail.summary, !summary.isEmpty {
+                        aiSummaryCard(summary)
+                    }
+
                     ForEach(detail.signalements) { report in
                         reportRow(report)
                     }
@@ -231,6 +265,35 @@ struct ClusterDetailSheet: View {
                 .padding(18)
             }
         }
+    }
+
+    /// A6 — Carte du résumé généré par l'IA (synthèse des N signalements).
+    private func aiSummaryCard(_ summary: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Color.primary)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("EN BREF")
+                    .font(DS.Font.monoSmall.weight(.bold))
+                    .tracking(1.5)
+                    .foregroundStyle(DS.Color.primary)
+                Text(summary)
+                    .font(DS.Font.body)
+                    .foregroundStyle(DS.Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.primary.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DS.Color.primary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func reportRow(_ report: ClusterReportDTO) -> some View {

@@ -79,6 +79,9 @@ struct HomeView: View {
     @State var selectedMapStopDetail: TransportStopDTO?
     @State var selectedStopLineNumber: String?
     @State var isLoadingMapStopDetail = false
+    // C5 — 200 ms debounce sur les taps de markers/clusters carte. Évite
+    // que 2 sheets se superposent quand le user re-tap pendant le fetch.
+    @State private var mapTapLockedUntil: Date?
     @State private var mapStopDetailError: String?
     @State private var eventImpacts: [TransportEventImpactDTO] = []
     @State private var selectedEventImpact: TransportEventImpactDTO?
@@ -1022,6 +1025,16 @@ struct HomeView: View {
                 onClose: {
                     pendingVoiceTrip = nil
                     showVoiceOverlay = false
+                },
+                onSwitchToText: {
+                    // N12 — Si mic refusé, on ferme l'overlay vocal et on
+                    // bascule sur la chat STIB·AI dans la foulée.
+                    pendingVoiceTrip = nil
+                    showVoiceOverlay = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 250_000_000)
+                        showStibAI = true
+                    }
                 }
             )
         }
@@ -1213,6 +1226,7 @@ struct HomeView: View {
             favoriteOperatorStopKeys: favoriteOperatorStopKeys,
             selectedMapStopPreview: selectedMapStopPreview,
             selectedMapStopSummary: selectedMapStopSummary,
+            loadingMapStopId: loadingMapStopId,
             mapSncbStations: mapSncbStations,
             selectedSncbStation: selectedSncbStation,
             mapOperatorStops: mapOperatorStops,
@@ -1221,6 +1235,7 @@ struct HomeView: View {
             onOpenPreview: openPreview(for:),
             onOpenStopPreview: openStopPreview(for:),
             onSelectCluster: { cluster in
+                guard acquireMapTapLock() else { return }
                 withAnimation(transitionSpring) {
                     dismissOtherBottomDetails(except: .cluster)
                     selectedClusterIndex = cluster.clusterIndex
@@ -1230,22 +1245,27 @@ struct HomeView: View {
                 zoomCameraIn(to: center, factor: 0.4)
             },
             onSelectSncbStation: { station in
+                guard acquireMapTapLock() else { return }
                 dismissOtherBottomDetails(except: .sncbStation)
                 selectedSncbStation = station
             },
             onSelectOperatorStop: { stop in
+                guard acquireMapTapLock() else { return }
                 dismissOtherBottomDetails(except: .operatorStop)
                 selectedOperatorStop = stop
             },
             onSelectVilloStation: { station in
+                guard acquireMapTapLock() else { return }
                 dismissOtherBottomDetails(except: .villoStation)
                 selectedVilloStation = station
             },
             onSelectEventImpact: { event in
+                guard acquireMapTapLock() else { return }
                 dismissOtherBottomDetails(except: .eventImpact)
                 selectedEventImpact = event
             },
             onSelectVehicle: { vehicle in
+                guard acquireMapTapLock() else { return }
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
                     dismissOtherBottomDetails(except: .vehicle)
@@ -2078,6 +2098,7 @@ struct HomeView: View {
 
     @MainActor
     private func openStopPreview(for stop: TransportStopSummaryDTO) {
+        guard acquireMapTapLock() else { return }
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
             selectedMapStopPreview = stop
             selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
@@ -2089,8 +2110,24 @@ struct HomeView: View {
         }
     }
 
+    /// Returns true if a fresh map-tap is allowed, or false if a previous tap
+    /// fired within the last 200 ms. Acquiring the lock extends it.
+    @MainActor
+    private func acquireMapTapLock() -> Bool {
+        let now = Date()
+        if let until = mapTapLockedUntil, until > now { return false }
+        mapTapLockedUntil = now.addingTimeInterval(0.2)
+        return true
+    }
+
+    var loadingMapStopId: String? {
+        guard isLoadingMapStopDetail else { return nil }
+        return selectedMapStopPreview?.id ?? selectedMapStopSummary?.id
+    }
+
     @MainActor
     private func openStopDetail(for stop: TransportStopSummaryDTO) {
+        guard acquireMapTapLock() else { return }
         selectedMapStopSummary = stop
         selectedStopLineNumber = firstDisplayableLine(from: stop.lines)
         enterInteractionMode(.stopDetail)

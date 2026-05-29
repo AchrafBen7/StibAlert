@@ -30,6 +30,12 @@ struct OnboardingFavoritesStep: View {
     @State private var locationState: LocationState = .requesting
 
     @State private var userCoordinate: CLLocationCoordinate2D = OneShotLocationManager.fallback
+    @State private var isSeedingFallback = false
+
+    private static let brusselsCenterFallbackNames: [String] = [
+        "DE BROUCKERE", "BOURSE", "GARE CENTRALE"
+    ]
+    private static let brusselsCenter = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
 
     private var totalSelected: Int {
         stibSelectedIds.count + gareFavorites.ids.count + operatorFavorites.stops.count
@@ -61,13 +67,23 @@ struct OnboardingFavoritesStep: View {
 
             VStack(spacing: 10) {
                 continueButton
-                Button(action: onSkip) {
-                    Text("Je découvre d'abord")
-                        .font(DS.Font.mono).tracking(1.4).textCase(.uppercase)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .frame(maxWidth: .infinity)
+                Button(action: handleSkip) {
+                    HStack(spacing: 6) {
+                        if isSeedingFallback {
+                            ProgressView()
+                                .tint(DS.Color.inkMute)
+                                .scaleEffect(0.75)
+                        }
+                        Text(totalSelected == 0
+                             ? "Je découvre avec 3 arrêts du centre"
+                             : "Je découvre d'abord")
+                            .font(DS.Font.mono).tracking(1.4).textCase(.uppercase)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
+                .disabled(isSeedingFallback)
             }
             .padding(.horizontal, 22)
             .padding(.top, 22)
@@ -209,6 +225,68 @@ struct OnboardingFavoritesStep: View {
         ))
         AppHaptics.success()
         onContinue()
+    }
+
+    private func handleSkip() {
+        guard totalSelected == 0 else {
+            persistSkipState()
+            onSkip()
+            return
+        }
+
+        // Empty skip = guaranteed empty Home. Auto-seed 3 Brussels-centre stops
+        // so the user lands on a populated home instead of nothing.
+        isSeedingFallback = true
+        Task {
+            let ids = await fetchBrusselsCenterFallbackIds()
+            await MainActor.run {
+                if !ids.isEmpty {
+                    stibSelectedIds.formUnion(ids)
+                }
+                persistSkipState()
+                isSeedingFallback = false
+                AppHaptics.soft()
+                onSkip()
+            }
+        }
+    }
+
+    private func persistSkipState() {
+        let existing = OnboardingPreferenceStore.load()
+        OnboardingPreferenceStore.save(OnboardingPreferences(
+            favoriteLines: existing.favoriteLines,
+            stibFavoriteStopIds: Array(stibSelectedIds),
+            homeLabel: existing.homeLabel,
+            departureTime: existing.departureTime
+        ))
+    }
+
+    private func fetchBrusselsCenterFallbackIds() async -> [String] {
+        // Use the centre Brussels coordinate even if user denied location —
+        // fetchNearby doesn't need device location, only raw coords.
+        let stops: [NearbyStop]
+        do {
+            stops = try await NearbyStopService.fetchNearby(
+                lat: Self.brusselsCenter.latitude,
+                lng: Self.brusselsCenter.longitude,
+                radius: 900
+            )
+        } catch {
+            return []
+        }
+
+        var picked: [String] = []
+        for target in Self.brusselsCenterFallbackNames {
+            let match = stops.first { stop in
+                guard let _ = stop.backendId else { return false }
+                let normalized = normalizedStopName(stop.name)
+                return normalized.contains(target)
+            }
+            if let id = match?.backendId, !picked.contains(id) {
+                picked.append(id)
+            }
+        }
+        return picked
     }
 
     // MARK: - Operator content

@@ -30,6 +30,10 @@ struct ProfileView: View {
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
     @State private var quietHoursEnabled = true
+    // S5 — Heures de plage silencieuse éditables (backend les accepte déjà via
+    // PATCH ; défaut 22h → 7h aligné sur le modèle Mongo).
+    @State private var quietHoursStartHour = 22
+    @State private var quietHoursEndHour = 7
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var email = ""
@@ -117,13 +121,21 @@ struct ProfileView: View {
         .onChange(of: quietHoursEnabled) { _, newValue in
             Task { await persistPushPreference(quietHours: newValue) }
         }
+        .onChange(of: quietHoursStartHour) { _, newValue in
+            Task { await persistPushPreference(quietHoursStart: newValue) }
+        }
+        .onChange(of: quietHoursEndHour) { _, newValue in
+            Task { await persistPushPreference(quietHoursEnd: newValue) }
+        }
     }
 
     private func persistPushPreference(
         preTrip: Bool? = nil,
         communityCluster: Bool? = nil,
         mercis: Bool? = nil,
-        quietHours: Bool? = nil
+        quietHours: Bool? = nil,
+        quietHoursStart: Int? = nil,
+        quietHoursEnd: Int? = nil
     ) async {
         guard AppConfig.isBackendEnabled, let user = session.currentUser else { return }
         do {
@@ -132,7 +144,9 @@ struct ProfileView: View {
                 preTripPushEnabled: preTrip,
                 communityClusterPushEnabled: communityCluster,
                 mercisPushEnabled: mercis,
-                quietHoursEnabled: quietHours
+                quietHoursEnabled: quietHours,
+                quietHoursStartHour: quietHoursStart,
+                quietHoursEndHour: quietHoursEnd
             )
             session.applyCurrentUserUpdate(updated)
         } catch {
@@ -189,6 +203,8 @@ struct ProfileView: View {
                 communityClusterPushEnabled: $communityClusterPushEnabled,
                 mercisPushEnabled: $mercisPushEnabled,
                 quietHoursEnabled: $quietHoursEnabled,
+                quietHoursStartHour: $quietHoursStartHour,
+                quietHoursEndHour: $quietHoursEndHour,
                 onBack: { selectedSubpage = nil },
                 onClose: closeToProfile
             )
@@ -962,6 +978,8 @@ struct ProfileView: View {
         communityClusterPushEnabled = user.communityClusterPushEnabled ?? true
         mercisPushEnabled = user.mercisPushEnabled ?? true
         quietHoursEnabled = user.quietHoursEnabled ?? true
+        quietHoursStartHour = user.quietHoursStartHour ?? 22
+        quietHoursEndHour = user.quietHoursEndHour ?? 7
         commuteEnabled = user.routine?.enabled ?? false
         homeLabel = user.routine?.homeLabel ?? "Domicile"
         workLabel = user.routine?.workLabel ?? "Travail"
@@ -1433,6 +1451,8 @@ private struct NotificationSettingsView: View {
     @Binding var communityClusterPushEnabled: Bool
     @Binding var mercisPushEnabled: Bool
     @Binding var quietHoursEnabled: Bool
+    @Binding var quietHoursStartHour: Int
+    @Binding var quietHoursEndHour: Int
     let onBack: () -> Void
     let onClose: () -> Void
 
@@ -1453,6 +1473,7 @@ private struct NotificationSettingsView: View {
                         icon: "sparkles",
                         title: "Brief pré-trajet",
                         description: "15 min avant ton départ habituel, un verdict actionable",
+                        payloadExample: "Ligne 92 OK ce matin — départ habituel 8h40 conseillé.",
                         isOn: $preTripPushEnabled
                     )
                     ProfileSettingsDivider()
@@ -1460,6 +1481,7 @@ private struct NotificationSettingsView: View {
                         icon: "exclamationmark.triangle.fill",
                         title: "Alertes communauté",
                         description: "Quand un cluster touche une de tes lignes favorites",
+                        payloadExample: "Ligne 92 perturbée à Bailli — 3 confirmations.",
                         isOn: $communityClusterPushEnabled
                     )
                     ProfileSettingsDivider()
@@ -1467,19 +1489,37 @@ private struct NotificationSettingsView: View {
                         icon: "hands.sparkles.fill",
                         title: "Mercis",
                         description: "Quand ton signalement aide d'autres voyageurs",
+                        payloadExample: "Merci ! 12 voyageurs ont vu ton signalement.",
                         isOn: $mercisPushEnabled
                     )
                 }
                 .opacity(pushEnabled ? 1 : 0.45)
                 .disabled(!pushEnabled)
 
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.Color.statusOK)
+                    Text("Jamais de marketing — uniquement des événements de transport.")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .padding(.horizontal, 4)
+                .padding(.top, -4)
+                .padding(.bottom, 8)
+
                 ProfileSettingsSection(title: "Plage silencieuse") {
                     NotificationToggleRow(
                         icon: "moon.zzz.fill",
-                        title: "22h → 7h",
-                        description: "Aucune push pendant la nuit, sauf urgences critiques",
+                        title: quietHoursWindowLabel,
+                        description: "Aucune push pendant ces heures, sauf urgences critiques",
+                        payloadExample: "Accident bloque ligne 92 cette nuit (urgence — exception silence).",
                         isOn: $quietHoursEnabled
                     )
+                    if quietHoursEnabled {
+                        ProfileSettingsDivider()
+                        quietHoursRangeRow
+                    }
                 }
 
                 ProfileSettingsSection(title: "Canaux") {
@@ -1500,12 +1540,71 @@ private struct NotificationSettingsView: View {
             }
         }
     }
+
+    // S5 — Libellé dynamique de la fenêtre silencieuse (ex. "22h → 7h").
+    private var quietHoursWindowLabel: String {
+        "\(quietHoursStartHour)h → \(quietHoursEndHour)h"
+    }
+
+    /// Deux sélecteurs d'heure (0–23) pour la plage silencieuse. Persistés au
+    /// changement via le PATCH push prefs côté ProfileView.
+    private var quietHoursRangeRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(DS.Color.ink)
+                .frame(width: 18)
+
+            Text("Plage")
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+
+            Spacer()
+
+            hourPicker(selection: $quietHoursStartHour, label: "Début")
+            Image(systemName: "arrow.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+            hourPicker(selection: $quietHoursEndHour, label: "Fin")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func hourPicker(selection: Binding<Int>, label: String) -> some View {
+        Menu {
+            Picker(label, selection: selection) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text("\(hour)h").tag(hour)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text("\(selection.wrappedValue)h")
+                    .font(.system(size: 13.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(DS.Color.paper2)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+        }
+        .accessibilityLabel("\(label) de la plage silencieuse : \(selection.wrappedValue) heures")
+    }
 }
 
 private struct NotificationToggleRow: View {
     let icon: String
     let title: String
     let description: String
+    /// N7 — Exemple concret du payload reçu pour que le user sache à quoi
+    /// ressemble la notification AVANT de l'activer. Affiché en italique
+    /// très subtil sous la description.
+    var payloadExample: String? = nil
     @Binding var isOn: Bool
 
     var body: some View {
@@ -1524,6 +1623,14 @@ private struct NotificationToggleRow: View {
                 Text(description)
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
+                if let payloadExample {
+                    Text("Ex : « \(payloadExample) »")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.75))
+                        .italic()
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 1)
+                }
             }
 
             Spacer()

@@ -1,6 +1,12 @@
 import CoreLocation
 import Foundation
 
+extension Notification.Name {
+    /// #3 — Émise quand les favoris multi-opérateurs changent localement,
+    /// pour déclencher la synchro serveur (écoutée par AppRoot si connecté).
+    static let operatorFavoritesDidChange = Notification.Name("operatorFavoritesDidChange")
+}
+
 /// A favourited De Lijn / TEC stop. These networks aren't bundled (served by
 /// viewport), so — unlike STIB favourites (backend) — we persist the full stop
 /// info locally.
@@ -23,6 +29,9 @@ final class OperatorStopFavorites: ObservableObject {
 
     @Published private(set) var stops: [FavoriteOperatorStop]
     private let defaultsKey = "operator.favorite.stops.v1"
+    /// Vrai pendant l'hydratation serveur → on ne reposte pas la notif de
+    /// changement (sinon boucle hydrate → sync → hydrate).
+    private var isHydrating = false
 
     private init() {
         if let data = UserDefaults.standard.data(forKey: defaultsKey),
@@ -57,9 +66,43 @@ final class OperatorStopFavorites: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    // MARK: - Server sync (#3)
+
+    /// Payload De Lijn/TEC pour la synchro serveur (exclut SNCB, géré ailleurs).
+    func snapshotDTO() -> [OperatorFavoriteDTO] {
+        stops.map { OperatorFavoriteDTO(op: $0.op, stopId: $0.stopId, name: $0.name, lat: $0.lat, lng: $0.lng) }
+    }
+
+    /// Fusionne les favoris serveur (De Lijn/TEC) avec le cache local — union,
+    /// le serveur fait autorité sur la présence. N'émet pas de notif (évite la
+    /// boucle de synchro).
+    func hydrate(from serverFavorites: [OperatorFavoriteDTO]) {
+        let incoming = serverFavorites
+            .filter { $0.op == "delijn" || $0.op == "tec" }
+            .compactMap { dto -> FavoriteOperatorStop? in
+                guard let lat = dto.lat, let lng = dto.lng else { return nil }
+                return FavoriteOperatorStop(op: dto.op, stopId: dto.stopId, name: dto.name ?? "Arrêt", lat: lat, lng: lng)
+            }
+        guard !incoming.isEmpty || !stops.isEmpty else { return }
+        var merged: [String: FavoriteOperatorStop] = [:]
+        for s in stops { merged[s.id] = s }
+        for s in incoming { merged[s.id] = s }
+        let newStops = Array(merged.values)
+        guard newStops.count != stops.count || Set(newStops.map(\.id)) != Set(stops.map(\.id)) else { return }
+        isHydrating = true
+        stops = newStops
+        if let data = try? JSONEncoder().encode(stops) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+        isHydrating = false
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(stops) {
             UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+        if !isHydrating {
+            NotificationCenter.default.post(name: .operatorFavoritesDidChange, object: nil)
         }
     }
 }

@@ -15,7 +15,10 @@ enum UtilisateurService {
         communityClusterPushEnabled: Bool? = nil,
         mercisPushEnabled: Bool? = nil,
         quietHoursEnabled: Bool? = nil,
+        quietHoursStartHour: Int? = nil,
+        quietHoursEndHour: Int? = nil,
         favoriteLines: [String]? = nil,
+        operatorFavorites: [OperatorFavoriteDTO]? = nil,
         routine: CommuteRoutineDTO? = nil
     ) async throws -> UtilisateurDTO {
         try await APIClient.shared.request(
@@ -30,7 +33,10 @@ enum UtilisateurService {
                 communityClusterPushEnabled: communityClusterPushEnabled,
                 mercisPushEnabled: mercisPushEnabled,
                 quietHoursEnabled: quietHoursEnabled,
+                quietHoursStartHour: quietHoursStartHour,
+                quietHoursEndHour: quietHoursEndHour,
                 favoriteLines: favoriteLines,
+                operatorFavorites: operatorFavorites,
                 routine: routine
             ),
             requiresAuth: true
@@ -74,7 +80,10 @@ private struct ProfilUpdateRequest: Encodable {
     let communityClusterPushEnabled: Bool?
     let mercisPushEnabled: Bool?
     let quietHoursEnabled: Bool?
+    let quietHoursStartHour: Int?
+    let quietHoursEndHour: Int?
     let favoriteLines: [String]?
+    let operatorFavorites: [OperatorFavoriteDTO]?
     let routine: CommuteRoutineDTO?
 }
 

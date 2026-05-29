@@ -34,10 +34,33 @@ struct SignUpView: View {
         return min(4, score)
     }
 
+    private var hasMinLength: Bool { motDePasse.count >= 8 }
+    private var hasUppercase: Bool { motDePasse.range(of: "[A-Z]", options: .regularExpression) != nil }
+    private var hasDigit: Bool { motDePasse.range(of: "[0-9]", options: .regularExpression) != nil }
+
+    private var shouldShowPasswordCriteria: Bool {
+        focusedField == .password || !motDePasse.isEmpty
+    }
+
     private var canSubmit: Bool {
         !nom.trimmingCharacters(in: .whitespaces).isEmpty &&
-        email.contains("@") &&
+        Self.isValidEmail(email) &&
         motDePasse.count >= 8
+    }
+
+    private var hasInvalidEmail: Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty && !Self.isValidEmail(trimmed)
+    }
+
+    /// RFC-light pragmatic regex : letters/digits/_.-+ before @, then domain
+    /// with at least one dot and a 2+ char TLD. Catches "a@", "a@b", "a@b.c"
+    /// before the request hits the backend (which used to return a cryptic
+    /// 5-second-late error).
+    static func isValidEmail(_ candidate: String) -> Bool {
+        let pattern = #"^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$"#
+        return candidate.trimmingCharacters(in: .whitespaces)
+            .range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     var body: some View {
@@ -117,8 +140,19 @@ struct SignUpView: View {
             AuthField(label: "PRÉNOM", icon: "person", text: $nom, isSecure: false)
                 .focused($focusedField, equals: .nom)
 
-            AuthField(label: "EMAIL", icon: "envelope", text: $email, isSecure: false, keyboard: .emailAddress)
-                .focused($focusedField, equals: .email)
+            VStack(alignment: .leading, spacing: 4) {
+                AuthField(label: "EMAIL", icon: "envelope", text: $email, isSecure: false, keyboard: .emailAddress)
+                    .focused($focusedField, equals: .email)
+
+                if hasInvalidEmail && focusedField != .email {
+                    Text("Format d'email invalide")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(DS.Color.statusMajor)
+                        .padding(.horizontal, 2)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.18), value: hasInvalidEmail)
 
             AuthField(
                 label: "MOT DE PASSE",
@@ -135,6 +169,11 @@ struct SignUpView: View {
                 )
             )
             .focused($focusedField, equals: .password)
+
+            if shouldShowPasswordCriteria {
+                passwordCriteria
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             if !motDePasse.isEmpty {
                 passwordStrength
@@ -194,6 +233,33 @@ struct SignUpView: View {
             .disabled(isLoading || !canSubmit)
             .opacity(canSubmit ? 1 : 0.6)
             .buttonStyle(PressableScaleStyle())
+        }
+    }
+
+    private var passwordCriteria: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            criterionRow(label: "8 caractères minimum", satisfied: hasMinLength, required: true)
+            criterionRow(label: "Une majuscule", satisfied: hasUppercase, required: false)
+            criterionRow(label: "Un chiffre", satisfied: hasDigit, required: false)
+        }
+        .padding(.horizontal, 2)
+        .animation(.easeOut(duration: 0.18), value: motDePasse)
+    }
+
+    private func criterionRow(label: String, satisfied: Bool, required: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: satisfied ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(satisfied ? DS.Color.statusOK : DS.Color.inkMute.opacity(0.6))
+            Text(label)
+                .font(.system(size: 11.5, weight: satisfied ? .semibold : .regular))
+                .foregroundStyle(satisfied ? DS.Color.ink : DS.Color.inkMute)
+            if !required {
+                Text("· recommandé")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.8))
+            }
+            Spacer(minLength: 0)
         }
     }
 

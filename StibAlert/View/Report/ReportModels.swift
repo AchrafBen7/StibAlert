@@ -102,7 +102,7 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         case .breakdown:
             return ["Véhicule bloqué", "Portes ou moteur en panne"]
         case .incivility:
-            return ["Musique ou cris forts", "Portes ou moteur en panne"]
+            return ["Musique ou cris forts", "Comportement gênant répété"]
         case .cleanliness:
             return ["Déchets ou odeur forte", "Sol ou siège très sale"]
         case .aggression:
@@ -159,5 +159,47 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         case .aggression:
             return "Personne violente ou harcèlement observé."
         }
+    }
+
+    // S2/S3 — Sévérité structurée, source de vérité UNIQUE pour le tri des
+    // alertes. Doit rester alignée avec le backend (CRITICAL_INCIDENT_TYPES =
+    // {Accident, Agression} qui bypass les quiet hours → rangs les plus hauts).
+    var severityRank: Int {
+        switch self {
+        case .aggression: return 10
+        case .accident:   return 9
+        case .breakdown:  return 5
+        case .delay:      return 4
+        case .incivility: return 3
+        case .cleanliness: return 2
+        }
+    }
+
+    /// Les types "critiques" qui réveillent l'utilisateur (cohérent avec le
+    /// backend). Sert aussi à afficher un bandeau de responsabilisation dans
+    /// le sheet de signalement.
+    var isCritical: Bool {
+        self == .aggression || self == .accident
+    }
+
+    /// Résout le rang de sévérité depuis le `typeProbleme` brut (String stockée
+    /// côté signalement : "Accident", "Retard"…). Tolérant : accent/casse, et
+    /// quelques libellés officiels STIB ("Travaux", "Interruption"…).
+    static func severityRank(forRawType rawType: String?) -> Int {
+        guard let rawType else { return 0 }
+        let norm = rawType
+            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR"))
+            .lowercased()
+            .trimmingCharacters(in: .whitespaces)
+        if let match = allCases.first(where: {
+            $0.title.folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR")).lowercased() == norm
+        }) {
+            return match.severityRank
+        }
+        // Libellés officiels hors enum communautaire.
+        if norm.contains("interrup") || norm.contains("suspend") { return 9 }
+        if norm.contains("travaux") || norm.contains("devi") { return 6 }
+        if norm.contains("retard") { return 4 }
+        return 1
     }
 }

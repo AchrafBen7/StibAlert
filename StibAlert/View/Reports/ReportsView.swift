@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreLocation
 
 
 struct ReportsView: View {
@@ -1582,17 +1583,56 @@ struct ReportsView: View {
         case .event: score += 1
         }
 
+        // S2/S3 — Base de sévérité STRUCTURÉE via le champ typeProbleme, pas
+        // du matching de texte. Corrige le bug où "Agression" (critique côté
+        // push) finissait en bas du tri faute de mot-clé, et où "tram à
+        // l'arrêt" (Panne) scorait 0. severityRank max = 10 (Agression).
+        // Les events n'ont pas de typeProbleme → ils retombent sur le bonus
+        // mots-clés ci-dessous (texte officiel libre).
+        score += ReportProblemType.severityRank(forRawType: item.report?.typeProbleme)
+
+        // Bonus secondaire mots-clés (pour les events officiels au texte libre
+        // sans typeProbleme exploitable). Volontairement plus faible que la
+        // sévérité structurée.
         let text = "\(item.title) \(item.body ?? "")".lowercased()
-        if text.contains("interrompu") || text.contains("bloqué") || text.contains("accident") {
-            score += 8
+        if text.contains("interrompu") || text.contains("bloqué") || text.contains("agress") {
+            score += 4
         }
         if text.contains("travaux") || text.contains("dévi") || text.contains("retard") {
-            score += 4
+            score += 2
         }
         if item.lines.contains(where: { favoriteLines.contains($0) }) {
             score += 3
         }
+
+        // #5 — La CONFIANCE devient un facteur du tri. À sévérité/récence
+        // égales, un signalement fiable (liveConfidence ~0.9, plusieurs
+        // confirmations, témoin sur place) prime sur un signalement douteux.
+        // liveConfidence ∈ [0,1] → +0 à +6.
+        if let report = item.report {
+            score += Int((report.liveConfidence * 6).rounded())
+        }
+
+        // A4 (#6) — PROXIMITÉ GPS : « ce qui se passe PRÈS de moi d'abord ».
+        // Un incident à 200 m remonte au-dessus d'un incident identique à 5 km.
+        score += proximityBonus(for: item)
         return score
+    }
+
+    /// Bonus de tri selon la distance entre l'utilisateur et le signalement.
+    /// 0 si position/coords indisponibles (n'altère pas l'ordre existant).
+    private func proximityBonus(for item: EditorialFeedItem) -> Int {
+        guard let lat = item.report?.latitude, let lng = item.report?.longitude else { return 0 }
+        let user = locationManager.userCoordinate
+        guard CLLocationCoordinate2DIsValid(user), user.latitude != 0 || user.longitude != 0 else { return 0 }
+        let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
+            .distance(from: CLLocation(latitude: lat, longitude: lng))
+        switch meters {
+        case ..<500: return 6
+        case ..<1500: return 4
+        case ..<4000: return 2
+        default: return 0
+        }
     }
 
     private func communityRankScore(_ item: EditorialFeedItem) -> Int {

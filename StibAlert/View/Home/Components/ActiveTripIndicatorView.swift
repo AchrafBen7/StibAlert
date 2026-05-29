@@ -40,33 +40,38 @@ struct ActiveTripIndicatorView: View {
                 }
             } label: {
                 HStack(spacing: 10) {
-                    // Pulse vert "trip actif"
-                    ZStack {
-                        Circle()
-                            .fill(DS.Color.statusOK.opacity(0.25))
-                            .frame(width: 22, height: 22)
-                            .scaleEffect(pulse ? 1.4 : 0.95)
-                            .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
+                    // ETA pill : clock + minutes en grand bold, signal premier
+                    // que l'utilisateur cherche pendant le trajet.
+                    HStack(spacing: 5) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 11, weight: .black))
+                            .foregroundStyle(DS.Color.primary)
+                        Text("\(summary.totalMinutes) min")
+                            .font(.system(size: 14, weight: .black, design: .rounded))
+                            .foregroundStyle(DS.Color.primary)
                         Circle()
                             .fill(DS.Color.statusOK)
-                            .frame(width: 10, height: 10)
+                            .frame(width: 6, height: 6)
+                            .opacity(pulse ? 1.0 : 0.45)
+                            .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
+                            .padding(.leading, 1)
                     }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(DS.Color.primary.opacity(0.15))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(DS.Color.primary.opacity(0.32), lineWidth: 1)
+                    )
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("En route vers \(summary.destinationName)")
-                            .font(.system(size: 13, weight: .black))
+                        Text("→ \(summary.destinationName)")
+                            .font(.system(size: 12.5, weight: .bold))
                             .foregroundStyle(DS.Color.ink)
                             .lineLimit(1)
-                        HStack(spacing: 6) {
-                            if let firstLine = summary.firstLineCode {
-                                Text("Via ligne \(firstLine)")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(DS.Color.inkMute)
-                                Text("·")
-                                    .foregroundStyle(DS.Color.inkMute.opacity(0.5))
-                            }
-                            Text("\(summary.totalMinutes) min")
-                                .font(.system(size: 11, weight: .semibold))
+                        if let firstLine = summary.firstLineCode {
+                            Text("via ligne \(firstLine)")
+                                .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                     }
@@ -77,8 +82,8 @@ struct ActiveTripIndicatorView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(DS.Color.inkMute)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
             }
             .buttonStyle(.plain)
 
@@ -133,9 +138,9 @@ struct ActiveTripIndicatorView: View {
         .background(DS.Color.paper)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(DS.Color.statusOK.opacity(0.35), lineWidth: 1.2)
+                .stroke(DS.Color.primary.opacity(0.35), lineWidth: 1.2)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: DS.Color.statusOK.opacity(0.15), radius: 8, y: 2)
+        .shadow(color: DS.Color.primary.opacity(0.15), radius: 8, y: 2)
     }
 }

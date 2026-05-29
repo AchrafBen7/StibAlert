@@ -8,6 +8,8 @@ struct AppRoot: View {
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
     @AppStorage(AppStorageKeys.hasAcceptedPrivacyConsent) private var hasAcceptedPrivacyConsent = false
     @AppStorage(AppStorageKeys.privacyConsentVersion) private var privacyConsentVersion = ""
+    /// #3 — debounce de la synchro des favoris multi-opérateurs.
+    @State private var favSyncTask: Task<Void, Never>?
 
     var body: some View {
         content
@@ -40,7 +42,32 @@ struct AppRoot: View {
             }
             .task { await session.bootstrap() }
             .task(id: session.currentUser?.id) {
+                // #3 — Hydrate les favoris multi-opérateurs depuis le serveur
+                // (cross-device) AVANT d'appliquer les prefs onboarding.
+                if let favs = session.currentUser?.operatorFavorites {
+                    OperatorStopFavorites.shared.hydrate(from: favs)
+                    SNCBGareFavorites.shared.hydrate(from: favs)
+                }
                 await applyOnboardingPreferencesIfNeeded()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .operatorFavoritesDidChange)) { _ in
+                // #3 — Pousse les favoris (De Lijn/TEC/SNCB) au serveur, debounce
+                // 0,8 s pour éviter un PATCH par tap rapide. Offline-first :
+                // l'échec réseau ne casse rien (cache local intact).
+                guard let userId = session.currentUser?.id else { return }
+                favSyncTask?.cancel()
+                favSyncTask = Task {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    guard !Task.isCancelled else { return }
+                    let combined = OperatorStopFavorites.shared.snapshotDTO()
+                        + SNCBGareFavorites.shared.snapshotDTO()
+                    if let updated = try? await UtilisateurService.mettreAJourProfil(
+                        userId: userId,
+                        operatorFavorites: combined
+                    ) {
+                        await MainActor.run { session.applyCurrentUserUpdate(updated) }
+                    }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .pushOpened)) { output in
                 handlePush(userInfo: output.userInfo)

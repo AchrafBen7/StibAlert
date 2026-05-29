@@ -35,6 +35,7 @@ struct SignalementDetailView: View {
     @State private var isSubmitting = false
     @State private var feedback: String? = nil
     @State private var reportedFake = false
+    @AppStorage("stib.hasSeenVoteHint.v2") private var hasSeenVoteHint: Bool = false
 
     init(
         signalement: SignalementDTO,
@@ -292,10 +293,16 @@ struct SignalementDetailView: View {
             }
             .padding(.bottom, 10)
 
+            if !hasSeenVoteHint && voteState == .none {
+                voteHintBanner
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             HStack(spacing: 8) {
                 voteButton(
-                    label: "Je confirme",
-                    icon: "arrow.up",
+                    label: "Toujours bloqué",
+                    icon: "mappin.and.ellipse",
                     active: voteState == .up,
                     activeBg: DS.Color.statusOK,
                     activeFg: DS.Color.paper
@@ -304,8 +311,8 @@ struct SignalementDetailView: View {
                 }
 
                 voteButton(
-                    label: "Plus d'actu",
-                    icon: "arrow.down",
+                    label: "C'est rentré dans l'ordre",
+                    icon: "checkmark.seal.fill",
                     active: voteState == .down,
                     activeBg: DS.Color.ink,
                     activeFg: DS.Color.paper
@@ -333,6 +340,41 @@ struct SignalementDetailView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .padding(.top, 16)
+    }
+
+    private var voteHintBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Tu es sur place ?")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("« Toujours bloqué » si le problème dure, « C'est rentré dans l'ordre » s'il est résolu.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { hasSeenVoteHint = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(width: 22, height: 22)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Masquer l'aide")
+        }
+        .padding(10)
+        .background(DS.Color.primary.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                .stroke(DS.Color.primary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
     }
 
     private func voteButton(
@@ -496,6 +538,9 @@ struct SignalementDetailView: View {
         voteState = next
         isVoting = true
         feedback = nil
+        if !hasSeenVoteHint {
+            withAnimation(.easeOut(duration: 0.2)) { hasSeenVoteHint = true }
+        }
         // Community polish — haptic medium au tap pour confirmer
         // l'enregistrement avant le round-trip réseau (l'utilisateur sait
         // immédiatement que son tap est passé, sans attendre le retour
@@ -511,8 +556,8 @@ struct SignalementDetailView: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 if next != .none {
                     feedback = next == .up
-                        ? "Confirmation enregistrée — merci !"
-                        : "Vote enregistré"
+                        ? "Merci, on garde l'alerte active."
+                        : "Merci, on marque la situation comme résolue."
                     // Auto-clear discret après 2.5 s, sans bloquer le user.
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 2_500_000_000)

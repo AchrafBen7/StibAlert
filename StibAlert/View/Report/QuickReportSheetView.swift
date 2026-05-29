@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import UIKit
+import PhotosUI
 
 /// A selectable train at a gare for the SNCB report flow — sourced from live
 /// (iRail) departures when available, else the static schedule.
@@ -22,8 +23,17 @@ struct QuickReportSheetView: View {
 
     @State private var selectedStop: NearbyStop? = nil
     @State private var selectedLine: NearbyIssueLine? = nil
+    // I3 — recherche de ligne quand le stop expose > 4 lignes (Châtelet,
+    // De Brouckère…). En dessous on garde les chips horizontales.
+    @State private var lineSearchQuery: String = ""
     @State private var selectedProblem: ReportProblemType? = nil
     @State private var description: String = ""
+    // S1 — Photo de preuve (optionnelle, fortement encouragée pour Accident /
+    // Propreté / Incivilité). L'API SignalementService.ajouter(photo:) gère
+    // déjà l'upload multipart ; il ne manquait que le picker UI.
+    @State private var selectedPhoto: UIImage? = nil
+    @State private var photoPickerItem: PhotosPickerItem? = nil
+    @State private var isLoadingPhoto = false
     @State private var isSubmitting: Bool = false
     @State private var submitError: String? = nil
     @State private var submitSuccess: Bool = false
@@ -32,6 +42,7 @@ struct QuickReportSheetView: View {
     /// Set once a report is successfully published online — drives the
     /// "avertir vos proches" share prompt before the sheet closes.
     @State private var createdSignalement: SignalementDTO? = nil
+    @State private var lastSubmitHadDescription: Bool = false
     @State private var nearbyStops: [NearbyStop] = []
     @State private var isLoadingStops = false
     @State private var isStopPickerExpanded = false
@@ -71,8 +82,21 @@ struct QuickReportSheetView: View {
     }
 
     private var canSubmit: Bool {
-        selectedStop != nil && selectedLine != nil && selectedProblem != nil && !isSubmitting && !submitSuccess
+        // I8 — Description ENCOURAGÉE mais pas obligatoire pour publier
+        // (réduction friction : 5 étapes → 3 étapes). Le post-card after
+        // submission rappelle "+5 pts si tu décris la prochaine fois".
+        selectedStop != nil
+            && selectedLine != nil
+            && selectedProblem != nil
+            && !isSubmitting
+            && !submitSuccess
     }
+
+    private var trimmedDescription: String {
+        description.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static let recommendedDescriptionLength = 10
 
     private var submitBottomPadding: CGFloat {
         safeBottom + 8
@@ -122,7 +146,10 @@ struct QuickReportSheetView: View {
             Task { await loadSncbTrains() }
         }
         .sheet(item: $createdSignalement) { signalement in
-            ReportSharePromptSheet(signalement: signalement) {
+            ReportSharePromptSheet(
+                signalement: signalement,
+                showDescriptionIncentive: !lastSubmitHadDescription
+            ) {
                 createdSignalement = nil
                 handleClose()
             }
@@ -160,6 +187,7 @@ struct QuickReportSheetView: View {
                             typeSection
                             if selectedProblem != nil {
                                 optionalDescriptionField
+                                photoAttachmentField
                             }
                             if let submitError {
                                 Text(submitError)
@@ -543,15 +571,113 @@ struct QuickReportSheetView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle(icon: "tram.fill", text: "Ligne concernée")
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(stop.issueLines) { line in
-                        lineChip(line)
+            if stop.issueLines.count > 4 {
+                searchableLinePicker(stop)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(stop.issueLines) { line in
+                            lineChip(line)
+                        }
                     }
+                    .padding(.horizontal, 18)
                 }
-                .padding(.horizontal, 18)
             }
         }
+    }
+
+    private func searchableLinePicker(_ stop: NearbyStop) -> some View {
+        let trimmed = lineSearchQuery.trimmingCharacters(in: .whitespaces)
+        let filtered: [NearbyIssueLine] = trimmed.isEmpty
+            ? stop.issueLines
+            : stop.issueLines.filter { line in
+                line.number.localizedCaseInsensitiveContains(trimmed)
+                || line.direction.localizedCaseInsensitiveContains(trimmed)
+            }
+
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                TextField("Filtrer parmi \(stop.issueLines.count) lignes…", text: $lineSearchQuery)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                if !lineSearchQuery.isEmpty {
+                    Button {
+                        lineSearchQuery = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(DS.Color.paper2.opacity(0.5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11)
+                    .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 11))
+            .padding(.horizontal, 18)
+
+            if filtered.isEmpty {
+                Text("Aucune ligne ne correspond.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 6)
+            } else {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 6) {
+                        ForEach(filtered) { line in
+                            lineRow(line)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                }
+                .frame(maxHeight: 230)
+            }
+        }
+    }
+
+    private func lineRow(_ line: NearbyIssueLine) -> some View {
+        let isSelected = selectedLine?.id == line.id
+        return Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selectedLine = line
+        } label: {
+            HStack(spacing: 10) {
+                LineBadge(line: line.number, size: .sm)
+                Text(line.direction)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DS.Color.primary)
+                } else {
+                    Image(systemName: "circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.5))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(isSelected ? DS.Color.primary.opacity(0.08) : DS.Color.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 11)
+                    .stroke(isSelected ? DS.Color.primary.opacity(0.4) : DS.Color.ink.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 11))
+        }
+        .buttonStyle(.plain)
     }
 
     private func lineChip(_ line: NearbyIssueLine) -> some View {
@@ -820,12 +946,17 @@ struct QuickReportSheetView: View {
 
     private var optionalDescriptionField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Description optionnelle")
-                .font(.system(size: 12.5, weight: .bold))
-                .foregroundStyle(DS.Color.ink)
-                .padding(.horizontal, 18)
+            HStack(spacing: 6) {
+                Text("Décris la situation")
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("· +5 pts")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.primary)
+            }
+            .padding(.horizontal, 18)
 
-            TextField("Ex : Tram bloqué depuis 5 min au feu.", text: $description, axis: .vertical)
+            TextField("Ex : Tram bloqué depuis 5 min au feu Bailli, beaucoup de monde sur le quai", text: $description, axis: .vertical)
                 .focused($focusedField, equals: .description)
                 .lineLimit(4...6)
                 .padding(14)
@@ -861,15 +992,134 @@ struct QuickReportSheetView: View {
                 }
 
             HStack {
-                Text("Facultatif")
+                Text(descriptionHelperText)
                     .font(.system(size: 11.5))
-                    .foregroundStyle(DS.Color.inkMute)
+                    .foregroundStyle(descriptionHelperColor)
                 Spacer()
                 Text(descriptionCharacterCountText)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(DS.Color.inkMute)
             }
             .padding(.horizontal, 18)
+        }
+    }
+
+    private var descriptionHelperText: String {
+        if trimmedDescription.isEmpty {
+            return "Optionnel — décrire en 1 ligne rapporte +5 pts à ton score"
+        }
+        let remaining = Self.recommendedDescriptionLength - trimmedDescription.count
+        if remaining > 0 {
+            return remaining == 1
+                ? "Encore 1 caractère pour aider vraiment"
+                : "Encore \(remaining) caractères pour aider vraiment"
+        }
+        return "Merci, ton retour aide tout le monde"
+    }
+
+    private var descriptionHelperColor: Color {
+        trimmedDescription.count >= Self.recommendedDescriptionLength ? DS.Color.primary : DS.Color.inkMute
+    }
+
+    // MARK: - Photo attachment (S1)
+
+    /// Une photo vaut mille votes : preuve directe pour Accident/Propreté/
+    /// Incivilité. Fortement suggérée pour ces types, optionnelle ailleurs.
+    private var photoSuggested: Bool {
+        guard let problem = selectedProblem else { return false }
+        return problem == .accident || problem == .cleanliness || problem == .incivility
+    }
+
+    private var photoAttachmentField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Photo")
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text(photoSuggested ? "· conseillée" : "· optionnelle")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(photoSuggested ? DS.Color.primary : DS.Color.inkMute)
+            }
+            .padding(.horizontal, 18)
+
+            if let selectedPhoto {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: selectedPhoto)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 168)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                        )
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            self.selectedPhoto = nil
+                            photoPickerItem = nil
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(.black.opacity(0.55)))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                    .accessibilityLabel("Retirer la photo")
+                }
+                .padding(.horizontal, 18)
+            } else {
+                PhotosPicker(selection: $photoPickerItem, matching: .images, photoLibrary: .shared()) {
+                    HStack(spacing: 10) {
+                        if isLoadingPhoto {
+                            ProgressView().scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        Text(isLoadingPhoto ? "Chargement…" : "Ajouter une photo")
+                            .font(.system(size: 14, weight: .semibold))
+                        Spacer()
+                        if photoSuggested {
+                            Text("+ crédibilité")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundStyle(DS.Color.primary)
+                        }
+                    }
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(14)
+                    .frame(maxWidth: .infinity)
+                    .background(DS.Color.paper2.opacity(0.35))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(
+                                photoSuggested ? DS.Color.primary.opacity(0.4) : DS.Color.ink.opacity(0.10),
+                                style: StrokeStyle(lineWidth: 1.2, dash: photoSuggested ? [] : [5, 4])
+                            )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 18)
+                .disabled(isLoadingPhoto)
+            }
+        }
+        .onChange(of: photoPickerItem) { _, newItem in
+            guard let newItem else { return }
+            isLoadingPhoto = true
+            Task {
+                defer { Task { @MainActor in isLoadingPhoto = false } }
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.2)) { selectedPhoto = image }
+                    }
+                }
+            }
         }
     }
 
@@ -1057,11 +1307,27 @@ struct QuickReportSheetView: View {
         selectedLine = nil
         selectedProblem = nil
         description = ""
+        selectedPhoto = nil
+        photoPickerItem = nil
         submitError = nil
         isStopPickerExpanded = false
         stopSearchQuery = ""
         sncbTrainOptions = []
         selectedSncbTrain = nil
+    }
+
+    /// S1 — Réduit l'image à `maxDimension` px sur le plus grand côté avant
+    /// upload (économise data + temps serveur). La compression JPEG finale
+    /// est gérée par SignalementService (0.8).
+    private static func downscale(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > maxDimension else { return image }
+        let scale = maxDimension / longest
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 
     /// Loads the selected gare's upcoming trains for the SNCB "Train concerné"
@@ -1108,8 +1374,9 @@ struct QuickReportSheetView: View {
               let problem = selectedProblem
         else { return }
 
-        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
-        var finalDescription = trimmed.count >= 3 ? trimmed : "Signalement rapide — \(problem.title)"
+        let trimmed = trimmedDescription
+        let userDescribed = !trimmed.isEmpty
+        var finalDescription = userDescribed ? trimmed : "Signalement rapide — \(problem.title)"
         // SNCB: fold the chosen train into the description so the report stays
         // tied to a specific departure while `ligne` remains "SNCB".
         if selectedOperator == .sncb, let train = selectedSncbTrain {
@@ -1132,7 +1399,7 @@ struct QuickReportSheetView: View {
                     latitude: reportLatitude,
                     longitude: reportLongitude,
                     transportOperator: selectedOperator.rawValue,
-                    photo: nil
+                    photo: selectedPhoto.map { Self.downscale($0, maxDimension: 1024) }
                 )
                 // Hand the new signalement back to the parent so it can appear
                 // on the map + in the stop detail before the next backend poll.
@@ -1145,6 +1412,7 @@ struct QuickReportSheetView: View {
                 // Let the confetti play, then offer to warn relatives instead
                 // of closing straight away.
                 try? await Task.sleep(nanoseconds: 800_000_000)
+                lastSubmitHadDescription = userDescribed
                 createdSignalement = response.signalement
             } catch {
                 let isNetworkIssue = isNetworkRelated(error)

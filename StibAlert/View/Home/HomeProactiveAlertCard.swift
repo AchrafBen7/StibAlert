@@ -9,6 +9,10 @@ struct HomeProactiveAlertCard: View {
 
     @State private var isSubmittingBlocked = false
     @State private var isSubmittingResolved = false
+    // I2 — auto-collapse 3 s sans interaction + swipe-down to dismiss.
+    @State private var isCollapsed = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var collapseTask: Task<Void, Never>?
 
     private var accent: Color {
         cluster.isOfficial ? DS.Color.danger : SignalVisuals.communityColor(for: cluster)
@@ -22,13 +26,21 @@ struct HomeProactiveAlertCard: View {
         if cluster.isOfficial {
             return "Perturbation sur ta ligne"
         }
-        if cluster.reportCount >= 3 {
-            return "Signalement confirmé"
+        // A1 — titre piloté par le statut de confiance unifié.
+        switch cluster.confidenceStatus {
+        case "confirmed": return "Signalement confirmé"
+        case "likely": return "Signalement probable"
+        default:
+            return cluster.reportCount >= 3 ? "Signalement confirmé" : "Alerte autour de toi"
         }
-        return "Alerte autour de toi"
     }
 
     private var summary: String {
+        // A6 — si l'IA a produit un résumé "wat/waarom/hoelang/wat nu", on
+        // l'affiche tel quel (plus actionnable que "Ligne X · type").
+        if let aiSummary = cluster.summary, !aiSummary.isEmpty {
+            return aiSummary
+        }
         var parts: [String] = []
         parts.append("Ligne \(cluster.ligne)")
         parts.append(cluster.typeProbleme)
@@ -39,6 +51,38 @@ struct HomeProactiveAlertCard: View {
     }
 
     var body: some View {
+        Group {
+            if isCollapsed {
+                collapsedBody
+            } else {
+                expandedBody
+            }
+        }
+        .padding(14)
+        .background(DS.Color.paper)
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(accent)
+                .frame(width: 4)
+                .padding(.vertical, 10)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(DS.Shadow.floating)
+        .offset(y: dragOffset)
+        .opacity(max(0, 1 - Double(dragOffset / 180)))
+        .gesture(dismissDragGesture)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(summary)")
+        .accessibilityHint("Glisse vers le bas pour fermer. Tape pour étendre ou réduire.")
+        .onAppear { scheduleAutoCollapse() }
+        .onDisappear { collapseTask?.cancel() }
+    }
+
+    private var expandedBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 LineBadge(line: cluster.ligne, size: .lg)
@@ -62,7 +106,7 @@ struct HomeProactiveAlertCard: View {
                     Text(verbatim: summary)
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(2)
+                        .lineLimit(3)
                 }
 
                 Spacer(minLength: 8)
@@ -125,22 +169,70 @@ struct HomeProactiveAlertCard: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(14)
-        .background(DS.Color.paper)
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(accent)
-                .frame(width: 4)
-                .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .onTapGesture { resetAutoCollapseTimer() }
+    }
+
+    private var collapsedBody: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                isCollapsed = false
+            }
+            scheduleAutoCollapse()
+        } label: {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(accent)
+                    .frame(width: 8, height: 8)
+                Text("Ligne \(cluster.ligne) · \(cluster.typeProbleme)")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(DS.Shadow.floating)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(summary)")
+        .buttonStyle(.plain)
+    }
+
+    private var dismissDragGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                resetAutoCollapseTimer()
+                dragOffset = max(0, value.translation.height)
+            }
+            .onEnded { value in
+                if value.translation.height > 80 || value.predictedEndTranslation.height > 140 {
+                    withAnimation(.easeIn(duration: 0.18)) {
+                        dragOffset = 240
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onClose()
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        dragOffset = 0
+                    }
+                }
+            }
+    }
+
+    private func scheduleAutoCollapse() {
+        collapseTask?.cancel()
+        guard !isCollapsed else { return }
+        collapseTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
+                isCollapsed = true
+            }
+        }
+    }
+
+    private func resetAutoCollapseTimer() {
+        collapseTask?.cancel()
+        scheduleAutoCollapse()
     }
 
     private func actionButton(

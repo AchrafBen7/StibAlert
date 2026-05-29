@@ -110,7 +110,7 @@ struct FeatureTourView: View {
 
                     Button(action: next) {
                         HStack(spacing: 8) {
-                            Text(pageIndex == pages.count - 1 ? "C'est parti !" : "Suivant")
+                            Text(nextButtonLabel)
                                 .font(.system(size: 16, weight: .bold))
                             Image(systemName: pageIndex == pages.count - 1 ? "checkmark" : "arrow.right")
                                 .font(.system(size: 14, weight: .bold))
@@ -127,6 +127,20 @@ struct FeatureTourView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 22)
+
+                    // I6 — CTA secondaire visible sur la page 1 uniquement :
+                    // permet à l'utilisateur impatient de quitter en 1 tap au
+                    // lieu de devoir swiper 3 cards. Le bouton "Revoir la
+                    // visite" reste accessible depuis Profile pour rejouer.
+                    if pageIndex == 0 {
+                        Button(action: skip) {
+                            Text("Je découvre tout seul")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(DS.Color.inkMute)
+                                .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.bottom, 30)
             }
@@ -198,6 +212,12 @@ struct FeatureTourView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var nextButtonLabel: String {
+        if pageIndex == pages.count - 1 { return "C'est parti !" }
+        if pageIndex == 0 { return "Voir Signaler et Voix" }
+        return "Suivant"
     }
 
     private func next() {

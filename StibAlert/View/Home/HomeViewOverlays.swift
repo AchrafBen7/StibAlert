@@ -154,9 +154,15 @@ extension HomeView {
 
     @ViewBuilder
     var commuteOverlay: some View {
+        // I1 — Pendant les heures de commute matin (5h-9h) ou soir (17h-23h),
+        // la card Commute prime sur la Proactive Alert. Hors de ces fenêtres,
+        // c'est l'inverse (la commute ne devrait même pas s'afficher car
+        // CommuteQuickLaunchCard.shouldShow gère ça). Pendant un trip actif,
+        // la card est masquée — l'indicateur de trip suffit.
         if let user = session.currentUser,
+           !tripTracker.isActive,
            CommuteQuickLaunchCard.shouldShow(routine: user.routine, now: Date()),
-           proactiveAlertCluster == nil,
+           (Self.isCommutePriorityWindow(Date()) || proactiveAlertCluster == nil),
            selectedClusterIndex == nil,
            !nav.showReportSheet,
            routeOptions.isEmpty,
@@ -172,9 +178,19 @@ extension HomeView {
         }
     }
 
+    /// I1 — Fenêtres où la card Commute prend visuellement le pas sur la
+    /// proactive alert (heures de transit domicile-travail Bruxelles).
+    static func isCommutePriorityWindow(_ date: Date) -> Bool {
+        let hour = Calendar.current.component(.hour, from: date)
+        return (5...8).contains(hour) || (17...22).contains(hour)
+    }
+
     @ViewBuilder
     var proactiveAlertOverlay: some View {
         if let cluster = proactiveAlertCluster,
+           !tripTracker.isActive,
+           !(Self.isCommutePriorityWindow(Date())
+             && (session.currentUser?.routine).map { CommuteQuickLaunchCard.shouldShow(routine: $0, now: Date()) } == true),
            selectedClusterIndex == nil,
            !nav.showReportSheet {
             HomeProactiveAlertCard(
@@ -239,7 +255,13 @@ extension HomeView {
             onOpenVoice: openVoiceFromHome,
             onOpenStibAI: openStibAIFromHome,
             onRecenter: recenterFromHome,
-            onSelectTab: selectTab(_:)
+            onSelectTab: selectTab(_:),
+            isGuest: session.isGuest,
+            onCreateAccount: {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                nav.authInitialRoute = .signUp
+                nav.showAuthFlow = true
+            }
         )
     }
 

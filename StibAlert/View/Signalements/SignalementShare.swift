@@ -60,6 +60,10 @@ enum SignalementShare {
 /// partager si tu veux".
 struct ReportSharePromptSheet: View {
     let signalement: SignalementDTO
+    /// I8 — true si l'utilisateur n'a pas saisi de description avant submit.
+    /// On affiche un coach-tip "+5 pts si tu décris la prochaine fois" pour
+    /// renforcer le comportement sans bloquer le flow rapide.
+    var showDescriptionIncentive: Bool = false
     var onFinish: () -> Void
 
     @State private var badgeScale: CGFloat = 0.6
@@ -109,6 +113,11 @@ struct ReportSharePromptSheet: View {
             }
             .padding(.horizontal, 4)
 
+            if showDescriptionIncentive {
+                descriptionIncentiveCard
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // CTA partage
             ShareLink(item: SignalementShare.message(for: signalement)) {
                 HStack(spacing: 10) {
@@ -155,10 +164,39 @@ struct ReportSharePromptSheet: View {
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity)
         .background(DS.Color.paper.ignoresSafeArea())
-        .presentationDetents([.height(440)])
+        .presentationDetents([.height(showDescriptionIncentive ? 540 : 440)])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(false)
         .preferredColorScheme(.light)
+    }
+
+    private var descriptionIncentiveCard: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lightbulb.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Color.primary)
+                .frame(width: 30, height: 30)
+                .background(DS.Color.primary.opacity(0.12))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Astuce dopaminergique")
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                Text("Décrire en 1 ligne (« Bloqué au feu Bailli ») apporte +5 pts à ton score communauté la prochaine fois.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(DS.Color.primary.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(DS.Color.primary.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        .padding(.horizontal, 4)
     }
 
     @ViewBuilder

@@ -19,6 +19,9 @@ struct VoiceOverlay: View {
     /// overlay and shows the route on the map.
     let applyTrip: () -> Void
     let onClose: () -> Void
+    /// N12 — Si le user a refusé l'autorisation micro, on lui propose de
+    /// basculer vers le chat texte STIB·AI sans devoir naviguer manuellement.
+    var onSwitchToText: () -> Void = {}
 
     @StateObject private var voice = VoiceAssistant()
     @StateObject private var player = VoicePlayer()
@@ -139,14 +142,14 @@ struct VoiceOverlay: View {
                 // ChatGPT/Siri: the user instantly knows the mic is hot.
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color(hex: "#FF5A5F"))
+                        .fill(DS.Color.danger)
                         .frame(width: 8, height: 8)
                         .scaleEffect(pulse ? 1.3 : 0.85)
                         .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
                     Text("EN ÉCOUTE")
                         .font(.system(size: 11, weight: .black, design: .monospaced))
                         .tracking(1.5)
-                        .foregroundStyle(Color(hex: "#FF5A5F"))
+                        .foregroundStyle(DS.Color.danger)
                 }
                 if voice.transcript.isEmpty {
                     Text("Vas-y, parle…")
@@ -154,12 +157,17 @@ struct VoiceOverlay: View {
                         .foregroundStyle(.white.opacity(0.55))
                 } else {
                     // Big live transcript — same vibe as ChatGPT's voice mode.
+                    // N11 — minimumScaleFactor + lineLimit 7 + fixedSize pour les
+                    // longues phrases ("Comment je vais de Forest Centenaire vers
+                    // chaussée de Mons en passant par Gare du Midi").
                     Text(voice.transcript)
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 22)
-                        .lineLimit(5)
+                        .lineLimit(7)
+                        .minimumScaleFactor(0.7)
+                        .fixedSize(horizontal: false, vertical: true)
                         .animation(.easeOut(duration: 0.18), value: voice.transcript)
                 }
             }
@@ -208,13 +216,62 @@ struct VoiceOverlay: View {
 
     @ViewBuilder
     private var bottomBar: some View {
+        // N12 — Mic refusé : pas de retry possible, on offre un switch vers
+        // le mode texte (STIBAIView) en 1 tap au lieu de bloquer le user.
+        if micPermissionDenied {
+            VStack(spacing: 10) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    voice.stopListening()
+                    player.stop()
+                    onSwitchToText()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 18, weight: .bold))
+                        Text("Continuer en mode texte")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 60)
+                    .background(DS.Color.info)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Continuer en mode texte avec STIB·AI")
+
+                HStack(spacing: 14) {
+                    secondaryCloseButton
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Régler le micro")
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(Color.white.opacity(0.18))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
         // "Voir la route sur la carte" n'apparaît QUE quand on a réellement
         // décrit un trajet à l'utilisateur (phase = .speaking ET on a un
         // displayReply non vide). Avant on l'affichait dès qu'une destination
         // était détectée → le user voyait le bouton pendant le "Je calcule…"
         // et même quand prepareTrip échouait, sans qu'aucun trajet n'ait
         // été décrit. C'était trompeur.
-        if pendingDestination != nil && phase == .speaking && !displayReply.isEmpty {
+        else if pendingDestination != nil && phase == .speaking && !displayReply.isEmpty {
             VStack(spacing: 10) {
                 Button {
                     // Trip is already planned by prepareTrip during the AI
@@ -234,7 +291,7 @@ struct VoiceOverlay: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
-                    .background(Color(hex: "#5FB8FF"))
+                    .background(DS.Color.info)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -319,7 +376,7 @@ struct VoiceOverlay: View {
     }
 
     private var actionBackground: Color {
-        if hasSpeechReady { return Color(hex: "#5FB8FF") }
+        if hasSpeechReady { return DS.Color.info }
         return .white
     }
 
@@ -332,9 +389,9 @@ struct VoiceOverlay: View {
 
     private var phaseColor: Color {
         switch phase {
-        case .listening: return Color(hex: "#FF5A5F")
-        case .thinking:  return Color(hex: "#FFB85F")
-        case .speaking:  return Color(hex: "#5FB8FF")
+        case .listening: return DS.Color.danger
+        case .thinking:  return DS.Color.warning
+        case .speaking:  return DS.Color.info
         case .error:     return DS.Color.statusMinor
         default:         return Color.white
         }
@@ -362,13 +419,17 @@ struct VoiceOverlay: View {
 
     // MARK: - Flow
 
+    @State private var micPermissionDenied = false
+
     private func start() async {
         let granted = await voice.requestAuthorization()
         guard granted else {
             phase = .error
-            errorText = "Autorise le micro et la reconnaissance vocale dans Réglages pour parler à Mobi."
+            micPermissionDenied = true
+            errorText = L10n.Voice.micDeniedMessage
             return
         }
+        micPermissionDenied = false
         beginListening()
     }
 
@@ -566,12 +627,12 @@ struct MapVoiceFloatingButton: View {
                 .frame(width: 46, height: 46)
                 .background(
                     Circle().fill(LinearGradient(
-                        colors: [Color(hex: "#FF5A5F"), Color(hex: "#D63A3F")],
+                        colors: [DS.Color.danger, DS.Color.danger.opacity(0.78)],
                         startPoint: .top, endPoint: .bottom
                     ))
                 )
                 .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
-                .shadow(color: Color(hex: "#FF5A5F").opacity(0.30), radius: 6, y: 2)
+                .shadow(color: DS.Color.danger.opacity(0.30), radius: 6, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Parler à Mobi")

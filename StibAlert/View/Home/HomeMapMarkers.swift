@@ -175,6 +175,10 @@ struct HomeStopMarker: View {
     /// Saved favourite — drives the star badge + slightly larger marker so the
     /// user spots their stops at a glance.
     var isFavorite: Bool = false
+    /// True while HomeView is fetching the stop detail — drives the pulse
+    /// halo so the user gets visual feedback during the ~2 s round-trip.
+    var isLoading: Bool = false
+    @State private var pulseAnimating = false
 
     /// De-duplicated, normalised line list. Cap at 5 visible circles +
     /// "+N" suffix so a busy hub like Châtelet doesn't spawn a marker
@@ -257,9 +261,29 @@ struct HomeStopMarker: View {
             }
         }
         .scaleEffect(isSelected ? 1.18 : (isFavorite ? 1.12 : 1))
+        .background(loadingPulse)
         .accessibilityElement()
         .accessibilityLabel("Arrêt \(stop.name)\(isFavorite ? ", favori" : "")")
         .accessibilityHint("Ouvre les détails et prochains passages")
+        .onChange(of: isLoading) { _, newValue in
+            if newValue { pulseAnimating = true } else { pulseAnimating = false }
+        }
+    }
+
+    @ViewBuilder
+    private var loadingPulse: some View {
+        if isLoading {
+            Capsule()
+                .stroke(DS.Color.primary.opacity(0.55), lineWidth: 2)
+                .scaleEffect(pulseAnimating ? 1.45 : 1.0)
+                .opacity(pulseAnimating ? 0 : 0.85)
+                .animation(
+                    .easeOut(duration: 0.9).repeatForever(autoreverses: false),
+                    value: pulseAnimating
+                )
+                .onAppear { pulseAnimating = true }
+                .allowsHitTesting(false)
+        }
     }
 
     private func lineDot(_ line: String) -> some View {

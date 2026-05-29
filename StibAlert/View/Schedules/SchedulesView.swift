@@ -113,7 +113,10 @@ struct SchedulesView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let loadError {
+        } else if let loadError, allLines.isEmpty {
+            // N9 — Full blank state seulement si on n'avait JAMAIS chargé les
+            // lignes. Si on en avait en cache, on garde l'affichage et on met
+            // un banner soft (cf. cacheFallbackBanner ci-dessous).
             VStack(spacing: 12) {
                 Spacer().frame(height: 60)
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -132,7 +135,7 @@ struct SchedulesView: View {
             }
             .padding(.horizontal, 24)
         } else if groupedLines.isEmpty {
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Spacer().frame(height: 60)
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 22))
@@ -140,11 +143,39 @@ struct SchedulesView: View {
                 Text("Aucune ligne trouvée")
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
+                Text("Réinitialise la recherche pour voir toutes les lignes \(selectedOperator.shortName).")
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.easeOut(duration: 0.18)) { searchQuery = "" }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Voir toutes les lignes")
+                            .font(DS.Font.bodyBold)
+                    }
+                    .foregroundStyle(DS.Color.primaryForeground)
+                    .padding(.horizontal, 16)
+                    .frame(height: 44)
+                    .background(DS.Color.primary)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
                 Spacer()
             }
         } else {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    // N9 — Banner soft quand on a échoué à rafraîchir mais
+                    // qu'on garde un cache utilisable. Pas de full blank state.
+                    if loadError != nil {
+                        cacheFallbackBanner
+                    }
                     ForEach(Array(groupedLines.enumerated()), id: \.offset) { _, group in
                         section(for: group.mode, lines: group.lines)
                     }
@@ -157,6 +188,44 @@ struct SchedulesView: View {
                 LigneDetailPage(lineId: lineId)
             }
         }
+    }
+
+    private var cacheFallbackBanner: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Task { await loadLines() }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMinor)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Connexion limitée")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text("Données en cache · Tape pour réessayer")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                Spacer(minLength: 0)
+                if isLoading {
+                    ProgressView().tint(DS.Color.inkMute).scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(DS.Color.statusMinor.opacity(0.10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(DS.Color.statusMinor.opacity(0.35), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 
     private var sncbContent: some View {

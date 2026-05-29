@@ -111,6 +111,10 @@ struct ClusterDTO: Codable, Identifiable, Hashable {
     let reportCount: Int
     let aggregateTrust: Double
     let confidence: ClusterConfidence
+    // A1 / A6 — score unifié 0–1, statut (confirmed/likely/unverified), résumé IA.
+    let confidenceScore: Double?
+    let confidenceStatus: String?
+    let summary: String?
     let stillBlockedConfirmationCount: Int
     let resolveConfirmationCount: Int
     let resolved: Bool
@@ -122,6 +126,16 @@ struct ClusterDTO: Codable, Identifiable, Hashable {
     let position: ClusterPosition?
 
     var id: Int { clusterIndex }
+
+    /// Libellé FR du statut de confiance unifié.
+    var confidenceStatusLabel: String? {
+        switch confidenceStatus {
+        case "confirmed": return "Confirmé"
+        case "likely": return "Probable"
+        case "unverified": return "À vérifier"
+        default: return nil
+        }
+    }
 
     var latitude: Double? { position?.lat }
     var longitude: Double? { position?.lng }
@@ -146,6 +160,9 @@ struct ClusterDetailDTO: Decodable {
     let reportCount: Int
     let aggregateTrust: Double
     let confidence: ClusterConfidence
+    let confidenceScore: Double?
+    let confidenceStatus: String?
+    let summary: String?
     let stillBlockedConfirmationCount: Int
     let resolveConfirmationCount: Int
     let resolved: Bool
