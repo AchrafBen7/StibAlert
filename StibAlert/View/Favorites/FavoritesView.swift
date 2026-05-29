@@ -445,7 +445,19 @@ struct FavoritesView: View {
             remoteItems = []
             return
         }
-        remoteItems = mapFavoriteItems(from: user.favorisDetails ?? [], fallbackStops: user.favorisDetails ?? [])
+        // C5 — Avant : from: et fallbackStops: étaient le MÊME tableau, le
+        // fallback ne pouvait jamais aider. Maintenant : si favorisDetails
+        // est vide (cas réel quand le sync n'est pas encore arrivé) on garde
+        // les items déjà mappés en local plutôt que de passer à un tableau
+        // vide qui faisait disparaître les favoris pendant le re-fetch.
+        let fresh = user.favorisDetails ?? []
+        let existing = remoteItems
+        if fresh.isEmpty && !existing.isEmpty {
+            // Pas de payload neuf, on garde l'état UI courant — évite le
+            // flash "tu n'as pas de favoris" pendant 100-200 ms.
+            return
+        }
+        remoteItems = mapFavoriteItems(from: fresh, fallbackStops: fresh)
     }
 
     private func resolvedFavoriteDetails(
@@ -509,12 +521,24 @@ struct FavoritesView: View {
 
     private func removeFavori(_ item: FavoriteTransitItem) async {
         guard let userId = session.currentUser?.id, let stopId = item.stopBackendId else { return }
+        // C4 — Optimistic remove avec snapshot avant pour revert rapide en
+        // cas d'erreur. Avant : optimistic remove → en cas d'erreur on faisait
+        // un loadFavoris() (full re-fetch). Maintenant on conserve l'item et
+        // sa position pour le restaurer instantanément si l'API rate, sans
+        // round-trip réseau supplémentaire. Si loadFavoris() ratait aussi,
+        // l'item restait définitivement absent de l'UI alors qu'il existait
+        // en backend.
+        let snapshot = remoteItems
         remoteItems.removeAll { $0.stopBackendId == stopId }
         do {
             _ = try await UtilisateurService.toggleFavori(userId: userId, arretId: stopId)
             await session.refreshCurrentUser()
         } catch {
-            await loadFavoris()
+            // Restore l'état exact d'avant le tap pour rester en sync visuel
+            // avec le backend qui n'a pas changé. Puis re-tente un sync
+            // léger en background pour rattraper.
+            remoteItems = snapshot
+            Task { await loadFavoris() }
         }
     }
 

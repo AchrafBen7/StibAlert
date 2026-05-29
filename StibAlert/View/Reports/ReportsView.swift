@@ -1279,11 +1279,17 @@ struct ReportsView: View {
             async let officialResponse = SignalementService.liste(page: 1, limit: 100, source: "official")
             let mixed = try await mixedResponse
             let official = try await officialResponse
-            var seenReportIds = Set<String>()
-            let merged = (mixed.signalements + official.signalements).filter { report in
-                seenReportIds.insert(report.id).inserted
+            // C6 — dedup robuste : on construit le merge en gardant en
+            // PRIORITÉ le mixed (qui a les votes + champs communauté à
+            // jour) en cas de collision sur report.id. Avant : ordre
+            // d'insertion arbitraire (mixed gagnait par hasard puisque
+            // mixed est en premier dans le `+`). Maintenant explicite.
+            var byId: [String: SignalementDTO] = [:]
+            for report in mixed.signalements { byId[report.id] = report }
+            for report in official.signalements where byId[report.id] == nil {
+                byId[report.id] = report
             }
-            reports = merged.sorted {
+            reports = byId.values.sorted {
                 ($0.dateSignalement ?? .distantPast) > ($1.dateSignalement ?? .distantPast)
             }
             if !availableLineFilters.contains(selectedLineFilter) {

@@ -193,8 +193,15 @@ struct HomeView: View {
         let normalized = selectedStopLineNumber.map(normalizedLineNumber)
         return filteredSignalements.compactMap { s in
             guard let lat = s.latitude, let lng = s.longitude else { return nil }
-            // Focus mode: keep only the signalements about the focused line.
-            if let normalized, normalizedLineNumber(s.ligne) != normalized {
+            // C3 — Focus mode : on ne filtre PAS les signalements OFFICIELS
+            // STIB (source == stib_officiel) car ce sont des perturbations
+            // autoritaires (grèves, accidents majeurs) que l'utilisateur DOIT
+            // voir même en focus mode. Avant : un signalement officiel sur
+            // une autre ligne disparaissait silencieusement → l'utilisateur
+            // croyait "tout va bien" alors qu'une grève bloquait le réseau.
+            let isOfficial = s.source?.lowercased() == "stib_officiel"
+            if let normalized, !isOfficial,
+               normalizedLineNumber(s.ligne) != normalized {
                 return nil
             }
             return LiveSignalPoint(
@@ -1198,6 +1205,7 @@ struct HomeView: View {
             onOpenStopPreview: openStopPreview(for:),
             onSelectCluster: { cluster in
                 withAnimation(transitionSpring) {
+                    dismissOtherBottomDetails(except: .cluster)
                     selectedClusterIndex = cluster.clusterIndex
                 }
             },
@@ -1205,20 +1213,25 @@ struct HomeView: View {
                 zoomCameraIn(to: center, factor: 0.4)
             },
             onSelectSncbStation: { station in
+                dismissOtherBottomDetails(except: .sncbStation)
                 selectedSncbStation = station
             },
             onSelectOperatorStop: { stop in
+                dismissOtherBottomDetails(except: .operatorStop)
                 selectedOperatorStop = stop
             },
             onSelectVilloStation: { station in
+                dismissOtherBottomDetails(except: .villoStation)
                 selectedVilloStation = station
             },
             onSelectEventImpact: { event in
+                dismissOtherBottomDetails(except: .eventImpact)
                 selectedEventImpact = event
             },
             onSelectVehicle: { vehicle in
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                    dismissOtherBottomDetails(except: .vehicle)
                     selectedVehicle = vehicle
                 }
             },
@@ -3055,6 +3068,26 @@ struct HomeView: View {
     /// Pas de nouveau code routing. Si la résolution rate (stop archivé,
     /// backend down), on ne fait rien — l'utilisateur retentera ou
     /// passera par le planner.
+    /// C1 — Mutex sur les bottom sheets. Avant : 4 states indépendants (cluster,
+    /// vehicle, signalement preview, operator stop, sncb station, villo,
+    /// event impact) pouvaient être set en même temps → 2+ overlays bottom
+    /// rendus l'un par-dessus l'autre sans dismiss. Maintenant on appelle ce
+    /// helper avant chaque "présentation" pour clear le reste.
+    @MainActor
+    func dismissOtherBottomDetails(except: BottomDetailKind) {
+        if except != .signalementPreview { selectedSignalementPreview = nil }
+        if except != .cluster { selectedClusterIndex = nil }
+        if except != .vehicle { selectedVehicle = nil }
+        if except != .operatorStop { selectedOperatorStop = nil }
+        if except != .sncbStation { selectedSncbStation = nil }
+        if except != .villoStation { selectedVilloStation = nil }
+        if except != .eventImpact { selectedEventImpact = nil }
+    }
+
+    enum BottomDetailKind {
+        case signalementPreview, cluster, vehicle, operatorStop, sncbStation, villoStation, eventImpact
+    }
+
     @MainActor
     func launchCommute(direction: CommuteQuickLaunchCard.Direction, routine: CommuteRoutineDTO) async {
         let (originId, destinationId, originName, destinationName) = direction == .toWork
