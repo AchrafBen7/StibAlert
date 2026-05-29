@@ -10,6 +10,9 @@ struct AppRoot: View {
     @AppStorage(AppStorageKeys.privacyConsentVersion) private var privacyConsentVersion = ""
     /// #3 — debounce de la synchro des favoris multi-opérateurs.
     @State private var favSyncTask: Task<Void, Never>?
+    /// B4 — true une fois qu'on a adopté/seedé l'état serveur des favoris
+    /// (évite d'effacer les favoris locaux d'un compte legacy au 1er run).
+    @AppStorage("operatorFavoritesServerSynced") private var operatorFavoritesServerSynced = false
 
     var body: some View {
         content
@@ -42,11 +45,27 @@ struct AppRoot: View {
             }
             .task { await session.bootstrap() }
             .task(id: session.currentUser?.id) {
-                // #3 — Hydrate les favoris multi-opérateurs depuis le serveur
-                // (cross-device) AVANT d'appliquer les prefs onboarding.
-                if let favs = session.currentUser?.operatorFavorites {
-                    OperatorStopFavorites.shared.hydrate(from: favs)
-                    SNCBGareFavorites.shared.hydrate(from: favs)
+                // B4 — Favoris multi-opérateurs : le serveur est AUTORITAIRE
+                // (remplace le cache local) pour que les suppressions se
+                // propagent cross-device. Garde anti-wipe : si on n'a jamais
+                // synchronisé ET que le serveur est vide mais qu'on a des
+                // favoris locaux (compte legacy), on SEED le serveur depuis le
+                // local au lieu d'effacer.
+                if session.currentUser != nil {
+                    let serverFavs = session.currentUser?.operatorFavorites ?? []
+                    if operatorFavoritesServerSynced || !serverFavs.isEmpty {
+                        OperatorStopFavorites.shared.replaceFromServer(serverFavs)
+                        SNCBGareFavorites.shared.replaceFromServer(serverFavs)
+                        operatorFavoritesServerSynced = true
+                    } else {
+                        // 1er run, serveur vide : seed depuis le local s'il existe.
+                        operatorFavoritesServerSynced = true
+                        let localCombined = OperatorStopFavorites.shared.snapshotDTO()
+                            + SNCBGareFavorites.shared.snapshotDTO()
+                        if !localCombined.isEmpty {
+                            NotificationCenter.default.post(name: .operatorFavoritesDidChange, object: nil)
+                        }
+                    }
                 }
                 await applyOnboardingPreferencesIfNeeded()
             }

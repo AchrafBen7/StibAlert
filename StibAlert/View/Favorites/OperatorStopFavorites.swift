@@ -73,24 +73,20 @@ final class OperatorStopFavorites: ObservableObject {
         stops.map { OperatorFavoriteDTO(op: $0.op, stopId: $0.stopId, name: $0.name, lat: $0.lat, lng: $0.lng) }
     }
 
-    /// Fusionne les favoris serveur (De Lijn/TEC) avec le cache local — union,
-    /// le serveur fait autorité sur la présence. N'émet pas de notif (évite la
-    /// boucle de synchro).
-    func hydrate(from serverFavorites: [OperatorFavoriteDTO]) {
+    /// B4 — Le serveur est AUTORITAIRE : on REMPLACE le cache local De Lijn/TEC
+    /// par l'état serveur (au lieu d'unir). Sinon une suppression sur un device
+    /// ressuscitait depuis le cache d'un autre device. N'émet pas de notif.
+    func replaceFromServer(_ serverFavorites: [OperatorFavoriteDTO]) {
         let incoming = serverFavorites
             .filter { $0.op == "delijn" || $0.op == "tec" }
             .compactMap { dto -> FavoriteOperatorStop? in
                 guard let lat = dto.lat, let lng = dto.lng else { return nil }
                 return FavoriteOperatorStop(op: dto.op, stopId: dto.stopId, name: dto.name ?? "Arrêt", lat: lat, lng: lng)
             }
-        guard !incoming.isEmpty || !stops.isEmpty else { return }
-        var merged: [String: FavoriteOperatorStop] = [:]
-        for s in stops { merged[s.id] = s }
-        for s in incoming { merged[s.id] = s }
-        let newStops = Array(merged.values)
-        guard newStops.count != stops.count || Set(newStops.map(\.id)) != Set(stops.map(\.id)) else { return }
+        // No-op si déjà identique (évite un re-render inutile).
+        guard Set(incoming.map(\.id)) != Set(stops.map(\.id)) else { return }
         isHydrating = true
-        stops = newStops
+        stops = incoming
         if let data = try? JSONEncoder().encode(stops) {
             UserDefaults.standard.set(data, forKey: defaultsKey)
         }

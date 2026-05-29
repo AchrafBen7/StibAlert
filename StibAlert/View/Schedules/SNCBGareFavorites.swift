@@ -49,14 +49,13 @@ final class SNCBGareFavorites: ObservableObject {
         }
     }
 
-    /// Fusionne les gares favorites serveur avec le cache local (union).
-    func hydrate(from serverFavorites: [OperatorFavoriteDTO]) {
+    /// B4 — Serveur AUTORITAIRE : on REMPLACE les gares favorites locales par
+    /// l'état serveur (au lieu d'unir) pour que les suppressions se propagent.
+    func replaceFromServer(_ serverFavorites: [OperatorFavoriteDTO]) {
         let incoming = Set(serverFavorites.filter { $0.op == "sncb" }.map(\.stopId)).filter { !$0.isEmpty }
-        guard !incoming.isEmpty else { return }
-        let merged = ids.union(incoming)
-        guard merged != ids else { return }
+        guard incoming != ids else { return }
         isHydrating = true
-        ids = merged
+        ids = incoming
         UserDefaults.standard.set(Array(ids), forKey: defaultsKey)
         isHydrating = false
     }
