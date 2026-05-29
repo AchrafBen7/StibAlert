@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import PhotosUI
 
 struct ProfileView: View {
     @EnvironmentObject private var nav: AppNavigation
@@ -21,6 +22,10 @@ struct ProfileView: View {
     @State private var showDeleteConfirm = false
     @State private var isWorkingOnAccount = false
     @State private var accountActionError: String?
+    // P10 — avatar upload
+    @State private var pickedItem: PhotosPickerItem?
+    @State private var isUploadingAvatar = false
+    @State private var avatarError: String?
     @State private var preTripPushEnabled = true
     @State private var communityClusterPushEnabled = true
     @State private var mercisPushEnabled = true
@@ -90,6 +95,11 @@ struct ProfileView: View {
         }
         .onChange(of: pushNotificationsEnabled) { _, newValue in
             Task { await persistNotificationsIfNeeded(newValue) }
+        }
+        // P10 — déclenchement upload avatar à la sélection PhotosPicker.
+        .onChange(of: pickedItem) { _, item in
+            guard let item else { return }
+            Task { await uploadPickedAvatar(item) }
         }
         .onChange(of: preTripPushEnabled) { _, newValue in
             Task { await persistPushPreference(preTrip: newValue) }
@@ -410,13 +420,51 @@ struct ProfileView: View {
     private var identityCard: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(DS.Color.ink)
-                    Text(profileInitial)
-                        .font(DS.Font.monoLarge.weight(.bold))
-                        .foregroundColor(DS.Color.paper)
+                // P10 — Avatar circulaire. PhotosPicker au tap, AsyncImage
+                // si photoProfil présent, sinon initiale du prénom. Overlay
+                // discret stylet quand pas d'avatar pour indiquer "tap to
+                // change". Spinner pendant l'upload.
+                PhotosPicker(selection: $pickedItem, matching: .images, photoLibrary: .shared()) {
+                    ZStack {
+                        if let urlString = session.currentUser?.photoProfil,
+                           let url = URL(string: urlString) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let img):
+                                    img.resizable().scaledToFill()
+                                default:
+                                    Circle().fill(DS.Color.ink)
+                                    Text(profileInitial)
+                                        .font(DS.Font.monoLarge.weight(.bold))
+                                        .foregroundColor(DS.Color.paper)
+                                }
+                            }
+                        } else {
+                            Circle().fill(DS.Color.ink)
+                            Text(profileInitial)
+                                .font(DS.Font.monoLarge.weight(.bold))
+                                .foregroundColor(DS.Color.paper)
+                        }
+                        if isUploadingAvatar {
+                            Color.black.opacity(0.45)
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.85)
+                        }
+                    }
+                    .frame(width: 48, height: 48)
+                    .clipShape(Circle())
+                    .overlay(
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(DS.Color.primary)
+                            .background(Circle().fill(DS.Color.paper))
+                            .offset(x: 18, y: 18)
+                            .opacity(session.currentUser?.photoProfil == nil ? 1 : 0)
+                    )
                 }
-                .frame(width: 48, height: 48)
+                .buttonStyle(.plain)
+                .disabled(isUploadingAvatar)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayProfileName)
@@ -426,12 +474,16 @@ struct ProfileView: View {
                         .font(DS.Font.monoSmall)
                         .tracking(1.2)
                         .foregroundColor(DS.Color.inkMute)
+                    if let avatarError {
+                        Text(avatarError)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(DS.Color.statusMajor)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()
-                // P7 : bouton "Modifier" SUPPRIMÉ — 3e entrée vers le même
-                // sous-page Compte. On garde l'entrée "Mon compte" dans le
-                // groupe Préférences plus bas, c'est suffisant.
+                // P7 : bouton "Modifier" SUPPRIMÉ.
             }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -678,6 +730,34 @@ struct ProfileView: View {
             }
         } message: {
             Text("Cette action est IRRÉVERSIBLE. Toutes tes données (profil, signalements, favoris) seront supprimées de nos serveurs sous 30 jours conformément au RGPD.")
+        }
+    }
+
+    @MainActor
+    private func uploadPickedAvatar(_ item: PhotosPickerItem) async {
+        avatarError = nil
+        // Charge en Data depuis PhotosPickerItem (peut être HEIC, JPEG, PNG…)
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            avatarError = "Impossible de lire l'image."
+            pickedItem = nil
+            return
+        }
+        isUploadingAvatar = true
+        defer {
+            isUploadingAvatar = false
+            pickedItem = nil
+        }
+        do {
+            _ = try await AvatarService.upload(image)
+            // Refresh session pour récupérer le user à jour (avec nouvelle
+            // photoProfil URL Cloudinary) → AsyncImage se rafraîchit
+            // automatiquement parce qu'on observe session.currentUser?.photoProfil.
+            await session.refreshCurrentUser()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } catch {
+            avatarError = (error as? LocalizedError)?.errorDescription
+                ?? "Upload impossible."
         }
     }
 
