@@ -82,10 +82,14 @@ struct HomeView: View {
     @State private var mapStopDetailError: String?
     @State private var eventImpacts: [TransportEventImpactDTO] = []
     @State private var selectedEventImpact: TransportEventImpactDTO?
-    @State private var showVilloStations = true
-    @State private var showEventImpacts = true
-    @State private var showStibStops = true
-    @State private var showSncbStations = true
+    // S1 — Toggles persistants via @AppStorage. Avant : @State remis à
+    // true à chaque mount de HomeView → user qui décochait Villo se
+    // retrouvait avec Villo affiché à la prochaine session. Désormais
+    // mémorisé entre les launches.
+    @AppStorage(AppStorageKeys.mapLayerShowVilloStations) private var showVilloStations = true
+    @AppStorage(AppStorageKeys.mapLayerShowEventImpacts) private var showEventImpacts = true
+    @AppStorage(AppStorageKeys.mapLayerShowStibStops) private var showStibStops = true
+    @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
     @State private var problemFilter: ReportProblemType? = nil
@@ -110,8 +114,8 @@ struct HomeView: View {
     @State private var operatorStopsTask: Task<Void, Never>? = nil
     @State private var lastOperatorStopsCoordinate: CLLocationCoordinate2D? = nil
     @State private var selectedOperatorStop: OperatorMapStop? = nil
-    @State private var showDelijnStops = true
-    @State private var showTecStops = true
+    @AppStorage(AppStorageKeys.mapLayerShowDelijnStops) private var showDelijnStops = true
+    @AppStorage(AppStorageKeys.mapLayerShowTecStops) private var showTecStops = true
     @State private var interactionMode: InteractionMode = .map
 
     @State private var activeClusters: [ClusterDTO] = []
@@ -628,7 +632,12 @@ struct HomeView: View {
 
     private var mapEventImpacts: [TransportEventImpactDTO] {
         guard !isFocusModeActive else { return [] }
-        guard showEventImpacts, cameraLatitudeDelta <= 0.14 else { return [] }
+        // S2 — gate resserré de 0.14 → 0.07 : à zoom moyen (0.05-0.07) les
+        // événements (concerts, matchs) se mélangeaient aux stops STIB et
+        // signalements. À 0.07 et en dessous (vue Bruxelles centre), ils
+        // restent visibles ; au-delà ils disparaissent au profit de la
+        // hiérarchie réseau.
+        guard showEventImpacts, cameraLatitudeDelta <= 0.07 else { return [] }
         return eventImpacts
             .filter(isRelevantMapEvent(_:))
             .filter { $0.latitude != nil && $0.longitude != nil }
@@ -1362,6 +1371,8 @@ struct HomeView: View {
             MapLegendOverlay(
                 showStibStops: $showStibStops,
                 showSncbStations: $showSncbStations,
+                showDelijnStops: $showDelijnStops,
+                showTecStops: $showTecStops,
                 showVilloStations: $showVilloStations,
                 showEventImpacts: $showEventImpacts
             ) {

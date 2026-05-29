@@ -6,6 +6,8 @@ import SwiftUI
 struct MapLegendOverlay: View {
     @Binding var showStibStops: Bool
     @Binding var showSncbStations: Bool
+    @Binding var showDelijnStops: Bool
+    @Binding var showTecStops: Bool
     @Binding var showVilloStations: Bool
     @Binding var showEventImpacts: Bool
     let onDismiss: () -> Void
@@ -22,12 +24,19 @@ struct MapLegendOverlay: View {
                 legendSubheader("OPÉRATEURS")
                 operatorToggleRow(asset: "operator-stib", title: "STIB-MIVB", isOn: $showStibStops)
                 operatorToggleRow(asset: "operator-sncb", title: "SNCB", isOn: $showSncbStations)
-                operatorDisabledRow(asset: "operator-delijn", title: "De Lijn")
-                operatorDisabledRow(asset: "operator-tec", title: "TEC")
+                // S1 — De Lijn / TEC activés maintenant que le live multi-op
+                // marche (commits c42fb27 De Lijn live + 0ae65db TEC live).
+                operatorToggleRow(asset: "operator-delijn", title: "De Lijn", isOn: $showDelijnStops)
+                operatorToggleRow(asset: "operator-tec", title: "TEC", isOn: $showTecStops)
 
                 legendSubheader("AUTRES")
                 iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)
                 iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: "Évènements", isOn: $showEventImpacts)
+
+                // S4 — Preset rapide "Vue épurée" : cache Villo + événements
+                // + véhicules pour ne garder que STIB + SNCB + perturbations.
+                // Réduit la saturation visuelle de ~63 marqueurs à ~40.
+                cleanViewPresetRow
             }
             .frame(width: 268, alignment: .leading)
             .background(DS.Color.paper)
@@ -81,6 +90,48 @@ struct MapLegendOverlay: View {
                 titleColor: isOn.wrappedValue ? DS.Color.ink : DS.Color.inkMute,
                 trailing: AnyView(toggleIndicator(isOn: isOn.wrappedValue))
             )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cleanViewPresetRow: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            // Toggle binaire : si déjà épuré, on remet tout. Sinon on épure.
+            let isCurrentlyClean = !showVilloStations && !showEventImpacts
+            withAnimation(.easeOut(duration: 0.2)) {
+                if isCurrentlyClean {
+                    showVilloStations = true
+                    showEventImpacts = true
+                } else {
+                    showVilloStations = false
+                    showEventImpacts = false
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(DS.Color.accentForeground)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(DS.Color.accent))
+                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Vue épurée")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text("Cache Villo + événements")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                Spacer()
+                Image(systemName: (!showVilloStations && !showEventImpacts) ? "checkmark.circle.fill" : "arrow.right.circle")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle((!showVilloStations && !showEventImpacts) ? DS.Color.statusOK : DS.Color.ink.opacity(0.4))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(DS.Color.paper2.opacity(0.6))
         }
         .buttonStyle(.plain)
     }

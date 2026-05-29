@@ -30,12 +30,12 @@ enum MapSignalClusterer {
     static func cluster(points: [Input], latitudeDelta: Double) -> [MapSignalCluster] {
         guard !points.isEmpty else { return [] }
 
-        // At tight zoom (≤ ~2 km view), bypass clustering entirely — return
-        // every point as its own singleton marker. Users associate numeric
-        // "N" pins with "many things grouped because I'm zoomed out": showing
-        // a "2" cluster on top of a single stop marker at street level was
-        // visually misleading.
-        if latitudeDelta <= 0.02 {
+        // S3 — Bypass clustering désormais à 0.018 au lieu de 0.02.
+        // Une zone de transition 0.018-0.025 (en dessous) utilise un
+        // cellSize très petit pour faire fondre les clusters progressivement
+        // en singletons au lieu de tout faire "exploser" d'un coup quand on
+        // passait la barre 0.02 (effet visuel jarring rapporté en audit).
+        if latitudeDelta <= 0.018 {
             return points.map { point in
                 MapSignalCluster(
                     id: point.id,
@@ -49,9 +49,18 @@ enum MapSignalClusterer {
             }
         }
 
-        // Aggressive grid: latDelta/5 gives ~3km cells at city view, ~150m at
-        // street view, so pins stop merging only once the user is in detail.
-        let cellSize = max(0.0005, latitudeDelta / 5)
+        // S3 — Transition douce entre 0.018 et 0.025 : cellSize linéaire
+        // entre 80m (à 0.018, juste au-dessus de la zone singleton) et
+        // ~280m (à 0.025). Les pins ne se mergent qu'à très très petite
+        // distance dans cette zone. Au-dessus de 0.025 on garde la formule
+        // latDelta/5 qui donne ~3km à city view.
+        let cellSize: Double
+        if latitudeDelta <= 0.025 {
+            let progress = (latitudeDelta - 0.018) / 0.007 // 0..1
+            cellSize = 0.0008 + progress * 0.0020 // 80m -> 280m
+        } else {
+            cellSize = max(0.0005, latitudeDelta / 5)
+        }
 
         var buckets: [String: [Input]] = [:]
         for point in points {

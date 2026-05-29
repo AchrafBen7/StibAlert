@@ -16,6 +16,16 @@ enum AppStorageKeys {
     static let onboardingLastAppliedUserId = "onboardingLastAppliedUserId"
     static let onboardingPendingPushPermission = "onboardingPendingPushPermission"
 
+    // Calques de la carte — préférences persistantes pour que l'utilisateur
+    // n'ait pas à re-décocher Villo/SNCB à chaque ouverture de l'app. Default
+    // true (tous visibles) pour ne pas dérouter au 1er lancement.
+    static let mapLayerShowStibStops = "mapLayerShowStibStops"
+    static let mapLayerShowSncbStations = "mapLayerShowSncbStations"
+    static let mapLayerShowVilloStations = "mapLayerShowVilloStations"
+    static let mapLayerShowEventImpacts = "mapLayerShowEventImpacts"
+    static let mapLayerShowDelijnStops = "mapLayerShowDelijnStops"
+    static let mapLayerShowTecStops = "mapLayerShowTecStops"
+
     // RGPD / Privacy consent
     static let hasAcceptedPrivacyConsent = "hasAcceptedPrivacyConsent"
     static let privacyConsentAcceptedAt = "privacyConsentAcceptedAt"
