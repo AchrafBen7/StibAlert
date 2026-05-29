@@ -42,7 +42,10 @@ struct SchedulesView: View {
             .onChange(of: selectedOperator) { _, _ in
                 searchQuery = ""
             }
-            .preferredColorScheme(.light)
+            // U1 — `.preferredColorScheme(.light)` retiré : DS.Color.* a
+            // déjà des variantes dark via le paramètre `dark:` dans
+            // StibAlertDesignSystem.swift. Forcer light cassait l'expérience
+            // dark mode iOS (transitions jarrantes entre tabs).
         }
     }
 

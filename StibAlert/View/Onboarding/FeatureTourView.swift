@@ -16,10 +16,13 @@ struct FeatureTourView: View {
     @State private var pageIndex = 0
     @State private var reveal = false
 
+    // U2 — Tints alignés sur DS.Color (variantes dark adaptatives) au lieu
+    // de hex fixes. info pour Carte (bleu), warning pour Signaler (orange),
+    // danger pour Voix (rouge) — cohérent avec les statuses partout.
     private let pages: [TourPage] = [
         TourPage(
             symbol: "map.fill",
-            symbolTint: Color(hex: "#5FB8FF"),
+            symbolTint: DS.Color.info,
             eyebrow: "1 SUR 3 · CARTE",
             title: "Ta carte du réseau",
             description: "Tu vois en direct les arrêts proches, les vrais signalements de la communauté et les perturbations live des 4 opérateurs (STIB, SNCB, De Lijn, TEC).",
@@ -31,7 +34,7 @@ struct FeatureTourView: View {
         ),
         TourPage(
             symbol: "plus.circle.fill",
-            symbolTint: Color(hex: "#FFB85F"),
+            symbolTint: DS.Color.warning,
             eyebrow: "2 SUR 3 · SIGNALER",
             title: "Signale en 2 tap",
             description: "Tu vois un retard, une panne, un incident ? Préviens la communauté en 2 tap depuis le bouton « + » de la carte. Plus tu contribues, plus le réseau réagit vite.",
@@ -43,7 +46,7 @@ struct FeatureTourView: View {
         ),
         TourPage(
             symbol: "waveform",
-            symbolTint: Color(hex: "#FF5A5F"),
+            symbolTint: DS.Color.danger,
             eyebrow: "3 SUR 3 · VOIX",
             title: "Hey Mobi, ton assistant",
             description: "Appuie sur le micro et demande ton trajet ou l'état du réseau à voix haute. Mobi te répond avec les vraies lignes STIB et te calcule le meilleur itinéraire.",
@@ -215,7 +218,14 @@ struct FeatureTourView: View {
 
     private func finish() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        onFinish()
+        // U3 — petit délai pour que le user perçoive le haptic et le tap du
+        // bouton AVANT que le fullScreenCover ne disparaisse (sans ça la
+        // dismission est instantanée + abrupte, le user a un flash sans
+        // savoir pourquoi). 280 ms = pile dans la fenêtre perceptive.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            onFinish()
+        }
     }
 }
 

@@ -66,7 +66,7 @@ struct HomeOperatorStopSheet: View {
         .background(DS.Color.paper.ignoresSafeArea())
         .presentationDetents(supportsRealtime ? [.medium, .large] : [.height(250)])
         .presentationDragIndicator(.visible)
-        .preferredColorScheme(.light)
+        // U1 — `.preferredColorScheme(.light)` retiré. DS.Color.* adapte.
         .task {
             await loadRealtime()
             startAutoRefresh()

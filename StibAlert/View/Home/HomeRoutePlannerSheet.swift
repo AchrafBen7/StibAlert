@@ -72,7 +72,7 @@ struct HomeRoutePlannerSheet: View {
                 focusedField = .arrival
             }
         }
-        .preferredColorScheme(.light)
+        // U1 — `.preferredColorScheme(.light)` retiré. Voir SchedulesView.
     }
 
     /// Lightweight header (back button + screen title). We dropped the

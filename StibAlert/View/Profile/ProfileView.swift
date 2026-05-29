@@ -1003,18 +1003,12 @@ private struct ProfileSubpageScaffold<Content: View>: View {
                         }
 
                         Spacer()
-
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(DS.Color.ink)
-                                .frame(width: 36, height: 36)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DS.Radius.md)
-                                        .stroke(DS.Color.ink.opacity(0.2), lineWidth: DS.Stroke.thick)
-                                )
-                        }
-                        .buttonStyle(ProfileRootRowPressableStyle())
+                        // U6 — bouton xmark "close" SUPPRIMÉ car onClose et
+                        // onBack appellent tous deux closeToProfile() (même
+                        // résultat fonctionnel). 2 boutons distincts pour la
+                        // même action → confusion utilisateur. On garde back
+                        // qui est le pattern iOS standard. Le `onClose:`
+                        // paramètre de l'init reste pour compat ascendante.
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)

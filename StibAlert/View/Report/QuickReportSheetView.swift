@@ -185,6 +185,20 @@ struct QuickReportSheetView: View {
                     guard newValue != nil else { return }
                     scrollToDescription(proxy)
                 }
+                // U4 — quand un submitError apparaît, on scroll vers son id
+                // pour que l'utilisateur le voie. Sinon, si le user est sur
+                // le picker stop (haut du sheet), l'erreur (rendue dans la
+                // section description, plus bas) reste hors écran et le
+                // user croit que rien ne s'est passé.
+                .onChange(of: submitError) { _, newValue in
+                    guard newValue != nil else { return }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 80_000_000)
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo("submitError", anchor: .center)
+                        }
+                    }
+                }
             }
             // Let the scroll claim every remaining vertical pixel between
             // handleBar and submitBar — without this the VStack would
