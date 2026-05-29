@@ -19,6 +19,8 @@ enum UtilisateurService {
         quietHoursEndHour: Int? = nil,
         favoriteLines: [String]? = nil,
         operatorFavorites: [OperatorFavoriteDTO]? = nil,
+        notificationFrequency: String? = nil,
+        notificationRules: [NotificationRuleDTO]? = nil,
         routine: CommuteRoutineDTO? = nil
     ) async throws -> UtilisateurDTO {
         try await APIClient.shared.request(
@@ -37,6 +39,8 @@ enum UtilisateurService {
                 quietHoursEndHour: quietHoursEndHour,
                 favoriteLines: favoriteLines,
                 operatorFavorites: operatorFavorites,
+                notificationFrequency: notificationFrequency,
+                notificationRules: notificationRules,
                 routine: routine
             ),
             requiresAuth: true
@@ -84,6 +88,8 @@ private struct ProfilUpdateRequest: Encodable {
     let quietHoursEndHour: Int?
     let favoriteLines: [String]?
     let operatorFavorites: [OperatorFavoriteDTO]?
+    let notificationFrequency: String?
+    let notificationRules: [NotificationRuleDTO]?
     let routine: CommuteRoutineDTO?
 }
 

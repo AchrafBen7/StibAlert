@@ -34,6 +34,9 @@ struct ProfileView: View {
     // PATCH ; défaut 22h → 7h aligné sur le modèle Mongo).
     @State private var quietHoursStartHour = 22
     @State private var quietHoursEndHour = 7
+    // Débit global des alertes + règles par ligne.
+    @State private var notificationFrequency = "essentiel"
+    @State private var notificationRules: [NotificationRuleDTO] = []
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var email = ""
@@ -127,6 +130,9 @@ struct ProfileView: View {
         .onChange(of: quietHoursEndHour) { _, newValue in
             Task { await persistPushPreference(quietHoursEnd: newValue) }
         }
+        .onChange(of: notificationFrequency) { _, newValue in
+            Task { await persistPushPreference(notificationFrequency: newValue) }
+        }
     }
 
     private func persistPushPreference(
@@ -135,7 +141,9 @@ struct ProfileView: View {
         mercis: Bool? = nil,
         quietHours: Bool? = nil,
         quietHoursStart: Int? = nil,
-        quietHoursEnd: Int? = nil
+        quietHoursEnd: Int? = nil,
+        notificationFrequency freq: String? = nil,
+        notificationRules rules: [NotificationRuleDTO]? = nil
     ) async {
         guard AppConfig.isBackendEnabled, let user = session.currentUser else { return }
         do {
@@ -146,12 +154,27 @@ struct ProfileView: View {
                 mercisPushEnabled: mercis,
                 quietHoursEnabled: quietHours,
                 quietHoursStartHour: quietHoursStart,
-                quietHoursEndHour: quietHoursEnd
+                quietHoursEndHour: quietHoursEnd,
+                notificationFrequency: freq,
+                notificationRules: rules
             )
             session.applyCurrentUserUpdate(updated)
         } catch {
             print("Push preference update failed: \(error.localizedDescription)")
         }
+    }
+
+    /// Met à jour la règle de notif d'une ligne + persiste l'ensemble.
+    private func setLineRule(_ line: String, level: String) {
+        notificationRules.removeAll { $0.scope == "line" && $0.key.uppercased() == line.uppercased() }
+        if level != "essentiel" {
+            notificationRules.append(NotificationRuleDTO(scope: "line", key: line.uppercased(), level: level))
+        }
+        Task { await persistPushPreference(notificationRules: notificationRules) }
+    }
+
+    private func lineRuleLevel(_ line: String) -> String {
+        notificationRules.first { $0.scope == "line" && $0.key.uppercased() == line.uppercased() }?.level ?? "essentiel"
     }
 
     @ViewBuilder
@@ -205,6 +228,10 @@ struct ProfileView: View {
                 quietHoursEnabled: $quietHoursEnabled,
                 quietHoursStartHour: $quietHoursStartHour,
                 quietHoursEndHour: $quietHoursEndHour,
+                notificationFrequency: $notificationFrequency,
+                favoriteLines: Array(favoriteLinesSelection).sorted(),
+                lineRuleLevel: lineRuleLevel,
+                onSetLineRule: setLineRule,
                 onBack: { selectedSubpage = nil },
                 onClose: closeToProfile
             )
@@ -980,6 +1007,8 @@ struct ProfileView: View {
         quietHoursEnabled = user.quietHoursEnabled ?? true
         quietHoursStartHour = user.quietHoursStartHour ?? 22
         quietHoursEndHour = user.quietHoursEndHour ?? 7
+        notificationFrequency = user.notificationFrequency ?? "essentiel"
+        notificationRules = user.notificationRules ?? []
         commuteEnabled = user.routine?.enabled ?? false
         homeLabel = user.routine?.homeLabel ?? "Domicile"
         workLabel = user.routine?.workLabel ?? "Travail"
@@ -1453,6 +1482,10 @@ private struct NotificationSettingsView: View {
     @Binding var quietHoursEnabled: Bool
     @Binding var quietHoursStartHour: Int
     @Binding var quietHoursEndHour: Int
+    @Binding var notificationFrequency: String
+    var favoriteLines: [String] = []
+    var lineRuleLevel: (String) -> String = { _ in "essentiel" }
+    var onSetLineRule: (String, String) -> Void = { _, _ in }
     let onBack: () -> Void
     let onClose: () -> Void
 
@@ -1467,6 +1500,8 @@ private struct NotificationSettingsView: View {
                 Text("Choisis quels types de notifications tu reçois. StibAlert ne t'enverra rien d'autre.")
                     .font(.system(size: 12.5))
                     .foregroundColor(DS.Color.inkSoft)
+
+                frequencySelectorSection
 
                 ProfileSettingsSection(title: "Types d'alertes") {
                     NotificationToggleRow(
@@ -1508,6 +1543,10 @@ private struct NotificationSettingsView: View {
                 .padding(.top, -4)
                 .padding(.bottom, 8)
 
+                if !favoriteLines.isEmpty {
+                    lineRulesSection
+                }
+
                 ProfileSettingsSection(title: "Plage silencieuse") {
                     NotificationToggleRow(
                         icon: "moon.zzz.fill",
@@ -1537,6 +1576,92 @@ private struct NotificationSettingsView: View {
                     .foregroundColor(DS.Color.inkMute)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 4)
+            }
+        }
+    }
+
+    // Sélecteur de débit global des alertes (#3).
+    private let frequencyOptions: [(value: String, label: String, desc: String)] = [
+        ("tout", "Tout", "Toutes les alertes pertinentes"),
+        ("essentiel", "Essentiel", "Perturbations + confirmées (recommandé)"),
+        ("critique", "Critique", "Uniquement accident / agression / coupure"),
+        ("digest", "Résumé", "Un seul récap, pas d'alerte en direct"),
+    ]
+
+    private var frequencySelectorSection: some View {
+        ProfileSettingsSection(title: "Fréquence des alertes") {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(frequencyOptions, id: \.value) { opt in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { notificationFrequency = opt.value }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: notificationFrequency == opt.value ? "largecircle.fill.circle" : "circle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(notificationFrequency == opt.value ? DS.Color.primary : DS.Color.inkMute.opacity(0.5))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(opt.label)
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                                Text(opt.desc)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    // #4 — Affinage par ligne favorite (Tout/Essentiel/Critique/Off).
+    private let ruleLevels: [(value: String, label: String)] = [
+        ("tout", "Tout"), ("essentiel", "Essentiel"), ("critique", "Critique seul"), ("off", "Désactivé"),
+    ]
+
+    private var lineRulesSection: some View {
+        ProfileSettingsSection(title: "Affiner par ligne") {
+            VStack(spacing: 0) {
+                ForEach(Array(favoriteLines.enumerated()), id: \.element) { index, line in
+                    if index > 0 { ProfileSettingsDivider() }
+                    HStack(spacing: 12) {
+                        Text("Ligne \(line)")
+                            .font(.system(size: 13.5, weight: .semibold))
+                            .foregroundStyle(DS.Color.ink)
+                        Spacer()
+                        Menu {
+                            Picker("Niveau", selection: Binding(
+                                get: { lineRuleLevel(line) },
+                                set: { onSetLineRule(line, $0) }
+                            )) {
+                                ForEach(ruleLevels, id: \.value) { lvl in
+                                    Text(lvl.label).tag(lvl.value)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(ruleLevels.first { $0.value == lineRuleLevel(line) }?.label ?? "Essentiel")
+                                    .font(.system(size: 12.5, weight: .bold))
+                                    .foregroundStyle(lineRuleLevel(line) == "off" ? DS.Color.inkMute : DS.Color.primary)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(DS.Color.paper2)
+                            .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 11)
+                }
             }
         }
     }

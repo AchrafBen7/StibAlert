@@ -22,11 +22,14 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
     let quietHoursStartHour: Int?
     let quietHoursEndHour: Int?
     let operatorFavorites: [OperatorFavoriteDTO]?
+    let notificationFrequency: String?
+    let notificationRules: [NotificationRuleDTO]?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case nom, email, photoProfil, langue, notifications, role, favoris, favorisDetails, routine, votes, oneSignalPlayerId, favoriteLines, weeklyDigestEnabled, preTripPushEnabled
         case communityClusterPushEnabled, mercisPushEnabled, quietHoursEnabled, quietHoursStartHour, quietHoursEndHour, operatorFavorites
+        case notificationFrequency, notificationRules
     }
 
     init(
@@ -50,7 +53,9 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         quietHoursEnabled: Bool? = nil,
         quietHoursStartHour: Int? = nil,
         quietHoursEndHour: Int? = nil,
-        operatorFavorites: [OperatorFavoriteDTO]? = nil
+        operatorFavorites: [OperatorFavoriteDTO]? = nil,
+        notificationFrequency: String? = nil,
+        notificationRules: [NotificationRuleDTO]? = nil
     ) {
         self.id = id
         self.nom = nom
@@ -73,6 +78,8 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         self.quietHoursStartHour = quietHoursStartHour
         self.quietHoursEndHour = quietHoursEndHour
         self.operatorFavorites = operatorFavorites
+        self.notificationFrequency = notificationFrequency
+        self.notificationRules = notificationRules
     }
 
     /// Custom decoder so `favoris` accepts both shapes the backend can ship:
@@ -102,6 +109,8 @@ struct UtilisateurDTO: Codable, Identifiable, Equatable {
         quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
         quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
         operatorFavorites = try container.decodeIfPresent([OperatorFavoriteDTO].self, forKey: .operatorFavorites)
+        notificationFrequency = try container.decodeIfPresent(String.self, forKey: .notificationFrequency)
+        notificationRules = try container.decodeIfPresent([NotificationRuleDTO].self, forKey: .notificationRules)
 
         // Try string array first; fall back to populated objects.
         var resolvedFavoris: [String]? = nil
@@ -186,6 +195,29 @@ struct OperatorFavoriteDTO: Codable, Equatable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey { case op, stopId, name, lat, lng }
+}
+
+/// Règle de notification par cible. `scope`: "line" | "stop" | "zone".
+/// `level`: "tout" | "essentiel" | "critique" | "off".
+struct NotificationRuleDTO: Codable, Equatable, Hashable {
+    let scope: String
+    let key: String
+    let level: String
+
+    init(scope: String, key: String, level: String) {
+        self.scope = scope
+        self.key = key
+        self.level = level
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        scope = (try? c.decode(String.self, forKey: .scope)) ?? ""
+        key = (try? c.decode(String.self, forKey: .key)) ?? ""
+        level = (try? c.decode(String.self, forKey: .level)) ?? "essentiel"
+    }
+
+    private enum CodingKeys: String, CodingKey { case scope, key, level }
 }
 
 struct FavoriDetailDTO: Codable, Identifiable, Equatable {
