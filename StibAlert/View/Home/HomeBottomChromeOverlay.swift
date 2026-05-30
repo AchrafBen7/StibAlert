@@ -23,21 +23,20 @@ struct HomeBottomChromeOverlay: View {
     var body: some View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
-                // Layout: [Mic] far-left  ........  [Location] [AI] [+] right-grouped.
-                // Mic stays visually distinct (round red) on the left while the
-                // three right-side controls cluster next to the report FAB.
-                // U5 — Mic à gauche, puis groupe [Location][AI], puis [+]
-                // détaché par un petit gap supplémentaire. Le `+` (action
-                // principale, 58×58) ne doit pas être collé au AI button
-                // (46×46) — sinon misclick à risque. 16 pt suffisent pour
-                // créer une césure visuelle sans casser le rythme.
-                HStack(alignment: .center, spacing: 10) {
+                // Layout: [Mic] far-left  ........  [AI]  [ Location / + ].
+                // Le bouton "ma position" est désormais EMPILÉ juste au-dessus
+                // du bouton "+" (même colonne, bord droit). Mic reste à gauche,
+                // AI à gauche de la colonne +. alignment .bottom pour que Mic
+                // et AI s'alignent sur le `+`.
+                HStack(alignment: .bottom, spacing: 10) {
                     MapVoiceFloatingButton(action: onOpenVoice)
                     Spacer(minLength: 8)
-                    LocationFloatingButton(action: onRecenter)
                     STIBAIFloatingButton(action: onOpenStibAI)
-                        .padding(.trailing, 6) // gap supplémentaire vers le `+`
-                    HomeReportFloatingButton(action: onOpenReportSheet)
+                        .padding(.trailing, 6) // gap supplémentaire vers la colonne `+`
+                    VStack(spacing: 10) {
+                        LocationFloatingButton(action: onRecenter)
+                        HomeReportFloatingButton(action: onOpenReportSheet)
+                    }
                 }
                 .padding(.horizontal, 14)
                 .transition(.opacity)

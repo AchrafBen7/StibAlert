@@ -39,36 +39,72 @@ enum SignalVisuals {
 }
 
 struct UserLocationDotView: View {
+    /// Cap en degrés (0 = nord). < 0 = indisponible → faisceau masqué.
     let heading: Double
+    @State private var pulse = false
 
     var body: some View {
         ZStack {
-            DirectionConeShape()
-                .fill(LinearGradient(
-                    colors: [DS.Color.info.opacity(0.55), .clear],
-                    startPoint: .top, endPoint: .bottom
-                ))
-                .frame(width: 28, height: 36)
-                .offset(y: -16)
-                .rotationEffect(.degrees(heading))
-
+            // Halo doux qui respire (précision approximative, discret).
             Circle()
-                .fill(DS.Color.background)
-                .frame(width: 12, height: 12)
-                .overlay(Circle().stroke(DS.Color.info, lineWidth: 1))
-                .shadow(color: Color(red: 0.499, green: 0.527, blue: 0.962), radius: 4, x: 0, y: 4)
+                .fill(DS.Color.info.opacity(0.16))
+                .frame(width: 40, height: 40)
+                .scaleEffect(pulse ? 1.18 : 0.85)
+                .opacity(pulse ? 0.0 : 0.55)
+                .animation(.easeOut(duration: 2.2).repeatForever(autoreverses: false), value: pulse)
+
+            // Faisceau de cap : cône lisse qui s'estompe vers l'extérieur
+            // (style boussole Plans) au lieu du triangle dur d'avant.
+            if heading >= 0 {
+                DirectionConeShape()
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                DS.Color.info.opacity(0.55),
+                                DS.Color.info.opacity(0.0),
+                            ]),
+                            center: .center,
+                            startRadius: 5,
+                            endRadius: 30
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+                    .rotationEffect(.degrees(heading))
+                    .allowsHitTesting(false)
+            }
+
+            // Point bleu PLEIN, liseré blanc + ombre = le classique "c'est toi"
+            // (avant : cercle creux rempli du fond → effet "cible" bizarre).
+            Circle()
+                .fill(DS.Color.info)
+                .frame(width: 18, height: 18)
+                .overlay(Circle().stroke(Color.white, lineWidth: 3))
+                .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 1)
         }
+        .onAppear { pulse = true }
+        .accessibilityLabel("Ta position")
     }
 }
 
+/// Cône de cap pointant vers le haut (avant rotation), du centre vers
+/// l'extérieur, ~52° d'ouverture. Rempli d'un dégradé radial → fondu doux.
 private struct DirectionConeShape: Shape {
     func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.closeSubpath()
-        return p
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let halfWidth = Angle.degrees(26).radians
+        let up = -Double.pi / 2
+        var path = Path()
+        path.move(to: center)
+        path.addArc(
+            center: center,
+            radius: radius,
+            startAngle: .radians(up - halfWidth),
+            endAngle: .radians(up + halfWidth),
+            clockwise: false
+        )
+        path.closeSubpath()
+        return path
     }
 }
 

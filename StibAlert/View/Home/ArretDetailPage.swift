@@ -206,10 +206,19 @@ struct ArretDetailPage: View {
                 )
             }
             .sorted { lhs, rhs in
-                if let left = Int(lhs.line), let right = Int(rhs.line) {
+                // Tri par n° de ligne…
+                if let left = Int(lhs.line), let right = Int(rhs.line), left != right {
                     return left < right
                 }
-                return lhs.line.localizedStandardCompare(rhs.line) == .orderedAscending
+                if lhs.line != rhs.line {
+                    return lhs.line.localizedStandardCompare(rhs.line) == .orderedAscending
+                }
+                // FIX — …puis par destination pour DÉPARTAGER les 2 sens d'une
+                // même ligne. Sans ce tiebreak, le tri n'est pas total et
+                // l'ordre des sens dépendait de Dictionary.values (non
+                // déterministe) → les directions « tremblaient » et
+                // s'échangeaient à chaque rafraîchissement des horaires.
+                return lhs.destination.localizedCaseInsensitiveCompare(rhs.destination) == .orderedAscending
             }
     }
 
@@ -1203,7 +1212,7 @@ struct ArretDetailPage: View {
 
     private var stickyCTA: some View {
         HStack(spacing: 8) {
-            Button(action: openDirections) {
+            Button(action: requestItinerary) {
                 Label("Itinéraire", systemImage: "location.north.line")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
@@ -1342,6 +1351,30 @@ struct ArretDetailPage: View {
         let urlString = "http://maps.apple.com/?\(originQuery)daddr=\(coordinate.latitude),\(coordinate.longitude)&dirflg=r"
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
+    }
+
+    /// FIX — « Itinéraire » reste DANS l'app : on calcule le trajet vers cet
+    /// arrêt avec le planificateur interne (carte StibAlert) au lieu d'ouvrir
+    /// Apple Plans. On poste le deep link route (écouté par HomeView, qui
+    /// bascule sur la carte + trace l'itinéraire) puis on ferme la fiche.
+    /// Repli sur Plans seulement si la coordonnée de l'arrêt est inconnue.
+    private func requestItinerary() {
+        guard let coordinate = stopCoordinate else {
+            openDirections()
+            return
+        }
+        var info: [String: Any] = [
+            "toName": effectiveStop.name,
+            "toLat": coordinate.latitude,
+            "toLng": coordinate.longitude,
+        ]
+        if let userCoordinate {
+            info["fromName"] = "Ma position"
+            info["fromLat"] = userCoordinate.latitude
+            info["fromLng"] = userCoordinate.longitude
+        }
+        NotificationCenter.default.post(name: .routeDeepLink, object: nil, userInfo: info)
+        onDismiss()
     }
 
     private func shareStop() {

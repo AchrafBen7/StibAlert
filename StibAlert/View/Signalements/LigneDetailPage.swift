@@ -687,10 +687,14 @@ struct LigneDetailPage: View {
     /// specific row underneath. The global advisory is now surfaced as a
     /// contextual footer in the empty state instead.
     private var officialCount: Int {
-        let incidents = viewModel.activeLine?.activeIncidents.count ?? 0
-        let lineSummary = viewModel.activeLine?.perturbationSummary
-        let hasLineSummary = (lineSummary?.shortText.isEmpty == false) || (lineSummary?.longText.isEmpty == false)
-        return incidents + (hasLineSummary ? 1 : 0)
+        // FIX — Le badge "Officiel N" ne compte QUE les incidents officiels
+        // CONCRETS liés à la ligne (mêmes éléments que l'en-tête "N infos").
+        // Avant, un simple résumé réseau ("Réseau sous surveillance", signaux
+        // faibles) ajoutait +1 → le badge disait "Officiel 1" alors que
+        // l'en-tête affichait "0 infos" et qu'aucun incident réel n'était
+        // listé. Le résumé réseau reste affiché en carte d'info distincte
+        // (perturbationSummaryRow / networkAdvisoryRow) mais ne compte plus.
+        viewModel.activeLine?.activeIncidents.count ?? 0
     }
 
     private func trafficSubtabChip(_ tab: TrafficSubtab, label: String, count: Int = 0) -> some View {

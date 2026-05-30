@@ -71,10 +71,10 @@ struct ReportsView: View {
                     let detail = try await TransportService.line(id: variant)
                     await MainActor.run {
                         lineDetailCache[variant] = detail
-                        lineDetailInFlight.remove(variant)
+                        _ = lineDetailInFlight.remove(variant)
                     }
                 } catch {
-                    await MainActor.run { lineDetailInFlight.remove(variant) }
+                    await MainActor.run { _ = lineDetailInFlight.remove(variant) }
                 }
             }
         }
@@ -1623,8 +1623,9 @@ struct ReportsView: View {
     /// 0 si position/coords indisponibles (n'altère pas l'ordre existant).
     private func proximityBonus(for item: EditorialFeedItem) -> Int {
         guard let lat = item.report?.latitude, let lng = item.report?.longitude else { return 0 }
-        let user = locationManager.userCoordinate
-        guard CLLocationCoordinate2DIsValid(user), user.latitude != 0 || user.longitude != 0 else { return 0 }
+        guard let user = locationManager.userCoordinate,
+              CLLocationCoordinate2DIsValid(user),
+              user.latitude != 0 || user.longitude != 0 else { return 0 }
         let meters = CLLocation(latitude: user.latitude, longitude: user.longitude)
             .distance(from: CLLocation(latitude: lat, longitude: lng))
         switch meters {

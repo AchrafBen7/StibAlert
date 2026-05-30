@@ -6,6 +6,21 @@ private struct VehiclePositionsResponse: Decodable {
     let items: [TransportVehicleDTO]
 }
 
+// ISO-8601 parsers au niveau fichier (donc NON isolés MainActor) : référencés
+// depuis la closure Sendable du JSONDecoder qui tourne hors du main actor.
+// ISO8601DateFormatter est thread-safe en lecture (date(from:)).
+nonisolated(unsafe) private let vehicleISO8601WithMillis: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+}()
+
+nonisolated(unsafe) private let vehicleISO8601Plain: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime]
+    return f
+}()
+
 @MainActor
 final class VehicleTrackingService: ObservableObject {
     @Published private(set) var vehicles: [TransportVehicleDTO] = []
@@ -103,8 +118,8 @@ final class VehicleTrackingService: ObservableObject {
             decoder.dateDecodingStrategy = .custom { dec in
                 let container = try dec.singleValueContainer()
                 let raw = try container.decode(String.self)
-                if let date = iso8601WithMillis.date(from: raw) { return date }
-                if let date = iso8601Plain.date(from: raw) { return date }
+                if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
+                if let date = vehicleISO8601Plain.date(from: raw) { return date }
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Unrecognised ISO-8601 date: \(raw)"
@@ -148,8 +163,8 @@ final class VehicleTrackingService: ObservableObject {
             decoder.dateDecodingStrategy = .custom { dec in
                 let container = try dec.singleValueContainer()
                 let raw = try container.decode(String.self)
-                if let date = Self.iso8601WithMillis.date(from: raw) { return date }
-                if let date = Self.iso8601Plain.date(from: raw) { return date }
+                if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
+                if let date = vehicleISO8601Plain.date(from: raw) { return date }
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Unrecognised ISO-8601 date: \(raw)"
@@ -200,18 +215,6 @@ final class VehicleTrackingService: ObservableObject {
             // silently fail — map still works without vehicles
         }
     }
-
-    private static let iso8601WithMillis: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-
-    private static let iso8601Plain: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
-        return f
-    }()
 
     private func compassBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
         let lat1 = from.latitude * .pi / 180

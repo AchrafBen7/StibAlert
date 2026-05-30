@@ -209,8 +209,6 @@ struct VoiceOverlay: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
             }
-        default:
-            EmptyView()
         }
     }
 

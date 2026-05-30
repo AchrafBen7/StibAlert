@@ -55,8 +55,13 @@ struct FavoritesView: View {
                 ?? stibLineMetadata[parsed.code.uppercased()]
 
             let operatorType = parsed.operatorType ?? .stib
-            let fill = metadata?.color ?? (operatorType == .stib ? TransitLinePalette.fill(for: parsed.code) : operatorType.brandColor)
-            let foreground = metadata?.textColor ?? (operatorType == .stib ? TransitLinePalette.foreground(for: parsed.code) : operatorType.brandTextColor)
+            // FIX — couleur d'une ligne suivie = TOUJOURS la palette STIB
+            // officielle pour les lignes STIB (même source que les arrêts
+            // épinglés). La couleur backend (metadata.color) primait et pouvait
+            // diverger : la ligne 10 sortait en ROUGE ici alors qu'elle est
+            // violette partout ailleurs. metadata sert encore au nom/direction.
+            let fill = operatorType == .stib ? TransitLinePalette.fill(for: parsed.code) : (metadata?.color ?? operatorType.brandColor)
+            let foreground = operatorType == .stib ? TransitLinePalette.foreground(for: parsed.code) : (metadata?.textColor ?? operatorType.brandTextColor)
             let subtitle = metadata?.directionLabel ?? parsed.operatorType?.shortName
             let isDisrupted = disruptedLines.contains(parsed.code) || disruptedLines.contains(rawLine)
 

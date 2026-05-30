@@ -155,7 +155,8 @@ struct STIBAIView: View {
         }
     }
 
-    @ViewBuilder
+    // Pas de @ViewBuilder : la fonction calcule des `let` puis fait un unique
+    // `return` (un seul HStack) → le builder serait de toute façon désactivé.
     private func messageBubble(_ message: STIBAIMessage) -> some View {
         let isUser = message.role == .user
         // Si c'est le DERNIER message assistant ET le stream tourne ET pas

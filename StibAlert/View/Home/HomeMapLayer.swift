@@ -90,8 +90,8 @@ struct HomeMapLayer: View {
         // 80 m circle instead of 200 m so a tram pin landing near the user
         // dot is not hidden by the translucent fill at city-wide zoom.
         MapCircle(center: displayCoordinate, radius: 80)
-            .foregroundStyle(DS.Color.foreground.opacity(0.07))
-            .stroke(DS.Color.info.opacity(0.6), lineWidth: 1)
+            .foregroundStyle(DS.Color.info.opacity(0.08))
+            .stroke(DS.Color.info.opacity(0.22), lineWidth: 1)
 
         Annotation("", coordinate: displayCoordinate, anchor: .center) {
             UserLocationDotView(heading: heading)

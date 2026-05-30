@@ -518,6 +518,12 @@ struct HomeView: View {
             merged.append(stop)
         }
 
+        // Perf zoom — plafonne le nombre de pins. MapKit re-layoute TOUTES les
+        // annotations à la fin d'un geste de zoom ; au-delà de ~70 stops le
+        // geste saccade. On garde les plus proches du centre de la caméra
+        // (distance Manhattan, suffisante pour un classement et sans alloc).
+        let cappedMerged = Self.capNearest(merged, to: cameraCenterCoordinate, limit: 70)
+
         switch activeMapFilter {
         case .favorites:
             // Handled at the top of baseMapStops (favoriteMapStops); kept for
@@ -525,11 +531,21 @@ struct HomeView: View {
             return favoriteMapStops
         case .perturbations:
             let affectedLines = Set(remoteSignalements.filter { $0.status != "resolved" }.map { $0.ligne })
-            guard !affectedLines.isEmpty else { return merged }
-            return merged.filter { !$0.lines.filter { affectedLines.contains($0) }.isEmpty }
+            guard !affectedLines.isEmpty else { return cappedMerged }
+            return cappedMerged.filter { !$0.lines.filter { affectedLines.contains($0) }.isEmpty }
         case .none:
-            return merged
+            return cappedMerged
         }
+    }
+
+    /// Garde les `limit` arrêts les plus proches du centre caméra (cap de rendu).
+    private static func capNearest(_ stops: [TransportStopSummaryDTO], to center: CLLocationCoordinate2D, limit: Int) -> [TransportStopSummaryDTO] {
+        guard stops.count > limit else { return stops }
+        return stops.sorted { a, b in
+            let da = abs((a.latitude ?? 0) - center.latitude) + abs((a.longitude ?? 0) - center.longitude)
+            let db = abs((b.latitude ?? 0) - center.latitude) + abs((b.longitude ?? 0) - center.longitude)
+            return da < db
+        }.prefix(limit).map { $0 }
     }
 
     private var selectedRouteOption: HomeRouteOption? {
@@ -597,7 +613,7 @@ struct HomeView: View {
         return VilloStationService.nearbyStations(
             around: locationManager.displayCoordinate,
             radiusMeters: 2200,
-            limit: 80
+            limit: 55 // perf zoom : moins d'annotations à re-layouter
         ).map(\.station)
     }
 
