@@ -26,6 +26,12 @@ public extension DS {
 
         public static let accent = hsl(220, 56, 23)
         public static let accentForeground = hsl(0, 0, 100)
+
+        // Identité STIB·AI : encre (noir éditorial) plutôt que le bleu marine
+        // `accent` qui jurait avec la palette orange/papier de l'app. Couleur
+        // dédiée pour rester cohérent partout où l'assistant apparaît.
+        public static let ai = foreground
+        public static let aiForeground = hsl(0, 0, 100, dark: hsl(0, 0, 8))
         public static let secondary = hsl(36, 18, 88, dark: hsl(0, 0, 14))
         public static let secondaryForeground = hsl(0, 0, 6, dark: hsl(38, 24, 92))
         public static let muted = secondary

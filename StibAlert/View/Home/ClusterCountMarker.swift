@@ -37,9 +37,12 @@ struct ClusterCountMarker: View {
     }
 
     private var fillColor: Color {
+        // Même convention que les marqueurs simples : ROUGE = officiel STIB,
+        // BLEU = communauté. Avant, officiel=primary (orange) et
+        // communauté=accent (bleu marine) → incohérent avec les pins isolés.
         switch origin {
-        case .official:  return DS.Color.primary
-        case .community: return DS.Color.accent
+        case .official:  return DS.Color.danger
+        case .community: return DS.Color.info
         }
     }
 

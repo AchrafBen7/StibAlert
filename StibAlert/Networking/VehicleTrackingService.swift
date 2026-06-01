@@ -28,8 +28,27 @@ final class VehicleTrackingService: ObservableObject {
     @Published private(set) var isTracking = false
 
     private var pollingTask: Task<Void, Never>?
-    private var previousPositions: [String: CLLocationCoordinate2D] = [:]
     private let interval: TimeInterval = 15
+
+    // === Suivi d'identité stable des véhicules ===
+    // Le backend renvoie un vehicleId « slot » = ligne:pointId:direction, avec
+    // des coordonnées calées sur l'arrêt. Quand un métro avance d'un arrêt, son
+    // id change donc entièrement → SwiftUI détruit/recrée l'annotation, le halo
+    // redémarre et MapKit recycle les pins (ils « volent » hors du tracé). On
+    // réassocie chaque position à un véhicule du poll précédent (même
+    // ligne+direction, plus proche voisin) pour lui réattribuer un id STABLE :
+    // le même métro garde le même pin et se déplace d'un cran, sans casse.
+    private struct TrackedVehicle {
+        var coordinate: CLLocationCoordinate2D
+        let line: String
+        let direction: String?
+    }
+    private var trackedVehicles: [String: TrackedVehicle] = [:]
+    private var trackingSeq = 0
+    /// Distance max entre deux polls pour considérer que c'est le même véhicule.
+    /// Généreuse (≈ 2 arrêts, positions calées sur les arrêts) mais bien
+    /// en-deçà de l'espacement typique entre 2 véhicules d'une même ligne.
+    private let matchThresholdMeters: Double = 2500
 
     /// Per-line cache so that switching lines (or re-opening a stop on a
     /// line we already polled) feels instant: we re-emit the cached array
@@ -93,7 +112,8 @@ final class VehicleTrackingService: ObservableObject {
         isTracking = false
         vehicles = []
         vehicleBearings = [:]
-        previousPositions = [:]
+        trackedVehicles = [:]
+        trackingSeq = 0
     }
 
     /// One-shot snapshot of live vehicles for the given lines, fetched from
@@ -176,37 +196,16 @@ final class VehicleTrackingService: ObservableObject {
             print("[VehicleTracker] \(url.absoluteString) → \(response.items.count) raw, \(fresh.count) with coords")
             #endif
 
-            var newBearings = vehicleBearings
-            for vehicle in fresh {
-                guard
-                    let vid = vehicle.vehicleId,
-                    let lat = vehicle.latitude, let lng = vehicle.longitude,
-                    let prev = previousPositions[vid]
-                else { continue }
-                let dist = CLLocation(latitude: lat, longitude: lng)
-                    .distance(from: CLLocation(latitude: prev.latitude, longitude: prev.longitude))
-                guard dist > 8 else { continue }
-                newBearings[vid] = compassBearing(
-                    from: prev,
-                    to: CLLocationCoordinate2D(latitude: lat, longitude: lng)
-                )
-            }
+            // Réattribue des identités stables (cf. TrackedVehicle) et calcule
+            // les caps à partir du déplacement réel de chaque véhicule suivi.
+            // C'est ce qui fixe le « ça bouge partout » : un même métro garde
+            // son pin (et son halo) au lieu d'être détruit/recréé à chaque poll.
+            let (stable, newBearings) = assignStableIdentities(to: fresh)
 
-            previousPositions = Dictionary(
-                uniqueKeysWithValues: fresh.compactMap { v -> (String, CLLocationCoordinate2D)? in
-                    guard let id = v.vehicleId, let lat = v.latitude, let lng = v.longitude else { return nil }
-                    return (id, CLLocationCoordinate2D(latitude: lat, longitude: lng))
-                }
-            )
-
-            // Glide animation is applied on the SwiftUI side via .animation()
-            // on the consumer view — we keep this service UIKit-free so it
-            // doesn't import SwiftUI (importing it here was masking other
-            // symbols of the module).
-            self.vehicles = fresh
+            self.vehicles = stable
             self.vehicleBearings = newBearings
             // Cache so a subsequent line switch shows trams instantly.
-            cacheByLines[visibleLines] = fresh
+            cacheByLines[visibleLines] = stable
             bearingsCacheByLines[visibleLines] = newBearings
         } catch {
             #if DEBUG
@@ -214,6 +213,79 @@ final class VehicleTrackingService: ObservableObject {
             #endif
             // silently fail — map still works without vehicles
         }
+    }
+
+    /// Associe chaque position fraîche à un véhicule du poll précédent (même
+    /// ligne + direction, plus proche voisin non déjà réclamé) et lui réattribue
+    /// son identité stable. Les nouveaux véhicules reçoivent un id neuf ; ceux
+    /// qui disparaissent ne sont pas reconduits. Renvoie aussi les caps mis à
+    /// jour, calculés sur le déplacement réel.
+    private func assignStableIdentities(
+        to fresh: [TransportVehicleDTO]
+    ) -> (vehicles: [TransportVehicleDTO], bearings: [String: Double]) {
+        var availableByGroup: [String: [String]] = [:]
+        for (sid, tv) in trackedVehicles {
+            availableByGroup[Self.groupKey(line: tv.line, direction: tv.direction), default: []].append(sid)
+        }
+
+        var claimed: Set<String> = []
+        var updated: [String: TrackedVehicle] = [:]
+        var newBearings: [String: Double] = [:]
+        var result: [TransportVehicleDTO] = []
+        result.reserveCapacity(fresh.count)
+
+        // Ordre déterministe (nord→sud puis ouest→est) pour que l'appariement
+        // greedy soit reproductible d'un poll à l'autre.
+        let ordered = fresh.sorted { a, b in
+            let la = a.latitude ?? 0, lb = b.latitude ?? 0
+            if la != lb { return la > lb }
+            return (a.longitude ?? 0) < (b.longitude ?? 0)
+        }
+
+        for v in ordered {
+            guard let line = v.line, let lat = v.latitude, let lng = v.longitude else {
+                result.append(v)
+                continue
+            }
+            let coord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            let group = Self.groupKey(line: line, direction: v.direction)
+
+            var bestId: String?
+            var bestDist = Double.greatestFiniteMagnitude
+            for sid in availableByGroup[group] ?? [] where !claimed.contains(sid) {
+                guard let prev = trackedVehicles[sid] else { continue }
+                let d = CLLocation(latitude: lat, longitude: lng).distance(
+                    from: CLLocation(latitude: prev.coordinate.latitude, longitude: prev.coordinate.longitude)
+                )
+                if d < bestDist { bestDist = d; bestId = sid }
+            }
+
+            let stableId: String
+            if let bestId, bestDist <= matchThresholdMeters {
+                stableId = bestId
+                claimed.insert(bestId)
+                // Cap seulement si le véhicule a réellement bougé, sinon on
+                // conserve l'ancien pour ne pas faire pivoter la flèche à vide.
+                if bestDist > 8, let prev = trackedVehicles[bestId] {
+                    newBearings[stableId] = compassBearing(from: prev.coordinate, to: coord)
+                } else if let kept = vehicleBearings[bestId] {
+                    newBearings[stableId] = kept
+                }
+            } else {
+                trackingSeq += 1
+                stableId = "trk-\(group)-\(trackingSeq)"
+            }
+
+            updated[stableId] = TrackedVehicle(coordinate: coord, line: line, direction: v.direction)
+            result.append(v.withVehicleId(stableId))
+        }
+
+        trackedVehicles = updated
+        return (result, newBearings)
+    }
+
+    private static func groupKey(line: String, direction: String?) -> String {
+        "\(line.uppercased())|\(direction ?? "")"
     }
 
     private func compassBearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
@@ -227,5 +299,23 @@ final class VehicleTrackingService: ObservableObject {
 
     private func normalizedLines(from lines: Set<String>) -> Set<String> {
         Set(lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }.filter { !$0.isEmpty })
+    }
+}
+
+
+private extension TransportVehicleDTO {
+    /// Copie le DTO en ne remplaçant que l'identifiant — sert à substituer l'id
+    /// « slot » du backend par un id de suivi stable (cf. assignStableIdentities).
+    func withVehicleId(_ newId: String) -> TransportVehicleDTO {
+        TransportVehicleDTO(
+            vehicleId: newId,
+            line: line,
+            direction: direction,
+            latitude: latitude,
+            longitude: longitude,
+            updatedAt: updatedAt,
+            stopNom: stopNom,
+            distanceFromPoint: distanceFromPoint
+        )
     }
 }

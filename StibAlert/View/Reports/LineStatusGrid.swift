@@ -88,9 +88,10 @@ struct LineStatusGrid: View {
                     .background(DS.Color.paper2)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
-                Text(mode.label.uppercased())
+                Text(mode.label)
                     .font(DS.Font.eyebrow)
                     .tracking(2)
+                    .textCase(.uppercase)
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -120,8 +121,12 @@ struct LineStatusGrid: View {
 
     private func badgeCell(_ line: DisplayLine) -> some View {
         ZStack(alignment: .bottomTrailing) {
-            LineBadge(line: line.shortCode, size: .lg)
-                .frame(minWidth: 50, minHeight: 50)
+            // FIX — TOUS les badges en carré identique (50×50) sur toute la
+            // grille. Avant, LineBadge imposait sa largeur intrinsèque selon le
+            // nombre de chiffres (34 pour "1", 44 pour "18", 52 pour "100"…) →
+            // carrés de tailles inégales. squareSide force un carré exact ; le
+            // texte se réduit légèrement (minimumScaleFactor) si besoin.
+            LineBadge(line: line.shortCode, size: .lg, squareSide: 50)
 
             if let badge = statusByLine[line.shortCode] {
                 Image(systemName: badge.icon)

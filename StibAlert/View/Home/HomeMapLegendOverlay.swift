@@ -112,10 +112,10 @@ struct MapLegendOverlay: View {
             HStack(spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 14, weight: .heavy))
-                    .foregroundStyle(DS.Color.accentForeground)
+                    .foregroundStyle(DS.Color.aiForeground)
                     .frame(width: 40, height: 40)
-                    .background(Circle().fill(DS.Color.accent))
-                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                    .background(Circle().fill(DS.Color.ai))
+                    .overlay(Circle().stroke(DS.Color.paper.opacity(0.5), lineWidth: 1))
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Vue épurée")
                         .font(.system(size: 14, weight: .bold))

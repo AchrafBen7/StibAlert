@@ -27,13 +27,18 @@ enum SignalVisuals {
         }
     }
 
-    /// Marker/badge colour for a community cluster — mirrors `ClusterMarker`.
+    /// Couleur d'un marqueur/badge selon la SOURCE puis la confiance.
+    /// Convention (validée) : ROUGE = officiel STIB (autorité, alerte dure),
+    /// BLEU/CYAN = communauté (modulé par confiance). Avant, l'officiel était
+    /// bleu et la communauté fiable rouge → un testeur ne distinguait plus les
+    /// deux marqueurs bleus, et le bleu se confondait avec « ma position ».
     static func communityColor(for cluster: ClusterDTO) -> Color {
-        if cluster.isOfficial { return DS.Color.info }
+        if cluster.isOfficial { return DS.Color.danger }
         switch cluster.confidence {
-        case .high: return DS.Color.danger
-        case .medium: return DS.Color.warning
-        case .low: return Color(hex: "#9CA3AF")
+        // Communauté = palette froide, intensité = confiance.
+        case .high: return DS.Color.info        // bleu vif
+        case .medium: return DS.Color.community  // cyan/sarcelle
+        case .low: return Color(hex: "#9CA3AF")  // gris-bleu (peu fiable)
         }
     }
 }

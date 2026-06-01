@@ -2193,24 +2193,27 @@ private struct AddFavoriteSheet: View {
     @StateObject private var locator = OneShotLocationManager()
 
     @State private var nearbyStops: [NearbyStop] = []
+    @State private var searchResults: [NearbyStop] = []
     @State private var isLoading = false
+    @State private var isSearching = false
     @State private var addingId: String? = nil
     @State private var addedIds: Set<String> = []
     @State private var errorMessage: String? = nil
     @State private var searchQuery = ""
+    @State private var searchTask: Task<Void, Never>? = nil
 
     let existingIds: Set<String>
     let onClose: () -> Void
 
     private var pendingIds: Set<String> { existingIds.union(addedIds) }
-    private var filteredNearbyStops: [NearbyStop] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return nearbyStops }
-
-        return nearbyStops.filter { stop in
-            stop.name.localizedCaseInsensitiveContains(query)
-            || stop.lines.contains { $0.number.localizedCaseInsensitiveContains(query) }
-        }
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    /// Sans recherche : les arrêts proches. Avec recherche : les résultats
+    /// RÉSEAU (endpoint /recherche), pas un simple filtre du cache proximité —
+    /// c'est ce qui permet enfin de trouver un arrêt éloigné comme « Paduwa ».
+    private var displayedStops: [NearbyStop] {
+        trimmedQuery.isEmpty ? nearbyStops : searchResults
     }
 
     var body: some View {
@@ -2252,6 +2255,9 @@ private struct AddFavoriteSheet: View {
                             placeholder: "Chercher un arrêt ou une ligne",
                             text: $searchQuery
                         )
+                        .onChange(of: searchQuery) { _, newValue in
+                            scheduleSearch(for: newValue)
+                        }
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -2268,42 +2274,32 @@ private struct AddFavoriteSheet: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
 
-                        if isLoading {
+                        if isLoading || isSearching {
                             ProgressView()
                                 .tint(DS.Color.inkMute)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 48)
-                        } else if nearbyStops.isEmpty {
+                        } else if displayedStops.isEmpty {
                             VStack(spacing: 12) {
-                                Image(systemName: "mappin.slash")
-                                    .font(.system(size: 34, weight: .light))
+                                Image(systemName: trimmedQuery.isEmpty ? "mappin.slash" : "magnifyingglass")
+                                    .font(.system(size: 32, weight: .light))
                                     .foregroundStyle(DS.Color.inkMute)
-                                Text("Aucun arrêt trouvé à proximité")
+                                Text(trimmedQuery.isEmpty ? "Aucun arrêt trouvé à proximité" : "Aucun arrêt trouvé")
                                     .font(.system(size: 13.5, weight: .semibold))
                                     .foregroundStyle(DS.Color.ink)
-                                Text("Active la localisation ou rapproche-toi d’un arrêt STIB.")
+                                Text(trimmedQuery.isEmpty
+                                     ? "Active la localisation, ou cherche par nom d’arrêt / numéro de ligne."
+                                     : "Vérifie l’orthographe ou essaie un numéro de ligne.")
                                     .font(.system(size: 12))
                                     .foregroundStyle(DS.Color.inkMute)
+                                    .multilineTextAlignment(.center)
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 56)
-                        } else if filteredNearbyStops.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 30, weight: .light))
-                                    .foregroundStyle(DS.Color.inkMute)
-                                Text("Aucun arrêt trouvé")
-                                    .font(.system(size: 13.5, weight: .semibold))
-                                    .foregroundStyle(DS.Color.ink)
-                                Text("Essaie le nom d’un arrêt ou un numéro de ligne.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(DS.Color.inkMute)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 44)
+                            .padding(.vertical, 50)
+                            .padding(.horizontal, 24)
                         } else {
                             VStack(spacing: 10) {
-                                ForEach(filteredNearbyStops) { stop in
+                                ForEach(displayedStops) { stop in
                                     addFavoriteRow(stop)
                                 }
                             }
@@ -2317,6 +2313,33 @@ private struct AddFavoriteSheet: View {
         }
         .modifier(PaperGrainBackground())
         .task { await load() }
+    }
+
+    /// Recherche réseau débouncée (250 ms) : annule la requête précédente à
+    /// chaque frappe. En-dessous de 2 caractères on vide les résultats (la vue
+    /// retombe sur les arrêts proches).
+    private func scheduleSearch(for raw: String) {
+        searchTask?.cancel()
+        let query = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else {
+            isSearching = false
+            searchResults = []
+            return
+        }
+        isSearching = true
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if Task.isCancelled { return }
+            do {
+                let results = try await NearbyStopService.searchStopsByName(query)
+                if Task.isCancelled { return }
+                searchResults = results
+            } catch {
+                if Task.isCancelled { return }
+                searchResults = []
+            }
+            isSearching = false
+        }
     }
 
     private func addFavoriteRow(_ stop: NearbyStop) -> some View {

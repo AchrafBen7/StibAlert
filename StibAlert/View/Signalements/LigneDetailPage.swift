@@ -392,7 +392,6 @@ struct LigneDetailPage: View {
             .scrollBounceBehavior(.basedOnSize, axes: .vertical)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
         .modifier(PaperGrainBackground())
         .task {
             await viewModel.load()
@@ -516,7 +515,7 @@ struct LigneDetailPage: View {
     /// primary nav and the direction chips stay as the secondary control.
     private var primaryTabSwitcher: some View {
         HStack(spacing: 0) {
-            primaryTabLabel(.stops, label: "Arrêts")
+            primaryTabLabel(.stops, label: String(localized: "Arrêts"))
             primaryTabLabel(.traffic, label: "Infos trafic", showsStatusIcon: true)
         }
         .frame(height: 44)
@@ -597,16 +596,31 @@ struct LigneDetailPage: View {
     /// summary that lists this line as affected. Drives the icon used in
     /// the "Infos trafic" tab chip (checkmark.seal.fill when nominal,
     /// exclamationmark.triangle when not).
+    /// Nombre d'infos CONCRÈTES sur la ligne = signalements communauté +
+    /// incidents officiels propres à la ligne. C'est ce que compte le
+    /// sous-titre du bandeau ; le reste de la logique s'y aligne pour éviter
+    /// le "Perturbations en cours · 0 infos".
+    private var activeInfoCount: Int {
+        viewModel.lineSignalements.count + (viewModel.activeLine?.activeIncidents.count ?? 0)
+    }
+
+    /// Résumé STIB propre à CETTE ligne (≠ résumé réseau global).
+    private var hasLineLevelSummary: Bool {
+        guard let summary = viewModel.activeLine?.perturbationSummary else { return false }
+        return summary.shortText.isEmpty == false || summary.longText.isEmpty == false
+    }
+
     private var hasActiveTrafficIssue: Bool {
-        if !viewModel.lineSignalements.isEmpty { return true }
-        if let line = viewModel.activeLine {
-            if !line.activeIncidents.isEmpty { return true }
-            let summary = line.perturbationSummary
-            if summary?.shortText.isEmpty == false { return true }
-            if summary?.longText.isEmpty == false { return true }
-        }
-        if viewModel.matchingGlobalSummary != nil { return true }
-        return false
+        // FIX — Bandeau rouge "Perturbations en cours" UNIQUEMENT pour des
+        // perturbations concrètes de cette ligne : signalements communauté,
+        // incidents officiels, ou un résumé STIB propre à la ligne. Avant, un
+        // simple résumé RÉSEAU (matchingGlobalSummary, "Réseau sous
+        // surveillance") déclenchait l'alarme rouge alors que le sous-titre
+        // affichait "0 infos" et qu'aucune info ne concernait la ligne → c'est
+        // le "perturbation en cours alors que ya rien". Le résumé réseau reste
+        // affiché en pied de page comme contexte (networkAdvisoryRow), sans
+        // faire passer le bandeau au rouge.
+        activeInfoCount > 0 || hasLineLevelSummary
     }
 
     private var trafficStatusIcon: String {
@@ -647,7 +661,9 @@ struct LigneDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                 Text(isOK
                      ? "Aucun signalement actif sur cette ligne."
-                     : "\(viewModel.lineSignalements.count + (viewModel.activeLine?.activeIncidents.count ?? 0)) infos · communauté + STIB")
+                     : (activeInfoCount > 0
+                        ? "\(activeInfoCount) infos · communauté + STIB"
+                        : "Info trafic STIB sur cette ligne"))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .lineLimit(2)
@@ -669,9 +685,9 @@ struct LigneDetailPage: View {
     /// scheduled-future ones).
     private var trafficSubtabSwitcher: some View {
         HStack(spacing: 4) {
-            trafficSubtabChip(.live, label: "En cours", count: liveCount)
-            trafficSubtabChip(.upcoming, label: "Officiel", count: officialCount)
-            trafficSubtabChip(.social, label: "Twitter / X", count: 0)
+            trafficSubtabChip(.live, label: String(localized: "En cours"), count: liveCount)
+            trafficSubtabChip(.upcoming, label: String(localized: "Officiel"), count: officialCount)
+            trafficSubtabChip(.social, label: String(localized: "Twitter / X"), count: 0)
         }
         .padding(4)
         .background(DS.Color.paper2.opacity(0.55))
@@ -739,8 +755,8 @@ struct LigneDetailPage: View {
         if viewModel.lineSignalements.isEmpty {
             emptyStateCard(
                 icon: "person.2.fill",
-                title: "Pas de signalement communauté",
-                detail: "Aucun usager n'a signalé d'incident actif sur cette ligne."
+                title: String(localized: "Pas de signalement communauté"),
+                detail: String(localized: "Aucun usager n'a signalé d'incident actif sur cette ligne.")
             )
         } else {
             VStack(spacing: 8) {
@@ -767,8 +783,8 @@ struct LigneDetailPage: View {
             VStack(spacing: 8) {
                 emptyStateCard(
                     icon: "checkmark.seal.fill",
-                    title: "Pas d'info officielle sur cette ligne",
-                    detail: "La STIB-MIVB n'a publié aucune perturbation propre à cette ligne."
+                    title: String(localized: "Pas d'info officielle sur cette ligne"),
+                    detail: String(localized: "La STIB-MIVB n'a publié aucune perturbation propre à cette ligne.")
                 )
                 if let globalSummary {
                     networkAdvisoryRow(globalSummary)
@@ -810,7 +826,7 @@ struct LigneDetailPage: View {
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(1.2)
                     .foregroundStyle(DS.Color.info)
-                Text(summary.title.isEmpty ? "Réseau sous surveillance" : summary.title)
+                Text(summary.title.isEmpty ? String(localized: "Réseau sous surveillance") : summary.title)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Text(summary.shortText.isEmpty ? summary.longText : summary.shortText)

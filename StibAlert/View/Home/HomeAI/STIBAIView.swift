@@ -40,11 +40,11 @@ struct STIBAIView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(DS.Color.accent)
-                    .overlay(Circle().stroke(DS.Color.ink, lineWidth: 1.5))
+                    .fill(DS.Color.ai)
+                    .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
                 Image(systemName: "sparkles")
                     .font(.system(size: 15, weight: .heavy))
-                    .foregroundStyle(DS.Color.accentForeground)
+                    .foregroundStyle(DS.Color.aiForeground)
             }
             .frame(width: 40, height: 40)
 
@@ -310,15 +310,15 @@ struct STIBAIFloatingButton: View {
         Button(action: action) {
             Image(systemName: "sparkles")
                 .font(.system(size: 17, weight: .heavy))
-                .foregroundStyle(DS.Color.accentForeground)
+                .foregroundStyle(DS.Color.aiForeground)
                 .frame(width: 48, height: 48)
                 .background(
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .fill(DS.Color.accent)
+                        .fill(DS.Color.ai)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
+                        .stroke(DS.Color.paper, lineWidth: DS.Stroke.thick)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .shadow(DS.Shadow.floating)

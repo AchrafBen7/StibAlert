@@ -139,9 +139,9 @@ enum TransitLineMode {
 
     var label: String {
         switch self {
-        case .metro: return "Métro"
-        case .tram:  return "Tram"
-        case .bus:   return "Bus"
+        case .metro: return String(localized: "Métro")
+        case .tram:  return String(localized: "Tram")
+        case .bus:   return String(localized: "Bus")
         }
     }
 }
@@ -255,17 +255,26 @@ struct LineBadge: View {
     var size: LineBadgeSize = .sm
     var fill: Color? = nil
     var foreground: Color? = nil
+    /// Côté fixe optionnel : force le badge en CARRÉ exact (largeur = hauteur =
+    /// `squareSide`), au lieu de la largeur intrinsèque variable (qui dépend du
+    /// nombre de chiffres). Utilisé par les grilles (LineStatusGrid) où tous
+    /// les badges doivent être rigoureusement identiques. nil = normal.
+    var squareSide: CGFloat? = nil
 
     var body: some View {
         Text(line)
             .font(size.font)
             .fontWeight(.bold)
             .lineLimit(1)
-            .minimumScaleFactor(0.82)
+            .minimumScaleFactor(0.7)
             .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(foreground ?? TransitLinePalette.foreground(for: line))
-            .padding(.horizontal, size.horizontalPadding)
-            .frame(minWidth: size.minWidth(for: line), minHeight: size.height)
+            .padding(.horizontal, squareSide == nil ? size.horizontalPadding : 0)
+            .frame(
+                minWidth: squareSide == nil ? size.minWidth(for: line) : nil,
+                minHeight: squareSide == nil ? size.height : nil
+            )
+            .frame(width: squareSide, height: squareSide)
             .background(fill ?? TransitLinePalette.fill(for: line))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
             .overlay(
@@ -307,6 +316,12 @@ struct PaperGrainBackground: ViewModifier {
                         }
                         .allowsHitTesting(false)
                     )
+                    // FIX — le fond papier doit couvrir TOUT l'écran, y compris
+                    // sous la safe area (home indicator). Sans ça, le bas de
+                    // page laissait apparaître un liseré blanc du conteneur
+                    // parent au lieu du crème. S'applique à toutes les pages
+                    // qui utilisent ce modifier.
+                    .ignoresSafeArea()
             )
     }
 }

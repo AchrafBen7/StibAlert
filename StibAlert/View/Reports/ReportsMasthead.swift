@@ -9,17 +9,17 @@ enum ReportContentScope: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .reports: return "En cours"
-        case .official: return "Officiel"
-        case .events: return "Events"
+        case .reports: return String(localized: "En cours")
+        case .official: return String(localized: "Officiel")
+        case .events: return String(localized: "Events")
         }
     }
 
     var switchLabel: String {
         switch self {
-        case .reports: return "En cours"
-        case .official: return "Officiel"
-        case .events: return "Events"
+        case .reports: return String(localized: "En cours")
+        case .official: return String(localized: "Officiel")
+        case .events: return String(localized: "Events")
         }
     }
 

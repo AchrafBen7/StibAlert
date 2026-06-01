@@ -451,9 +451,15 @@ private struct HomeStopPreviewCard: View {
                                         Button {
                                             onSelectLineRoute(line)
                                         } label: {
+                                            // FIX — l'anneau de sélection collait au bord du badge
+                                            // (rayon md, 0 marge) : sur un badge .sm quasi carré
+                                            // (24×24) ça étranglait l'icône et se lisait comme un
+                                            // vilain rond. 2 pt de marge + rayon lg -> le contour
+                                            // suit la forme du badge, en parallèle, avec de l'air.
                                             LineBadge(line: line, size: .sm)
+                                                .padding(2)
                                                 .overlay(
-                                                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                                                    RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
                                                         .stroke(selectedLineRoute == line ? DS.Color.ink : Color.clear, lineWidth: 2)
                                                 )
                                         }

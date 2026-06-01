@@ -401,6 +401,28 @@ enum NearbyStopService {
             .trimmingCharacters(in: .whitespaces)
     }
 
+    /// Recherche d'arrêts par nom OU numéro de ligne sur TOUT le réseau (pas
+    /// seulement autour de l'utilisateur). Renvoie de vrais `backendId` Mongo,
+    /// indispensables pour épingler un favori. Utilisé par la feuille « Ajouter
+    /// un arrêt favori » : avant, elle ne filtrait que les arrêts dans 1,5 km,
+    /// donc un arrêt éloigné comme « Paduwa » (bus 66) était introuvable.
+    static func searchStopsByName(_ query: String) async throws -> [NearbyStop] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2, AppConfig.isBackendEnabled else { return [] }
+
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+        let dtos: [ArretNearbyDTO] = try await APIClient.shared.request("/api/arrets/recherche?q=\(encoded)")
+        let mapped = dtos.map { toNearbyStop($0) }
+
+        // Enrichit les lignes manquantes depuis le catalogue local (même
+        // traitement que fetchNearby) pour des badges cohérents.
+        if let catalog = try? await StaticTransitCatalogStore.loadOrRefresh(),
+           !catalog.stops.isEmpty {
+            return enrichNearbyStops(mapped, using: catalog)
+        }
+        return mapped
+    }
+
     static func fetchNearby(lat: Double, lng: Double, radius: Double = 600) async throws -> [NearbyStop] {
         if AppConfig.isBackendEnabled {
             do {
