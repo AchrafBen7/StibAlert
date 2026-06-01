@@ -17,6 +17,14 @@ struct FavoritesView: View {
     @State private var showAddSheet = false
     @State private var stibLineMetadata: [String: FavoriteFollowedLineMetadata] = [:]
 
+    // Recherche réseau : la search bar ne se limite plus à filtrer les favoris
+    // existants — elle interroge tout le réseau (endpoint /recherche) pour
+    // proposer d'AJOUTER des arrêts pas encore en favori.
+    @State private var discoverResults: [NearbyStop] = []
+    @State private var isDiscovering = false
+    @State private var addingDiscoverId: String? = nil
+    @State private var discoverSearchTask: Task<Void, Never>? = nil
+
     private var displayItems: [FavoriteTransitItem] {
         AppConfig.isBackendEnabled ? remoteItems : (remoteItems.isEmpty ? FavoritesMockData.items : remoteItems)
     }
@@ -182,14 +190,24 @@ struct FavoritesView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
 
-        if (isLoadingRemote || !hasLoadedFavorites) && displayItems.isEmpty {
+        if isSearchingNetwork {
+            // Mode recherche : on liste les favoris correspondants PUIS les
+            // résultats réseau à ajouter (arrêts pas encore en favori).
+            VStack(alignment: .leading, spacing: 28) {
+                if !filteredItems.isEmpty {
+                    pinnedStopsSection
+                }
+                discoverSection
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 96)
+        } else if (isLoadingRemote || !hasLoadedFavorites) && displayItems.isEmpty {
             SkeletonList(count: 4, style: .card)
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
         } else if AppConfig.isBackendEnabled && displayItems.isEmpty {
             favoritesEmptyState
-        } else if filteredItems.isEmpty {
-            searchEmptyState
         } else {
             VStack(alignment: .leading, spacing: 28) {
                 pinnedStopsSection
@@ -200,6 +218,10 @@ struct FavoritesView: View {
             .padding(.top, 20)
             .padding(.bottom, 96)
         }
+    }
+
+    private var isSearchingNetwork: Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
     }
 
     private var favoriteGares: [SNCBStation] {
@@ -386,6 +408,20 @@ struct FavoritesView: View {
                 .foregroundStyle(DS.Color.ink)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
+                .onChange(of: query) { _, newValue in
+                    scheduleDiscoverSearch(for: newValue)
+                }
+
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 14)
         .frame(height: 44)
@@ -556,6 +592,128 @@ struct FavoritesView: View {
         )
         .padding(.horizontal, 20)
         .padding(.top, 40)
+    }
+
+    /// IDs des arrêts déjà en favori, pour marquer « Ajouté » dans les
+    /// résultats de recherche réseau.
+    private var favoriteStopIds: Set<String> {
+        Set(remoteItems.compactMap(\.stopBackendId))
+    }
+
+    /// Section « Ajouter à mes favoris » : résultats RÉSEAU (arrêts non encore
+    /// favoris) renvoyés par /api/arrets/recherche, avec un bouton + par ligne.
+    @ViewBuilder
+    private var discoverSection: some View {
+        let netResults = discoverResults.filter { stop in
+            guard let id = stop.backendId else { return false }
+            return !favoriteStopIds.contains(id)
+        }
+        VStack(alignment: .leading, spacing: 12) {
+            FavoriteSectionHeading(text: "Ajouter à mes favoris", systemImage: "plus.magnifyingglass")
+
+            if isDiscovering && netResults.isEmpty {
+                ProgressView()
+                    .tint(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+            } else if netResults.isEmpty {
+                EmptyStateView(
+                    iconSystemName: "magnifyingglass",
+                    title: "Aucun arrêt trouvé",
+                    body: "Rien ne correspond à « \(query) ». Essaie un autre nom d'arrêt ou un numéro de ligne."
+                )
+                .padding(.top, 12)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(netResults) { stop in
+                        discoverRow(stop)
+                    }
+                }
+            }
+        }
+    }
+
+    private func discoverRow(_ stop: NearbyStop) -> some View {
+        let isAdding = stop.backendId == addingDiscoverId
+        return HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(stop.name)
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                if !stop.lines.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(stop.lines.prefix(5)) { line in
+                            LineBadge(line: line.number, size: .sm)
+                        }
+                    }
+                }
+            }
+            Spacer()
+            Button {
+                guard stop.backendId != nil, !isAdding else { return }
+                Task { await addDiscoverStop(stop) }
+            } label: {
+                Group {
+                    if isAdding {
+                        ProgressView().tint(DS.Color.ink).frame(width: 80, height: 34)
+                    } else {
+                        Text("+ Ajouter")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 80, height: 34)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(DS.Color.ink.opacity(0.22), lineWidth: 1.5)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isAdding)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Recherche réseau débouncée (250 ms). En dessous de 2 caractères on vide.
+    private func scheduleDiscoverSearch(for raw: String) {
+        discoverSearchTask?.cancel()
+        let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 2 else {
+            isDiscovering = false
+            discoverResults = []
+            return
+        }
+        isDiscovering = true
+        discoverSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if Task.isCancelled { return }
+            let results = (try? await NearbyStopService.searchStopsByName(q)) ?? []
+            if Task.isCancelled { return }
+            await MainActor.run {
+                discoverResults = results
+                isDiscovering = false
+            }
+        }
+    }
+
+    private func addDiscoverStop(_ stop: NearbyStop) async {
+        guard let userId = session.currentUser?.id, let stopId = stop.backendId else { return }
+        addingDiscoverId = stopId
+        defer { addingDiscoverId = nil }
+        do {
+            _ = try await UtilisateurService.toggleFavori(userId: userId, arretId: stopId)
+            await session.refreshCurrentUser()
+            await loadFavoris()
+        } catch {
+            print("Add favori depuis recherche échoué: \(error.localizedDescription)")
+        }
     }
 
     private var searchEmptyState: some View {

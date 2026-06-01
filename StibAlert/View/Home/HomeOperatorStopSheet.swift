@@ -174,11 +174,12 @@ struct HomeOperatorStopSheet: View {
                 Text("Lignes à cet arrêt")
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(lines.prefix(12)) { line in
-                            deLijnLineChip(line.line)
-                        }
+                // Badge ligne + direction (→ destination) en liste verticale,
+                // pour qu'on voie quelles lignes passent ET vers où — même
+                // quand le temps réel est vide (nuit / hors fenêtre 30 min).
+                VStack(spacing: 8) {
+                    ForEach(lines.prefix(12)) { line in
+                        deLijnLineRow(line)
                     }
                 }
             }
@@ -267,18 +268,40 @@ struct HomeOperatorStopSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func deLijnLineChip(_ line: String) -> some View {
-        Text(line)
-            .font(DS.Font.bodyBold)
-            .foregroundStyle(stop.op.brandTextColor)
-            .frame(minWidth: 38, minHeight: 28)
-            .padding(.horizontal, 8)
-            .background(stop.op.brandColor)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
-            )
+    private func deLijnLineRow(_ info: OperatorStopLineInfo) -> some View {
+        HStack(spacing: 12) {
+            Text(info.line)
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(stop.op.brandTextColor)
+                .frame(width: 40, height: 30)
+                .background(stop.op.brandColor)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
+                )
+            if let dest = deLijnTerminus(info.destination) {
+                Text("→ \(dest)")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper2.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    /// De Lijn renvoie une description de tracé verbeuse
+    /// ("Brussel Noord - Dilbeek - Roosdaal - Ninove"). On garde le terminus
+    /// (dernier segment) pour un affichage type "→ Ninove".
+    private func deLijnTerminus(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let parts = raw.components(separatedBy: " - ")
+        return parts.last?.trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: - Formatting helpers

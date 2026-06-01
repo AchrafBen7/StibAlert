@@ -774,11 +774,8 @@ struct GareDetailPage: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(DS.Color.primary)
+            // Border noir retiré (cohérence avec le bouton « + » de la carte).
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
-            )
             .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)

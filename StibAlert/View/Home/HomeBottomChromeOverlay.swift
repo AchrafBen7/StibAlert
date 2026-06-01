@@ -162,10 +162,8 @@ private struct HomeReportFloatingButton: View {
                 .foregroundStyle(DS.Color.primaryForeground)
                 .frame(width: 48, height: 48)
                 .background(DS.Color.primary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
-                )
+                // Border noir retiré : il alourdissait le bouton « + » et
+                // détonnait. L'ombre flottante suffit à le détacher du fond.
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .shadow(DS.Shadow.floating)
         }

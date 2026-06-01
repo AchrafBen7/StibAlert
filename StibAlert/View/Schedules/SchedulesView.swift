@@ -290,8 +290,11 @@ struct SchedulesView: View {
             ) {
                 ForEach(lines) { line in
                     NavigationLink(value: line.lookupId) {
-                        LineBadge(line: line.shortCode, size: .lg)
-                            .frame(minWidth: 50, minHeight: 50)
+                        // squareSide : tous les badges en carré identique 50×50,
+                        // comme la grille Infos trafic (LineStatusGrid). Avant,
+                        // LineBadge gardait sa largeur variable selon le nombre
+                        // de chiffres et minWidth ne corrigeait que le plancher.
+                        LineBadge(line: line.shortCode, size: .lg, squareSide: 50)
                     }
                     .buttonStyle(.plain)
                 }

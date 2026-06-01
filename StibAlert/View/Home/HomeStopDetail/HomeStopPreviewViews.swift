@@ -448,22 +448,21 @@ private struct HomeStopPreviewCard: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 6) {
                                     ForEach(displayedLines, id: \.self) { line in
+                                        // Sélection = vif vs estompé (plus de
+                                        // cercle noir, qui alourdissait). La
+                                        // ligne choisie reste en couleur pleine,
+                                        // les autres sont estompées + légèrement
+                                        // désaturées. Aucune sélection → tout vif.
+                                        let isDimmed = selectedLineRoute != nil && selectedLineRoute != line
                                         Button {
                                             onSelectLineRoute(line)
                                         } label: {
-                                            // FIX — l'anneau de sélection collait au bord du badge
-                                            // (rayon md, 0 marge) : sur un badge .sm quasi carré
-                                            // (24×24) ça étranglait l'icône et se lisait comme un
-                                            // vilain rond. 2 pt de marge + rayon lg -> le contour
-                                            // suit la forme du badge, en parallèle, avec de l'air.
                                             LineBadge(line: line, size: .sm)
-                                                .padding(2)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                                                        .stroke(selectedLineRoute == line ? DS.Color.ink : Color.clear, lineWidth: 2)
-                                                )
+                                                .saturation(isDimmed ? 0.25 : 1)
+                                                .opacity(isDimmed ? 0.5 : 1)
                                         }
                                         .buttonStyle(.plain)
+                                        .animation(.easeOut(duration: 0.18), value: selectedLineRoute)
                                     }
                                 }
                             }
