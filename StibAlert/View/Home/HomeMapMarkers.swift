@@ -46,17 +46,17 @@ enum SignalVisuals {
 struct UserLocationDotView: View {
     /// Cap en degrés (0 = nord). < 0 = indisponible → faisceau masqué.
     let heading: Double
-    @State private var pulse = false
 
     var body: some View {
         ZStack {
-            // Halo doux qui respire (précision approximative, discret).
+            // PERF — halo STATIQUE (avant : pulse `repeatForever`). C'était la
+            // seule animation infinie TOUJOURS visible sur la carte : elle
+            // forçait MapKit à recompositer la couche d'annotations à chaque
+            // frame en continu → chauffe. Un disque doux fixe donne le même
+            // repère de position sans coût GPU permanent.
             Circle()
-                .fill(DS.Color.info.opacity(0.16))
+                .fill(DS.Color.info.opacity(0.14))
                 .frame(width: 40, height: 40)
-                .scaleEffect(pulse ? 1.18 : 0.85)
-                .opacity(pulse ? 0.0 : 0.55)
-                .animation(.easeOut(duration: 2.2).repeatForever(autoreverses: false), value: pulse)
 
             // Faisceau de cap : cône lisse qui s'estompe vers l'extérieur
             // (style boussole Plans) au lieu du triangle dur d'avant.
@@ -86,7 +86,6 @@ struct UserLocationDotView: View {
                 .overlay(Circle().stroke(Color.white, lineWidth: 3))
                 .shadow(color: .black.opacity(0.28), radius: 3, x: 0, y: 1)
         }
-        .onAppear { pulse = true }
         .accessibilityLabel("Ta position")
     }
 }

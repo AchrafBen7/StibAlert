@@ -14,6 +14,12 @@ struct HomeSearchHeaderOverlay: View {
     let isPerturbationsFilterActive: Bool
     let onShowLegend: () -> Void
     let onOpenItineraryPlanner: () -> Void
+    /// Validation clavier (« zoek ») dans la search bar : calcule directement
+    /// un itinéraire DEPUIS ma position vers ce qui est tapé et montre les
+    /// alternatives — sans passer par la page Route (≠ onOpenItineraryPlanner,
+    /// réservé au bouton « Itinéraires » du filtre, qui lui laisse choisir
+    /// départ + arrivée).
+    let onSubmitSearch: () -> Void
     let onOpenFavorites: () -> Void
     let onOpenReports: () -> Void
     let onSelectSuggestion: (MKMapItem) -> Void
@@ -35,7 +41,7 @@ struct HomeSearchHeaderOverlay: View {
             }
 
             HStack(spacing: 10) {
-                HomeEditorialSearchField(query: $searchQuery, onSubmit: onOpenItineraryPlanner)
+                HomeEditorialSearchField(query: $searchQuery, onSubmit: onSubmitSearch)
 
                 Button(action: onShowLegend) {
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
@@ -127,6 +133,18 @@ private struct HomeEditorialSearchField: View {
                 .focused($isFocused)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                // Bouton "Terminé" au-dessus du clavier : seul moyen fiable de
+                // fermer le clavier quand on tape une adresse sans valider (le
+                // tap sur la carte ne le fermait pas). Standard iOS.
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button(String(localized: "Terminé")) {
+                            isFocused = false
+                        }
+                        .fontWeight(.semibold)
+                    }
+                }
                 .onSubmit {
                     guard !localText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                     // Sync immédiat avant submit pour que le parent ait la
@@ -230,18 +248,16 @@ private struct SearchSuggestionsDropdown: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("DESTINATIONS")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(DS.Color.inkMute)
-                Rectangle()
-                    .fill(DS.Color.ink.opacity(0.12))
-                    .frame(height: 1)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            // Header discret : juste un petit label, sans la grosse ligne
+            // pleine qui donnait un aspect « carré lourd » derrière les
+            // résultats. La liste respire davantage.
+            Text("DESTINATIONS")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(2)
+                .foregroundStyle(DS.Color.inkMute.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
 
             ForEach(suggestions, id: \.self) { item in
                 Button {
@@ -291,13 +307,13 @@ private struct SearchSuggestionsDropdown: View {
                 }
             }
         }
-        .background(DS.Color.paper.opacity(0.98))
+        .background(DS.Color.paper)
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .shadow(DS.Shadow.floating)
+        .shadow(DS.Shadow.raised)
     }
 
     private func symbol(for item: MKMapItem) -> String {

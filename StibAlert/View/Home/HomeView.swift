@@ -267,10 +267,12 @@ struct HomeView: View {
     }
 
     private var visibleLineShapes: [LineShape] {
-        guard selectedRouteOption == nil else { return [] }
-        guard selectedStopLineNumber == nil else { return [] }
-        guard cameraLatitudeDelta <= 0.05 else { return [] }
-        return lineShapesLoader.shapes(matchingNumbers: visibleLineNumbers)
+        // Tracés de lignes désactivés en affichage permanent : ils
+        // surchargeaient la carte (toutes les lignes visibles tracées au zoom)
+        // et la ralentissaient pour peu de valeur. On ne montre plus le tracé
+        // d'une ligne QUE lorsqu'un arrêt est sélectionné (selectedStopLineShapes).
+        // Le loader reste actif pour ce cas et pour les itinéraires.
+        return []
     }
 
     private var selectedStopLineShapes: [LineShape] {
@@ -613,8 +615,8 @@ struct HomeView: View {
         guard showVilloStations, cameraLatitudeDelta <= 0.03 else { return [] }
         return VilloStationService.nearbyStations(
             around: locationManager.displayCoordinate,
-            radiusMeters: 2200,
-            limit: 55 // perf zoom : moins d'annotations à re-layouter
+            radiusMeters: 1800,
+            limit: 30 // PERF — moins d'annotations Villo à composer (chauffe).
         ).map(\.station)
     }
 
@@ -1315,9 +1317,21 @@ struct HomeView: View {
                 suppressNextCameraInteraction = false
             } else {
                 isFollowingUser = false
+                // Interagir avec la carte (pan/zoom) ferme le clavier de
+                // recherche — geste instinctif quand on tape une adresse. Le
+                // bouton « Terminé » au-dessus du clavier reste l'autre issue.
+                dismissKeyboard()
             }
             scheduleCatalogMapStopsRefresh()
             scheduleActiveClustersRefresh()
+    }
+
+    /// Ferme le clavier globalement, sans dépendre d'un @FocusState précis
+    /// (le champ de recherche gère son focus localement).
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+        )
     }
 
     @MainActor
@@ -2804,6 +2818,48 @@ struct HomeView: View {
             remoteSignalements[index] = signalement
         } else {
             remoteSignalements.insert(signalement, at: 0)
+        }
+    }
+
+    /// « zoek » / Entrée dans la search bar : calcule un itinéraire DEPUIS la
+    /// position de l'utilisateur vers la saisie, puis affiche les alternatives
+    /// — sans ouvrir la page Route. On route vers la meilleure suggestion déjà
+    /// calculée (arrêt STIB ou adresse Apple) ; si la liste n'est pas encore
+    /// prête, on géocode la requête à la volée. C'est le `tripDestination`
+    /// pipeline (le même que la sélection d'une suggestion) qui fait le reste.
+    @MainActor
+    func submitSearchToRoute() {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+
+        // 1) Si une suggestion est déjà disponible, on prend la meilleure.
+        if let best = searchSuggestions.first {
+            tripDestination = TripDestination(
+                coordinate: best.placemark.coordinate,
+                label: best.name ?? best.placemark.title
+            )
+            return
+        }
+
+        // 2) Sinon, résolution à la volée : arrêt STIB d'abord, puis géocodage.
+        Task { @MainActor in
+            if let stop = await NearbyStopService.searchStopByName(query) {
+                tripDestination = TripDestination(coordinate: stop.coordinate, label: stop.name)
+                return
+            }
+            let req = MKLocalSearch.Request()
+            req.naturalLanguageQuery = query
+            req.resultTypes = [.address, .pointOfInterest]
+            req.region = MKCoordinateRegion(
+                center: cameraCenterCoordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25)
+            )
+            if let item = (try? await MKLocalSearch(request: req).start())?.mapItems.first {
+                tripDestination = TripDestination(
+                    coordinate: item.placemark.coordinate,
+                    label: item.name ?? item.placemark.title
+                )
+            }
         }
     }
 

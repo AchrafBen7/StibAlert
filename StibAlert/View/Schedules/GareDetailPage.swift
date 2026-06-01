@@ -322,14 +322,18 @@ struct GareDetailPage: View {
     }
 
     private var timetable: some View {
-        LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+        // FIX — VStack simple au lieu de LazyVStack(pinnedViews:.sectionHeaders).
+        // Le LazyVStack était imbriqué dans le ScrollView parent via un VStack
+        // intermédiaire : la lazy-loading + les headers épinglés réservaient de
+        // l'espace estimé pour les sections non rendues → de gros blocs blancs
+        // qu'il fallait scroller pour voir les horaires. Un VStack mesure sa
+        // vraie hauteur : toutes les heures s'affichent compactes, sans trou.
+        // (Une journée de gare = quelques dizaines de lignes, pas besoin de lazy.)
+        VStack(spacing: 0) {
             ForEach(hourGroups, id: \.hour) { group in
-                Section {
-                    ForEach(Array(group.items.enumerated()), id: \.offset) { _, dep in
-                        scheduleRow(dep)
-                    }
-                } header: {
-                    hourHeader(group.hour)
+                hourHeader(group.hour)
+                ForEach(Array(group.items.enumerated()), id: \.offset) { _, dep in
+                    scheduleRow(dep)
                 }
             }
         }

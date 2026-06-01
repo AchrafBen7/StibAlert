@@ -106,6 +106,12 @@ extension HomeView {
                             showRoutePlanner = true
                             activeMapFilter = .none
                         },
+                        onSubmitSearch: {
+                            // « zoek » dans la search bar → itinéraire direct
+                            // depuis ma position vers la saisie, alternatives
+                            // affichées sans passer par la page Route.
+                            submitSearchToRoute()
+                        },
                         onOpenFavorites: {
                             let shouldFocusFavorites = activeMapFilter != .favorites
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {

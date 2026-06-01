@@ -64,15 +64,21 @@ struct ActiveTripIndicatorView: View {
                         Capsule().stroke(DS.Color.primary.opacity(0.32), lineWidth: 1)
                     )
 
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("→ \(summary.destinationName)")
                             .font(.system(size: 12.5, weight: .bold))
                             .foregroundStyle(DS.Color.ink)
                             .lineLimit(1)
                         if let firstLine = summary.firstLineCode {
-                            Text("via ligne \(firstLine)")
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .foregroundStyle(DS.Color.inkMute)
+                            // « via » + le badge coloré de la ligne directement,
+                            // au lieu du texte « via ligne 10 » : plus lisible,
+                            // on reconnaît la ligne à sa couleur d'un coup d'œil.
+                            HStack(spacing: 5) {
+                                Text("via")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundStyle(DS.Color.inkMute)
+                                LineBadge(line: firstLine, size: .sm)
+                            }
                         }
                     }
 
