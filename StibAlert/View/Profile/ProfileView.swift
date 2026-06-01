@@ -818,7 +818,7 @@ struct ProfileView: View {
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "fr_BE")
+        f.locale = AppLocale.current
         f.unitsStyle = .short
         return f
     }()

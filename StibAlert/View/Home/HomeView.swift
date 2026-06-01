@@ -53,6 +53,7 @@ struct HomeView: View {
     @State private var currentRoute: MKRoute? = nil
     @State private var currentRouteCoordinates: [CLLocationCoordinate2D] = []
     @State private var destinationCoord: CLLocationCoordinate2D? = nil
+    @State private var routeOverlayRevision = 0
     // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
     // n'affiche pas la card si une route est déjà sélectionnée).
     @State var routeOptions: [HomeRouteOption] = []
@@ -714,7 +715,6 @@ struct HomeView: View {
     var shouldShowTabBar: Bool {
         !nav.showReportSheet
         && !isStopDetailPresented
-        && !hasRouteSurface
         && !nav.hidesTabBar
     }
 
@@ -1108,6 +1108,7 @@ struct HomeView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.82), value: nav.showReportSheet)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
+            nav.hidesTabBar = false
             locationManager.start()
             realtimeSignalements.connect()
             vehicleTracker.start(lines: trackedVehicleLineNumbers)
@@ -1166,7 +1167,9 @@ struct HomeView: View {
             mergeIncomingSignalement(signalement)
         }
         .onChange(of: nav.currentPage) { _, newValue in
-            if newValue == .home, nav.pendingMapStopFocusBackendId != nil {
+            guard newValue == .home else { return }
+            nav.hidesTabBar = false
+            if nav.pendingMapStopFocusBackendId != nil {
                 Task { await applyPendingMapStopFocusIfPossible() }
             }
         }
@@ -1226,6 +1229,7 @@ struct HomeView: View {
             displayCoordinate: locationManager.displayCoordinate,
             heading: locationManager.heading,
             routeMapSegments: routeMapSegments,
+            routeOverlayRevision: routeOverlayRevision,
             destinationCoordinate: destinationCoord,
             // Focus mode strips every overlay from the map so the only
             // markers left are the focused line's stops and its live vehicles.
@@ -1618,6 +1622,7 @@ struct HomeView: View {
         selectedRouteID = nil
         currentRoute = nil
         currentRouteCoordinates = []
+        routeOverlayRevision += 1
         if !keepDestination {
             destinationCoord = nil
             // Closing the route surface should wipe the destination chip
@@ -1786,6 +1791,112 @@ struct HomeView: View {
                 MKCoordinateRegion(
                     center: center,
                     span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
+                )
+            )
+        }
+    }
+
+    func focusMapOnFavorites() {
+        let stibCoordinates = favoriteMapStops.compactMap { stop -> CLLocationCoordinate2D? in
+            guard let latitude = stop.latitude, let longitude = stop.longitude else { return nil }
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        let stationCoordinates = gareFavorites.stations.map(\.coordinate)
+        let operatorCoordinates = favoriteOperatorMapStops.map(\.coordinate)
+        let coordinates = stibCoordinates + stationCoordinates + operatorCoordinates
+
+        guard !coordinates.isEmpty else {
+            nav.currentPage = .favorites
+            return
+        }
+
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+
+        if coordinates.count == 1, let coordinate = coordinates.first {
+            cameraCenterCoordinate = coordinate
+            cameraLatitudeDelta = 0.018
+            withAnimation(.easeInOut(duration: 0.55)) {
+                mapPosition = .region(
+                    MKCoordinateRegion(
+                        center: coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.018, longitudeDelta: 0.018)
+                    )
+                )
+            }
+            return
+        }
+
+        var rect = MKMapRect.null
+        for coordinate in coordinates {
+            let point = MKMapPoint(coordinate)
+            let pointRect = MKMapRect(x: point.x, y: point.y, width: 0, height: 0)
+            rect = rect.isNull ? pointRect : rect.union(pointRect)
+        }
+
+        guard !rect.isNull else { return }
+        withAnimation(.easeInOut(duration: 0.65)) {
+            mapPosition = .rect(
+                rect.insetBy(
+                    dx: -max(rect.width * 0.28, 850),
+                    dy: -max(rect.height * 0.28, 850)
+                )
+            )
+        }
+    }
+
+    func focusMapOnPerturbations() {
+        let reportCoordinates = remoteSignalements.compactMap { signalement -> CLLocationCoordinate2D? in
+            guard signalement.status != "resolved",
+                  let latitude = signalement.latitude,
+                  let longitude = signalement.longitude else { return nil }
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        let clusterCoordinates = activeClusters.compactMap { cluster -> CLLocationCoordinate2D? in
+            guard let latitude = cluster.latitude, let longitude = cluster.longitude else { return nil }
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        let coordinates = reportCoordinates + clusterCoordinates
+
+        guard !coordinates.isEmpty else {
+            openReportsFromHome()
+            return
+        }
+
+        isFollowingUser = false
+        suppressNextCameraInteraction = true
+
+        if coordinates.count == 1, let coordinate = coordinates.first {
+            cameraCenterCoordinate = coordinate
+            cameraLatitudeDelta = 0.02
+            withAnimation(.easeInOut(duration: 0.55)) {
+                mapPosition = .region(
+                    MKCoordinateRegion(
+                        center: coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+                    )
+                )
+            }
+            return
+        }
+
+        var rect = MKMapRect.null
+        for coordinate in coordinates {
+            let point = MKMapPoint(coordinate)
+            let pointRect = MKMapRect(x: point.x, y: point.y, width: 0, height: 0)
+            rect = rect.isNull ? pointRect : rect.union(pointRect)
+        }
+
+        guard !rect.isNull else {
+            openReportsFromHome()
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.65)) {
+            mapPosition = .rect(
+                rect.insetBy(
+                    dx: -max(rect.width * 0.22, 1_000),
+                    dy: -max(rect.height * 0.22, 1_000)
                 )
             )
         }
@@ -3237,6 +3348,7 @@ struct HomeView: View {
         currentRoute = option.route
         currentRouteCoordinates = option.routeCoordinates
         selectedRouteID = option.id
+        routeOverlayRevision += 1
         enterInteractionMode(.routePreview)
 
         withAnimation(.easeOut(duration: 0.35)) {

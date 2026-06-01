@@ -158,16 +158,16 @@ private struct HomeReportFloatingButton: View {
             action()
         }) {
             Image(systemName: "plus")
-                .font(.system(size: 18, weight: .heavy))
+                .font(.system(size: 17, weight: .heavy))
                 .foregroundStyle(DS.Color.primaryForeground)
-                .frame(width: 58, height: 58)
+                .frame(width: 48, height: 48)
                 .background(DS.Color.primary)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(DS.Shadow.overlay)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Signaler")
@@ -183,9 +183,16 @@ struct LocationFloatingButton: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(DS.Color.ink)
                 .rotationEffect(.degrees(18))
-                .frame(width: 46, height: 46)
-                .background(Circle().fill(DS.Color.paper.opacity(0.96)))
-                .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(DS.Color.paper.opacity(0.96))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)

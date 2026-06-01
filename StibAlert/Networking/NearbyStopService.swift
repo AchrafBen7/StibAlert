@@ -394,7 +394,7 @@ enum NearbyStopService {
     private static func normalize(_ text: String) -> String {
         let folded = text
             .lowercased()
-            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR"))
+            .folding(options: .diacriticInsensitive, locale: AppLocale.current)
         return folded
             .replacingOccurrences(of: #"[^a-z0-9\s]"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)

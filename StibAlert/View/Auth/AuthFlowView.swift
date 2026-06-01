@@ -172,7 +172,7 @@ private struct WelcomePage: View {
                 .padding(.bottom, 12)
 
             (
-                Text("Le réseau,\n")
+                Text(AppLocalizer.string("welcome.hero.network_line"))
                     .foregroundColor(DS.Color.ink)
                 + Text("en clair.")
                     .font(.system(size: 44, weight: .bold, design: .serif))

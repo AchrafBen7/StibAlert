@@ -32,6 +32,7 @@ struct STIBAIView: View {
             inputBar
         }
         .background(DS.Color.paper.ignoresSafeArea())
+        .preferredColorScheme(.light)
         .onDisappear { viewModel.cancel() }
     }
 
@@ -188,6 +189,7 @@ struct STIBAIView: View {
                 STIBAITypingIndicator()
                     .padding(.horizontal, 20)
                     .padding(.vertical, 18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(DS.Color.paper2)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -196,8 +198,9 @@ struct STIBAIView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
                 STIBAIResponseRenderer(text: message.content.isEmpty ? "…" : message.content)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 18)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(DS.Color.paper2)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -308,9 +311,16 @@ struct STIBAIFloatingButton: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 17, weight: .heavy))
                 .foregroundStyle(DS.Color.accentForeground)
-                .frame(width: 46, height: 46)
-                .background(Circle().fill(DS.Color.accent))
-                .overlay(Circle().stroke(DS.Color.ink, lineWidth: 1.5))
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(DS.Color.accent)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)

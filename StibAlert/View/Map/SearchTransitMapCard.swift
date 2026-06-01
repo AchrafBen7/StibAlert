@@ -52,7 +52,8 @@ struct SearchTransitMapView: View {
             }
         }
         .mapStyle(.standard(elevation: .realistic))
-        .environment(\.colorScheme, .dark)
+        .mapControls { }
+        .environment(\.colorScheme, .light)
         .onAppear {
             recenterIfNeeded()
         }

@@ -225,7 +225,7 @@ struct NextPassageIntent: AppIntent {
 
     private func normalizedStopName(_ value: String) -> String {
         value
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "fr_BE"))
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: AppLocale.current)
             .lowercased()
             .replacingOccurrences(of: "-", with: " ")
             .components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted)

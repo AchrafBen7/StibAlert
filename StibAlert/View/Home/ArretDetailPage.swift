@@ -457,6 +457,7 @@ struct ArretDetailPage: View {
                         .overlay(Circle().stroke(DS.Color.ink, lineWidth: 2))
                 }
             }
+            .mapControls { }
             .allowsHitTesting(false)
             .frame(maxWidth: .infinity)
             .aspectRatio(16 / 7, contentMode: .fit)
@@ -1462,7 +1463,7 @@ private struct StopIncidentDetailSheet: View {
     private var dateText: String? {
         guard let date = incident.date else { return nil }
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }

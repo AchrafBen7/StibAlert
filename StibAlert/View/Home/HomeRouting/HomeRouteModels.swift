@@ -36,12 +36,56 @@ struct RouteDepartureInsight {
     }
 }
 
+struct RouteLineDescriptor: Equatable, Hashable {
+    let code: String
+    let operatorId: String?
+    let colorHex: String?
+    let textColorHex: String?
+
+    init(code: String, operatorId: String? = nil, colorHex: String? = nil, textColorHex: String? = nil) {
+        self.code = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.operatorId = operatorId?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.colorHex = colorHex?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.textColorHex = textColorHex?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var operatorType: TransitOperator? {
+        let raw = (operatorId ?? "").lowercased()
+        if raw.contains("delijn") || raw.contains("de lijn") { return .delijn }
+        if raw.contains("sncb") || raw.contains("nmbs") { return .sncb }
+        if raw.contains("tec") { return .tec }
+        if raw.contains("stib") || raw.contains("mivb") { return .stib }
+        return nil
+    }
+
+    var fillColor: Color {
+        if let colorHex, !colorHex.isEmpty {
+            return Color(hex: colorHex)
+        }
+        if let operatorType, operatorType != .stib {
+            return operatorType.brandColor
+        }
+        return TransitLinePalette.fill(for: code)
+    }
+
+    var foregroundColor: Color {
+        if let textColorHex, !textColorHex.isEmpty {
+            return Color(hex: textColorHex)
+        }
+        if let operatorType, operatorType != .stib {
+            return operatorType.brandTextColor
+        }
+        return TransitLinePalette.foreground(for: code)
+    }
+}
+
 struct InlineRouteStepItem: Identifiable {
     let id = UUID()
     let icon: String?
     let title: String
     let meta: String
     let lineCode: String?
+    var lineDescriptor: RouteLineDescriptor? = nil
     let timingBadge: String?
     let timingDetail: String?
     /// Minutes spent waiting at the next connection (gap between this leg's
@@ -69,7 +113,7 @@ struct RouteItineraryStepCard {
     let style: CardStyle
     let title: String
     let subtitle: String
-    let lineBadge: String?
+    let lineBadge: RouteLineDescriptor?
     let serviceInfo: RouteTransitServiceInfo?
 }
 

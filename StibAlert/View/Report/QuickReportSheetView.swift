@@ -1264,12 +1264,16 @@ struct QuickReportSheetView: View {
     }
 
     private func stopDistanceAndLineCountText(_ stop: NearbyStop) -> String {
-        let lineLabel = stop.lines.count == 1 ? String(localized: "ligne") : String(localized: "lignes")
+        let lineLabel = stop.lines.count == 1
+            ? AppLocalizer.string("common.line.singular", defaultValue: "ligne")
+            : AppLocalizer.string("common.line.plural", defaultValue: "lignes")
         return "\(stop.distanceMeters)m · \(stop.lines.count) \(lineLabel)"
     }
 
     private func confirmationCountText(_ count: Int) -> String {
-        let label = count == 1 ? String(localized: "confirmé") : String(localized: "confirmés")
+        let label = count == 1
+            ? AppLocalizer.string("common.confirmed.singular", defaultValue: "confirmé")
+            : AppLocalizer.string("common.confirmed.plural", defaultValue: "confirmés")
         return "· \(count) \(label)"
     }
 
@@ -1278,12 +1282,13 @@ struct QuickReportSheetView: View {
     }
 
     private func relativeTime(from date: Date?) -> String {
-        guard let date else { return "À l'instant" }
-        let seconds = Int(Date().timeIntervalSince(date))
-        if seconds < 60 { return "à l'instant" }
-        let minutes = seconds / 60
-        if minutes < 60 { return "il y a \(minutes) min" }
-        return "il y a \(minutes / 60) h"
+        guard let date else {
+            return AppLocalizer.string("time.now", defaultValue: "À l'instant")
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = AppLocale.current
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 
     private func handleClose() {

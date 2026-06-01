@@ -4,7 +4,7 @@ import SwiftUI
 /// One leg of a journey, for the Google-style flow strip (walk vs a line).
 enum RouteLegChip: Equatable {
     case walk
-    case line(code: String)
+    case line(RouteLineDescriptor)
 }
 
 struct HomeRouteOption: Identifiable {
@@ -77,6 +77,7 @@ struct HomeRouteOption: Identifiable {
             let instruction = step.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
             let title = instruction.isEmpty ? Self.fallbackTitle(for: step, destinationName: destinationName) : instruction
             let lineCode = Self.extractLineCode(from: instruction)
+            let lineDescriptor = lineCode.map { RouteLineDescriptor(code: $0) }
             let isLastLeg = index == usefulSteps.count - 1
 
             segments.append(
@@ -89,7 +90,7 @@ struct HomeRouteOption: Identifiable {
                         style: step.transportType == .walking ? .white : .mint,
                         title: title,
                         subtitle: Self.subtitle(for: step),
-                        lineBadge: lineCode,
+                        lineBadge: lineDescriptor,
                         serviceInfo: nil
                     ),
                     durationBadge: "\(durationMinutes) min",
@@ -158,18 +159,19 @@ struct HomeRouteOption: Identifiable {
         for (index, step) in sortedSteps.enumerated() {
             elapsedMinutes += max(1, step.durationMinutes)
             let isLastStep = index == sortedSteps.count - 1
+            let lineDescriptor = Self.lineDescriptor(for: step)
 
             segments.append(
                 RouteItinerarySegment(
                     timeText: elapsedMinutes.clockString(from: startDate),
                     placeTitle: placeTitle(for: step, isLastStep: isLastStep),
                     icon: Self.iconName(for: step),
-                    accentColor: Self.accentColor(for: step),
+                    accentColor: lineDescriptor?.fillColor ?? Self.accentColor(for: step),
                     stepCard: RouteItineraryStepCard(
                         style: Self.cardStyle(for: step),
                         title: step.instruction,
                         subtitle: Self.subtitle(for: step),
-                        lineBadge: step.line,
+                        lineBadge: lineDescriptor,
                         serviceInfo: nil
                     ),
                     durationBadge: "\(max(1, step.durationMinutes)) min",
@@ -275,10 +277,10 @@ struct HomeRouteOption: Identifiable {
         guard let step = backendAlternative?.steps?
             .sorted(by: { $0.order < $1.order })
             .first(where: { step in
-                guard let line = step.line else { return false }
+                guard let line = Self.displayLine(for: step) else { return false }
                 return !line.isEmpty && !["walk", "bike"].contains(step.mode.lowercased())
             }),
-            let line = step.line else { return nil }
+            let line = Self.displayLine(for: step) else { return nil }
 
         let departureDate = step.realtimeDepartureAt ?? step.scheduledDepartureAt
         let departureText = departureDate.map(Self.timeFormatter.string(from:)) ?? departureTimeText
@@ -330,8 +332,25 @@ struct HomeRouteOption: Identifiable {
     }
 
     var displayLineCodes: [String] {
+        let descriptors = displayLineDescriptors
+        if !descriptors.isEmpty {
+            return descriptors.map(\.code)
+        }
+
+        return []
+    }
+
+    var displayLineDescriptors: [RouteLineDescriptor] {
+        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
+            let descriptors = steps
+                .sorted { $0.order < $1.order }
+                .compactMap(Self.lineDescriptor(for:))
+            let unique = NSOrderedSet(array: descriptors.map(\.code)).array.compactMap { $0 as? String }
+            return Array(unique.compactMap { code in descriptors.first(where: { $0.code == code }) }.prefix(4))
+        }
+
         if let backendAlternative, !backendAlternative.lines.isEmpty {
-            return Array(backendAlternative.lines.prefix(4))
+            return Array(backendAlternative.lines.prefix(4)).map { RouteLineDescriptor(code: $0) }
         }
 
         let extracted = (route?.steps ?? []).compactMap { step -> String? in
@@ -339,14 +358,14 @@ struct HomeRouteOption: Identifiable {
             let instruction = step.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
             return Self.extractLineCode(from: instruction)
         }
-        return Array(NSOrderedSet(array: extracted).array as? [String] ?? [])
+        return (NSOrderedSet(array: extracted).array as? [String] ?? []).map { RouteLineDescriptor(code: $0) }
     }
 
     /// Ordered journey legs for a Google-style flow strip
     /// (🚶 → line → line → 🚶). Consecutive walk legs are merged into one.
     var legChips: [RouteLegChip] {
         guard let steps = backendAlternative?.steps, !steps.isEmpty else {
-            return displayLineCodes.map { .line(code: $0) }
+            return displayLineDescriptors.map { .line($0) }
         }
         var chips: [RouteLegChip] = []
         for step in steps.sorted(by: { $0.order < $1.order }) {
@@ -354,12 +373,11 @@ struct HomeRouteOption: Identifiable {
             if mode == "walk" || mode == "walking" || mode == "foot" {
                 if chips.last == .walk { continue }
                 chips.append(.walk)
-            } else if let raw = step.line?.trimmingCharacters(in: .whitespaces), !raw.isEmpty {
-                let code = raw.range(of: ":").map { String(raw[..<$0.lowerBound]) } ?? raw
-                chips.append(.line(code: code))
+            } else if let descriptor = Self.lineDescriptor(for: step) {
+                chips.append(.line(descriptor))
             }
         }
-        return chips.isEmpty ? displayLineCodes.map { .line(code: $0) } : chips
+        return chips.isEmpty ? displayLineDescriptors.map { .line($0) } : chips
     }
 
     var terminalLabel: String {
@@ -377,8 +395,8 @@ struct HomeRouteOption: Identifiable {
     }
 
     var leadingAccentColor: Color {
-        if let first = displayLineCodes.first {
-            return TransitLinePalette.fill(for: first)
+        if let first = displayLineDescriptors.first {
+            return first.fillColor
         }
         switch primaryModeKey {
         case "bike": return DS.Color.villo
@@ -416,7 +434,8 @@ struct HomeRouteOption: Identifiable {
                     icon: Self.inlineIcon(for: step),
                     title: Self.inlineTitle(for: step),
                     meta: Self.inlineMeta(for: step),
-                    lineCode: step.line,
+                    lineCode: Self.displayLine(for: step),
+                    lineDescriptor: Self.lineDescriptor(for: step),
                     timingBadge: Self.inlineTimingBadge(for: step),
                     timingDetail: Self.inlineTimingDetail(for: step),
                     waitAfterMinutes: Self.waitMinutes(after: step, next: index + 1 < sorted.count ? sorted[index + 1] : nil)
@@ -430,7 +449,8 @@ struct HomeRouteOption: Identifiable {
                 icon: segment.icon,
                 title: stepCard.title,
                 meta: [segment.stopCountText, segment.durationBadge].compactMap { $0 }.joined(separator: " · "),
-                lineCode: stepCard.lineBadge,
+                lineCode: stepCard.lineBadge?.code,
+                lineDescriptor: stepCard.lineBadge,
                 timingBadge: nil,
                 timingDetail: nil
             )
@@ -579,7 +599,7 @@ struct HomeRouteOption: Identifiable {
         if let arrivalStopName = step.arrivalStopName, !arrivalStopName.isEmpty {
             return arrivalStopName
         }
-        if let line = step.line, !line.isEmpty {
+        if let line = Self.displayLine(for: step) {
             return "Ligne \(line)"
         }
         switch step.mode.lowercased() {
@@ -599,6 +619,22 @@ struct HomeRouteOption: Identifiable {
         case "walk": return "à pied"
         default: return "transport"
         }
+    }
+
+    private static func displayLine(for step: TransportRouteStepDTO) -> String? {
+        [step.displayLine, step.line]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+
+    private static func lineDescriptor(for step: TransportRouteStepDTO) -> RouteLineDescriptor? {
+        guard let code = displayLine(for: step) else { return nil }
+        return RouteLineDescriptor(
+            code: code,
+            operatorId: step.operatorId,
+            colorHex: step.routeColor,
+            textColorHex: step.routeTextColor
+        )
     }
 
     private static func reliabilitySummary(from alternative: TransportAlternativeDTO) -> String {
@@ -654,8 +690,8 @@ struct HomeRouteOption: Identifiable {
     }
 
     static func mapStrokeColor(for step: TransportRouteStepDTO) -> Color {
-        if let line = step.line, !line.isEmpty {
-            return TransitLinePalette.fill(for: line)
+        if let descriptor = lineDescriptor(for: step) {
+            return descriptor.fillColor
         }
         switch step.mode.lowercased() {
         case "bike":
@@ -701,8 +737,8 @@ struct HomeRouteOption: Identifiable {
     }
 
     private static func accentColor(for step: TransportRouteStepDTO) -> Color {
-        if let line = step.line {
-            return TransitLinePalette.fill(for: line)
+        if let descriptor = lineDescriptor(for: step) {
+            return descriptor.fillColor
         }
         switch step.mode.lowercased() {
         case "bike": return DS.Color.villo
@@ -735,7 +771,7 @@ struct HomeRouteOption: Identifiable {
     }
 
     private static func summaryText(for step: TransportRouteStepDTO) -> String {
-        if let line = step.line, !line.isEmpty {
+        if let line = displayLine(for: step) {
             return "Ligne \(line)"
         }
         switch step.mode.lowercased() {
@@ -746,8 +782,8 @@ struct HomeRouteOption: Identifiable {
     }
 
     private static func segmentColor(for step: TransportRouteStepDTO) -> Color {
-        if let line = step.line, !line.isEmpty {
-            return TransitLinePalette.fill(for: line)
+        if let descriptor = lineDescriptor(for: step) {
+            return descriptor.fillColor
         }
         switch step.mode.lowercased() {
         case "bike": return DS.Color.villo
@@ -765,7 +801,7 @@ struct HomeRouteOption: Identifiable {
     }
 
     private static func inlineTitle(for step: TransportRouteStepDTO) -> String {
-        if let line = step.line, !line.isEmpty {
+        if displayLine(for: step) != nil {
             let start = step.stopName ?? "Départ"
             let end = step.arrivalStopName ?? step.destination ?? "Arrivée"
             return "\(start) → \(end)"
@@ -818,7 +854,7 @@ struct HomeRouteOption: Identifiable {
     }
 
     private static func inlineTimingBadge(for step: TransportRouteStepDTO) -> String? {
-        guard step.line != nil else { return nil }
+        guard displayLine(for: step) != nil else { return nil }
         if let minutes = step.realtimeDepartureMinutes {
             return waitText(minutes)
         }

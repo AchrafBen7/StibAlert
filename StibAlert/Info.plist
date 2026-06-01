@@ -11,6 +11,8 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>StibAlert utilise votre position pour afficher les arrêts proches et calculer votre itinéraire en temps réel.</string>
 	<key>UIBackgroundModes</key>

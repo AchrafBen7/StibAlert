@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-/// Text-to-speech wrapper around `AVSpeechSynthesizer` (fr-FR by default).
+/// Text-to-speech wrapper around `AVSpeechSynthesizer`.
 /// Strips markdown/emoji before speaking so the voice never reads "deux
 /// étoiles ligne 81 deux étoiles".
 @MainActor
@@ -15,7 +15,7 @@ final class VoicePlayer: NSObject, ObservableObject {
         synth.delegate = self
     }
 
-    func speak(_ text: String, language: String = "fr-FR") {
+    func speak(_ text: String, language: String? = nil) {
         let cleaned = Self.cleanForSpeech(text)
         guard !cleaned.isEmpty else { return }
         if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
@@ -27,7 +27,7 @@ final class VoicePlayer: NSObject, ObservableObject {
         try? session.setActive(true, options: .notifyOthersOnDeactivation)
 
         let utterance = AVSpeechUtterance(string: cleaned)
-        utterance.voice = Self.preferredVoice(language: language)
+        utterance.voice = Self.preferredVoice(language: language ?? AppLocale.speechIdentifier)
         utterance.rate = 0.5
         utterance.pitchMultiplier = 1.0
         utterance.preUtteranceDelay = 0.05

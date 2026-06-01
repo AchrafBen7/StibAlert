@@ -99,7 +99,7 @@ extension HomeView {
                         isPerturbationsFilterActive: activeMapFilter == .perturbations,
                         onShowLegend: {
                             withAnimation(transitionSpring) {
-                                showLegend = true
+                                showLegend.toggle()
                             }
                         },
                         onOpenItineraryPlanner: {
@@ -107,13 +107,21 @@ extension HomeView {
                             activeMapFilter = .none
                         },
                         onOpenFavorites: {
+                            let shouldFocusFavorites = activeMapFilter != .favorites
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
-                                activeMapFilter = activeMapFilter == .favorites ? .none : .favorites
+                                activeMapFilter = shouldFocusFavorites ? .favorites : .none
+                            }
+                            if shouldFocusFavorites {
+                                focusMapOnFavorites()
                             }
                         },
                         onOpenReports: {
+                            let shouldFocusPerturbations = activeMapFilter != .perturbations
                             withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
-                                activeMapFilter = activeMapFilter == .perturbations ? .none : .perturbations
+                                activeMapFilter = shouldFocusPerturbations ? .perturbations : .none
+                            }
+                            if shouldFocusPerturbations {
+                                focusMapOnPerturbations()
                             }
                         },
                         onSelectSuggestion: { item in

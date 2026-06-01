@@ -139,7 +139,7 @@ struct ReportSharePromptSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
+                        .stroke(DS.Color.primary.opacity(0.28), lineWidth: 1)
                 )
                 .shadow(color: DS.Color.primary.opacity(0.25), radius: 8, y: 3)
             }

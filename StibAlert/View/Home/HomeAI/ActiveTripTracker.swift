@@ -53,7 +53,7 @@ final class ActiveTripTracker: ObservableObject {
         progress = 0
         let firstLine: String? = {
             for chip in option.legChips {
-                if case .line(let code) = chip { return code }
+                if case .line(let descriptor) = chip { return descriptor.code }
             }
             return nil
         }()

@@ -1148,7 +1148,7 @@ struct LigneDetailPage: View {
 
     private static let departureTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "fr_BE")
+        formatter.locale = AppLocale.current
         formatter.dateFormat = "HH:mm"
         return formatter
     }()

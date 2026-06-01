@@ -14,6 +14,8 @@ struct HomeOperatorStopSheet: View {
     let onReport: () -> Void
 
     @State private var reply: OperatorRealtimeReply?
+    @State private var stopInfo: OperatorStopInfoReply?
+    @State private var stopDisruptions: OperatorStopDisruptionsReply?
     @State private var isLoading = false
     @State private var refreshTask: Task<Void, Never>?
 
@@ -31,7 +33,9 @@ struct HomeOperatorStopSheet: View {
             header
 
             if supportsRealtime {
+                linesSection
                 liveSection
+                disruptionsSection
             } else {
                 Text("Horaires et infos trafic \(stop.op.mapLabel) arrivent bientôt pour cet arrêt.")
                     .font(DS.Font.bodySmall)
@@ -145,7 +149,7 @@ struct HomeOperatorStopSheet: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else if futurePassages.isEmpty, !isLoading {
-                Text("Aucun passage prévu dans les prochaines minutes.")
+                Text("Aucun passage De Lijn annoncé dans les prochaines minutes.")
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
@@ -160,6 +164,66 @@ struct HomeOperatorStopSheet: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private var linesSection: some View {
+        let lines = stopInfo?.lines ?? []
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Lignes à cet arrêt")
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(lines.prefix(12)) { line in
+                            deLijnLineChip(line.line)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var disruptionsSection: some View {
+        let items = Array((stopDisruptions?.omleidingen ?? []) + (stopDisruptions?.storingen ?? []))
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.primary)
+                    Text("Infos trafic à cet arrêt")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                }
+                VStack(spacing: 8) {
+                    ForEach(items.prefix(3)) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(DS.Font.bodySmall.weight(.semibold))
+                                .foregroundStyle(DS.Color.ink)
+                                .lineLimit(2)
+                            if !item.description.isEmpty {
+                                Text(item.description)
+                                    .font(DS.Font.monoSmall)
+                                    .foregroundStyle(DS.Color.inkMute)
+                                    .lineLimit(3)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(DS.Color.primary.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(DS.Color.primary.opacity(0.18), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -203,11 +267,25 @@ struct HomeOperatorStopSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
+    private func deLijnLineChip(_ line: String) -> some View {
+        Text(line)
+            .font(DS.Font.bodyBold)
+            .foregroundStyle(stop.op.brandTextColor)
+            .frame(minWidth: 38, minHeight: 28)
+            .padding(.horizontal, 8)
+            .background(stop.op.brandColor)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
+            )
+    }
+
     // MARK: - Formatting helpers
 
     private static let hhmm: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "fr_BE")
+        f.locale = AppLocale.current
         f.timeZone = TimeZone(identifier: "Europe/Brussels")
         f.dateFormat = "HH:mm"
         return f
@@ -246,7 +324,12 @@ struct HomeOperatorStopSheet: View {
         guard supportsRealtime else { return }
         isLoading = true
         defer { isLoading = false }
-        reply = await OperatorRealtimeService.delijnStop(stop.id)
+        async let realtime = OperatorRealtimeService.delijnStop(stop.id)
+        async let info = OperatorRealtimeService.delijnStopInfo(stop.id)
+        async let disruptions = OperatorRealtimeService.delijnStopDisruptions(stop.id)
+        reply = await realtime
+        stopInfo = await info
+        stopDisruptions = await disruptions
     }
 
     private func startAutoRefresh() {

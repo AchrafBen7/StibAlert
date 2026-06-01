@@ -44,7 +44,16 @@ struct VoiceOverlay: View {
 
     var body: some View {
         ZStack {
-            DS.Color.background.opacity(0.96).ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    DS.Color.paper,
+                    DS.Color.paper2.opacity(0.88),
+                    DS.Color.paper
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 28) {
                 Spacer()
@@ -57,7 +66,7 @@ struct VoiceOverlay: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 38)
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
         .task {
             await start()
         }
@@ -89,7 +98,7 @@ struct VoiceOverlay: View {
         ZStack {
             ForEach(0..<3, id: \.self) { i in
                 Circle()
-                    .stroke(phaseColor.opacity(0.35 - Double(i) * 0.10), lineWidth: 2)
+                    .stroke(phaseColor.opacity(0.22 - Double(i) * 0.05), lineWidth: 2)
                     .frame(width: 180 + CGFloat(i) * 60, height: 180 + CGFloat(i) * 60)
                     .scaleEffect(pulse ? 1.08 : 0.94)
                     .animation(
@@ -98,11 +107,15 @@ struct VoiceOverlay: View {
                     )
             }
             Circle()
-                .fill(phaseColor.opacity(0.18))
+                .fill(phaseColor.opacity(0.14))
                 .frame(width: 160, height: 160)
+                .overlay(
+                    Circle()
+                        .stroke(phaseColor.opacity(0.45), lineWidth: 2)
+                )
             Image(systemName: phaseIcon)
                 .font(.system(size: 56, weight: .black))
-                .foregroundStyle(.white)
+                .foregroundStyle(phaseColor)
                 .symbolEffect(.pulse, options: phase == .listening || phase == .speaking ? .repeating : .nonRepeating, value: phase)
         }
         .onAppear { pulse = true }
@@ -112,7 +125,7 @@ struct VoiceOverlay: View {
         VStack(spacing: 6) {
             Text(statusText)
                 .font(.system(size: 22, weight: .black))
-                .foregroundStyle(.white)
+                .foregroundStyle(DS.Color.ink)
                 .multilineTextAlignment(.center)
             if phase == .thinking {
                 // Dots animées sous "Je réfléchis…" pour montrer que ça bouge
@@ -123,7 +136,7 @@ struct VoiceOverlay: View {
             if phase == .thinking, let detail = thinkingDetail {
                 Text(detail)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.65))
+                    .foregroundStyle(DS.Color.inkMute)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .transition(.opacity)
@@ -154,7 +167,7 @@ struct VoiceOverlay: View {
                 if voice.transcript.isEmpty {
                     Text("Vas-y, parle…")
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(DS.Color.inkMute)
                 } else {
                     // Big live transcript — same vibe as ChatGPT's voice mode.
                     // N11 — minimumScaleFactor + lineLimit 7 + fixedSize pour les
@@ -162,9 +175,16 @@ struct VoiceOverlay: View {
                     // chaussée de Mons en passant par Gare du Midi").
                     Text(voice.transcript)
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DS.Color.ink)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 22)
+                        .padding(.vertical, 16)
+                        .background(DS.Color.paper)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(DS.Color.border, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .lineLimit(7)
                         .minimumScaleFactor(0.7)
                         .fixedSize(horizontal: false, vertical: true)
@@ -174,7 +194,7 @@ struct VoiceOverlay: View {
         case .idle:
             Text("Appuie sur Parler et pose ta question.")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(DS.Color.inkMute)
         case .speaking, .thinking:
             if !displayReply.isEmpty {
                 // Rich reply with line badges (parses `[[L:NUM]]` markers via
@@ -196,7 +216,7 @@ struct VoiceOverlay: View {
             } else if !reply.isEmpty {
                 Text(reply)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DS.Color.ink)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
                     .transition(.opacity)
@@ -205,8 +225,16 @@ struct VoiceOverlay: View {
             if let errorText {
                 Text(errorText)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(DS.Color.statusMinor)
+                    .foregroundStyle(DS.Color.statusMajor)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(DS.Color.statusMajor.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(DS.Color.statusMajor.opacity(0.22), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .padding(.horizontal, 28)
             }
         }
@@ -234,6 +262,7 @@ struct VoiceOverlay: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
                     .background(DS.Color.info)
+                    .shadow(color: DS.Color.info.opacity(0.20), radius: 18, y: 8)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -253,10 +282,14 @@ struct VoiceOverlay: View {
                             Text("Régler le micro")
                                 .font(.system(size: 14, weight: .bold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DS.Color.ink)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(Color.white.opacity(0.18))
+                        .background(DS.Color.paper)
+                        .overlay(
+                            Capsule()
+                                .stroke(DS.Color.border, lineWidth: 1)
+                        )
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -290,6 +323,7 @@ struct VoiceOverlay: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 60)
                     .background(DS.Color.info)
+                    .shadow(color: DS.Color.info.opacity(0.20), radius: 18, y: 8)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -314,6 +348,11 @@ struct VoiceOverlay: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 64)
                     .background(actionBackground)
+                    .overlay(
+                        Capsule()
+                            .stroke(actionBorder, lineWidth: 1)
+                    )
+                    .shadow(color: actionShadow, radius: 18, y: 8)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -330,9 +369,13 @@ struct VoiceOverlay: View {
         }) {
             Image(systemName: "xmark")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DS.Color.ink)
                 .frame(width: 56, height: 56)
-                .background(Color.white.opacity(0.12))
+                .background(DS.Color.paper)
+                .overlay(
+                    Circle()
+                        .stroke(DS.Color.border, lineWidth: 1)
+                )
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
@@ -346,10 +389,14 @@ struct VoiceOverlay: View {
                 Text("Reparler")
                     .font(.system(size: 14, weight: .bold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(DS.Color.ink)
             .frame(maxWidth: .infinity)
             .frame(height: 56)
-            .background(Color.white.opacity(0.18))
+            .background(DS.Color.paper)
+            .overlay(
+                Capsule()
+                    .stroke(DS.Color.border, lineWidth: 1)
+            )
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -375,12 +422,25 @@ struct VoiceOverlay: View {
 
     private var actionBackground: Color {
         if hasSpeechReady { return DS.Color.info }
-        return .white
+        if voice.isListening { return DS.Color.statusMajor.opacity(0.12) }
+        return DS.Color.paper
     }
 
     private var actionForeground: Color {
         if hasSpeechReady { return .white }
-        return .black
+        if voice.isListening { return DS.Color.statusMajor }
+        return DS.Color.ink
+    }
+
+    private var actionBorder: Color {
+        if hasSpeechReady { return DS.Color.info.opacity(0.2) }
+        if voice.isListening { return DS.Color.statusMajor.opacity(0.32) }
+        return DS.Color.border
+    }
+
+    private var actionShadow: Color {
+        if hasSpeechReady { return DS.Color.info.opacity(0.20) }
+        return Color.black.opacity(0.05)
     }
 
     // MARK: - Visual helpers
@@ -391,7 +451,7 @@ struct VoiceOverlay: View {
         case .thinking:  return DS.Color.warning
         case .speaking:  return DS.Color.info
         case .error:     return DS.Color.statusMinor
-        default:         return Color.white
+        default:         return DS.Color.ink
         }
     }
 
@@ -593,7 +653,7 @@ private struct ThinkingDotsIndicator: View {
         HStack(spacing: 6) {
             ForEach(0..<3) { i in
                 Circle()
-                    .fill(Color.white.opacity(phase == i ? 0.95 : 0.30))
+                    .fill(DS.Color.primary.opacity(phase == i ? 0.95 : 0.30))
                     .frame(width: 7, height: 7)
                     .scaleEffect(phase == i ? 1.15 : 1.0)
             }
@@ -611,9 +671,9 @@ private struct ThinkingDotsIndicator: View {
     }
 }
 
-/// Compact round mic button on the map — launches the `VoiceOverlay`.
-/// Same size as the other small map FABs (location, AI) so the row reads
-/// cleanly, with the brand red as the only colour cue.
+/// Compact mic button on the map — launches the `VoiceOverlay`.
+/// Matches the squared header controls so the bottom actions don't drift into
+/// a separate visual language.
 struct MapVoiceFloatingButton: View {
     let action: () -> Void
 
@@ -622,14 +682,20 @@ struct MapVoiceFloatingButton: View {
             Image(systemName: "mic.fill")
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 46, height: 46)
+                .frame(width: 48, height: 48)
                 .background(
-                    Circle().fill(LinearGradient(
-                        colors: [DS.Color.danger, DS.Color.danger.opacity(0.78)],
-                        startPoint: .top, endPoint: .bottom
-                    ))
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [DS.Color.danger, DS.Color.danger.opacity(0.78)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
                 )
-                .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.22), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
                 .shadow(color: DS.Color.danger.opacity(0.30), radius: 6, y: 2)
         }
         .buttonStyle(.plain)

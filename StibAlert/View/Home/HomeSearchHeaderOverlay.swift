@@ -70,7 +70,7 @@ struct HomeSearchHeaderOverlay: View {
                     HStack(spacing: 10) {
                         HomeEditorialActionChip(
                             icon: "arrow.triangle.turn.up.right.diamond.fill",
-                            title: "Itinéraires",
+                            title: AppLocalizer.string("home.action.itineraries", defaultValue: "Itinéraires"),
                             count: nil,
                             isActive: isRouting,
                             action: onOpenItineraryPlanner
@@ -78,7 +78,7 @@ struct HomeSearchHeaderOverlay: View {
 
                         HomeEditorialActionChip(
                             icon: "star.fill",
-                            title: "Favoris",
+                            title: AppLocalizer.string("home.action.favorites", defaultValue: "Favoris"),
                             count: favoriteLineCount,
                             isActive: isFavoritesFilterActive,
                             action: onOpenFavorites
@@ -86,7 +86,7 @@ struct HomeSearchHeaderOverlay: View {
 
                         HomeEditorialActionChip(
                             icon: "exclamationmark.triangle.fill",
-                            title: "Perturbations",
+                            title: AppLocalizer.string("home.action.disruptions", defaultValue: "Perturbations"),
                             count: totalActiveSignalementsCount,
                             isActive: isPerturbationsFilterActive,
                             action: onOpenReports
@@ -160,7 +160,7 @@ private struct HomeEditorialSearchField: View {
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Effacer la recherche")
+                .accessibilityLabel(AppLocalizer.string("search.clear", defaultValue: "Effacer la recherche"))
             }
         }
         .padding(.horizontal, 14)

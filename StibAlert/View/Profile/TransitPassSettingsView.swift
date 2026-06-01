@@ -681,7 +681,7 @@ private struct TransitPassCardView: View {
                 Text("Aucune carte enregistrée")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
-                Text("Scanne ta MoBIB en NFC ou complète\nmanuellement les champs ci-dessous.")
+                Text(AppLocalizer.string("transit_pass.empty.scan_hint"))
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.inkSoft)
                     .multilineTextAlignment(.center)

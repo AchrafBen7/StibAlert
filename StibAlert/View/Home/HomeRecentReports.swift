@@ -205,13 +205,13 @@ struct RecentReportCard: View {
 
             if let signalementId = item.signalementId {
                 HStack(spacing: 8) {
-                    actionButton("Je confirme", fill: AppTheme.Palette.screen) {
+                    actionButton(AppLocalizer.string("community.action.confirm"), fill: AppTheme.Palette.screen) {
                         await applyCommunityAction(.confirm, signalementId: signalementId)
                     }
-                    actionButton("Toujours bloqué", fill: AppTheme.Palette.warning) {
+                    actionButton(AppLocalizer.string("community.action.still_blocked"), fill: AppTheme.Palette.warning) {
                         await applyCommunityAction(.stillBlocked, signalementId: signalementId)
                     }
-                    actionButton("C'est résolu", fill: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand) {
+                    actionButton(AppLocalizer.string("community.action.resolved_sentence"), fill: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand) {
                         await applyCommunityAction(.resolved, signalementId: signalementId)
                     }
                 }

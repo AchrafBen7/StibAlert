@@ -17,26 +17,34 @@ struct HomeStopMiniHeaderCard: View {
     let onFollowVehicle: (TransportVehicleDTO) -> Void
     let onShowDetail: () -> Void
 
-    /// Vehicle currently at or closest to the focused stop. Used to anchor
-    /// the abstract "now / 2 min" pills to a real, named position on the
-    /// line so the user can reconcile the live GPS markers with the
-    /// scheduled departures.
-    private var closestVehicle: TransportVehicleDTO? {
+    /// Vehicle confirmed at the focused stop. We intentionally avoid showing
+    /// a generic "closest vehicle" here: vehicle feeds can expose a current
+    /// stop name that is several stops away from the selected stop, which made
+    /// the mini-card claim places like Gare du Nord were "near" ANCRE.
+    private var focusedStopVehicle: TransportVehicleDTO? {
+        guard let selectedLine else { return nil }
         guard let stopLat = stop.latitude, let stopLng = stop.longitude else { return nil }
-        let user = CLLocation(latitude: stopLat, longitude: stopLng)
+        let stopLocation = CLLocation(latitude: stopLat, longitude: stopLng)
+        let stopKey = stop.name.normalizedStopKey
+        let selectedLineKey = normalize(selectedLine)
+
         return liveVehicles
             .compactMap { v -> (TransportVehicleDTO, Double)? in
+                guard normalize(v.line ?? "") == selectedLineKey else { return nil }
+                guard v.stopNom?.normalizedStopKey == stopKey else { return nil }
                 guard let lat = v.latitude, let lng = v.longitude else { return nil }
-                let d = user.distance(from: CLLocation(latitude: lat, longitude: lng))
+                let d = stopLocation.distance(from: CLLocation(latitude: lat, longitude: lng))
+                guard d <= 220 else { return nil }
                 return (v, d)
             }
             .min(by: { $0.1 < $1.1 })?
             .0
     }
 
-    private var isVehicleAtStop: Bool {
-        guard let closestVehicle, let stopName = closestVehicle.stopNom else { return false }
-        return stopName.uppercased() == stop.name.uppercased()
+    private var selectedLineLiveVehicleCount: Int {
+        guard let selectedLine else { return liveVehicleCount }
+        let selectedLineKey = normalize(selectedLine)
+        return liveVehicles.filter { normalize($0.line ?? "") == selectedLineKey }.count
     }
 
     private var displayedLines: [String] {
@@ -127,8 +135,8 @@ struct HomeStopMiniHeaderCard: View {
 
             departuresRow
 
-            if let closestVehicle, selectedLine != nil {
-                closestVehicleRow(closestVehicle)
+            if let focusedStopVehicle {
+                focusedStopVehicleRow(focusedStopVehicle)
             }
 
             detailButton
@@ -212,9 +220,8 @@ struct HomeStopMiniHeaderCard: View {
         return "\(minutes) min"
     }
 
-    private func closestVehicleRow(_ vehicle: TransportVehicleDTO) -> some View {
+    private func focusedStopVehicleRow(_ vehicle: TransportVehicleDTO) -> some View {
         let mode = TransitLineMode.mode(for: vehicle.line)
-        let stopText = vehicle.stopNom?.capitalized ?? "—"
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             onFollowVehicle(vehicle)
@@ -222,23 +229,10 @@ struct HomeStopMiniHeaderCard: View {
             HStack(spacing: 8) {
                 Image(systemName: mode.sfSymbol)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(isVehicleAtStop ? DS.Color.statusOK : DS.Color.inkMute)
-                if isVehicleAtStop {
-                    Text("Un \(mode.label.lowercased()) est à l'arrêt")
-                        .font(.system(size: 11.5, weight: .bold))
-                        .foregroundStyle(DS.Color.statusOK)
-                } else {
-                    Text("Plus proche")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(DS.Color.inkMute)
-                    Text("·")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(DS.Color.inkMute)
-                    Text(stopText)
-                        .font(.system(size: 11.5, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                }
+                    .foregroundStyle(DS.Color.statusOK)
+                Text("Un \(mode.label.lowercased()) est à l'arrêt")
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(DS.Color.statusOK)
                 Spacer(minLength: 0)
                 Image(systemName: "scope")
                     .font(.system(size: 11, weight: .bold))
@@ -248,7 +242,7 @@ struct HomeStopMiniHeaderCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Centrer la carte sur le tram à \(stopText)")
+        .accessibilityLabel("Centrer la carte sur le véhicule à l'arrêt")
     }
 
     /// Full-width row at the bottom that opens the standalone ArretDetailPage
@@ -286,9 +280,9 @@ struct HomeStopMiniHeaderCard: View {
     private var liveCountBadge: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(liveVehicleCount > 0 ? DS.Color.statusOK : DS.Color.statusMinor)
+                .fill(selectedLineLiveVehicleCount > 0 ? DS.Color.statusOK : DS.Color.statusMinor)
                 .frame(width: 5, height: 5)
-            Text("\(liveVehicleCount) live")
+            Text("\(selectedLineLiveVehicleCount) live")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundStyle(DS.Color.inkMute)
         }

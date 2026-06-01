@@ -94,12 +94,6 @@ struct HomeVilloStationSheet: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
-                Capsule()
-                    .fill(DS.Color.ink.opacity(0.22))
-                    .frame(width: 42, height: 5)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 4)
-
                 heroCard
 
                 HStack(spacing: 10) {

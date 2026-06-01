@@ -188,11 +188,11 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
     static func severityRank(forRawType rawType: String?) -> Int {
         guard let rawType else { return 0 }
         let norm = rawType
-            .folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR"))
+            .folding(options: .diacriticInsensitive, locale: AppLocale.current)
             .lowercased()
             .trimmingCharacters(in: .whitespaces)
         if let match = allCases.first(where: {
-            $0.title.folding(options: .diacriticInsensitive, locale: Locale(identifier: "fr_FR")).lowercased() == norm
+            $0.title.folding(options: .diacriticInsensitive, locale: AppLocale.current).lowercased() == norm
         }) {
             return match.severityRank
         }

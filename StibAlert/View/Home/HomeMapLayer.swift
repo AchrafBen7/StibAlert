@@ -9,6 +9,7 @@ struct HomeMapLayer: View {
     let displayCoordinate: CLLocationCoordinate2D
     let heading: Double
     let routeMapSegments: [HomeView.RouteMapSegment]
+    let routeOverlayRevision: Int
     let destinationCoordinate: CLLocationCoordinate2D?
     let officialSignalPoints: [HomeView.LiveSignalPoint]
     let routeOfficialSignalPoints: [HomeView.RouteOfficialSignalPoint]
@@ -59,7 +60,12 @@ struct HomeMapLayer: View {
             vehicleAnnotations
         }
         .mapStyle(.standard(elevation: .realistic))
+        .mapControls { }
         .environment(\.colorScheme, .light)
+        // MapKit can keep stale polyline renderers when route overlays become
+        // empty. Rebuilding the Map only on route changes gives a deterministic
+        // cleanup without touching normal pan/zoom updates.
+        .id(routeOverlayRevision)
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .onEnd) { ctx in
             onCameraChanged(ctx.region)
@@ -141,6 +147,7 @@ struct HomeMapLayer: View {
     /// that point we drop the standalone warning pin and badge the stop
     /// instead (the chosen UX: one clean marker per stop).
     private static let stopColocationMeters: CLLocationDistance = 35
+    private static let officialMarkerDedupMeters: CLLocationDistance = 42
 
     /// Nearest displayed stop to a signal, within the overlap threshold. A
     /// matching backend id (when known) wins outright; otherwise we fall back
@@ -264,6 +271,44 @@ struct HomeMapLayer: View {
         return absorbed
     }
 
+    /// Official alerts can arrive through two feeds at once: active clusters
+    /// and traveller-information signal points. At street zoom the clusterer
+    /// deliberately stops merging pins, so without this guard we draw a blue
+    /// "official cluster" directly on top of the red STIB warning pin.
+    private func isDuplicateOfficialCluster(_ cluster: ClusterDTO) -> Bool {
+        guard cluster.isOfficial, let lat = cluster.latitude, let lng = cluster.longitude else { return false }
+        return isNearOfficialSignal(latitude: lat, longitude: lng)
+    }
+
+    private func isNearOfficialSignal(latitude: Double, longitude: Double) -> Bool {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+
+        for point in routeOfficialSignalPoints {
+            let distance = location.distance(
+                from: CLLocation(latitude: point.coordinate.latitude, longitude: point.coordinate.longitude)
+            )
+            if distance <= Self.officialMarkerDedupMeters { return true }
+        }
+
+        for point in officialSignalPoints {
+            let distance = location.distance(
+                from: CLLocation(latitude: point.coordinate.latitude, longitude: point.coordinate.longitude)
+            )
+            if distance <= Self.officialMarkerDedupMeters { return true }
+        }
+
+        return false
+    }
+
+    private func isDuplicateRouteOfficialPoint(_ point: HomeView.LiveSignalPoint) -> Bool {
+        let location = CLLocation(latitude: point.coordinate.latitude, longitude: point.coordinate.longitude)
+        return routeOfficialSignalPoints.contains { routePoint in
+            location.distance(
+                from: CLLocation(latitude: routePoint.coordinate.latitude, longitude: routePoint.coordinate.longitude)
+            ) <= Self.officialMarkerDedupMeters
+        }
+    }
+
     /// Resolves which displayed stops currently host an active signalement —
     /// community cluster OR official STIB incident. Returns the per-stop badge
     /// style (highest-rank issue wins when several share a stop) plus the
@@ -306,6 +351,7 @@ struct HomeMapLayer: View {
             if coloc.absorbedClusterIndices.contains(cluster.clusterIndex) { continue }
             if absorbedSncbClusterIndices.contains(cluster.clusterIndex) { continue }
             if absorbedOperatorClusterIndices.contains(cluster.clusterIndex) { continue }
+            if isDuplicateOfficialCluster(cluster) { continue }
             guard let lat = cluster.latitude, let lng = cluster.longitude else { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "c-\(cluster.clusterIndex)",
@@ -318,6 +364,7 @@ struct HomeMapLayer: View {
         for point in officialSignalPoints {
             // Skip official incidents now shown as a badge on a stop marker.
             if coloc.absorbedOfficialIds.contains(point.id) { continue }
+            if isDuplicateRouteOfficialPoint(point) { continue }
             inputs.append(MapSignalClusterer.Input(
                 id: "o-\(point.id)",
                 coordinate: point.coordinate,

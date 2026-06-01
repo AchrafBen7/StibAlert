@@ -139,16 +139,14 @@ struct LiveSignalMarker: View {
 
 struct OfficialSignalMarker: View {
     let problemType: String
-    @State private var pulse = false
 
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(DS.Color.danger.opacity(pulse ? 0.16 : 0.34))
-                        .frame(width: pulse ? 48 : 38, height: pulse ? 46 : 36)
-                        .scaleEffect(pulse ? 1.12 : 0.92)
+                        .fill(DS.Color.danger.opacity(0.18))
+                        .frame(width: 42, height: 40)
 
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(DS.Color.danger)
@@ -176,11 +174,6 @@ struct OfficialSignalMarker: View {
                 .fill(DS.Color.danger)
                 .frame(width: 12, height: 7)
                 .offset(y: -1)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.72).repeatForever(autoreverses: true)) {
-                pulse = true
-            }
         }
         .accessibilityElement()
         .accessibilityLabel("Alerte officielle STIB — \(problemType)")

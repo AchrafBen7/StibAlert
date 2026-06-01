@@ -551,7 +551,7 @@ struct GareDetailPage: View {
 
                 if !trains.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        sectionLabel("TRAINS PERTURBÉS", count: trains.count, tint: DS.Color.statusMajor)
+                        sectionLabel(AppLocalizer.string("sncb.station.traffic.perturbed_trains"), count: trains.count, tint: DS.Color.statusMajor)
                         VStack(spacing: 8) {
                             ForEach(trains) { perturbedTrainRow($0) }
                         }
@@ -763,18 +763,19 @@ struct GareDetailPage: View {
             onReport(station)
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "plus").font(.system(size: 16, weight: .black))
-                Text("Signaler cette gare").font(DS.Font.bodyBold)
+                Image(systemName: "plus").font(.system(size: 15, weight: .black))
+                Text("Signaler cette gare").font(DS.Font.monoLarge)
             }
             .foregroundStyle(DS.Color.primaryForeground)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(height: 48)
             .background(DS.Color.primary)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: DS.Stroke.thick)
             )
+            .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
         .padding(.top, 4)

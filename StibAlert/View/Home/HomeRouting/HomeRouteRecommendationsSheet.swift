@@ -494,15 +494,23 @@ private struct RouteModeSummaryTile: View {
 }
 
 private struct RouteLineMiniBadge: View {
-    let line: String
+    let descriptor: RouteLineDescriptor
+
+    init(line: String) {
+        self.descriptor = RouteLineDescriptor(code: line)
+    }
+
+    init(descriptor: RouteLineDescriptor) {
+        self.descriptor = descriptor
+    }
 
     var body: some View {
-        Text(line)
+        Text(descriptor.code)
             .font(DS.Font.monoSmall.weight(.bold))
-            .foregroundStyle(TransitLinePalette.foreground(for: line))
+            .foregroundStyle(descriptor.foregroundColor)
             .frame(minWidth: 30, minHeight: 30)
             .padding(.horizontal, 3)
-            .background(TransitLinePalette.fill(for: line))
+            .background(descriptor.fillColor)
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
@@ -546,8 +554,8 @@ private struct RouteLegFlowStrip: View {
                 .frame(width: 30, height: 30)
                 .background(DS.Color.paper2.opacity(0.7))
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        case .line(let code):
-            RouteLineMiniBadge(line: code)
+        case .line(let descriptor):
+            RouteLineMiniBadge(descriptor: descriptor)
         }
     }
 }

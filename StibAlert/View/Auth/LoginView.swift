@@ -295,8 +295,8 @@ struct AuthModeSwitch: View {
                     .animation(.spring(response: 0.35, dampingFraction: 0.85), value: mode)
 
                 HStack(spacing: 0) {
-                    modeButton("SE CONNECTER", active: mode == .signin, action: onSelectSignIn)
-                    modeButton("S'INSCRIRE", active: mode == .signup, action: onSelectSignUp)
+                    modeButton(AppLocalizer.string("auth.mode.sign_in"), active: mode == .signin, action: onSelectSignIn)
+                    modeButton(AppLocalizer.string("auth.mode.sign_up"), active: mode == .signup, action: onSelectSignUp)
                 }
             }
         }

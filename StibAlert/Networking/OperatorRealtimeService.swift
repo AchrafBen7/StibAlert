@@ -37,13 +37,67 @@ struct OperatorRealtimeReply: Decodable {
     let error: String?
 }
 
+struct OperatorStopLineInfo: Decodable, Hashable, Identifiable {
+    let line: String
+    let direction: String?
+    let destination: String?
+
+    var id: String { "\(line)|\(direction ?? "")|\(destination ?? "")" }
+}
+
+struct OperatorStopInfoReply: Decodable {
+    let stopId: String?
+    let entity: String?
+    let live: Bool
+    let fetchedAt: Date?
+    let lines: [OperatorStopLineInfo]
+    let error: String?
+}
+
+struct OperatorStopDisruption: Decodable, Hashable, Identifiable {
+    let id: String
+    let title: String
+    let description: String
+    let startDate: String?
+}
+
+struct OperatorStopDisruptionsReply: Decodable {
+    let stopId: String?
+    let entity: String?
+    let live: Bool
+    let fetchedAt: Date?
+    let omleidingen: [OperatorStopDisruption]
+    let storingen: [OperatorStopDisruption]
+}
+
 enum OperatorRealtimeService {
+    private static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        // Custom date strategy : Node émet "...387Z" (fractional seconds)
+        // que `.iso8601` Swift refuse → tout le décodage plante en silence.
+        decoder.dateDecodingStrategy = .custom { dec in
+            let s = try dec.singleValueContainer().decode(String.self)
+            let withFrac = ISO8601DateFormatter()
+            withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = withFrac.date(from: s) { return d }
+            let noFrac = ISO8601DateFormatter()
+            noFrac.formatOptions = [.withInternetDateTime]
+            if let d = noFrac.date(from: s) { return d }
+            throw DecodingError.dataCorruptedError(in: try dec.singleValueContainer(), debugDescription: "Invalid ISO8601: \(s)")
+        }
+        return decoder
+    }
+
+    private static func normalizedStopId(_ stopId: String) -> String {
+        stopId.split(separator: ":").last.map(String.init) ?? stopId
+    }
+
     /// Fetches the next live passages for a De Lijn stop. Returns nil if the
     /// backend is disabled, the network failed, or De Lijn isn't configured
     /// server-side. Caller is expected to show a graceful placeholder.
     static func delijnStop(_ stopId: String) async -> OperatorRealtimeReply? {
         guard AppConfig.isBackendEnabled else { return nil }
-        let normalized = stopId.split(separator: ":").last.map(String.init) ?? stopId
+        let normalized = normalizedStopId(stopId)
         guard let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let url = URL(string: "\(AppConfig.backendBaseURL)/api/operators/delijn/stops/\(encoded)/realtime") else {
             return nil
@@ -51,20 +105,7 @@ enum OperatorRealtimeService {
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
             guard let http = response as? HTTPURLResponse else { return nil }
-            let decoder = JSONDecoder()
-            // Custom date strategy : Node émet "...387Z" (fractional seconds)
-            // que `.iso8601` Swift refuse → tout le décodage plante en
-            // silence et on affiche du vide. Cf. note dans OperatorCatalogService.
-            decoder.dateDecodingStrategy = .custom { dec in
-                let s = try dec.singleValueContainer().decode(String.self)
-                let withFrac = ISO8601DateFormatter()
-                withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if let d = withFrac.date(from: s) { return d }
-                let noFrac = ISO8601DateFormatter()
-                noFrac.formatOptions = [.withInternetDateTime]
-                if let d = noFrac.date(from: s) { return d }
-                throw DecodingError.dataCorruptedError(in: try dec.singleValueContainer(), debugDescription: "Invalid ISO8601: \(s)")
-            }
+            let decoder = makeDecoder()
             // B4 — différencier 200 (succès parse) vs 503 (backend non
             // configuré OU API De Lijn down). Avant les 2 retombaient sur
             // `{live:false, passages:[]}` indistinct → l'utilisateur voyait
@@ -96,6 +137,40 @@ enum OperatorRealtimeService {
             default:
                 return nil
             }
+        } catch {
+            return nil
+        }
+    }
+
+    static func delijnStopInfo(_ stopId: String) async -> OperatorStopInfoReply? {
+        guard AppConfig.isBackendEnabled else { return nil }
+        let normalized = normalizedStopId(stopId)
+        guard let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "\(AppConfig.backendBaseURL)/api/operators/delijn/stops/\(encoded)/info") else {
+            return nil
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse else { return nil }
+            guard http.statusCode == 200 || http.statusCode == 503 else { return nil }
+            return try? makeDecoder().decode(OperatorStopInfoReply.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
+    static func delijnStopDisruptions(_ stopId: String) async -> OperatorStopDisruptionsReply? {
+        guard AppConfig.isBackendEnabled else { return nil }
+        let normalized = normalizedStopId(stopId)
+        guard let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "\(AppConfig.backendBaseURL)/api/operators/delijn/stops/\(encoded)/disruptions") else {
+            return nil
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse else { return nil }
+            guard http.statusCode == 200 || http.statusCode == 503 else { return nil }
+            return try? makeDecoder().decode(OperatorStopDisruptionsReply.self, from: data)
         } catch {
             return nil
         }

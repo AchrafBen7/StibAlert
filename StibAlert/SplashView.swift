@@ -60,7 +60,7 @@ struct SplashView: View {
                         .foregroundStyle(DS.Color.primary)
 
                     (
-                        Text("Bruxelles,\n")
+                        Text(AppLocalizer.string("splash.hero.brussels_line"))
                             .foregroundStyle(DS.Color.ink)
                         + Text("en route.")
                             .font(.system(size: 42, weight: .bold, design: .serif))

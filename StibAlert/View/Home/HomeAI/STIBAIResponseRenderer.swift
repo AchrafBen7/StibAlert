@@ -8,28 +8,29 @@ struct STIBAIResponseRenderer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(blocks) { block in
                 switch block.kind {
                 case .heading(let title):
-                    Text(title.uppercased())
-                        .font(DS.Font.monoLarge)
+                    Text(title.cleanedAIHeading.uppercased())
+                        .font(DS.Font.mono.weight(.bold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.ink)
-                        .padding(.top, block.isFirst ? 0 : 6)
+                        .padding(.top, block.isFirst ? 0 : 8)
+                        .padding(.bottom, 2)
 
                 case .paragraph(let value):
                     STIBAIInlineLine(text: value)
 
                 case .bullet(let value):
-                    HStack(alignment: .top, spacing: 10) {
-                        Circle()
-                            .fill(DS.Color.inkMute)
-                            .frame(width: 5, height: 5)
-                            .foregroundStyle(DS.Color.inkMute)
-                            .padding(.top, 9)
+                    HStack(alignment: .top, spacing: 11) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(DS.Color.primary)
+                            .frame(width: 6, height: 6)
+                            .padding(.top, 8)
                         STIBAIInlineLine(text: value)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
@@ -43,24 +44,41 @@ private struct STIBAIInlineLine: View {
         STIBAIInlineToken.parse(text)
     }
 
+    private var containsLineToken: Bool {
+        text.range(of: #"\[\[L:[A-Za-z0-9]+\]\]"#, options: .regularExpression) != nil
+    }
+
+    @ViewBuilder
     var body: some View {
-        STIBAIFlowLayout(horizontalSpacing: 6, verticalSpacing: 7) {
-            ForEach(tokens) { token in
-                switch token.kind {
-                case .text(let value, let isStrong):
-                    Text(value)
-                        .font(DS.Font.body)
-                        .fontWeight(isStrong ? .bold : .regular)
-                        .foregroundStyle(DS.Color.ink)
-                        .fixedSize(horizontal: true, vertical: false)
-                case .line(let line):
-                    LineBadge(line: line, size: .sm)
-                        .alignmentGuide(.firstTextBaseline) { dimensions in
-                            dimensions[VerticalAlignment.center]
-                        }
+        if containsLineToken {
+            STIBAIFlowLayout(horizontalSpacing: 4, verticalSpacing: 8) {
+                ForEach(tokens) { token in
+                    switch token.kind {
+                    case .text(let value, let isStrong):
+                        Text(value)
+                            .font(DS.Font.body)
+                            .fontWeight(isStrong ? .bold : .regular)
+                            .foregroundStyle(DS.Color.ink)
+                            .fixedSize(horizontal: true, vertical: false)
+                    case .line(let line):
+                        LineBadge(line: line, size: .sm)
+                            .alignmentGuide(.firstTextBaseline) { dimensions in
+                                dimensions[VerticalAlignment.center]
+                            }
+                    }
                 }
             }
+        } else {
+            Text(markdownText(text))
+                .font(DS.Font.body)
+                .lineSpacing(6)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func markdownText(_ text: String) -> AttributedString {
+        (try? AttributedString(markdown: text)) ?? AttributedString(text)
     }
 }
 
@@ -270,5 +288,10 @@ private struct STIBAIFlowLayout: Layout {
 private extension String {
     var trimmedAIText: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var cleanedAIHeading: String {
+        replacingOccurrences(of: #"^[#\s]+"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

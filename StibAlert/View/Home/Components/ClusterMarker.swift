@@ -3,7 +3,6 @@ import SwiftUI
 struct ClusterMarker: View {
     let cluster: ClusterDTO
     var isSelected: Bool = false
-    @State private var pulse = false
 
     private var color: Color {
         SignalVisuals.communityColor(for: cluster)
@@ -24,9 +23,8 @@ struct ClusterMarker: View {
                 ZStack {
                     if freshness {
                         Circle()
-                            .fill(color.opacity(pulse ? 0.10 : 0.28))
-                            .frame(width: pulse ? 56 : 42, height: pulse ? 56 : 42)
-                            .scaleEffect(pulse ? 1.15 : 0.95)
+                            .fill(color.opacity(0.18))
+                            .frame(width: 46, height: 46)
                     }
 
                     Circle()
@@ -56,13 +54,6 @@ struct ClusterMarker: View {
                 .fill(color)
                 .frame(width: 12, height: 7)
                 .offset(y: -1)
-        }
-        .onAppear {
-            if freshness {
-                withAnimation(.easeInOut(duration: 0.72).repeatForever(autoreverses: true)) {
-                    pulse = true
-                }
-            }
         }
         .accessibilityElement()
         .accessibilityLabel(accessibilityLabel)

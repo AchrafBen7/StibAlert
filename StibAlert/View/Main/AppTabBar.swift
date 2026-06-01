@@ -12,11 +12,11 @@ enum AppTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: return "Carte"
-        case .schedules: return "Horaires"
-        case .live: return "Infos trafic"
-        case .favorites: return "Favoris"
-        case .profile: return "Profil"
+        case .home: return AppLocalizer.string("tab.map", defaultValue: "Carte")
+        case .schedules: return AppLocalizer.string("tab.schedules", defaultValue: "Horaires")
+        case .live: return AppLocalizer.string("tab.traffic", defaultValue: "Infos trafic")
+        case .favorites: return AppLocalizer.string("tab.favorites", defaultValue: "Favoris")
+        case .profile: return AppLocalizer.string("tab.profile", defaultValue: "Profil")
         }
     }
 
@@ -108,7 +108,10 @@ struct AppTabBar: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(tab.title)
-        .accessibilityHint(isActive ? "Onglet sélectionné" : "Double-tap pour sélectionner cet onglet")
+        .accessibilityHint(isActive
+            ? AppLocalizer.string("tab.accessibility.selected", defaultValue: "Onglet sélectionné")
+            : AppLocalizer.string("tab.accessibility.select_hint", defaultValue: "Double-tap pour sélectionner cet onglet")
+        )
         .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : [.isButton])
     }
 }

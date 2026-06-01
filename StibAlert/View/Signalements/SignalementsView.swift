@@ -1665,9 +1665,9 @@ private struct TransportIncidentCommunityCard: View {
 
                 if incident.id != "unknown" {
                     HStack(spacing: 8) {
-                        actionButton("Je confirme", action: { await apply(.confirm) })
-                        actionButton("Toujours bloqué", fill: DS.Color.statusMajor, action: { await apply(.stillBlocked) })
-                        actionButton("C'est résolu", fill: DS.Color.statusOK, textColor: DS.Color.primaryForeground, action: { await apply(.resolved) })
+                        actionButton(AppLocalizer.string("community.action.confirm"), action: { await apply(.confirm) })
+                        actionButton(AppLocalizer.string("community.action.still_blocked"), fill: DS.Color.statusMajor, action: { await apply(.stillBlocked) })
+                        actionButton(AppLocalizer.string("community.action.resolved_sentence"), fill: DS.Color.statusOK, textColor: DS.Color.primaryForeground, action: { await apply(.resolved) })
                     }
                     .opacity(isSubmitting ? 0.6 : 1)
                 }

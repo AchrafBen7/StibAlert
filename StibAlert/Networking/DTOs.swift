@@ -367,17 +367,17 @@ extension SignalementDTO {
         // Avant : nil → "Signalé à l'instant" = fausse confiance. Désormais
         // on est honnête : "Date inconnue".
         guard let minutes = effectiveFreshnessMinutes else {
-            return String(localized: "report.freshness.unknown", defaultValue: "Date inconnue")
+            return AppLocalizer.string("report.freshness.unknown", defaultValue: "Date inconnue")
         }
-        if minutes < 1 { return String(localized: "report.freshness.now", defaultValue: "Signalé à l'instant") }
+        if minutes < 1 { return AppLocalizer.string("report.freshness.now", defaultValue: "Signalé à l'instant") }
         if minutes < 60 {
-            return String(format: String(localized: "report.freshness.minutes", defaultValue: "Signalé il y a %lld min"), minutes)
+            return AppLocalizer.format("report.freshness.minutes", defaultValue: "Signalé il y a %lld min", minutes)
         }
         // S7 — palier "jours" au-delà de 24 h (avant : "il y a 72 h").
         if minutes < 1440 {
-            return String(format: String(localized: "report.freshness.hours", defaultValue: "Signalé il y a %lld h"), minutes / 60)
+            return AppLocalizer.format("report.freshness.hours", defaultValue: "Signalé il y a %lld h", minutes / 60)
         }
-        return String(format: String(localized: "report.freshness.days", defaultValue: "Signalé il y a %lld j"), minutes / 1440)
+        return AppLocalizer.format("report.freshness.days", defaultValue: "Signalé il y a %lld j", minutes / 1440)
     }
 
     /// Community polish — decay tier visuel pour les badges de la timeline.
@@ -697,6 +697,13 @@ struct TransportRouteStepDTO: Codable, Identifiable, Equatable {
     let instruction: String
     let durationMinutes: Int
     let line: String?
+    let displayLine: String?
+    let normalizedLine: String?
+    let operatorId: String?
+    let routeColor: String?
+    let routeTextColor: String?
+    let lineName: String?
+    let agencyName: String?
     let destination: String?
     let stopName: String?
     let arrivalStopName: String?

@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Speech
 
-/// Hands-free voice input wrapper around `SFSpeechRecognizer` (fr-FR). Live
+/// Hands-free voice input wrapper around `SFSpeechRecognizer`. Live
 /// partial transcripts are published so the UI can show what's being heard;
 /// `startListening(onFinal:)` fires once the user stops speaking.
 @MainActor
@@ -16,7 +16,7 @@ final class VoiceAssistant: NSObject, ObservableObject {
             // Instancier un SFSpeechRecognizer + s'assurer que availability
             // est connue charge le datastore Speech en background. Peut
             // échouer en silence si la locale n'est pas dispo offline.
-            _ = SFSpeechRecognizer(locale: Locale(identifier: "fr-FR"))?.isAvailable
+            _ = SFSpeechRecognizer(locale: Locale(identifier: AppLocale.speechIdentifier))?.isAvailable
         }
     }
 
@@ -24,7 +24,9 @@ final class VoiceAssistant: NSObject, ObservableObject {
     @Published private(set) var isListening: Bool = false
     @Published private(set) var lastError: String?
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "fr-FR"))
+    private var recognizer: SFSpeechRecognizer? {
+        SFSpeechRecognizer(locale: Locale(identifier: AppLocale.speechIdentifier))
+    }
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?

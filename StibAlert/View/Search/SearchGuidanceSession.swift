@@ -12,7 +12,8 @@ final class AVSpeechSynthesizerWrapper: NSObject, ObservableObject {
     func speak(_ text: String) {
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "fr-BE") ?? AVSpeechSynthesisVoice(language: "fr-FR")
+        utterance.voice = AVSpeechSynthesisVoice(language: AppLocale.speechIdentifier)
+            ?? AVSpeechSynthesisVoice(language: "fr-BE")
         utterance.rate = 0.5
         isSpeaking = true
         synthesizer.speak(utterance)

@@ -56,3 +56,21 @@ enum AppLocale {
         Locale(identifier: localeIdentifier)
     }
 }
+
+enum AppLocalizer {
+    private static var localizedBundle: Bundle {
+        guard let path = Bundle.main.path(forResource: AppLocale.languageCode, ofType: "lproj"),
+              let bundle = Bundle(path: path) else {
+            return .main
+        }
+        return bundle
+    }
+
+    static func string(_ key: String, defaultValue: String? = nil) -> String {
+        localizedBundle.localizedString(forKey: key, value: defaultValue ?? key, table: nil)
+    }
+
+    static func format(_ key: String, defaultValue: String? = nil, _ arguments: CVarArg...) -> String {
+        String(format: string(key, defaultValue: defaultValue), locale: AppLocale.current, arguments: arguments)
+    }
+}

@@ -1836,9 +1836,9 @@ private struct FavoriteTransportIncidentCard: View {
             }
 
             HStack(spacing: 8) {
-                communityButton("Je confirme", action: onConfirm)
-                communityButton("Toujours bloqué", action: onStillBlocked)
-                communityButton("Résolu", action: onResolved)
+                communityButton(AppLocalizer.string("community.action.confirm"), action: onConfirm)
+                communityButton(AppLocalizer.string("community.action.still_blocked"), action: onStillBlocked)
+                communityButton(AppLocalizer.string("community.action.resolved"), action: onResolved)
             }
         }
         .padding(14)

@@ -260,12 +260,12 @@ private struct RouteInstructionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let lineBadge = card.lineBadge {
-                    Text(lineBadge)
+                    Text(lineBadge.code)
                         .font(DS.Font.monoSmall.weight(.bold))
-                        .foregroundStyle(TransitLinePalette.foreground(for: lineBadge))
+                        .foregroundStyle(lineBadge.foregroundColor)
                         .padding(.horizontal, 5)
                         .frame(height: 17)
-                        .background(TransitLinePalette.fill(for: lineBadge))
+                        .background(lineBadge.fillColor)
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                 }
 

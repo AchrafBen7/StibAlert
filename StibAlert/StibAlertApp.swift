@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AppIntents
+import UIKit
 
 @main
 struct StibAlertApp: App {
@@ -18,6 +19,7 @@ struct StibAlertApp: App {
 
     init() {
         ErrorReporting.setUp()
+        UIWindow.appearance().overrideUserInterfaceStyle = .light
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
         // Pre-warm Speech framework hors thread main pour éviter le freeze
@@ -31,6 +33,7 @@ struct StibAlertApp: App {
                 .environmentObject(connectivity)
                 .environmentObject(offlineQueue)
                 .environmentObject(languageStore)
+                .preferredColorScheme(.light)
                 // Re-applies the locale to the whole tree when the user picks a
                 // language in Profil → Langues. Reading `languageStore.languageOverride`
                 // makes this view depend on the @Published so the env override
