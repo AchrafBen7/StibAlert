@@ -67,17 +67,25 @@ enum IssueLineCrowding {
 }
 
 enum ReportProblemType: String, CaseIterable, Identifiable {
-    case accident
+    case control      // Contrôle — différenciateur #1 vs app officielle
+    case crowding     // Affluence — info "humaine" que la STIB ne donne pas
     case delay
     case breakdown
+    case accident
     case incivility
     case cleanliness
     case aggression
 
     var id: String { rawValue }
 
+    // ⚠️ `title` est la valeur ENVOYÉE au backend (typeProbleme). Doit matcher
+    // EXACTEMENT l'enum Signalement.js : "Contrôle", "Affluence", …
     var title: String {
         switch self {
+        case .control:
+            return "Contrôle"
+        case .crowding:
+            return "Affluence"
         case .accident:
             return "Accident"
         case .delay:
@@ -95,6 +103,10 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
 
     var descriptionLines: [String] {
         switch self {
+        case .control:
+            return ["Contrôleurs à l’arrêt ou à bord", "Vérification des titres en cours"]
+        case .crowding:
+            return ["Véhicule bondé", "Impossible de monter"]
         case .accident:
             return ["Collision ou chute", "Police ou pompiers sur place"]
         case .delay:
@@ -112,6 +124,10 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
 
     var backgroundColor: Color {
         switch self {
+        case .control:
+            return Color(hex: "#D9C9FF")
+        case .crowding:
+            return Color(hex: "#FFD9B0")
         case .accident:
             return Color(hex: "#FFB4B4")
         case .delay:
@@ -129,6 +145,10 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
 
     var accentColor: Color {
         switch self {
+        case .control:
+            return Color(hex: "#8B5CF6")
+        case .crowding:
+            return Color(hex: "#F59A3B")
         case .accident:
             return Color(hex: "#FF6B6B")
         case .delay:
@@ -146,6 +166,10 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
 
     var helpDescription: String {
         switch self {
+        case .control:
+            return "Contrôleurs présents à l’arrêt ou dans le véhicule."
+        case .crowding:
+            return "Véhicule plein, impossible ou difficile de monter."
         case .accident:
             return "Collision, chute, blessé ou véhicule endommagé."
         case .delay:
@@ -170,6 +194,8 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         case .accident:   return 9
         case .breakdown:  return 5
         case .delay:      return 4
+        case .control:    return 4  // utile/actionnable mais non critique
+        case .crowding:   return 3
         case .incivility: return 3
         case .cleanliness: return 2
         }

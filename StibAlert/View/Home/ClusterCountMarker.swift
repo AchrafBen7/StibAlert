@@ -48,8 +48,8 @@ struct ClusterCountMarker: View {
 
     private var accessibilityText: String {
         switch origin {
-        case .official:  return "\(count) alertes officielles"
-        case .community: return "\(count) signalements communauté"
+        case .official:  return String(localized: "\(count) alertes officielles")
+        case .community: return String(localized: "\(count) signalements communauté")
         }
     }
 }

@@ -607,7 +607,11 @@ struct StibAlertWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: StibWidgetProvider()) { entry in
+            // L'app est light-only (UIUserInterfaceStyle=Light dans l'Info.plist
+            // n'est PAS hérité par WidgetKit) → on force le thème clair ici
+            // aussi pour qu'aucun dark mode n'existe nulle part.
             StibAlertWidgetEntryView(entry: entry)
+                .environment(\.colorScheme, .light)
         }
         .configurationDisplayName("StibAlert")
         .description("Lignes proches de toi, mises à jour automatiquement.")

@@ -300,6 +300,40 @@ struct HomeView: View {
         return []
     }
 
+    /// Lignes considérées BLOQUÉES en direct par la communauté + l'officiel,
+    /// injectées dans le calcul d'itinéraire (`recommendRoute(lignesBloquees:)`)
+    /// pour FERMER LA BOUCLE Waze : un signalement fiable réroute réellement,
+    /// au lieu d'être un simple badge sur la carte.
+    ///
+    /// On ne retient QUE les clusters assez fiables pour justifier un détour —
+    /// sinon une seule rumeur "à vérifier" exclurait une ligne à tort :
+    ///   • officiel STIB, OU
+    ///   • confiance medium/high, OU statut "confirmed",
+    ///   • non résolus.
+    /// Les types non bloquants (propreté, incivilité) n'excluent pas la ligne :
+    /// seuls les incidents qui empêchent le trajet comptent.
+    private var liveBlockedLines: [String] {
+        let blockingTypes: Set<String> = [
+            "panne", "interruption", "accident", "travaux", "déviation",
+            "perturbation", "arrêt non desservi",
+        ]
+        var lines = Set<String>()
+        for cluster in activeClusters {
+            guard !cluster.resolved, cluster.status != "resolved" else { continue }
+            let reliable = cluster.isOfficial
+                || cluster.confidence == .high
+                || cluster.confidence == .medium
+                || cluster.confidenceStatus == "confirmed"
+            guard reliable else { continue }
+            // Type bloquant uniquement (un "propreté" ne ferme pas la ligne).
+            let type = cluster.typeProbleme.lowercased()
+            guard cluster.isOfficial || blockingTypes.contains(type) else { continue }
+            let code = normalizedLineNumber(cluster.ligne)
+            if !code.isEmpty { lines.insert(code) }
+        }
+        return Array(lines)
+    }
+
     private var routeOfficialSignalPoints: [RouteOfficialSignalPoint] {
         guard let selectedRouteOption else { return [] }
         let stopNames = Set(
@@ -1463,7 +1497,13 @@ struct HomeView: View {
             },
             communitySignalements: remoteSignalements,
             onDismiss: {
+                // Recadre sur l'arrêt consulté avant de fermer (cf.
+                // dismissStopPreview) : on retrouve son arrêt bien centré.
+                let focusedStop = selectedMapStopPreview ?? selectedMapStopSummary
                 enterInteractionMode(.map)
+                if let focusedStop {
+                    focusMap(on: focusedStop)
+                }
             },
             onOpenDetail: { stop in
                 selectedMapStopSummary = stop
@@ -1617,6 +1657,12 @@ struct HomeView: View {
     /// only the stop-pin selection is unwound.
     @MainActor
     func dismissStopPreview() {
+        // En fermant la fiche, on RECADRE sur l'arrêt qu'on consultait : pendant
+        // le focus l'utilisateur a souvent baladé la carte (voir le tracé, les
+        // véhicules…), et il s'attend à retrouver SON arrêt bien centré, pas la
+        // dernière position de la caméra. On capture la coordonnée avant de
+        // vider la sélection.
+        let focusedStop = selectedMapStopPreview ?? selectedMapStopSummary
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
             selectedMapStopPreview = nil
             selectedMapStopDetail = nil
@@ -1625,6 +1671,9 @@ struct HomeView: View {
             if interactionMode == .stopPreview {
                 interactionMode = .map
             }
+        }
+        if let focusedStop {
+            focusMap(on: focusedStop)
         }
     }
 
@@ -3012,7 +3061,8 @@ struct HomeView: View {
         let destinationQuery = "\(destination.placemark.coordinate.latitude),\(destination.placemark.coordinate.longitude)"
         return try? await TransportService.recommendRoute(
             depart: depart,
-            destination: destinationQuery
+            destination: destinationQuery,
+            lignesBloquees: liveBlockedLines
         )
     }
 
@@ -3205,7 +3255,8 @@ struct HomeView: View {
 
         guard let recommendation = try? await TransportService.recommendRoute(
             depart: depart,
-            destination: destinationQuery
+            destination: destinationQuery,
+            lignesBloquees: liveBlockedLines
         ) else {
             return nil
         }

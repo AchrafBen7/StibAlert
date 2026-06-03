@@ -210,7 +210,10 @@ struct MorningVerdictWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: VerdictProvider()) { entry in
+            // Light-only partout (cf. StibAlertWidget) : WidgetKit n'hérite pas
+            // du UIUserInterfaceStyle de l'app, on force donc le thème clair.
             MorningVerdictEntryView(entry: entry)
+                .environment(\.colorScheme, .light)
         }
         .configurationDisplayName("Verdict matin")
         .description("Le verdict de tes lignes habituelles, mis à jour automatiquement.")

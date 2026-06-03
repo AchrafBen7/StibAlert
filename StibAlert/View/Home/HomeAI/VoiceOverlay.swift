@@ -415,9 +415,11 @@ struct VoiceOverlay: View {
     }
 
     private var actionLabel: String {
-        if hasSpeechReady { return "Envoyer" }
-        if voice.isListening { return "Arrêter" }
-        return "Parler"
+        // String(localized:) car ce sont des `return String` (pas des Text),
+        // donc pas localisés automatiquement.
+        if hasSpeechReady { return String(localized: "Envoyer") }
+        if voice.isListening { return String(localized: "Arrêter") }
+        return String(localized: "Parler")
     }
 
     private var actionBackground: Color {
@@ -467,11 +469,11 @@ struct VoiceOverlay: View {
 
     private var statusText: String {
         switch phase {
-        case .idle:      return "Parle à Mobi"
-        case .listening: return "Je t'écoute…"
-        case .thinking:  return "Je réfléchis…"
+        case .idle:      return String(localized: "Parle à Mobi")
+        case .listening: return String(localized: "Je t'écoute…")
+        case .thinking:  return String(localized: "Je réfléchis…")
         case .speaking:  return "Mobi"
-        case .error:     return "Oups"
+        case .error:     return String(localized: "Oups")
         }
     }
 

@@ -15,6 +15,8 @@ enum SignalVisuals {
     static func icon(forType type: String) -> String {
         switch type.lowercased() {
         case "retard": return "clock.fill"
+        case "contrôle", "controle": return "person.badge.shield.checkmark.fill"
+        case "affluence": return "person.3.fill"
         case "panne", "interruption": return "exclamationmark.octagon.fill"
         case "accident": return "exclamationmark.triangle.fill"
         case "travaux", "déviation": return "exclamationmark.triangle.fill"
@@ -119,6 +121,8 @@ struct LiveSignalMarker: View {
         switch problemType {
         case "Accident", "Agression": return DS.Color.danger
         case "Retard", "Panne": return DS.Color.warning
+        case "Contrôle": return DS.Color.noctis      // violet = contrôle
+        case "Affluence": return DS.Color.statusMinor // ambre = affluence
         case "Incivilité": return DS.Color.info
         case "Propreté": return DS.Color.success
         default: return DS.Color.primary
