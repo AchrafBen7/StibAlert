@@ -189,7 +189,38 @@ extension HomeView {
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.stopPreview)
             .accessibilitySortPriority(15)
+        } else if shouldShowCommuteSetupNudge {
+            // L'infra Smart Commute reste inerte tant que la routine n'est pas
+            // configurée. On invite (une fois, dismissable) un utilisateur DÉJÀ
+            // engagé (au moins un favori) à activer son trajet quotidien — c'est
+            // ce qui débloque le brief pré-départ + le verdict + le Plan B.
+            CommuteSetupNudgeCard(
+                onConfigure: {
+                    commuteNudgeDismissed = true
+                    nav.currentPage = .profile
+                },
+                onDismiss: { commuteNudgeDismissed = true }
+            )
+            .padding(.horizontal, 14)
+            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zLayer(.stopPreview)
+            .accessibilitySortPriority(14)
         }
+    }
+
+    /// Nudge "configure ton trajet" : seulement pour un utilisateur engagé
+    /// (≥1 favori) sans routine active, non déjà écarté, et dans les mêmes
+    /// conditions de calme que la card commute (pas de trip/cluster/route).
+    private var shouldShowCommuteSetupNudge: Bool {
+        guard let user = session.currentUser else { return false }
+        guard !commuteNudgeDismissed else { return false }
+        guard !tripTracker.isActive, selectedClusterIndex == nil,
+              !nav.showReportSheet, routeOptions.isEmpty,
+              proactiveAlertCluster == nil else { return false }
+        let hasRoutine = (user.routine?.enabled == true)
+        let hasFavorites = !(user.favoriteLines ?? []).isEmpty || !favoriteStopIds.isEmpty
+        return !hasRoutine && hasFavorites
     }
 
     /// I1 — Fenêtres où la card Commute prend visuellement le pas sur la

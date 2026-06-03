@@ -120,6 +120,7 @@ struct HomeView: View {
     @State private var selectedOperatorStop: OperatorMapStop? = nil
     @AppStorage(AppStorageKeys.mapLayerShowDelijnStops) private var showDelijnStops = true
     @AppStorage(AppStorageKeys.mapLayerShowTecStops) private var showTecStops = true
+    @AppStorage(AppStorageKeys.commuteNudgeDismissed) var commuteNudgeDismissed = false
     @State private var interactionMode: InteractionMode = .map
 
     @State private var activeClusters: [ClusterDTO] = []
@@ -1525,6 +1526,7 @@ struct HomeView: View {
         HomeRouteSurfaceOverlay(
             options: routeOptions,
             modeSummaries: routeModeSummaries,
+            blockedLines: currentTransportRecommendation?.request.lignesBloquees ?? [],
             selectedRouteID: $selectedRouteID,
             isRouteSheetExpanded: $isRouteSheetExpanded,
             selectedRouteDetail: selectedRouteDetail,

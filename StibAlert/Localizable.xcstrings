@@ -17029,6 +17029,70 @@
           }
         }
       }
+    },
+    "Itinéraire recalculé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route recalculated"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route herberekend"
+          }
+        }
+      }
+    },
+    "évite": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "avoids"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vermijdt"
+          }
+        }
+      }
+    },
+    "Configure-le pour un brief avant ton départ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set it up for a briefing before you leave"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stel het in voor een briefing vóór je vertrek"
+          }
+        }
+      }
+    },
+    "Ignorer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Negeren"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

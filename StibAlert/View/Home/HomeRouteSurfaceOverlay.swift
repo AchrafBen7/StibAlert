@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeRouteSurfaceOverlay: View {
     let options: [HomeRouteOption]
     let modeSummaries: [RouteModeSummary]
+    var blockedLines: [String] = []
     @Binding var selectedRouteID: UUID?
     @Binding var isRouteSheetExpanded: Bool
     let selectedRouteDetail: HomeRouteOption?
@@ -20,6 +21,7 @@ struct HomeRouteSurfaceOverlay: View {
                 RouteRecommendationsSheet(
                     options: options,
                     modeSummaries: modeSummaries,
+                    blockedLines: blockedLines,
                     selectedRouteID: $selectedRouteID,
                     isExpanded: $isRouteSheetExpanded,
                     onSelect: onSelect,

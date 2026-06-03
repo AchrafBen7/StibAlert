@@ -3,6 +3,10 @@ import SwiftUI
 struct RouteRecommendationsSheet: View {
     let options: [HomeRouteOption]
     let modeSummaries: [RouteModeSummary]
+    /// Lignes évitées par le calcul à cause de signalements/perturbations
+    /// fiables. Non vide → on affiche la bannière "itinéraire recalculé" qui
+    /// rend la boucle Waze PERÇUE (ce n'est pas qu'un re-route silencieux).
+    var blockedLines: [String] = []
     @Binding var selectedRouteID: UUID?
     @Binding var isExpanded: Bool
     let onSelect: (HomeRouteOption) -> Void
@@ -66,6 +70,7 @@ struct RouteRecommendationsSheet: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             modeSummaryStrip
+                            rerouteBanner
                             recommendedSection
                             optionsHeader
                             otherOptionsList
@@ -124,6 +129,44 @@ struct RouteRecommendationsSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 14)
+    }
+
+    // Bannière "itinéraire recalculé" : montre EXPLICITEMENT que le trajet
+    // évite une ou plusieurs lignes signalées comme perturbées. C'est ce qui
+    // transforme un re-route silencieux en boucle Waze perçue par l'utilisateur.
+    @ViewBuilder
+    private var rerouteBanner: some View {
+        if !blockedLines.isEmpty {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMajor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Itinéraire recalculé")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    HStack(spacing: 6) {
+                        Text("évite")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(DS.Color.inkMute)
+                        ForEach(blockedLines.prefix(4), id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(DS.Color.statusMajor.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.statusMajor.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
+        }
     }
 
     @ViewBuilder

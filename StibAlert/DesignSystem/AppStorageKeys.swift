@@ -15,6 +15,9 @@ enum AppStorageKeys {
     static let onboardingNeedsProfileSync = "onboardingNeedsProfileSync"
     static let onboardingLastAppliedUserId = "onboardingLastAppliedUserId"
     static let onboardingPendingPushPermission = "onboardingPendingPushPermission"
+    /// Nudge "configure ton trajet quotidien" sur la Home : une fois écarté
+    /// (ou la routine activée), on ne le ré-affiche plus.
+    static let commuteNudgeDismissed = "commuteNudgeDismissed"
 
     // Calques de la carte — préférences persistantes pour que l'utilisateur
     // n'ait pas à re-décocher Villo/SNCB à chaque ouverture de l'app. Default
