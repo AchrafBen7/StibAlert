@@ -348,13 +348,10 @@ struct ArretDetailPage: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     topBar
-                    heroMap
-                        .padding(.horizontal, 20)
-                        .padding(.top, 4)
 
                     titleBlock
                         .padding(.horizontal, 20)
-                        .padding(.top, 16)
+                        .padding(.top, 8)
 
                     if !disruptions.isEmpty {
                         disruptionBanner
@@ -382,12 +379,18 @@ struct ArretDetailPage: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 12)
 
+                    // Carte déplacée EN BAS (avant elle ouvrait la page) : on
+                    // commence par le nom + les passages, la carte vient après.
+                    heroMap
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+
                     Text("Mise à jour en direct · STIB-MIVB")
                         .font(DS.Font.eyebrow)
                         .foregroundStyle(DS.Color.inkMute.opacity(0.75))
-                        .padding(.top, 24)
+                        .padding(.top, 20)
 
-                    Color.clear.frame(height: 120)
+                    Color.clear.frame(height: canReportFromHere ? 96 : 28)
                 }
             }
             .modifier(PaperGrainBackground())
@@ -518,6 +521,11 @@ struct ArretDetailPage: View {
                 }
             }
         }
+        // Sans ça, le VStack se dimensionne à son contenu et se retrouve CENTRÉ
+        // → le nom "ANCRE" paraissait décalé vers la droite alors que les tabs /
+        // chips / passages sont collés à gauche. On force la pleine largeur +
+        // alignement leading pour aligner le header sur la même grille (x=20).
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var disruptionBanner: some View {
@@ -757,7 +765,9 @@ struct ArretDetailPage: View {
                         ForEach(servedLines, id: \.self) { line in
                             filterChip(
                                 label: line,
-                                active: selectedLineFilter == line || (selectedLineFilter == nil && selectedLineRoute == line)
+                                active: selectedLineFilter == line || (selectedLineFilter == nil && selectedLineRoute == line),
+                                lineColor: TransitLinePalette.fill(for: line),
+                                lineForeground: TransitLinePalette.foreground(for: line)
                             ) {
                                 selectedLineFilter = selectedLineFilter == line ? nil : line
                                 onSelectLineRoute(line)
@@ -1211,14 +1221,18 @@ struct ArretDetailPage: View {
         .padding(.vertical, 12)
     }
 
+    @ViewBuilder
     private var stickyCTA: some View {
-        HStack(spacing: 8) {
-            Button(action: requestItinerary) {
-                Label("Itinéraire", systemImage: "location.north.line")
+        // Plus de bouton "Itinéraire" flottant ici (la carte est désormais en
+        // bas de la page). On ne garde QUE "Signaler" quand on est à proximité
+        // de l'arrêt ; sinon rien ne flotte au-dessus de la carte.
+        if canReportFromHere {
+            Button(action: onReport) {
+                Label(L10n.StopDetail.report, systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.Color.ink)
+                    .foregroundStyle(DS.Color.primaryForeground)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(DS.Color.paper)
+                    .background(DS.Color.primary)
                     .overlay(
                         RoundedRectangle(cornerRadius: DS.Radius.md)
                             .stroke(DS.Color.ink, lineWidth: 1.5)
@@ -1226,38 +1240,22 @@ struct ArretDetailPage: View {
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
             }
             .buttonStyle(.plain)
-
-            if canReportFromHere {
-                Button(action: onReport) {
-                    Label("Signaler", systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(DS.Color.primaryForeground)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(DS.Color.primary)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.md)
-                                .stroke(DS.Color.ink, lineWidth: 1.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                }
-                .buttonStyle(.plain)
-            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .shadow(DS.Shadow.floating)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 12)
-        .shadow(DS.Shadow.floating)
     }
 
     private func tabTitle(_ tab: StopDetailTab) -> String {
         switch tab {
         case .live:
-            return "Temps réel"
+            return L10n.StopDetail.realtime
         case .lines:
-            return "Lignes · \(servedLines.count)"
+            return L10n.StopDetail.lines(servedLines.count)
         case .schedule:
-            return "Horaires"
+            return L10n.StopDetail.schedules
         case .around:
-            return "Autour"
+            return L10n.StopDetail.around
         }
     }
 
@@ -1292,17 +1290,33 @@ struct ArretDetailPage: View {
         .clipShape(Capsule())
     }
 
-    private func filterChip(label: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    /// Chip de filtre. Pour les chips de LIGNE on passe `lineColor` (couleur
+    /// officielle STIB) + `lineForeground` (couleur texte contrastée) : la
+    /// pastille prend la couleur de la ligne — fond teinté + bordure colorée au
+    /// repos, fond plein quand active. "Tout" reste neutre (noir/blanc).
+    private func filterChip(
+        label: String,
+        active: Bool,
+        lineColor: Color? = nil,
+        lineForeground: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        let isLine = lineColor != nil
+        let accent = lineColor ?? DS.Color.ink
+        let background: Color = active ? accent : (isLine ? accent.opacity(0.14) : DS.Color.paper)
+        let foreground: Color = active
+            ? (isLine ? (lineForeground ?? .white) : DS.Color.paper)
+            : DS.Color.ink
+        return Button(action: action) {
             Text(label)
                 .font(DS.Font.monoSmall.weight(.bold))
-                .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
+                .foregroundStyle(foreground)
                 .padding(.horizontal, 10)
                 .frame(height: 28)
-                .background(active ? DS.Color.ink : DS.Color.paper)
+                .background(background)
                 .overlay(
                     RoundedRectangle(cornerRadius: DS.Radius.md)
-                        .stroke(active ? DS.Color.ink : DS.Color.ink.opacity(0.2), lineWidth: 1)
+                        .stroke(active ? accent : accent.opacity(isLine ? 0.5 : 0.2), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         }

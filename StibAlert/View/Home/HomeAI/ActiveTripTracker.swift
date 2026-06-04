@@ -1,10 +1,9 @@
 import CoreLocation
 import Foundation
 
-/// Speaks turn-by-turn announcements while a trip is active: an initial
-/// "itinéraire démarré" line, a "descends à X et prends la ligne Y" at each
-/// transit-stop checkpoint, and a "tu es arrivé" at the end. Driven by the
-/// route's backend steps + a stream of user location updates from HomeView.
+/// Tracks turn-by-turn checkpoints while a trip is active. Announcements are
+/// kept as readable UI text only; automatic voice guidance is intentionally
+/// disabled so selecting a route never starts talking on its own.
 @MainActor
 final class ActiveTripTracker: ObservableObject {
     @Published private(set) var isActive = false
@@ -30,7 +29,6 @@ final class ActiveTripTracker: ObservableObject {
         let announcement: String
     }
 
-    private let player = VoicePlayer()
     private var checkpoints: [Checkpoint] = []
     private var announced: Set<String> = []
     private var lastTriggerAt: Date = .distantPast
@@ -64,7 +62,6 @@ final class ActiveTripTracker: ObservableObject {
         )
         let initial = Self.initialAnnouncement(option: option, firstLine: firstLine)
         lastAnnouncement = initial
-        player.speak(initial)
     }
 
     func stop() {
@@ -77,7 +74,6 @@ final class ActiveTripTracker: ObservableObject {
         progress = 0
         summary = nil
         lastAnnouncement = nil
-        player.stop()
     }
 
     func onLocationUpdate(_ coord: CLLocationCoordinate2D?) {
@@ -99,7 +95,6 @@ final class ActiveTripTracker: ObservableObject {
                 lastTriggerAt = Date()
                 lastAnnouncement = cp.announcement
                 progress = Double(announced.count) / Double(max(checkpoints.count, 1))
-                player.speak(cp.announcement)
                 // If we've announced the final arrival, the trip is done.
                 if cp.id == "final" {
                     isActive = false

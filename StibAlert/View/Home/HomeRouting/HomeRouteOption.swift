@@ -30,9 +30,9 @@ struct HomeRouteOption: Identifiable {
         let walkingMinutes = max(1, Int((walkingDistance / 75).rounded()))
         let transferCount = max(0, transitSteps.count - 1)
         let durationMinutes = backendAlternative?.totalDurationMinutes ?? max(1, Int((((route?.expectedTravelTime) ?? 60) / 60).rounded()))
-        let transitSummary = backendAlternative.map(Self.transitSummary(from:)) ?? (transitSteps.isEmpty ? "à pied" : "\(transitSteps.count) transport")
-        let walkingSummary = "\(backendAlternative?.walkingMinutes ?? walkingMinutes) min à pied"
-        let reliabilityText = backendAlternative.map(Self.reliabilitySummary(from:)) ?? (transferCount == 0 ? "direct" : "\(transferCount) corresp.")
+        let transitSummary = backendAlternative.map(Self.transitSummary(from:)) ?? (transitSteps.isEmpty ? L10n.Routing.walk : L10n.Routing.transportCount(transitSteps.count))
+        let walkingSummary = L10n.Routing.walkingMinutes(backendAlternative?.walkingMinutes ?? walkingMinutes)
+        let reliabilityText = backendAlternative.map(Self.reliabilitySummary(from:)) ?? (transferCount == 0 ? L10n.Routing.direct : L10n.Routing.transferCount(transferCount))
 
         return HomeRouteOption(
             route: route,
@@ -175,7 +175,7 @@ struct HomeRouteOption: Identifiable {
                         serviceInfo: nil
                     ),
                     durationBadge: "\(max(1, step.durationMinutes)) min",
-                    stopCountText: step.stopsCount.map { $0 > 1 ? "\($0) arrêts" : "1 arrêt" }
+                    stopCountText: step.stopsCount.map(L10n.Routing.stopCount)
                 )
             )
         }
@@ -254,7 +254,7 @@ struct HomeRouteOption: Identifiable {
     /// the same trip. The realtime arrival time is the one that matters; the
     /// scheduled value is reduced to a tiny delay note below when it differs.
     var timingHeadlineText: String {
-        "Arrivée \(arrivalTimeText)"
+        L10n.Routing.arrivalAt(arrivalTimeText)
     }
 
     /// Short delay note — only when the trip is genuinely *late* vs the
@@ -266,11 +266,11 @@ struct HomeRouteOption: Identifiable {
               let scheduled = backendAlternative?.scheduledArrivalAt else { return nil }
         let deltaMin = Int(realtime.timeIntervalSince(scheduled) / 60.0)
         guard deltaMin >= 1 else { return nil }
-        return "+ \(deltaMin) min vs prévu"
+        return L10n.Routing.lateBy(deltaMin)
     }
 
     var arrivalSummaryText: String {
-        "Arrivée \(arrivalTimeText)"
+        L10n.Routing.arrivalAt(arrivalTimeText)
     }
 
     var nextDepartureInsight: RouteDepartureInsight? {
@@ -287,7 +287,7 @@ struct HomeRouteOption: Identifiable {
         let arrivalText = (step.realtimeArrivalAt ?? step.scheduledArrivalAt).map(Self.timeFormatter.string(from:))
         let waitText = step.realtimeDepartureMinutes.map(Self.waitText)
             ?? departureDate.map(Self.waitText)
-            ?? "À \(departureText)"
+            ?? L10n.Routing.atTime(departureText)
 
         return RouteDepartureInsight(
             lineCode: line,
@@ -312,9 +312,9 @@ struct HomeRouteOption: Identifiable {
 
     var primaryModeLabel: String {
         switch primaryModeKey {
-        case "bike": return "Vélo"
-        case "walk": return "À pied"
-        default: return "Transport"
+        case "bike": return L10n.Routing.bike
+        case "walk": return L10n.Routing.walk
+        default: return L10n.Routing.transport
         }
     }
 
@@ -328,7 +328,7 @@ struct HomeRouteOption: Identifiable {
 
     var transferSummary: String {
         let transfers = backendAlternative?.transfers ?? max(0, displayLineCodes.count - 1)
-        return "\(transfers) corresp."
+        return L10n.Routing.transferCount(transfers)
     }
 
     var displayLineCodes: [String] {
@@ -485,24 +485,23 @@ struct HomeRouteOption: Identifiable {
 
     private static func modeText(for step: TransportRouteStepDTO) -> String {
         switch step.mode.lowercased() {
-        case "bus": return "Bus"
-        case "metro": return "Métro"
-        case "tram": return "Tram"
-        default: return "Ligne"
+        case "bus": return L10n.Routing.bus
+        case "metro": return L10n.Routing.metro
+        case "tram": return L10n.Routing.tram
+        default: return L10n.Routing.line
         }
     }
 
     private static func waitText(_ minutes: Int) -> String {
-        if minutes <= 0 { return "Maintenant" }
-        if minutes == 1 { return "Dans 1 min" }
-        return "Dans \(minutes) min"
+        if minutes <= 0 { return L10n.Routing.now }
+        return L10n.Routing.inMinutes(minutes)
     }
 
     private static func waitText(for date: Date) -> String {
         let minutes = Int(ceil(date.timeIntervalSince(Date()) / 60))
-        if minutes <= 0 { return "Maintenant" }
+        if minutes <= 0 { return L10n.Routing.now }
         if minutes <= 90 { return waitText(minutes) }
-        return "À \(timeFormatter.string(from: date))"
+        return L10n.Routing.atTime(timeFormatter.string(from: date))
     }
 
     /// Wait at the connection after `step`: the gap between this leg's arrival
@@ -547,28 +546,28 @@ struct HomeRouteOption: Identifiable {
         }
     }
 
-    private static func placeTitle(for step: MKRoute.Step, isLastLeg: Bool, destinationName: String, lineCode: String?, lineFallback: String = "Transport") -> String {
+    private static func placeTitle(for step: MKRoute.Step, isLastLeg: Bool, destinationName: String, lineCode: String?, lineFallback: String = L10n.Routing.transport) -> String {
         if isLastLeg && step.transportType == .walking {
             return destinationName
         }
         if let lineCode {
-            return "Ligne \(lineCode)"
+            return L10n.Routing.line(lineCode)
         }
         switch step.transportType {
-        case .walking: return "À pied"
+        case .walking: return L10n.Routing.walk
         case .transit: return lineFallback
-        default: return "Étape"
+        default: return L10n.Routing.routeStep
         }
     }
 
     private static func fallbackTitle(for step: MKRoute.Step, destinationName: String) -> String {
         switch step.transportType {
         case .walking:
-            return "Marcher vers \(destinationName)"
+            return L10n.Routing.walkTo(destinationName)
         case .transit:
-            return "Prendre le transport suivant"
+            return L10n.Routing.takeNextTransport
         default:
-            return "Suivre l’itinéraire"
+            return L10n.Routing.followItinerary
         }
     }
 
@@ -577,16 +576,16 @@ struct HomeRouteOption: Identifiable {
         case .walking:
             return step.distance.distanceLabel
         case .transit:
-            return "Étape transport"
+            return L10n.Routing.transportStep
         default:
-            return "Suivez l’itinéraire"
+            return L10n.Routing.followItinerary
         }
     }
 
     private static func stopCountText(for step: MKRoute.Step) -> String? {
         guard step.transportType == .transit else { return nil }
         let estimatedStops = max(1, Int((step.distance / 350).rounded()))
-        return estimatedStops > 1 ? "\(estimatedStops) arrêts" : "1 arrêt"
+        return L10n.Routing.stopCount(estimatedStops)
     }
 
     private func placeTitle(for step: TransportRouteStepDTO, isLastStep: Bool) -> String {
@@ -600,24 +599,23 @@ struct HomeRouteOption: Identifiable {
             return arrivalStopName
         }
         if let line = Self.displayLine(for: step) {
-            return "Ligne \(line)"
+            return L10n.Routing.line(line)
         }
         switch step.mode.lowercased() {
-        case "bike": return "À vélo"
-        case "walk": return "À pied"
-        default: return "Correspondance"
+        case "bike": return L10n.Routing.bike
+        case "walk": return L10n.Routing.walk
+        default: return L10n.Routing.connection
         }
     }
 
     private static func transitSummary(from alternative: TransportAlternativeDTO) -> String {
         if !alternative.lines.isEmpty {
-            let label = alternative.lines.count > 1 ? "lignes" : "ligne"
-            return "\(alternative.lines.count) \(label)"
+            return L10n.Routing.transitSummary(alternative.lines.count)
         }
         switch primaryMode(for: alternative) {
-        case "bike": return "à vélo"
-        case "walk": return "à pied"
-        default: return "transport"
+        case "bike": return L10n.Routing.bike.lowercased(with: AppLocale.current)
+        case "walk": return L10n.Routing.walk.lowercased(with: AppLocale.current)
+        default: return L10n.Routing.transport.lowercased(with: AppLocale.current)
         }
     }
 
@@ -639,9 +637,9 @@ struct HomeRouteOption: Identifiable {
 
     private static func reliabilitySummary(from alternative: TransportAlternativeDTO) -> String {
         if alternative.transfers == 0 {
-            return "direct"
+            return L10n.Routing.direct
         }
-        return "\(alternative.transfers) corresp."
+        return L10n.Routing.transferCount(alternative.transfers)
     }
 
     static func primaryMode(for alternative: TransportAlternativeDTO) -> String {
@@ -758,26 +756,26 @@ struct HomeRouteOption: Identifiable {
 
     private static func subtitle(for step: TransportRouteStepDTO) -> String {
         if let arrivalStopName = step.arrivalStopName, !arrivalStopName.isEmpty {
-            return "Vers \(arrivalStopName)"
+            return L10n.Routing.toward(arrivalStopName)
         }
         if let destination = step.destination, !destination.isEmpty {
-            return "Direction \(destination)"
+            return L10n.Routing.direction(destination)
         }
         switch step.mode.lowercased() {
-        case "bike": return "Étape à vélo"
-        case "walk": return "Étape à pied"
-        default: return "Étape transport"
+        case "bike": return L10n.Routing.bikeStep
+        case "walk": return L10n.Routing.walkStep
+        default: return L10n.Routing.transportStep
         }
     }
 
     private static func summaryText(for step: TransportRouteStepDTO) -> String {
         if let line = displayLine(for: step) {
-            return "Ligne \(line)"
+            return L10n.Routing.line(line)
         }
         switch step.mode.lowercased() {
-        case "bike": return "Pédalez vers la prochaine étape"
-        case "walk": return "Marche en cours"
-        default: return "Transport en cours"
+        case "bike": return L10n.Routing.bikeToNextStep
+        case "walk": return L10n.Routing.walkInProgress
+        default: return L10n.Routing.transportInProgress
         }
     }
 
@@ -802,29 +800,29 @@ struct HomeRouteOption: Identifiable {
 
     private static func inlineTitle(for step: TransportRouteStepDTO) -> String {
         if displayLine(for: step) != nil {
-            let start = step.stopName ?? "Départ"
-            let end = step.arrivalStopName ?? step.destination ?? "Arrivée"
+            let start = step.stopName ?? L10n.Routing.departure
+            let end = step.arrivalStopName ?? step.destination ?? L10n.Routing.arrival
             return "\(start) → \(end)"
         }
 
         if step.mode.lowercased() == "walk" {
             if let target = step.stopName ?? step.arrivalStopName ?? step.destination {
-                return "Marche vers \(target)"
+                return L10n.Routing.walkTo(target)
             }
-            return "Marche"
+            return L10n.Routing.walking
         }
 
         if step.mode.lowercased() == "bike" {
-            return "Vélo vers \(step.arrivalStopName ?? step.destination ?? "destination")"
+            return L10n.Routing.bikeTo(step.arrivalStopName ?? step.destination ?? L10n.Routing.destination)
         }
 
-        return step.destination ?? "Correspondance"
+        return step.destination ?? L10n.Routing.connection
     }
 
     private static func inlineMeta(for step: TransportRouteStepDTO) -> String {
         var parts: [String] = []
         if let stops = step.stopsCount {
-            parts.append(stops > 1 ? "\(stops) arrêts" : "1 arrêt")
+            parts.append(L10n.Routing.stopCount(stops))
         } else if step.mode.lowercased() == "walk",
                   let startLat = step.startLatitude,
                   let startLng = step.startLongitude,
@@ -840,14 +838,14 @@ struct HomeRouteOption: Identifiable {
             if let realtimeArrivalAt = step.realtimeArrivalAt {
                 parts.append("\(departure)→\(timeFormatter.string(from: realtimeArrivalAt))")
             } else {
-                parts.append("DÉP. \(departure)")
+                parts.append(L10n.Routing.departingAt(departure))
             }
         } else if let scheduledDepartureAt = step.scheduledDepartureAt {
             let departure = timeFormatter.string(from: scheduledDepartureAt)
             if let scheduledArrivalAt = step.scheduledArrivalAt {
                 parts.append("\(departure)→\(timeFormatter.string(from: scheduledArrivalAt))")
             } else {
-                parts.append("PRÉVU \(departure)")
+                parts.append(L10n.Routing.scheduledAt(departure))
             }
         }
         return parts.joined(separator: " · ")
@@ -862,7 +860,7 @@ struct HomeRouteOption: Identifiable {
             return waitText(for: realtimeDepartureAt)
         }
         if let scheduledDepartureAt = step.scheduledDepartureAt {
-            return "Prévu \(timeFormatter.string(from: scheduledDepartureAt))"
+            return L10n.Routing.scheduledAt(timeFormatter.string(from: scheduledDepartureAt)).capitalized(with: AppLocale.current)
         }
         return nil
     }
@@ -872,12 +870,12 @@ struct HomeRouteOption: Identifiable {
         let arrivalDate = step.realtimeArrivalAt ?? step.scheduledArrivalAt
         guard let departureDate else { return nil }
 
-        let source = (step.realtimeDepartureAt != nil || step.realtimeDepartureMinutes != nil) ? "Temps réel" : "Horaire prévu"
+        let source = (step.realtimeDepartureAt != nil || step.realtimeDepartureMinutes != nil) ? L10n.Routing.realtime : L10n.Routing.scheduled
         let departure = timeFormatter.string(from: departureDate)
         if let arrivalDate {
-            return "\(source) · \(departure) → \(timeFormatter.string(from: arrivalDate))"
+            return L10n.Routing.timingDetail(source, departure: departure, arrival: timeFormatter.string(from: arrivalDate))
         }
-        return "\(source) · départ \(departure)"
+        return L10n.Routing.departureDetail(source, departure: departure)
     }
 
     private func nextCoordinate(from current: CLLocationCoordinate2D, in coords: [CLLocationCoordinate2D]) -> CLLocationCoordinate2D? {

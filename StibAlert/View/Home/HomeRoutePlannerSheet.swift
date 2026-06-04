@@ -8,7 +8,7 @@ struct HomeRoutePlannerSheet: View {
     let isRouting: Bool
     let onPlanRoute: (MKMapItem, MKMapItem, String) -> Void
 
-    @State private var departureQuery = "Votre position"
+    @State private var departureQuery = L10n.Routing.currentPosition
     @State private var arrivalQuery = ""
     @State private var departureSuggestions: [MKMapItem] = []
     @State private var arrivalSuggestions: [MKMapItem] = []
@@ -95,7 +95,7 @@ struct HomeRoutePlannerSheet: View {
             }
             .buttonStyle(.plain)
 
-            Text("Itinéraire")
+            Text(L10n.Routing.itinerary)
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
 
@@ -107,21 +107,21 @@ struct HomeRoutePlannerSheet: View {
         HStack(spacing: 18) {
             quickPlaceButton(
                 icon: "house.fill",
-                title: "Domicile",
-                subtitle: savedPlaces[.home]?.subtitle ?? "Ajouter",
+                title: L10n.Routing.homePlace,
+                subtitle: savedPlaces[.home]?.subtitle ?? L10n.Routing.addPlace,
                 isConfigured: savedPlaces[.home] != nil
             ) {
                 useSavedPlace(.home)
             }
             quickPlaceButton(
                 icon: "briefcase.fill",
-                title: "Travail",
-                subtitle: savedPlaces[.work]?.subtitle ?? "Ajouter",
+                title: L10n.Routing.workPlace,
+                subtitle: savedPlaces[.work]?.subtitle ?? L10n.Routing.addPlace,
                 isConfigured: savedPlaces[.work] != nil
             ) {
                 useSavedPlace(.work)
             }
-            quickPlaceButton(icon: "ellipsis", title: "Plus", subtitle: "Adresses", isConfigured: true) {
+            quickPlaceButton(icon: "ellipsis", title: L10n.Routing.more, subtitle: L10n.Routing.addresses, isConfigured: true) {
                 focusedField = .arrival
                 pendingSavedPlace = nil
             }
@@ -159,7 +159,7 @@ struct HomeRoutePlannerSheet: View {
                 field: .departure,
                 icon: "location.fill",
                 text: $departureQuery,
-                placeholder: "Adresse de départ",
+                placeholder: L10n.Routing.departureAddress,
                 tint: DS.Color.community
             )
 
@@ -196,7 +196,7 @@ struct HomeRoutePlannerSheet: View {
                 field: .arrival,
                 icon: "mappin.circle.fill",
                 text: $arrivalQuery,
-                placeholder: "Destination",
+                placeholder: L10n.Routing.destination.capitalized(with: AppLocale.current),
                 tint: DS.Color.primary
             )
         }
@@ -247,7 +247,7 @@ struct HomeRoutePlannerSheet: View {
                     handleQueryChange(newValue, for: field)
                 }
 
-            if !text.wrappedValue.isEmpty && !(field == .departure && text.wrappedValue == "Votre position") {
+            if !text.wrappedValue.isEmpty && !(field == .departure && text.wrappedValue == L10n.Routing.currentPosition) {
                 Button {
                     clearField(field)
                 } label: {
@@ -264,7 +264,7 @@ struct HomeRoutePlannerSheet: View {
 
     private var suggestionsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Résultats")
+            Text(L10n.Routing.results)
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
                 .padding(.bottom, 8)
@@ -276,8 +276,8 @@ struct HomeRoutePlannerSheet: View {
                     placeRow(
                         icon: "mappin.and.ellipse",
                         iconTint: DS.Color.primary,
-                        title: item.name ?? "Adresse",
-                        subtitle: item.placemark.title ?? "Bruxelles"
+                        title: item.name ?? L10n.Routing.address,
+                        subtitle: item.placemark.title ?? L10n.Routing.brussels
                     )
                 }
                 .buttonStyle(.plain)
@@ -287,7 +287,7 @@ struct HomeRoutePlannerSheet: View {
 
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Récent")
+            Text(L10n.Routing.recent)
                 .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
                 .padding(.bottom, 8)
@@ -296,8 +296,8 @@ struct HomeRoutePlannerSheet: View {
                 placeRow(
                     icon: "clock",
                     iconTint: DS.Color.inkMute,
-                    title: "Aucune recherche récente",
-                    subtitle: "Tes derniers itinéraires apparaîtront ici."
+                    title: L10n.Routing.noRecentSearch,
+                    subtitle: L10n.Routing.recentTripsHint
                 )
                 .opacity(0.72)
             } else {
@@ -363,7 +363,7 @@ struct HomeRoutePlannerSheet: View {
                             .font(.system(size: 16, weight: .bold))
                     }
 
-                    Text("Voir les itinéraires")
+                    Text(L10n.Routing.seeItineraries)
                         .font(.system(size: 15, weight: .bold))
                 }
             }
@@ -381,14 +381,14 @@ struct HomeRoutePlannerSheet: View {
         let arrivalReady = selectedArrival != nil
         let departureReady = selectedDeparture != nil
             || userCoordinate != nil
-            || departureQuery.trimmingCharacters(in: .whitespacesAndNewlines) == "Votre position"
+            || departureQuery.trimmingCharacters(in: .whitespacesAndNewlines) == L10n.Routing.currentPosition
         return arrivalReady && departureReady
     }
 
     private func handleQueryChange(_ value: String, for field: PlannerField) {
         searchTask?.cancel()
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 2, !(field == .departure && trimmed == "Votre position") else {
+        guard trimmed.count >= 2, !(field == .departure && trimmed == L10n.Routing.currentPosition) else {
             if field == .departure {
                 departureSuggestions = []
             } else {
@@ -463,7 +463,7 @@ struct HomeRoutePlannerSheet: View {
             let oldDeparture = selectedDeparture
             departureQuery = arrivalQuery
             selectedDeparture = selectedArrival
-            arrivalQuery = oldDepartureQuery == "Votre position" ? "" : oldDepartureQuery
+            arrivalQuery = oldDepartureQuery == L10n.Routing.currentPosition ? "" : oldDepartureQuery
             selectedArrival = oldDeparture
             focusedField = arrivalQuery.isEmpty ? .arrival : nil
             pendingSavedPlace = nil
@@ -477,7 +477,7 @@ struct HomeRoutePlannerSheet: View {
         defer { isResolving = false }
 
         guard let destination = selectedArrival else {
-            errorMessage = "Choisis une adresse dans les résultats pour éviter un mauvais itinéraire."
+            errorMessage = L10n.Routing.chooseArrivalFromResults
             focusedField = .arrival
             return
         }
@@ -486,20 +486,20 @@ struct HomeRoutePlannerSheet: View {
         let originName: String
         let trimmedDeparture = departureQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if trimmedDeparture.isEmpty || trimmedDeparture == "Votre position" {
+        if trimmedDeparture.isEmpty || trimmedDeparture == L10n.Routing.currentPosition {
             guard let userCoordinate else {
-                errorMessage = "Position actuelle indisponible."
+                errorMessage = L10n.Routing.currentPositionUnavailable
                 focusedField = .departure
                 return
             }
             source = MKMapItem(placemark: MKPlacemark(coordinate: userCoordinate))
-            source.name = "Votre position"
-            originName = "Votre position"
+            source.name = L10n.Routing.currentPosition
+            originName = L10n.Routing.currentPosition
         } else if let selectedDeparture {
             source = selectedDeparture
-            originName = selectedDeparture.name ?? selectedDeparture.placemark.title ?? "Départ"
+            originName = selectedDeparture.name ?? selectedDeparture.placemark.title ?? L10n.Routing.departure
         } else {
-            errorMessage = "Choisis une adresse de départ dans les résultats."
+            errorMessage = L10n.Routing.chooseDepartureFromResults
             focusedField = .departure
             return
         }
@@ -530,13 +530,99 @@ struct HomeRoutePlannerSheet: View {
                 unique.append(item)
             }
         }
-        return Array(unique.prefix(8))
+        return rankedSearchMapItems(unique, query: text, limit: 8)
     }
 
     private func resolve(query: String) async -> MKMapItem? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return await searchSuggestions(for: trimmed).first
+    }
+
+    private func rankedSearchMapItems(_ items: [MKMapItem], query: String, limit: Int) -> [MKMapItem] {
+        let normalizedQuery = normalizedSearchText(query)
+        let tokens = significantSearchTokens(query)
+
+        return items
+            .compactMap { item -> (item: MKMapItem, score: Double)? in
+                let score = searchItemScore(item, normalizedQuery: normalizedQuery, tokens: tokens)
+                guard score > 0 else { return nil }
+                return (item, score)
+            }
+            .sorted { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return distanceFromBrussels(lhs.item) < distanceFromBrussels(rhs.item)
+                }
+                return lhs.score > rhs.score
+            }
+            .prefix(limit)
+            .map(\.item)
+    }
+
+    private func searchItemScore(_ item: MKMapItem, normalizedQuery: String, tokens: [String]) -> Double {
+        let name = normalizedSearchText(item.name ?? "")
+        let title = normalizedSearchText(item.placemark.title ?? "")
+        let combined = "\(name) \(title)"
+
+        if !tokens.isEmpty, !tokens.contains(where: { combined.contains($0) }) {
+            return -1
+        }
+
+        var score = 0.0
+        if name == normalizedQuery { score += 130 }
+        if name.hasPrefix(normalizedQuery) { score += 95 }
+        if name.contains(normalizedQuery) { score += 70 }
+        if title.contains(normalizedQuery) { score += 45 }
+
+        for token in tokens {
+            if name.contains(token) { score += 28 }
+            if title.contains(token) { score += 14 }
+        }
+
+        if isBrusselsCoordinate(item.placemark.coordinate) {
+            score += 24
+        }
+
+        let locality = normalizedSearchText(item.placemark.locality ?? "")
+        let administrativeArea = normalizedSearchText(item.placemark.administrativeArea ?? "")
+        if locality.contains("bruxelles") || locality.contains("brussel") || administrativeArea.contains("bruxelles") {
+            score += 18
+        }
+
+        score -= min(distanceFromBrussels(item) / 1_000, 80) * 0.18
+        return score
+    }
+
+    private func significantSearchTokens(_ text: String) -> [String] {
+        let ignored: Set<String> = [
+            "a", "au", "aux", "de", "des", "du", "la", "le", "les", "l", "d",
+            "rue", "avenue", "av", "bd", "boulevard", "chaussee", "chaussée",
+            "place", "plein", "straat", "laan", "bruxelles", "brussel", "belgique"
+        ]
+
+        return normalizedSearchText(text)
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count >= 3 && !ignored.contains($0) }
+    }
+
+    private func normalizedSearchText(_ text: String) -> String {
+        text
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isBrusselsCoordinate(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        (50.72...50.98).contains(coordinate.latitude)
+            && (4.16...4.58).contains(coordinate.longitude)
+    }
+
+    private func distanceFromBrussels(_ item: MKMapItem) -> CLLocationDistance {
+        let center = CLLocation(latitude: brussels.latitude, longitude: brussels.longitude)
+        let target = CLLocation(latitude: item.placemark.coordinate.latitude, longitude: item.placemark.coordinate.longitude)
+        return center.distance(from: target)
     }
 
     private func saveRecent(_ item: MKMapItem) {
@@ -585,8 +671,8 @@ private enum HomeRouteSavedPlaceKind: String, Codable, CaseIterable, Hashable {
 
     var label: String {
         switch self {
-        case .home: return "Domicile"
-        case .work: return "Travail"
+        case .home: return L10n.Routing.homePlace
+        case .work: return L10n.Routing.workPlace
         }
     }
 }

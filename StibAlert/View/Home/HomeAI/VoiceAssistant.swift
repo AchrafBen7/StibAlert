@@ -24,6 +24,39 @@ final class VoiceAssistant: NSObject, ObservableObject {
     @Published private(set) var isListening: Bool = false
     @Published private(set) var lastError: String?
 
+    /// Noms propres que le recognizer massacre sinon ("De Brouckère" → "boerderij",
+    /// "Bizet" → "biscuit"…). On biaise le modèle avec les grands arrêts/hubs
+    /// bruxellois (FR + NL) + les opérateurs : ça améliore énormément la
+    /// reconnaissance des noms de transport, quelle que soit la langue d'écoute.
+    private static let recognitionHints: [String] = [
+        // Hubs centraux (FR + NL)
+        "De Brouckère", "Bourse", "Beurs", "Grand-Place", "Grote Markt",
+        "Gare Centrale", "Centraal Station", "Gare du Midi", "Zuidstation",
+        "Gare du Nord", "Noordstation", "Gare de l'Ouest", "Weststation",
+        "Rogier", "Botanique", "Kruidtuin", "Yser", "IJzer",
+        "Sainte-Catherine", "Sint-Katelijne", "Anneessens", "Lemonnier",
+        // Lignes métro est/sud
+        "Arts-Loi", "Kunst-Wet", "Trône", "Troon", "Maelbeek", "Schuman",
+        "Mérode", "Montgomery", "Louise", "Louiza", "Porte de Namur",
+        "Naamsepoort", "Porte de Hal", "Hallepoort", "Hôtel des Monnaies",
+        "Albert", "Horta", "Porte de Namur", "Roodebeek", "Tomberg",
+        "Stockel", "Stokkel", "Crainhem", "Kraainem", "Alma",
+        // Ouest / Anderlecht
+        "Étangs Noirs", "Zwarte Vijvers", "Beekkant", "Comte de Flandre",
+        "Graaf van Vlaanderen", "Ribaucourt", "Delacroix", "Clemenceau",
+        "Saint-Guidon", "Sint-Guido", "Aumale", "Jacques Brel", "Bizet",
+        "Veeweyde", "Eddy Merckx", "Erasme", "Erasmus", "Ceria",
+        // Nord / Heysel
+        "Heysel", "Heizel", "Roi Baudouin", "Koning Boudewijn", "Bockstael",
+        "Simonis", "Belgica", "Pannenhuis", "Houba-Brugmann", "Stuyvenbergh",
+        // Lieux connus
+        "Atomium", "Cinquantenaire", "Jubelpark", "Flagey", "Châtelain",
+        "Place Jourdan", "Place du Luxembourg", "Sablon", "Zavel", "Tour et Taxis",
+        // Opérateurs + ville
+        "STIB", "MIVB", "De Lijn", "TEC", "SNCB", "NMBS",
+        "Bruxelles", "Brussel"
+    ]
+
     private var recognizer: SFSpeechRecognizer? {
         SFSpeechRecognizer(locale: Locale(identifier: AppLocale.speechIdentifier))
     }
@@ -86,6 +119,8 @@ final class VoiceAssistant: NSObject, ObservableObject {
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
         req.requiresOnDeviceRecognition = false
+        // Biaise la reconnaissance vers les noms d'arrêts/lignes bruxellois.
+        req.contextualStrings = Self.recognitionHints
         request = req
 
         let input = audioEngine.inputNode

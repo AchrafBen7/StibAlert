@@ -53,11 +53,16 @@ enum STIBAIVoiceClient {
               let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib-ai/voice") else {
             throw Error.invalidURL
         }
+        // Injecte la langue de l'app pour que le backend rédige spokenReply /
+        // displayReply dans la bonne langue (suit Profil → Langues).
+        var enrichedContext = context
+        enrichedContext?.language = AppLocale.languageCode
+
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 25
-        req.httpBody = try JSONEncoder().encode(Request(text: text, context: context))
+        req.httpBody = try JSONEncoder().encode(Request(text: text, context: enrichedContext))
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else {

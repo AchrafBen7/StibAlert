@@ -37,8 +37,8 @@ struct CurrentStepCard: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Arrêter le guidage")
-                .accessibilityHint("Quitte le guidage actif pour ce trajet.")
+                .accessibilityLabel(L10n.Routing.stopGuidance)
+                .accessibilityHint(L10n.Routing.stopGuidanceHint)
             }
 
             Text(currentStep.instruction)
@@ -55,7 +55,7 @@ struct CurrentStepCard: View {
                 }
 
                 if let line = currentStep.line {
-                    stepMeta(text: "Ligne \(line)")
+                    stepMeta(text: L10n.Routing.line(line))
                 }
 
                 if let stopName = currentStep.stopName {
@@ -63,7 +63,7 @@ struct CurrentStepCard: View {
                 }
 
                 if let arrivalStopName = currentStep.arrivalStopName {
-                    stepMeta(text: "Vers \(arrivalStopName)")
+                    stepMeta(text: "\(L10n.Routing.to) \(arrivalStopName)")
                 }
             }
 
@@ -83,7 +83,7 @@ struct CurrentStepCard: View {
 
             if !upcomingSteps.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Ensuite")
+                    Text(L10n.Routing.nextThen)
                         .font(DesignSystem.Typography.labelSemibold)
                         .foregroundStyle(DesignSystem.Colors.secondaryText)
 
@@ -97,23 +97,23 @@ struct CurrentStepCard: View {
             }
 
             HStack(spacing: 10) {
-                Button("Reparler") {
+                Button(L10n.Routing.speakAgain) {
                     onSpeak()
                 }
                 .buttonStyle(SecondaryButton())
-                .accessibilityHint("Relit l'instruction courante à voix haute.")
+                .accessibilityHint(L10n.Routing.speakAgain)
 
-                Button("Précédent") {
+                Button(L10n.Routing.previous) {
                     onBack()
                 }
                 .buttonStyle(SecondaryButton())
-                .accessibilityHint("Revient à l'étape précédente du guidage.")
+                .accessibilityHint(L10n.Routing.previous)
 
-                Button("Suivant") {
+                Button(L10n.Routing.nextAction) {
                     onNext()
                 }
                 .buttonStyle(PrimaryButton())
-                .accessibilityHint("Passe à l'étape suivante du guidage.")
+                .accessibilityHint(L10n.Routing.nextAction)
             }
         }
         .padding(16)
@@ -128,13 +128,13 @@ struct CurrentStepCard: View {
     private func stepTitle(for step: TransportRouteStepDTO) -> String {
         switch step.mode.lowercased() {
         case "walk":
-            return "Marche"
+            return L10n.Routing.walking
         case "bike":
-            return "Vélo"
+            return L10n.Routing.bike
         case "tram", "metro", "bus":
-            return "Transport"
+            return L10n.Routing.transport
         default:
-            return "Guidage"
+            return L10n.Routing.routeStep
         }
     }
 

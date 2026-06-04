@@ -54,7 +54,7 @@ struct RouteItineraryDetailsView: View {
 
             Spacer()
 
-            Text("ITINÉRAIRE DÉTAILLÉ")
+            Text(L10n.Routing.detailedItinerary.uppercased(with: AppLocale.current))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.ink)
@@ -80,7 +80,7 @@ struct RouteItineraryDetailsView: View {
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button(action: onShowMap) {
-                Text("Voir sur la carte")
+                Text(L10n.Routing.seeOnMap)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
                     .frame(maxWidth: .infinity)
@@ -98,7 +98,7 @@ struct RouteItineraryDetailsView: View {
 
     private var itinerarySummaryCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("TRAJET RECOMMANDÉ")
+            Text(L10n.Routing.recommendedTrip.uppercased(with: AppLocale.current))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.inkMute)
@@ -108,7 +108,7 @@ struct RouteItineraryDetailsView: View {
                     Text(option.originName)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(DS.Color.ink)
-                    Text("VERS")
+                    Text(L10n.Routing.to.uppercased(with: AppLocale.current))
                         .font(DS.Font.monoSmall.weight(.bold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.inkMute)
@@ -311,7 +311,7 @@ private struct RouteTransitServiceCard: View {
                 Text(info.detail)
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.ink)
-                Text("Prochain passage")
+                Text(L10n.Routing.nextDeparture)
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.inkMute)
                     .padding(.top, 4)

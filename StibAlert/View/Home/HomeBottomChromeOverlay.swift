@@ -168,7 +168,7 @@ private struct HomeReportFloatingButton: View {
                 .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Signaler")
+        .accessibilityLabel(L10n.StopDetail.report)
     }
 }
 

@@ -13,6 +13,9 @@ struct STIBAIContext: Encodable {
     var reports: [CommunityReport]?
     var proposedDestination: String?
     var proposedRoutes: [ProposedRoute]?
+    /// Langue de l'app ("fr"/"nl") — dit au backend dans quelle langue rédiger
+    /// la réponse vocale. Injecté automatiquement par STIBAIVoiceClient.
+    var language: String?
 }
 
 struct GeoPoint: Encodable {

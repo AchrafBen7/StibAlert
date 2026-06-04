@@ -94,7 +94,7 @@ struct CommuteQuickLaunchCard: View {
     private func headlineText(at date: Date) -> String {
         let dir = primaryDirection(at: date)
         let label = dir == .toWork ? routine.workLabel : routine.homeLabel
-        let prefix = dir == .toWork ? "Aller à" : "Retour à"
+        let prefix = dir == .toWork ? L10n.Routing.goTo : L10n.Routing.returnTo
         return "\(prefix) \(label) · \(routine.departureTime)"
     }
 
@@ -105,7 +105,7 @@ struct CommuteQuickLaunchCard: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             onLaunch(dir)
         } label: {
-            Text(dir == .toWork ? "Travail" : "Maison")
+            Text(dir == .toWork ? L10n.Routing.workPlace : L10n.Routing.homePlace)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(DS.Color.primaryForeground)
                 .padding(.horizontal, 12)

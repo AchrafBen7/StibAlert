@@ -52,7 +52,7 @@ struct HomeSearchHeaderOverlay: View {
                                 .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
                         )
                         .overlay(
-                            Image(systemName: "square.3.layers.3d")
+                            Image(systemName: "slider.horizontal.3")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(DS.Color.ink)
                         )

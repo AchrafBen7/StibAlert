@@ -14,8 +14,8 @@ struct SearchTopBar: View {
                 SearchIconButton(icon: "line.3.horizontal")
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Ouvrir le menu")
-            .accessibilityHint("Affiche les options principales de l'application.")
+            .accessibilityLabel(L10n.Common.openSettings)
+            .accessibilityHint(L10n.Common.openSettings)
 
             Spacer()
 
@@ -25,7 +25,7 @@ struct SearchTopBar: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.white)
 
-                    TextField("", text: $query, prompt: Text(destination?.name ?? "Ou voulez-vous aller ?").foregroundStyle(Color.white.opacity(0.72)))
+                    TextField("", text: $query, prompt: Text(destination?.name ?? L10n.Routing.searchDestination).foregroundStyle(Color.white.opacity(0.72)))
                         .font(AppTheme.Fonts.body(15, weight: .semibold))
                         .foregroundStyle(.white)
                         .textInputAutocapitalization(.words)
@@ -37,8 +37,8 @@ struct SearchTopBar: View {
                             .foregroundStyle(Color.white.opacity(0.82))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Fermer la recherche")
-                    .accessibilityHint("Referme le champ de recherche et revient à la carte.")
+                    .accessibilityLabel(L10n.Common.close)
+                    .accessibilityHint(L10n.Common.close)
                 }
                 .padding(.horizontal, 14)
                 .frame(width: 244, height: 40)
@@ -50,8 +50,8 @@ struct SearchTopBar: View {
                     SearchIconButton(icon: "magnifyingglass")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Ouvrir la recherche")
-                .accessibilityHint("Ouvre la recherche de destination ou de départ.")
+                .accessibilityLabel(L10n.Routing.searchDestination)
+                .accessibilityHint(L10n.Routing.searchDestination)
                 .transition(.scale.combined(with: .opacity))
             }
         }
@@ -111,11 +111,11 @@ struct SearchDestinationSheet: View {
                             )
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Utiliser ma position")
+                            Text(L10n.Routing.useCurrentPosition)
                                 .font(DesignSystem.Typography.bodySemibold)
                                 .foregroundStyle(DesignSystem.Colors.primaryText)
 
-                            Text(locationDenied ? "L'acces a la localisation est refuse." : "Utilisez votre position actuelle comme depart.")
+                            Text(locationDenied ? L10n.Routing.locationAccessDenied : L10n.Routing.useCurrentPositionHint)
                                 .font(DesignSystem.Typography.description)
                                 .foregroundStyle(DesignSystem.Colors.secondaryText)
                                 .multilineTextAlignment(.leading)
@@ -138,8 +138,8 @@ struct SearchDestinationSheet: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Utiliser ma position")
-                .accessibilityHint("Utilise votre position actuelle comme point de départ.")
+                .accessibilityLabel(L10n.Routing.useCurrentPosition)
+                .accessibilityHint(L10n.Routing.useCurrentPositionHint)
             }
 
             HStack(spacing: 12) {
@@ -148,7 +148,7 @@ struct SearchDestinationSheet: View {
                     .foregroundStyle(DesignSystem.Colors.secondaryText)
 
                 TextField(
-                    selectedField == .origin ? "Rechercher un depart" : "Rechercher une destination",
+                    selectedField == .origin ? L10n.Routing.searchDeparture : L10n.Routing.searchDestination,
                     text: $query
                 )
                 .font(DesignSystem.Typography.body)
@@ -165,7 +165,7 @@ struct SearchDestinationSheet: View {
                 VStack(spacing: 10) {
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Suggestions")
+                            Text(L10n.Routing.suggestions)
                                 .font(DesignSystem.Typography.labelSemibold)
                                 .foregroundStyle(DesignSystem.Colors.secondaryText)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -211,14 +211,14 @@ struct SearchDestinationSheet: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel("Suggestion \(suggestion.title)")
-                                .accessibilityHint("Utilise cette suggestion pour remplir le trajet.")
+                                .accessibilityLabel(L10n.Routing.suggestionLabel(suggestion.title))
+                                .accessibilityHint(L10n.Routing.suggestions)
                             }
                         }
                     }
 
                     if !places.isEmpty {
-                        Text("Bruxelles")
+                        Text(L10n.Routing.brussels)
                             .font(DesignSystem.Typography.labelSemibold)
                             .foregroundStyle(DesignSystem.Colors.secondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -261,8 +261,8 @@ struct SearchDestinationSheet: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(place.id == SearchLocationManager.currentLocationID ? "Lieu position actuelle" : "Lieu \(place.name)")
-                        .accessibilityHint("Sélectionne ce lieu pour le trajet.")
+                        .accessibilityLabel(place.id == SearchLocationManager.currentLocationID ? L10n.Routing.currentLocationPlace : L10n.Routing.placeLabel(place.name))
+                        .accessibilityHint(L10n.Routing.searchDestination)
                     }
                 }
                 .padding(.bottom, 4)

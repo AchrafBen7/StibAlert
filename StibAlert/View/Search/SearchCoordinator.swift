@@ -50,10 +50,7 @@ final class SearchCoordinator: ObservableObject {
         )
 
         state.applyBuildResult(result)
-        let didReroute = guidance.refresh(using: result.journey.alternatives)
-        if didReroute, let currentStep = guidance.currentStep {
-            speechSynthesizer.speak(currentStep.instruction)
-        }
+        _ = guidance.refresh(using: result.journey.alternatives)
     }
 
     func runGuidanceRefreshLoop(

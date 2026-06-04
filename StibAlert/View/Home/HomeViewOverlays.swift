@@ -132,9 +132,19 @@ extension HomeView {
                         },
                         onSelectSuggestion: { item in
                             let coord = item.placemark.coordinate
+                            let label = item.name ?? item.placemark.title
+                            // Choix fait → on ferme la grosse liste TOUT DE
+                            // SUITE (sinon elle masque la carte + les résultats
+                            // pendant le calcul d'itinéraire) et on fige le champ
+                            // sur le lieu choisi. lastAppliedSearchName empêche
+                            // le onChange de re-fetcher des suggestions pour ce
+                            // même nom et donc de rouvrir la liste.
+                            searchSuggestions = []
+                            lastAppliedSearchName = label
+                            searchQuery = label ?? ""
                             tripDestination = HomeView.TripDestination(
                                 coordinate: coord,
-                                label: item.name ?? item.placemark.title
+                                label: label
                             )
                         }
                     )
@@ -155,7 +165,8 @@ extension HomeView {
     /// quand l'utilisateur regarde la carte pendant son trajet.
     @ViewBuilder
     var activeTripIndicatorOverlay: some View {
-        if tripTracker.isActive {
+        let isSearching = !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !searchSuggestions.isEmpty
+        if tripTracker.isActive, !isSearching, routeOptions.isEmpty {
             ActiveTripIndicatorView(
                 tracker: tripTracker,
                 onCancel: { clearRouteSelection(keepDestination: false) }

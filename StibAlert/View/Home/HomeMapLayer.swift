@@ -430,8 +430,8 @@ struct HomeMapLayer: View {
     @MapContentBuilder
     private var vehicleAnnotations: some MapContent {
         ForEach(mapVehicles) { vehicle in
-            if let lat = vehicle.latitude, let lng = vehicle.longitude {
-                Annotation("", coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), anchor: .center) {
+            if let coordinate = positionedVehicleCoordinate(for: vehicle) {
+                Annotation("", coordinate: coordinate, anchor: .center) {
                     Button {
                         onSelectVehicle(vehicle)
                     } label: {
@@ -444,6 +444,134 @@ struct HomeMapLayer: View {
                 }
             }
         }
+    }
+
+    // MARK: - Vehicle positioning along the tracé
+    //
+    // Le backend cale chaque véhicule sur son arrêt de référence (`pointId`) et
+    // fournit `distanceFromPoint` = distance réelle à cet arrêt. Plutôt que de
+    // l'afficher figé SUR l'arrêt (trams empilés / cachés sous une carte), on
+    // projette la coordonnée d'arrêt sur la polyline de la ligne et on avance de
+    // `distanceFromPoint` mètres le long du tracé, du côté d'où vient le tram
+    // (il approche son arrêt de référence). Le sens est déduit du cap connu
+    // (`vehicleBearings`, calculé sur le déplacement réel entre 2 polls).
+    // Repli SÛR sur la position d'origine si pas de cap / pas de tracé : on ne
+    // place jamais un tram du mauvais côté.
+
+    /// Coordonnée d'affichage du véhicule, replacé le long du tracé si possible.
+    private func positionedVehicleCoordinate(for vehicle: TransportVehicleDTO) -> CLLocationCoordinate2D? {
+        guard let lat = vehicle.latitude, let lng = vehicle.longitude else { return nil }
+        let stopCoord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+
+        let offset = Double(vehicle.distanceFromPoint ?? 0)
+        guard offset >= 25 else { return stopCoord }                       // quasi à l'arrêt
+        guard let bearing = vehicle.vehicleId.flatMap({ vehicleBearings[$0] }) else { return stopCoord }
+        guard let line = vehicle.line,
+              let coords = bestShapeCoordinates(forLine: line, near: stopCoord) else { return stopCoord }
+
+        return Self.pointAlongShape(coords, from: stopCoord, distance: offset, travelHeading: bearing) ?? stopCoord
+    }
+
+    /// Tracé de la ligne `line` passant le plus près de `coord` (gère les
+    /// variantes/directions multiples).
+    private func bestShapeCoordinates(forLine line: String, near coord: CLLocationCoordinate2D) -> [CLLocationCoordinate2D]? {
+        guard let number = LineShapesLoader.normalizedLineNumber(from: line) else { return nil }
+        let candidates = (selectedStopLineShapes + visibleLineShapes).filter {
+            LineShapesLoader.normalizedLineNumber(from: $0.ligne) == number
+        }
+        guard !candidates.isEmpty else { return nil }
+        return candidates
+            .min { Self.minVertexDistance(coord, $0.coordinates) < Self.minVertexDistance(coord, $1.coordinates) }?
+            .coordinates
+    }
+
+    /// Projette `from` sur la polyline (sommet le plus proche) puis avance de
+    /// `distance` m du côté d'où vient le tram (tangente ≈ cap inverse, car il
+    /// approche son arrêt de référence). nil si la polyline est trop courte.
+    private static func pointAlongShape(
+        _ coords: [CLLocationCoordinate2D],
+        from: CLLocationCoordinate2D,
+        distance: Double,
+        travelHeading: Double
+    ) -> CLLocationCoordinate2D? {
+        guard coords.count >= 2 else { return nil }
+
+        let p = CLLocation(latitude: from.latitude, longitude: from.longitude)
+        var anchor = 0
+        var bestD = Double.greatestFiniteMagnitude
+        for (i, c) in coords.enumerated() {
+            let d = p.distance(from: CLLocation(latitude: c.latitude, longitude: c.longitude))
+            if d < bestD { bestD = d; anchor = i }
+        }
+
+        // Le tram est EN AMONT de son arrêt de référence → on marche dans le
+        // sens opposé à sa circulation (tangente ≈ cap + 180°).
+        let target = (travelHeading + 180).truncatingRemainder(dividingBy: 360)
+        let fwd = tangentBearing(coords, at: anchor, forward: true)
+        let bwd = tangentBearing(coords, at: anchor, forward: false)
+        let goForward = angularDelta(fwd, target) <= angularDelta(bwd, target)
+
+        return walkAlong(coords, fromIndex: anchor, distance: distance, forward: goForward)
+    }
+
+    private static func minVertexDistance(_ coord: CLLocationCoordinate2D, _ coords: [CLLocationCoordinate2D]) -> Double {
+        let p = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        var best = Double.greatestFiniteMagnitude
+        for c in coords {
+            let d = p.distance(from: CLLocation(latitude: c.latitude, longitude: c.longitude))
+            if d < best { best = d }
+        }
+        return best
+    }
+
+    private static func tangentBearing(_ coords: [CLLocationCoordinate2D], at i: Int, forward: Bool) -> Double {
+        let j = forward ? min(i + 1, coords.count - 1) : max(i - 1, 0)
+        guard i != j else { return 0 }
+        return forward ? bearing(from: coords[i], to: coords[j]) : bearing(from: coords[j], to: coords[i])
+    }
+
+    private static func walkAlong(
+        _ coords: [CLLocationCoordinate2D],
+        fromIndex: Int,
+        distance: Double,
+        forward: Bool
+    ) -> CLLocationCoordinate2D {
+        var remaining = distance
+        var current = coords[fromIndex]
+        var idx = fromIndex
+        while remaining > 0 {
+            let nextIdx = forward ? idx + 1 : idx - 1
+            guard nextIdx >= 0, nextIdx < coords.count else { return current }
+            let next = coords[nextIdx]
+            let segLen = CLLocation(latitude: current.latitude, longitude: current.longitude)
+                .distance(from: CLLocation(latitude: next.latitude, longitude: next.longitude))
+            if segLen >= remaining, segLen > 0 {
+                let t = remaining / segLen
+                return CLLocationCoordinate2D(
+                    latitude: current.latitude + (next.latitude - current.latitude) * t,
+                    longitude: current.longitude + (next.longitude - current.longitude) * t
+                )
+            }
+            remaining -= segLen
+            idx = nextIdx
+            current = next
+        }
+        return current
+    }
+
+    private static func bearing(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let lat1 = from.latitude * .pi / 180
+        let lat2 = to.latitude * .pi / 180
+        let dLng = (to.longitude - from.longitude) * .pi / 180
+        let y = sin(dLng) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng)
+        return (atan2(y, x) * 180 / .pi + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    /// Plus petit écart angulaire (0-180) entre deux caps.
+    private static func angularDelta(_ a: Double, _ b: Double) -> Double {
+        let d = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return d > 180 ? 360 - d : d
     }
 
     @MapContentBuilder

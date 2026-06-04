@@ -63,6 +63,11 @@ struct HomeView: View {
     @State private var selectedRouteDetail: HomeRouteOption?
     @State var searchQuery = ""
     @State var searchSuggestions: [MKMapItem] = []
+    /// Nom du lieu qu'on vient de sélectionner et qu'on a figé dans le champ
+    /// de recherche. Empêche `onChange(of: searchQuery)` de re-fetcher des
+    /// suggestions pour CE nom — sinon le dropdown se rouvrait tout seul juste
+    /// après qu'on l'a fermé sur sélection.
+    @State var lastAppliedSearchName: String?
     @State var isRouting = false
     @State private var searchTask: Task<Void, Never>? = nil
     @State var remoteSignalements: [SignalementDTO] = []
@@ -216,7 +221,9 @@ struct HomeView: View {
             return LiveSignalPoint(
                 id: s.id,
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                typeProbleme: s.displayTypeProbleme,
+                // Canonique (FR) : alimente SignalVisuals.icon(forType:) — la
+                // sélection d'icône matche des libellés français.
+                typeProbleme: s.canonicalTypeProbleme,
                 source: s.source
             )
         }
@@ -483,7 +490,9 @@ struct HomeView: View {
 
     /// Backend stop ids the user has favourited — drives the star + larger
     /// marker on the map.
-    private var favoriteStopIds: Set<String> {
+    /// internal (pas private) : lu par l'extension HomeViewOverlays
+    /// (shouldShowCommuteSetupNudge).
+    var favoriteStopIds: Set<String> {
         Set((session.currentUser?.favorisDetails ?? []).map(\.id))
     }
 
@@ -753,18 +762,14 @@ struct HomeView: View {
         !nav.showReportSheet
         && !isStopDetailPresented
         && !nav.hidesTabBar
+        && routeOptions.isEmpty
+        && selectedRouteDetail == nil
+        && homeSurfaceMode != .routePreview
+        && homeSurfaceMode != .routeDetail
     }
 
     var shouldShowAllClearChip: Bool {
-        guard session.isSignedIn,
-              activeClusters.isEmpty,
-              !nav.showReportSheet,
-              !showLegend,
-              selectedClusterIndex == nil,
-              selectedMapStopPreview == nil,
-              !isRouting
-        else { return false }
-        return true
+        false
     }
 
     private var shouldShowStopPreview: Bool {
@@ -890,6 +895,8 @@ struct HomeView: View {
             "aller", "trajet", "itinéraire", "itineraire", "route", "chemin",
             "rendre", "arriver", "amène", "amene", "meilleur", "comment je vais",
             "comment aller", "direction de", "se rendre", "y aller", "destination",
+            "gaan", "traject", "reis", "weg", "naar", "richting", "bestemming",
+            "hoe kom ik", "hoe ga ik", "route naar",
         ]
         return triggers.contains { lower.contains($0) }
     }
@@ -1122,7 +1129,7 @@ struct HomeView: View {
             guard let destination else { return }
             tripDestination = nil
             let target = MKMapItem(placemark: MKPlacemark(coordinate: destination.coordinate))
-            target.name = destination.label ?? "Destination"
+            target.name = destination.label ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
             Task { await buildRoute(to: target) }
         }
         .sheet(item: $selectedEventImpact) { event in
@@ -1245,6 +1252,16 @@ struct HomeView: View {
             searchTask?.cancel()
             let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
+                searchSuggestions = []
+                lastAppliedSearchName = nil
+                return
+            }
+            // Si la query correspond au lieu qu'on vient de sélectionner (champ
+            // figé par le code, pas une frappe), on NE re-fetch PAS : sinon la
+            // grosse liste de suggestions se rouvrirait juste après qu'on l'a
+            // fermée sur sélection, masquant la carte et les résultats.
+            if let applied = lastAppliedSearchName,
+               trimmed.caseInsensitiveCompare(applied.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame {
                 searchSuggestions = []
                 return
             }
@@ -1696,6 +1713,7 @@ struct HomeView: View {
             // even after the user dismissed the route.
             searchQuery = ""
             searchSuggestions = []
+            lastAppliedSearchName = nil
         }
         currentTransportRecommendation = nil
         isRouteSheetExpanded = false
@@ -2883,8 +2901,9 @@ struct HomeView: View {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
 
-        // 1) Si une suggestion est déjà disponible, on prend la meilleure.
-        if let best = searchSuggestions.first {
+        // 1) Si une suggestion est déjà disponible, on prend la meilleure
+        //    *pertinente* pour éviter qu'Apple Maps gagne avec un POI hors sujet.
+        if let best = bestSearchSuggestion(for: query, in: searchSuggestions) {
             tripDestination = TripDestination(
                 coordinate: best.placemark.coordinate,
                 label: best.name ?? best.placemark.title
@@ -2905,7 +2924,8 @@ struct HomeView: View {
                 center: cameraCenterCoordinate,
                 span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25)
             )
-            if let item = (try? await MKLocalSearch(request: req).start())?.mapItems.first {
+            if let items = (try? await MKLocalSearch(request: req).start())?.mapItems,
+               let item = rankedSearchMapItems(items, query: query, limit: 1).first {
                 tripDestination = TripDestination(
                     coordinate: item.placemark.coordinate,
                     label: item.name ?? item.placemark.title
@@ -2951,7 +2971,7 @@ struct HomeView: View {
 
         // 2) MKLocalSearch en dessous, en évitant de re-suggérer un arrêt déjà
         //    proposé en tête.
-        for item in mkItems {
+        for item in rankedSearchMapItems(mkItems, query: text, limit: 8) {
             let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
             // Skip si le nom est déjà dans la liste STIB (case-insensitive).
             if stibStops.contains(where: { $0.name.compare(item.name ?? "", options: .caseInsensitive) == .orderedSame }) {
@@ -2963,6 +2983,96 @@ struct HomeView: View {
         }
 
         searchSuggestions = Array(merged.prefix(8))
+    }
+
+    private func bestSearchSuggestion(for query: String, in items: [MKMapItem]) -> MKMapItem? {
+        rankedSearchMapItems(items, query: query, limit: 1).first
+    }
+
+    private func rankedSearchMapItems(_ items: [MKMapItem], query: String, limit: Int) -> [MKMapItem] {
+        let normalizedQuery = normalizedSearchText(query)
+        let tokens = significantSearchTokens(query)
+
+        return items
+            .compactMap { item -> (item: MKMapItem, score: Double)? in
+                let score = searchItemScore(item, normalizedQuery: normalizedQuery, tokens: tokens)
+                guard score > 0 else { return nil }
+                return (item, score)
+            }
+            .sorted { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return distanceFromSearchCenter(lhs.item) < distanceFromSearchCenter(rhs.item)
+                }
+                return lhs.score > rhs.score
+            }
+            .prefix(limit)
+            .map(\.item)
+    }
+
+    private func searchItemScore(_ item: MKMapItem, normalizedQuery: String, tokens: [String]) -> Double {
+        let name = normalizedSearchText(item.name ?? "")
+        let title = normalizedSearchText(item.placemark.title ?? "")
+        let combined = "\(name) \(title)"
+
+        if !tokens.isEmpty, !tokens.contains(where: { combined.contains($0) }) {
+            return -1
+        }
+
+        var score = 0.0
+        if name == normalizedQuery { score += 130 }
+        if name.hasPrefix(normalizedQuery) { score += 95 }
+        if name.contains(normalizedQuery) { score += 70 }
+        if title.contains(normalizedQuery) { score += 45 }
+
+        for token in tokens {
+            if name.contains(token) { score += 28 }
+            if title.contains(token) { score += 14 }
+        }
+
+        if isBrusselsSearchCoordinate(item.placemark.coordinate) {
+            score += 24
+        }
+
+        let locality = normalizedSearchText(item.placemark.locality ?? "")
+        let administrativeArea = normalizedSearchText(item.placemark.administrativeArea ?? "")
+        if locality.contains("bruxelles") || locality.contains("brussel") || administrativeArea.contains("bruxelles") {
+            score += 18
+        }
+
+        score -= min(distanceFromSearchCenter(item) / 1_000, 80) * 0.18
+        return score
+    }
+
+    private func significantSearchTokens(_ text: String) -> [String] {
+        let ignored: Set<String> = [
+            "a", "au", "aux", "de", "des", "du", "la", "le", "les", "l", "d",
+            "rue", "avenue", "av", "bd", "boulevard", "chaussee", "chaussée",
+            "place", "plein", "straat", "laan", "bruxelles", "brussel", "belgique"
+        ]
+
+        return normalizedSearchText(text)
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count >= 3 && !ignored.contains($0) }
+    }
+
+    private func normalizedSearchText(_ text: String) -> String {
+        text
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isBrusselsSearchCoordinate(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        (50.72...50.98).contains(coordinate.latitude)
+            && (4.16...4.58).contains(coordinate.longitude)
+    }
+
+    private func distanceFromSearchCenter(_ item: MKMapItem) -> CLLocationDistance {
+        let center = CLLocation(latitude: cameraCenterCoordinate.latitude, longitude: cameraCenterCoordinate.longitude)
+        let target = CLLocation(latitude: item.placemark.coordinate.latitude, longitude: item.placemark.coordinate.longitude)
+        return center.distance(from: target)
     }
 
     @MainActor
@@ -2980,18 +3090,18 @@ struct HomeView: View {
         let recommendation = await recommendationTask
         let transitRoutes = await transitRoutesTask
         let walkingRoutes = await walkingRoutesTask
-        let destinationName = destination.name ?? destination.placemark.title ?? "Destination"
+        let destinationName = destination.name ?? destination.placemark.title ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
         let fallbackOptions = buildFallbackRouteOptions(
             transitRoutes: transitRoutes,
             walkingRoutes: walkingRoutes,
-            originName: "Votre position",
+            originName: L10n.Routing.currentPosition,
             destinationName: destinationName
         )
 
         return buildBackendFirstRouteOptions(
             recommendation: recommendation,
             fallbackOptions: fallbackOptions,
-            originName: "Votre position",
+            originName: L10n.Routing.currentPosition,
             destinationName: destinationName
         )
     }
@@ -2999,7 +3109,7 @@ struct HomeView: View {
     @MainActor
     private func buildRoute(to destination: MKMapItem) async {
         let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
-        await buildRoute(from: source, to: destination, originName: "Votre position")
+        await buildRoute(from: source, to: destination, originName: L10n.Routing.currentPosition)
     }
 
     @MainActor
@@ -3021,14 +3131,14 @@ struct HomeView: View {
             transitRoutes: transitRoutes,
             walkingRoutes: walkingRoutes,
             originName: originName,
-            destinationName: destination.name ?? "Destination"
+            destinationName: destination.name ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
         )
 
         let finalOptions = buildBackendFirstRouteOptions(
             recommendation: recommendation,
             fallbackOptions: fallbackOptions,
             originName: originName,
-            destinationName: destination.name ?? "Destination"
+            destinationName: destination.name ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
         )
 
         guard !finalOptions.isEmpty || recommendation != nil else { return }
@@ -3036,6 +3146,7 @@ struct HomeView: View {
         destinationCoord = destination.placemark.coordinate
         searchSuggestions = []
         searchQuery = destination.name ?? ""
+        lastAppliedSearchName = destination.name
         currentTransportRecommendation = recommendation
 
         let preferredOption = preferredRouteOption(in: finalOptions)
@@ -3105,7 +3216,7 @@ struct HomeView: View {
 
             return RouteModeSummary(
                 modeKey: key,
-                title: key == "bike" ? "Vélo" : key == "walk" ? "À pied" : "Transport",
+                title: key == "bike" ? L10n.Routing.bike : key == "walk" ? L10n.Routing.walk : L10n.Routing.transport,
                 durationText: durationText,
                 isFastest: fastestDuration != nil && durationsByMode[key] == fastestDuration
             )
@@ -3241,8 +3352,8 @@ struct HomeView: View {
         return mergeRouteOptions(
             routes: Array(response.routes.prefix(3)),
             backendAlternatives: backendAlternatives,
-            originName: "Votre position",
-            destinationName: destination.name ?? "Destination"
+            originName: L10n.Routing.currentPosition,
+            destinationName: destination.name ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
         )
     }
 
@@ -3437,6 +3548,7 @@ struct HomeView: View {
         destinationCoord = trip.destination.placemark.coordinate
         searchSuggestions = []
         searchQuery = trip.destination.name ?? ""
+        lastAppliedSearchName = trip.destination.name
 
         let preferredOption = preferredRouteOption(in: trip.options)
 
@@ -3776,13 +3888,13 @@ private struct HomeAlternativeDetailsSheet: View {
                     }
 
                     HStack(spacing: 10) {
-                        metricPill(title: "Durée", value: "\(alternative.totalDurationMinutes) min")
-                        metricPill(title: "Marche", value: "\(alternative.walkingMinutes) min")
-                        metricPill(title: "Transferts", value: "\(alternative.transfers)")
+                        metricPill(title: L10n.Routing.duration, value: "\(alternative.totalDurationMinutes) min")
+                        metricPill(title: L10n.Routing.walking, value: "\(alternative.walkingMinutes) min")
+                        metricPill(title: L10n.Routing.transfers, value: "\(alternative.transfers)")
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Lignes impliquées")
+                        Text(L10n.Routing.involvedLines)
                             .font(.custom("Montserrat-SemiBold", size: 12))
                             .textCase(.uppercase)
                             .foregroundStyle(.white.opacity(0.58))
@@ -3794,7 +3906,7 @@ private struct HomeAlternativeDetailsSheet: View {
 
                     if let reasons = alternative.reasons, !reasons.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Pourquoi cette alternative")
+                            Text(L10n.Routing.alternativeReason)
                                 .font(.custom("Montserrat-SemiBold", size: 12))
                                 .textCase(.uppercase)
                                 .foregroundStyle(.white.opacity(0.58))
@@ -3809,7 +3921,7 @@ private struct HomeAlternativeDetailsSheet: View {
 
                     if let categories = alternative.explanationDetails?.categories, !categories.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Lecture du choix")
+                            Text(L10n.Routing.choiceReading)
                                 .font(.custom("Montserrat-SemiBold", size: 12))
                                 .textCase(.uppercase)
                                 .foregroundStyle(.white.opacity(0.58))
@@ -3833,7 +3945,7 @@ private struct HomeAlternativeDetailsSheet: View {
 
                     if let steps = alternative.steps, !steps.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Étapes")
+                            Text(L10n.Routing.steps)
                                 .font(.custom("Montserrat-SemiBold", size: 12))
                                 .textCase(.uppercase)
                                 .foregroundStyle(.white.opacity(0.58))
@@ -3863,7 +3975,7 @@ private struct HomeAlternativeDetailsSheet: View {
                                                 .foregroundStyle(.white.opacity(0.7))
                                                 .fixedSize(horizontal: false, vertical: true)
 
-                                            Text("Voir sur la carte")
+                                            Text(L10n.Routing.seeOnMap)
                                                 .font(.custom("Montserrat-SemiBold", size: 11))
                                                 .foregroundStyle(Color(hex: "#B5CFF8"))
                                                 .padding(.top, 4)

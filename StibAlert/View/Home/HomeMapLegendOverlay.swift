@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Interactive map layer panel (the 🗂 button). Each operator/extra row is a
+/// Interactive map layer panel. Each operator/extra row is a
 /// toggle wired to the map; De Lijn / TEC are shown as disabled placeholders
 /// until their datasets land.
 struct MapLegendOverlay: View {
@@ -55,7 +55,7 @@ struct MapLegendOverlay: View {
         HStack {
             Text("CALQUES")
             Spacer()
-            Image(systemName: "square.3.layers.3d.down.right")
+            Image(systemName: "slider.horizontal.3")
                 .font(.system(size: 14, weight: .bold))
         }
         .font(DS.Font.mono.weight(.bold))

@@ -217,6 +217,19 @@ final class LigneDetailViewModel: ObservableObject {
         // that returns `stopNom`, so we use it (not `activeLine.vehicles`).
         async let vehiclesTask: [TransportVehicleDTO] = VehicleTrackingService.snapshot(lines: [line.line])
 
+        // Les perturbations de la ligne sont CE QUE l'utilisateur vient voir
+        // dans l'onglet "Infos trafic". On les résout EN PREMIER pour qu'elles
+        // s'affichent dès qu'elles arrivent, sans attendre lignes / véhicules /
+        // overview : toutes les requêtes tournent déjà en parallèle (async let),
+        // on ne fait que lire les résultats dans l'ordre le plus utile. Comme
+        // l'onglet Infos trafic n'est pas gated par `isLoading`, l'affectation
+        // de `lineSignalements` déclenche l'affichage des cartes immédiatement.
+        let normalisedLine = line.line.uppercased()
+        lineSignalements = (await signalementsTask ?? []).filter { s in
+            guard s.status != "resolved", s.liveConfidence >= 0.18 else { return false }
+            return s.ligne.uppercased() == normalisedLine
+        }
+
         cityLine = await cityTask
         suburbLine = await suburbTask
         baseLine = await baseTask
@@ -231,12 +244,6 @@ final class LigneDetailViewModel: ObservableObject {
             } else {
                 matchingGlobalSummary = nil
             }
-        }
-
-        let normalisedLine = line.line.uppercased()
-        lineSignalements = (await signalementsTask ?? []).filter { s in
-            guard s.status != "resolved", s.liveConfidence >= 0.18 else { return false }
-            return s.ligne.uppercased() == normalisedLine
         }
 
         if resetVariant {

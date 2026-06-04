@@ -1402,11 +1402,11 @@ private struct FavoriteStopDetailView: View {
                 .padding(.vertical, 12)
 
             HStack(spacing: 12) {
-                detailStat(label: "Prochain", value: item.nextPassage)
+                detailStat(label: L10n.Routing.next, value: item.nextPassage)
                 Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
-                detailStat(label: "État", value: item.problemLabel)
+                detailStat(label: L10n.Routing.state, value: item.problemLabel)
                 Rectangle().fill(DS.Color.ink.opacity(0.15)).frame(width: 1, height: 36)
-                detailStat(label: "Signalements", value: "\(item.reportCount)")
+                detailStat(label: L10n.Routing.reports, value: "\(item.reportCount)")
             }
 
             Text(item.lastUpdatedLabel)

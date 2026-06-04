@@ -15,7 +15,9 @@ struct SignalementMiniCard: View {
     @State private var reportedFake = false
 
     private var accentColor: Color {
-        switch signalement.displayTypeProbleme {
+        // Logique couleur sur le type CANONIQUE (français stable), pas sur le
+        // libellé affiché qui est désormais localisé.
+        switch signalement.canonicalTypeProbleme {
         case "Accident", "Agression": return DS.Color.statusCritical
         case "Retard", "Panne", "Travaux", "Déviation", "Interruption", "Arrêt non desservi": return DS.Color.statusMinor
         case "Incivilité": return DS.Color.community

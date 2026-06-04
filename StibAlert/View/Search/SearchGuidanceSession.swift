@@ -80,7 +80,6 @@ final class SearchGuidanceSession: ObservableObject {
 
     func replayCurrentStep() {
         guard let currentStep = guidance.currentStep else { return }
-        speechSynthesizer.speak(currentStep.instruction)
         if #available(iOS 16.1, *) {
             let remaining = guidance.activeAlternative?.eta ?? 0
             JourneyActivityManager.shared.update(
@@ -114,7 +113,6 @@ final class SearchGuidanceSession: ObservableObject {
             hasPendingOffRouteReroute = true
             isRerouting = true
             rerouteRequestID += 1
-            speechSynthesizer.speak("Je recalcule une option plus fiable.")
         } else if guidance.offRouteUpdates == 0 {
             hasPendingOffRouteReroute = false
             isRerouting = false

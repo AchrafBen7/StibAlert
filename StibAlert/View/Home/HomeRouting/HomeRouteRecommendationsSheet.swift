@@ -142,11 +142,11 @@ struct RouteRecommendationsSheet: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(DS.Color.statusMajor)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Itinéraire recalculé")
+                    Text(L10n.Routing.recalculatedTitle)
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                     HStack(spacing: 6) {
-                        Text("évite")
+                        Text(L10n.Routing.avoids)
                             .font(.system(size: 11.5))
                             .foregroundStyle(DS.Color.inkMute)
                         ForEach(blockedLines.prefix(4), id: \.self) { line in
@@ -246,12 +246,12 @@ struct RouteRecommendationsSheet: View {
                     .frame(width: 32, height: 32)
                     .background(DS.Color.statusMinor.opacity(0.12))
                     .clipShape(Circle())
-                Text("Aucun itinéraire calculé")
+                Text(L10n.Routing.noItineraryTitle)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
             }
-            Text("Active la localisation pour qu'on puisse calculer un trajet depuis ta position, ou choisis un point de départ dans la barre de recherche.")
+            Text(L10n.Routing.noItineraryBody)
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkMute)
                 .lineSpacing(2)
@@ -267,7 +267,7 @@ struct RouteRecommendationsSheet: View {
 
     private var optionsHeader: some View {
         HStack(alignment: .center) {
-            Text("AUTRES ITINÉRAIRES")
+            Text(L10n.Routing.otherItineraries.uppercased(with: AppLocale.current))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.ink)
@@ -485,7 +485,7 @@ private struct RouteNextDepartureLine: View {
                     .fill(DS.Color.statusOK)
                     .frame(width: 6, height: 6)
             }
-            Text("Prochain")
+            Text(L10n.Routing.next)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
             RouteLineMiniBadge(line: insight.lineCode)
@@ -505,7 +505,7 @@ private struct RouteModeSummaryTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if summary.isFastest {
-                Text("⚡ RAPIDE")
+                Text("⚡ \(L10n.Routing.fastest.uppercased(with: AppLocale.current))")
                     .font(.system(size: 8, weight: .heavy, design: .monospaced))
                     .tracking(1)
                     .foregroundStyle(isHighlighted ? DS.Color.ink : DS.Color.paper)
@@ -564,25 +564,29 @@ private struct RouteLineMiniBadge: View {
 
 /// Google-style journey flow: 🚶 → line → line → 🚶, with chevrons between
 /// legs. Makes a multi-leg trip readable at a glance instead of a bare list of
-/// line badges. Wrapped in a horizontal ScrollView so multi-correspondance
-/// trips (e.g. walk → 7 → walk → IC → walk → 9 → walk) don't overflow the
-/// card edge on small screens.
+/// line badges. Le flux PASSE À LA LIGNE (flow layout) au lieu d'être coupé /
+/// scrollé : un trajet multi-correspondances (🚶 → 7 → 🚶 → IC → 🚶 → 9)
+/// s'affiche en entier sur plusieurs lignes, plus rien n'est rogné au bord de
+/// la carte.
 private struct RouteLegFlowStrip: View {
     let chips: [RouteLegChip]
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 5) {
-                ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+        // Chaque chevron reste collé au chip qui le suit (HStack groupé) pour
+        // ne jamais laisser un « › » orphelin en fin de ligne quand ça wrappe.
+        RouteLegWrapLayout(horizontalSpacing: 5, verticalSpacing: 6) {
+            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+                if index == 0 {
                     chipView(chip)
-                    if index < chips.count - 1 {
+                } else {
+                    HStack(spacing: 5) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 8, weight: .black))
                             .foregroundStyle(DS.Color.inkMute)
+                        chipView(chip)
                     }
                 }
             }
-            .padding(.trailing, 8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -600,6 +604,74 @@ private struct RouteLegFlowStrip: View {
         case .line(let descriptor):
             RouteLineMiniBadge(descriptor: descriptor)
         }
+    }
+}
+
+/// Flow layout maison : place les chips de gauche à droite et passe à la ligne
+/// dès que la largeur dispo est dépassée (même logique que STIBAIFlowLayout).
+/// Permet à la séquence d'un itinéraire alternatif de ne jamais être coupée au
+/// bord de la carte.
+private struct RouteLegWrapLayout: Layout {
+    var horizontalSpacing: CGFloat
+    var verticalSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? 320
+        let rows = computeRows(maxWidth: maxWidth, subviews: subviews)
+        return CGSize(width: maxWidth, height: rows.last.map { $0.y + $0.height } ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for row in computeRows(maxWidth: bounds.width, subviews: subviews) {
+            for item in row.items {
+                subviews[item.index].place(
+                    at: CGPoint(x: bounds.minX + item.x, y: bounds.minY + row.y),
+                    proposal: ProposedViewSize(width: item.size.width, height: item.size.height)
+                )
+            }
+        }
+    }
+
+    private func computeRows(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var currentItems: [Item] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            let nextX = currentItems.isEmpty ? 0 : x + horizontalSpacing
+            if !currentItems.isEmpty, nextX + size.width > maxWidth {
+                rows.append(Row(y: y, height: rowHeight, items: currentItems))
+                y += rowHeight + verticalSpacing
+                currentItems = []
+                x = 0
+                rowHeight = 0
+            }
+
+            let itemX = currentItems.isEmpty ? 0 : x + horizontalSpacing
+            currentItems.append(Item(index: index, x: itemX, size: size))
+            x = itemX + size.width
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        if !currentItems.isEmpty {
+            rows.append(Row(y: y, height: rowHeight, items: currentItems))
+        }
+        return rows
+    }
+
+    private struct Row {
+        let y: CGFloat
+        let height: CGFloat
+        let items: [Item]
+    }
+
+    private struct Item {
+        let index: Int
+        let x: CGFloat
+        let size: CGSize
     }
 }
 
@@ -698,7 +770,7 @@ private struct InlineRouteDetails: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DS.Color.statusMinor)
                             .frame(width: 30)
-                        Text("Attente \(wait) min · correspondance")
+                        Text(L10n.Routing.waitTransfer(wait))
                             .font(.system(size: 11.5, weight: .bold))
                             .foregroundStyle(DS.Color.statusMinor)
                         Spacer(minLength: 0)

@@ -348,10 +348,12 @@ enum NearbyStopService {
     /// before random "Dela…" street matches.
     static func topStopsByName(_ query: String, limit: Int = 5) async -> [(name: String, coordinate: CLLocationCoordinate2D, lines: [String])] {
         let queryNorm = normalize(query)
+        // ≥ 3 lettres pour les tokens significatifs : avec 2 lettres ("ru",
+        // "de"…) on matchait des sous-chaînes partout (BRUxelles, RUe…) → des
+        // suggestions absurdes. Les tokens courts ne servent qu'en PRÉFIXE
+        // exact d'un mot, pas en substring libre.
         let allTokens = queryNorm.split(separator: " ").map(String.init).filter { $0.count >= 2 }
         let significantTokens = allTokens.filter { !genericLocationWords.contains($0) }
-        // Pour l'autocomplete on accepte les prefixes courts ("del", "fla") —
-        // si tous les tokens sont génériques, on retombe sur allTokens.
         let scoringTokens = significantTokens.isEmpty ? allTokens : significantTokens
         guard !scoringTokens.isEmpty else { return [] }
 
@@ -363,22 +365,34 @@ enum NearbyStopService {
         var scored: [(stop: StaticTransitStop, score: Int)] = []
         for stop in catalog.stops {
             let stopName = normalize(stop.name)
-            let stopTokens = Set(stopName.split(separator: " ").map(String.init))
+            let stopWords = stopName.split(separator: " ").map(String.init)
+            let stopTokens = Set(stopWords)
             var score = 0
+            var matchedAny = false
             for token in scoringTokens {
                 if stopTokens.contains(token) {
-                    score += 100 + token.count
-                } else if stopName.contains(" " + token) || stopName.hasPrefix(token) {
-                    // Prefix match accepté ici (autocomplete) : "del" → "DELACROIX"
-                    score += 60 + token.count
-                } else if stopName.contains(token) {
+                    score += 100 + token.count          // mot exact
+                    matchedAny = true
+                } else if stopWords.contains(where: { $0.hasPrefix(token) }) {
+                    // Préfixe d'un MOT du nom : "del" → "DELACROIX". Exige ≥3
+                    // lettres sinon "de"/"la" matcheraient trop de mots.
+                    if token.count >= 3 {
+                        score += 55 + token.count
+                        matchedAny = true
+                    }
+                } else if token.count >= 4 && stopName.contains(token) {
+                    // Substring libre : seulement pour des tokens longs (≥4),
+                    // sinon c'est la source des faux positifs.
                     score += 10 + token.count
+                    matchedAny = true
                 }
             }
-            if scoringTokens.allSatisfy({ stopTokens.contains($0) }) {
+            // Bonus seulement si TOUS les tokens significatifs matchent vraiment.
+            if matchedAny, scoringTokens.allSatisfy({ stopTokens.contains($0) }) {
                 score += 80
             }
-            if score >= 60 {
+            // Seuil relevé : il faut au moins un vrai préfixe de mot (≥55).
+            if score >= 55 {
                 scored.append((stop, score))
             }
         }

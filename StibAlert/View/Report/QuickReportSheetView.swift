@@ -325,27 +325,31 @@ struct QuickReportSheetView: View {
     // MARK: - Handle bar
 
     private var handleBar: some View {
-        HStack {
-            Spacer()
+        ZStack {
+            // Handle réellement centré dans toute la largeur.
             Capsule()
                 .fill(DS.Color.ink.opacity(0.35))
                 .frame(width: 44, height: 5)
-            Spacer()
-        }
-        .overlay(alignment: .trailing) {
-            Button(action: handleClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(DS.Color.ink)
-                    .frame(width: 30, height: 30)
-                    .background(DS.Color.secondary)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.16), lineWidth: 1))
-                    .padding(.trailing, 14)
+
+            // Croix nettement épinglée en haut à droite, alignée verticalement
+            // avec le handle (plus de padding bricolé sur le bouton lui-même).
+            HStack {
+                Spacer()
+                Button(action: handleClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .frame(width: 30, height: 30)
+                        .background(DS.Color.secondary)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Fermer")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Fermer")
+            .padding(.horizontal, 16)
         }
+        .frame(maxWidth: .infinity)
         .padding(.top, 14)
         .padding(.bottom, 10)
     }
@@ -916,6 +920,8 @@ struct QuickReportSheetView: View {
 
     private func typeIcon(_ type: ReportProblemType) -> String {
         switch type {
+        case .control:    return "person.badge.shield.checkmark.fill"
+        case .crowding:   return "person.3.fill"
         case .accident:   return "exclamationmark.triangle.fill"
         case .delay:      return "clock.fill"
         case .breakdown:  return "wrench.and.screwdriver.fill"
@@ -1234,11 +1240,9 @@ struct QuickReportSheetView: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(canSubmit || submitSuccess ? DS.Color.primary : DS.Color.primary.opacity(0.4))
+            // Border noir retiré (cohérence avec les autres boutons orange de
+            // l'app) — l'aplat orange + l'ombre suffisent.
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: 1.5)
-            )
         }
         .buttonStyle(.plain)
         .disabled(!canSubmit)

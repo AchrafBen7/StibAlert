@@ -24,7 +24,6 @@ struct VoiceOverlay: View {
     var onSwitchToText: () -> Void = {}
 
     @StateObject private var voice = VoiceAssistant()
-    @StateObject private var player = VoicePlayer()
 
     @State private var phase: Phase = .idle
     @State private var reply: String = ""
@@ -55,24 +54,36 @@ struct VoiceOverlay: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 28) {
-                Spacer()
-                halo
-                statusLine
-                transcriptOrReply
-                Spacer()
-                bottomBar
+            // Dès que Mobi a une réponse à montrer, la carte d'explication
+            // prend TOUTE la page (plus de gros halo, et aucune voix lue à
+            // voix haute). Les autres états (écoute, réflexion, repos, erreur)
+            // gardent le halo centré.
+            if showsReplyPage {
+                replyPage
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 34)
+                    .transition(.opacity)
+            } else {
+                VStack(spacing: 28) {
+                    Spacer()
+                    halo
+                    statusLine
+                    transcriptOrReply
+                    Spacer()
+                    bottomBar
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 38)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 38)
         }
         .preferredColorScheme(.light)
+        .animation(.easeInOut(duration: 0.25), value: showsReplyPage)
         .task {
             await start()
         }
         .onDisappear {
             voice.stopListening()
-            player.stop()
         }
         // Surface any recogniser error (audio session blocked, no speech
         // detected, recognizer offline…) so the user knows what's happening
@@ -89,6 +100,59 @@ struct VoiceOverlay: View {
             if !listening && phase == .listening && errorText == nil {
                 phase = .idle
             }
+        }
+    }
+
+    /// Vrai dès qu'on a un texte de réponse à afficher → bascule l'overlay sur
+    /// la carte d'explication plein écran.
+    private var showsReplyPage: Bool {
+        phase == .speaking && !displayReply.isEmpty
+    }
+
+    /// Page de réponse : petit en-tête "Mobi" + une grande carte blanche qui
+    /// remplit l'écran avec la route (badges de ligne via STIBAIResponseRenderer),
+    /// puis la barre d'actions. Aucune voix n'est jamais jouée.
+    private var replyPage: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(DS.Color.info.opacity(0.14))
+                        .frame(width: 46, height: 46)
+                    Image(systemName: pendingDestination != nil ? "map.fill" : "bubble.left.and.text.bubble.right.fill")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(DS.Color.info)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Mobi")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(DS.Color.ink)
+                    Text(pendingDestination != nil ? String(localized: "Ton itinéraire") : String(localized: "Ta réponse"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            // La carte occupe tout l'espace vertical dispo (maxHeight: .infinity)
+            // au lieu d'un cadre fixe de 380 — l'explication respire enfin.
+            ScrollView(.vertical, showsIndicators: true) {
+                STIBAIResponseRenderer(text: displayReply)
+                    .environment(\.colorScheme, .light)
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(DS.Color.border, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 18, y: 8)
+
+            bottomBar
         }
     }
 
@@ -249,7 +313,6 @@ struct VoiceOverlay: View {
                 Button {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     voice.stopListening()
-                    player.stop()
                     onSwitchToText()
                 } label: {
                     HStack(spacing: 10) {
@@ -307,7 +370,6 @@ struct VoiceOverlay: View {
                 Button {
                     // Trip is already planned by prepareTrip during the AI
                     // call, so applying is instant — no spinner needed.
-                    player.stop()
                     voice.stopListening()
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     pendingDestination = nil
@@ -364,7 +426,6 @@ struct VoiceOverlay: View {
     private var secondaryCloseButton: some View {
         Button(action: {
             voice.stopListening()
-            player.stop()
             onClose()
         }) {
             Image(systemName: "xmark")
@@ -501,7 +562,6 @@ struct VoiceOverlay: View {
     private func handleAction() async {
         if voice.isListening {
             let current = voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            player.stop()
             voice.stopListening()
             if !current.isEmpty {
                 await handleTranscript(current)
@@ -510,10 +570,9 @@ struct VoiceOverlay: View {
             }
             return
         }
-        player.stop()
-        // Small breath so the audio session has time to switch from playback
-        // back to record after a TTS reply finished.
-        try? await Task.sleep(nanoseconds: 250_000_000)
+        // Small breath so the previous audio session is fully torn down before
+        // we re-arm the mic (re-tapping "Reparler" right away was flaky).
+        try? await Task.sleep(nanoseconds: 150_000_000)
         beginListening()
     }
 
@@ -589,7 +648,6 @@ struct VoiceOverlay: View {
                 displayReply = richResult.displayReply ?? richResult.spokenReply
                 thinkingDetail = nil
                 phase = .speaking
-                player.speak(richResult.spokenReply)
                 return
             }
 
@@ -607,7 +665,6 @@ struct VoiceOverlay: View {
                 displayReply = firstResult.displayReply ?? firstResult.spokenReply
                 pendingDestination = nil
                 phase = .speaking
-                player.speak(firstResult.spokenReply)
                 return
             }
 
@@ -636,7 +693,6 @@ struct VoiceOverlay: View {
             displayReply = richResult.displayReply ?? richResult.spokenReply
             thinkingDetail = nil
             phase = .speaking
-            player.speak(richResult.spokenReply)
         } catch {
             phase = .error
             errorText = error.localizedDescription

@@ -165,7 +165,10 @@ private struct LineIncidentBadge {
             self.color = DS.Color.statusMajor
             self.priority = 100
         } else if lowerType.contains("travaux") || lowerType.contains("works") || lowerType.contains("construction") {
-            self.icon = "cone.fill"
+            // hammer.fill au lieu de cone.fill : le cône de chantier était
+            // méconnaissable en 18px (ressemblait à un "cuberdon" orange). Le
+            // marteau reste net à petite taille et lit "travaux" sans ambiguïté.
+            self.icon = "hammer.fill"
             self.color = DS.Color.statusMinor
             self.priority = 70
         } else if sev.contains("minor") || lowerType.contains("retard") || lowerType.contains("delay") {

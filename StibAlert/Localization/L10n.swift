@@ -121,6 +121,191 @@ enum L10n {
         }
     }
 
+    enum Routing {
+        static var transport: String { AppLocalizer.string("routing.transport", defaultValue: "Transport") }
+        static var bike: String { AppLocalizer.string("routing.bike", defaultValue: "Vélo") }
+        static var walk: String { AppLocalizer.string("routing.walk", defaultValue: "À pied") }
+        static var walking: String { AppLocalizer.string("routing.walking", defaultValue: "Marche") }
+        static var routeStep: String { AppLocalizer.string("routing.step", defaultValue: "Étape") }
+        static var connection: String { AppLocalizer.string("routing.connection", defaultValue: "Correspondance") }
+        static var destination: String { AppLocalizer.string("routing.destination", defaultValue: "destination") }
+        static var direct: String { AppLocalizer.string("routing.direct", defaultValue: "direct") }
+        static var line: String { AppLocalizer.string("routing.line", defaultValue: "Ligne") }
+        static var bus: String { AppLocalizer.string("routing.bus", defaultValue: "Bus") }
+        static var metro: String { AppLocalizer.string("routing.metro", defaultValue: "Métro") }
+        static var tram: String { AppLocalizer.string("routing.tram", defaultValue: "Tram") }
+        static var now: String { AppLocalizer.string("routing.now", defaultValue: "Maintenant") }
+        static var realtime: String { AppLocalizer.string("routing.realtime", defaultValue: "Temps réel") }
+        static var scheduled: String { AppLocalizer.string("routing.scheduled", defaultValue: "Horaire prévu") }
+        static var departure: String { AppLocalizer.string("routing.departure", defaultValue: "Départ") }
+        static var arrival: String { AppLocalizer.string("routing.arrival", defaultValue: "Arrivée") }
+        static var recommendedTrip: String { AppLocalizer.string("routing.recommended_trip", defaultValue: "Trajet recommandé") }
+        static var to: String { AppLocalizer.string("routing.to", defaultValue: "Vers") }
+        static var seeOnMap: String { AppLocalizer.string("routing.see_on_map", defaultValue: "Voir sur la carte") }
+        static var detailedItinerary: String { AppLocalizer.string("routing.detailed_itinerary", defaultValue: "Itinéraire détaillé") }
+        static var otherItineraries: String { AppLocalizer.string("routing.other_itineraries", defaultValue: "Autres itinéraires") }
+        static var next: String { AppLocalizer.string("routing.next", defaultValue: "Prochain") }
+        static var nextDeparture: String { AppLocalizer.string("routing.next_departure", defaultValue: "Prochain passage") }
+        static var fastest: String { AppLocalizer.string("routing.fastest", defaultValue: "Rapide") }
+        static var itinerary: String { AppLocalizer.string("routing.itinerary", defaultValue: "Itinéraire") }
+        static var homePlace: String { AppLocalizer.string("routing.home_place", defaultValue: "Domicile") }
+        static var workPlace: String { AppLocalizer.string("routing.work_place", defaultValue: "Travail") }
+        static var addPlace: String { AppLocalizer.string("routing.add_place", defaultValue: "Ajouter") }
+        static var more: String { AppLocalizer.string("routing.more", defaultValue: "Plus") }
+        static var addresses: String { AppLocalizer.string("routing.addresses", defaultValue: "Adresses") }
+        static var departureAddress: String { AppLocalizer.string("routing.departure_address", defaultValue: "Adresse de départ") }
+        static var currentPosition: String { AppLocalizer.string("routing.current_position", defaultValue: "Votre position") }
+        static var noItineraryTitle: String { AppLocalizer.string("routing.empty.title", defaultValue: "Aucun itinéraire calculé") }
+        static var noItineraryBody: String {
+            AppLocalizer.string(
+                "routing.empty.body",
+                defaultValue: "Active la localisation pour qu'on puisse calculer un trajet depuis ta position, ou choisis un point de départ dans la barre de recherche."
+            )
+        }
+        static var chooseArrivalFromResults: String {
+            AppLocalizer.string(
+                "routing.choose_arrival_from_results",
+                defaultValue: "Choisis une adresse dans les résultats pour éviter un mauvais itinéraire."
+            )
+        }
+        static var currentPositionUnavailable: String {
+            AppLocalizer.string("routing.current_position_unavailable", defaultValue: "Position actuelle indisponible.")
+        }
+        static var chooseDepartureFromResults: String {
+            AppLocalizer.string("routing.choose_departure_from_results", defaultValue: "Choisis une adresse de départ dans les résultats.")
+        }
+        static var recalculatedTitle: String { AppLocalizer.string("routing.recalculated.title", defaultValue: "Itinéraire recalculé") }
+        static var avoids: String { AppLocalizer.string("routing.avoids", defaultValue: "évite") }
+        static var followItinerary: String { AppLocalizer.string("routing.follow_itinerary", defaultValue: "Suivre l’itinéraire") }
+        static var takeNextTransport: String { AppLocalizer.string("routing.take_next_transport", defaultValue: "Prendre le transport suivant") }
+        static var transportStep: String { AppLocalizer.string("routing.transport_step", defaultValue: "Étape transport") }
+        static var bikeStep: String { AppLocalizer.string("routing.bike_step", defaultValue: "Étape à vélo") }
+        static var walkStep: String { AppLocalizer.string("routing.walk_step", defaultValue: "Étape à pied") }
+        static var transportInProgress: String { AppLocalizer.string("routing.transport_in_progress", defaultValue: "Transport en cours") }
+        static var walkInProgress: String { AppLocalizer.string("routing.walk_in_progress", defaultValue: "Marche en cours") }
+        static var bikeToNextStep: String { AppLocalizer.string("routing.bike_to_next_step", defaultValue: "Pédalez vers la prochaine étape") }
+        static var duration: String { AppLocalizer.string("routing.duration", defaultValue: "Durée") }
+        static var transfers: String { AppLocalizer.string("routing.transfers", defaultValue: "Transferts") }
+        static var involvedLines: String { AppLocalizer.string("routing.involved_lines", defaultValue: "Lignes impliquées") }
+        static var alternativeReason: String { AppLocalizer.string("routing.alternative_reason", defaultValue: "Pourquoi cette alternative") }
+        static var choiceReading: String { AppLocalizer.string("routing.choice_reading", defaultValue: "Lecture du choix") }
+        static var steps: String { AppLocalizer.string("routing.steps", defaultValue: "Étapes") }
+        static var state: String { AppLocalizer.string("routing.state", defaultValue: "État") }
+        static var reports: String { AppLocalizer.string("routing.reports", defaultValue: "Signalements") }
+        static var goTo: String { AppLocalizer.string("routing.go_to", defaultValue: "Aller à") }
+        static var returnTo: String { AppLocalizer.string("routing.return_to", defaultValue: "Retour à") }
+        static var results: String { AppLocalizer.string("routing.results", defaultValue: "Résultats") }
+        static var recent: String { AppLocalizer.string("routing.recent", defaultValue: "Récent") }
+        static var address: String { AppLocalizer.string("routing.address", defaultValue: "Adresse") }
+        static var brussels: String { AppLocalizer.string("routing.brussels", defaultValue: "Bruxelles") }
+        static var noRecentSearch: String { AppLocalizer.string("routing.no_recent_search", defaultValue: "Aucune recherche récente") }
+        static var recentTripsHint: String { AppLocalizer.string("routing.recent_trips_hint", defaultValue: "Tes derniers itinéraires apparaîtront ici.") }
+        static var seeItineraries: String { AppLocalizer.string("routing.see_itineraries", defaultValue: "Voir les itinéraires") }
+        static var useCurrentPosition: String { AppLocalizer.string("routing.use_current_position", defaultValue: "Utiliser ma position") }
+        static var locationAccessDenied: String { AppLocalizer.string("routing.location_access_denied", defaultValue: "L'accès à la localisation est refusé.") }
+        static var useCurrentPositionHint: String { AppLocalizer.string("routing.use_current_position_hint", defaultValue: "Utilisez votre position actuelle comme départ.") }
+        static var searchDeparture: String { AppLocalizer.string("routing.search_departure", defaultValue: "Rechercher un départ") }
+        static var searchDestination: String { AppLocalizer.string("routing.search_destination", defaultValue: "Rechercher une destination") }
+        static var suggestions: String { AppLocalizer.string("routing.suggestions", defaultValue: "Suggestions") }
+        static var nextThen: String { AppLocalizer.string("routing.then", defaultValue: "Ensuite") }
+        static var stopGuidance: String { AppLocalizer.string("routing.stop_guidance", defaultValue: "Arrêter le guidage") }
+        static var stopGuidanceHint: String { AppLocalizer.string("routing.stop_guidance_hint", defaultValue: "Quitte le guidage actif pour ce trajet.") }
+        static var speakAgain: String { AppLocalizer.string("routing.speak_again", defaultValue: "Reparler") }
+        static var previous: String { AppLocalizer.string("routing.previous", defaultValue: "Précédent") }
+        static var nextAction: String { AppLocalizer.string("routing.next_action", defaultValue: "Suivant") }
+        static var currentLocationPlace: String { AppLocalizer.string("routing.current_location_place", defaultValue: "Lieu position actuelle") }
+
+        static func arrivalAt(_ time: String) -> String {
+            AppLocalizer.format("routing.arrival_at", defaultValue: "Arrivée %@", time)
+        }
+
+        static func lateBy(_ minutes: Int) -> String {
+            AppLocalizer.format("routing.late_by", defaultValue: "+ %d min vs prévu", minutes)
+        }
+
+        static func walkingMinutes(_ minutes: Int) -> String {
+            AppLocalizer.format("routing.walking_minutes", defaultValue: "%d min à pied", minutes)
+        }
+
+        static func transportCount(_ count: Int) -> String {
+            AppLocalizer.format("routing.transport_count", defaultValue: "%d transport", count)
+        }
+
+        static func transferCount(_ count: Int) -> String {
+            AppLocalizer.format("routing.transfer_count", defaultValue: "%d corresp.", count)
+        }
+
+        static func stopCount(_ count: Int) -> String {
+            count == 1
+                ? AppLocalizer.string("routing.one_stop", defaultValue: "1 arrêt")
+                : AppLocalizer.format("routing.stops_count", defaultValue: "%d arrêts", count)
+        }
+
+        static func line(_ code: String) -> String {
+            AppLocalizer.format("routing.line_code", defaultValue: "Ligne %@", code)
+        }
+
+        static func walkTo(_ destination: String) -> String {
+            AppLocalizer.format("routing.walk_to", defaultValue: "Marcher vers %@", destination)
+        }
+
+        static func waitTransfer(_ minutes: Int) -> String {
+            AppLocalizer.format("routing.wait_transfer", defaultValue: "Attente %d min · correspondance", minutes)
+        }
+
+        static func suggestionLabel(_ title: String) -> String {
+            AppLocalizer.format("routing.suggestion_label", defaultValue: "Suggestion %@", title)
+        }
+
+        static func placeLabel(_ name: String) -> String {
+            AppLocalizer.format("routing.place_label", defaultValue: "Lieu %@", name)
+        }
+
+        static func bikeTo(_ destination: String) -> String {
+            AppLocalizer.format("routing.bike_to", defaultValue: "Vélo vers %@", destination)
+        }
+
+        static func toward(_ destination: String) -> String {
+            AppLocalizer.format("routing.toward", defaultValue: "Vers %@", destination)
+        }
+
+        static func direction(_ destination: String) -> String {
+            AppLocalizer.format("routing.direction", defaultValue: "Direction %@", destination)
+        }
+
+        static func inMinutes(_ minutes: Int) -> String {
+            minutes == 1
+                ? AppLocalizer.string("routing.in_one_minute", defaultValue: "Dans 1 min")
+                : AppLocalizer.format("routing.in_minutes", defaultValue: "Dans %d min", minutes)
+        }
+
+        static func atTime(_ time: String) -> String {
+            AppLocalizer.format("routing.at_time", defaultValue: "À %@", time)
+        }
+
+        static func departingAt(_ time: String) -> String {
+            AppLocalizer.format("routing.departing_at", defaultValue: "DÉP. %@", time)
+        }
+
+        static func scheduledAt(_ time: String) -> String {
+            AppLocalizer.format("routing.scheduled_at", defaultValue: "PRÉVU %@", time)
+        }
+
+        static func timingDetail(_ source: String, departure: String, arrival: String) -> String {
+            AppLocalizer.format("routing.timing_detail", defaultValue: "%@ · %@ → %@", source, departure, arrival)
+        }
+
+        static func departureDetail(_ source: String, departure: String) -> String {
+            AppLocalizer.format("routing.departure_detail", defaultValue: "%@ · départ %@", source, departure)
+        }
+
+        static func transitSummary(_ count: Int) -> String {
+            count == 1
+                ? AppLocalizer.string("routing.one_line_summary", defaultValue: "1 ligne")
+                : AppLocalizer.format("routing.lines_summary", defaultValue: "%d lignes", count)
+        }
+    }
+
     enum Reports {
         static var describeSituation: String { AppLocalizer.string("reports.describe_situation") }
         static var describeSituationBonus: String { AppLocalizer.string("reports.describe_situation_bonus") }
@@ -189,6 +374,16 @@ enum L10n {
         static var loadFailed: String { AppLocalizer.string("schedules.load_failed", defaultValue: "Impossible de charger les lignes") }
         static var cacheLimitedTitle: String { AppLocalizer.string("schedules.cache_limited_title", defaultValue: "Connexion limitée") }
         static var cacheLimitedSubtitle: String { AppLocalizer.string("schedules.cache_limited_subtitle", defaultValue: "Données en cache · Tape pour réessayer") }
+    }
+
+    enum StopDetail {
+        static var realtime: String { AppLocalizer.string("stop_detail.realtime", defaultValue: "Temps réel") }
+        static var schedules: String { AppLocalizer.string("stop_detail.schedules", defaultValue: "Horaires") }
+        static var around: String { AppLocalizer.string("stop_detail.around", defaultValue: "Autour") }
+        static var report: String { AppLocalizer.string("stop_detail.report", defaultValue: "Signaler") }
+        static func lines(_ count: Int) -> String {
+            AppLocalizer.format("stop_detail.lines_count", defaultValue: "Lignes · %d", count)
+        }
     }
 
     enum Profile {

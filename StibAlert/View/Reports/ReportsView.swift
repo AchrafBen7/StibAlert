@@ -576,103 +576,52 @@ struct ReportsView: View {
         switch selectedScope {
         case .events:
             return []
-        case .reports, .official:
-            let base: [TransportIncidentDTO]
-            if selectedScope == .official {
-                base = currentOfficialIncidents.filter { incident in
-                    let source = incident.source?.lowercased() ?? ""
-                    return source.contains("official") || source.contains("stib")
-                }
-            } else {
-                base = currentOfficialIncidents
+        case .official:
+            // Officiel : UNIQUEMENT les incidents officiels CONCRETS (ligne +
+            // type + lieu). On ne synthétise PLUS de badge depuis le résumé
+            // réseau ("Réseau sous surveillance") : il n'a ni "quoi" ni "où" par
+            // ligne, donc il badgeait des lignes sans aucun problème ouvrable —
+            // incohérent avec la page détail. Règle : un badge ⟺ un vrai problème.
+            return currentOfficialIncidents.filter { incident in
+                let source = incident.source?.lowercased() ?? ""
+                return source.contains("official") || source.contains("stib")
             }
-            return base + syntheticIncidentsFromSummary(missingFrom: base)
+        case .reports:
+            // En cours : incidents officiels concrets + signalements communauté
+            // concrets (ligne + type). Toujours pas de synthèse depuis le résumé.
+            let base = currentOfficialIncidents
+            return base + syntheticIncidentsFromCommunityReports(missingFrom: base)
         }
     }
 
-    /// Build placeholder `TransportIncidentDTO`s for every `affectedLines`
-    /// entry in the current summary that isn't already represented in
-    /// `incidentsBaseline`. Lets the LineStatusGrid badge those lines even
-    /// when the backend ships them only in the summary aggregate.
-    ///
-    /// A2 fix : auparavant on synthétisait DEPUIS summary directement, ce
-    /// qui badgeait des "incidents fantômes" si le summary backend était
-    /// stale (perturbation déjà résolue mais summary pas régénéré). Désormais
-    /// on n'utilise summary QUE pour les lignes qu'on retrouve aussi dans
-    /// le feed live (reports/community/official des 24 dernières heures).
-    /// Si le feed live ne mentionne plus la ligne, on considère le summary
-    /// stale pour cette ligne et on ne la badge plus.
-    private func syntheticIncidentsFromSummary(missingFrom incidentsBaseline: [TransportIncidentDTO]) -> [TransportIncidentDTO] {
+    /// Badges pour les lignes ayant un SIGNALEMENT COMMUNAUTÉ concret (ligne +
+    /// type), absent de la baseline officielle. On NE synthétise PLUS depuis le
+    /// résumé réseau (`summary.affectedLines`) ni depuis les feed items issus du
+    /// résumé : ceux-ci n'ont ni "quoi" ni "où" par ligne, donc badgeaient des
+    /// lignes sans problème ouvrable (incohérent avec la page détail, qui ne
+    /// compte pas le résumé réseau comme incident concret). Règle : un badge ⟺
+    /// un vrai problème visible (avec quoi + où) quand on ouvre la ligne.
+    private func syntheticIncidentsFromCommunityReports(missingFrom incidentsBaseline: [TransportIncidentDTO]) -> [TransportIncidentDTO] {
         var knownLines = Set(incidentsBaseline.compactMap { $0.line?.uppercased() })
         var synthesised: [TransportIncidentDTO] = []
 
-        // Indexe les lignes effectivement présentes dans le feed live (la
-        // ground truth). Une ligne dans summary mais absente d'ici = stale.
-        let liveLinesFromFeed: Set<String> = {
-            var set = Set<String>()
-            for report in reports {
-                set.insert(report.ligne.uppercased())
-            }
-            for item in reportFeedItems {
-                for line in item.lines {
-                    set.insert(line.uppercased())
-                }
-            }
-            return set
-        }()
-
-        // 1. Lines mentioned in the perturbation summary's affected list.
-        if let summary = currentSummary {
-            let summaryType = summary.incidentTypes?.first ?? "perturbation"
-            let summarySource = summary.source ?? summary.sourceLabel ?? "official"
-            for line in summary.affectedLines {
-                let normalized = line.uppercased()
-                guard !knownLines.contains(normalized) else { continue }
-                // A2 : exiger qu'on ait au moins UN report live sur cette
-                // ligne. Sinon le summary est probablement stale.
-                guard liveLinesFromFeed.contains(normalized) else { continue }
-                synthesised.append(TransportIncidentDTO(
-                    id: "summary-\(normalized)",
-                    type: summaryType,
-                    description: summary.shortText,
-                    severity: "minor",
-                    confidence: nil,
-                    legacyConfidence: nil,
-                    source: summarySource,
-                    line: line,
-                    stop: nil,
-                    date: nil,
-                    community: nil
-                ))
-                knownLines.insert(normalized)
-            }
-        }
-
-        // 2. Lines that show up as feed items (community reports + official
-        // signals from `reportFeedItems`) but somehow weren't picked up by
-        // either the activeIncidents list or the summary. Without this the
-        // grid badge for métro 1 / tram 81 stayed empty while the feed
-        // (sommaire) clearly listed them.
-        for item in reportFeedItems {
-            for line in item.lines {
-                let normalized = line.uppercased()
-                guard !normalized.isEmpty, !knownLines.contains(normalized) else { continue }
-                let isOfficial = item.type == .official || item.type == .mixed
-                synthesised.append(TransportIncidentDTO(
-                    id: "feed-\(item.id)-\(normalized)",
-                    type: item.title,
-                    description: item.body,
-                    severity: isOfficial ? "minor" : "minor",
-                    confidence: nil,
-                    legacyConfidence: nil,
-                    source: isOfficial ? "official" : "community",
-                    line: line,
-                    stop: nil,
-                    date: nil,
-                    community: nil
-                ))
-                knownLines.insert(normalized)
-            }
+        for report in reports {
+            let normalized = report.ligne.uppercased()
+            guard !normalized.isEmpty, !knownLines.contains(normalized) else { continue }
+            synthesised.append(TransportIncidentDTO(
+                id: "community-\(report.id)",
+                type: report.canonicalTypeProbleme,
+                description: report.description,
+                severity: "minor",
+                confidence: nil,
+                legacyConfidence: nil,
+                source: "community",
+                line: report.ligne,
+                stop: nil,
+                date: nil,
+                community: nil
+            ))
+            knownLines.insert(normalized)
         }
 
         return synthesised

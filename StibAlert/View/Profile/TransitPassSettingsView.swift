@@ -699,24 +699,37 @@ private struct TransitPassCardView: View {
 
     private var populatedCard: some View {
         ZStack(alignment: .topLeading) {
-            // MoBIB green gradient — echoes the physical card without
-            // photocopying its busy "M" pattern. Editorial clean look.
+            // Dégradé ORANGE (identité de l'app, plus le vert MoBIB) — look
+            // éditorial propre, sans recopier le motif "M" chargé de la carte.
+            // 3 stops pour un rendu plus riche et profond.
             RoundedRectangle(cornerRadius: 18)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.50, green: 0.72, blue: 0.39), // MoBIB green light
-                            Color(red: 0.36, green: 0.58, blue: 0.28), // MoBIB green deep
+                            Color(red: 1.00, green: 0.58, blue: 0.24), // orange clair (haut)
+                            Color(red: 0.98, green: 0.45, blue: 0.10), // orange STIB (primary)
+                            Color(red: 0.84, green: 0.29, blue: 0.04), // orange brûlé (bas)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .overlay(
-                    // A single thin orange hairline near the bottom — Brussels
-                    // accent without screaming. Matches DS.Color.primary.
+                    // Sheen chaud en haut-gauche → effet carte "premium" lustrée.
                     RoundedRectangle(cornerRadius: 18)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.white.opacity(0.22), .clear],
+                                center: .topLeading,
+                                startRadius: 8,
+                                endRadius: 250
+                            )
+                        )
+                        .blendMode(.softLight)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
                 )
 
             // Diagonal sweep highlight — premium pass feel.
@@ -770,7 +783,9 @@ private struct TransitPassCardView: View {
                     Text((pass.subscriptionLabel.isEmpty ? "Abonnement STIB" : pass.subscriptionLabel).uppercased())
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(1.4)
-                        .foregroundStyle(Color(red: 1.0, green: 0.49, blue: 0.13)) // DS.Color.primary tint
+                        // Crème chaud : l'orange d'avant serait invisible sur un
+                        // fond orange — on garde un accent clair, lisible.
+                        .foregroundStyle(Color(red: 1.0, green: 0.92, blue: 0.82))
                     Text(holderDisplay)
                         .font(.system(size: 19, weight: .bold))
                         .tracking(0.4)
@@ -824,7 +839,9 @@ private struct TransitPassCardView: View {
                 .allowsHitTesting(false)
         }
         .aspectRatio(1.586, contentMode: .fit)
-        .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
+        // Ombre chaude orange (au lieu d'un noir neutre) → la carte semble
+        // "poser" sa propre lumière, plus cohérent et premium.
+        .shadow(color: Color(red: 0.84, green: 0.29, blue: 0.04).opacity(0.32), radius: 18, y: 10)
     }
 }
 

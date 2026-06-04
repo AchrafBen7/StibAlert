@@ -632,9 +632,14 @@ struct ProfileView: View {
     @ViewBuilder
     private func profileGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
+            // Localise PUIS met en majuscules via textCase : on cherche la clé
+            // FR exacte du catalogue ("Carte de transport"), pas sa version
+            // déjà en MAJ. Les titres arrivent ici en String runtime → init
+            // verbatim de Text → non localisés sans ce String(localized:).
+            Text(String(localized: String.LocalizationValue(title)))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2.2)
+                .textCase(.uppercase)
                 .foregroundColor(DS.Color.ink)
                 .padding(.leading, 4)
 
@@ -699,7 +704,9 @@ struct ProfileView: View {
 
     @ViewBuilder
     private func miniStat(label: String, value: String) -> some View {
-        Text("\(value) \(label.lowercased())")
+        // Localise le label (mot) AVANT interpolation, sinon il reste en FR.
+        let localizedLabel = String(localized: String.LocalizationValue(label))
+        return Text("\(value) \(localizedLabel)")
             .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
             .tracking(0.5)
             .foregroundStyle(DS.Color.inkMute)
@@ -960,9 +967,10 @@ struct ProfileView: View {
             Text(value)
                 .font(DS.Font.monoLarge.weight(.bold))
                 .foregroundColor(DS.Color.ink)
-            Text(label.uppercased())
+            Text(String(localized: String.LocalizationValue(label)))
                 .font(DS.Font.monoSmall.weight(.semibold))
                 .tracking(1.4)
+                .textCase(.uppercase)
                 .foregroundColor(DS.Color.inkMute)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -981,14 +989,18 @@ struct ProfileView: View {
                     .foregroundColor(DS.Color.ink)
                     .frame(width: 18)
 
-                Text(label)
+                // label + value arrivent en String runtime (verbatim) → on
+                // localise explicitement. Pour value, String(localized:) renvoie
+                // l'entrée inchangée si aucune clé ne matche (ex : "@pseudo"
+                // reste tel quel, "Activées" est traduit).
+                Text(String(localized: String.LocalizationValue(label)))
                     .font(.system(size: 13.5, weight: .medium))
                     .foregroundColor(DS.Color.ink)
 
                 Spacer()
 
                 if let value {
-                    Text(value)
+                    Text(String(localized: String.LocalizationValue(value)))
                         .font(DS.Font.mono)
                         .foregroundColor(DS.Color.inkMute)
                 }

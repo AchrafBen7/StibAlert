@@ -325,7 +325,11 @@ struct SignalementCommunityDTO: Codable, Equatable {
 }
 
 extension SignalementDTO {
-    var displayTypeProbleme: String {
+    /// Type CANONIQUE (français, stable) — réservé à la LOGIQUE : couleur,
+    /// icône (`SignalVisuals.icon(forType:)`), sévérité, comparaisons. Pour les
+    /// STIB "Autre", on devine le type depuis la description. NE PAS afficher
+    /// directement : utiliser `displayTypeProbleme` (localisé).
+    var canonicalTypeProbleme: String {
         let raw = typeProbleme.trimmingCharacters(in: .whitespacesAndNewlines)
         guard sourceLabel == "Source STIB", raw.localizedCaseInsensitiveCompare("Autre") == .orderedSame else {
             return raw
@@ -351,6 +355,40 @@ extension SignalementDTO {
             return "Retard"
         }
         return "Information STIB"
+    }
+
+    /// Libellé du type pour AFFICHAGE — traduit dans la langue de l'app
+    /// (Profil → Langues). Avant, on affichait le type canonique français brut,
+    /// d'où des cartes en FR dans une app en NL. Tous les `Text(...)` passent
+    /// par ici ; la logique (couleur/icône) reste sur `canonicalTypeProbleme`.
+    var displayTypeProbleme: String {
+        Self.localizedReportType(canonicalTypeProbleme)
+    }
+
+    /// Traduit un type canonique (français) vers la langue de l'app. Type
+    /// inconnu → renvoyé tel quel (mieux vaut le brut que rien).
+    static func localizedReportType(_ canonical: String) -> String {
+        let norm = canonical
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespaces)
+        switch norm {
+        case "controle":           return AppLocalizer.string("report.type.control", defaultValue: "Contrôle")
+        case "affluence":          return AppLocalizer.string("report.type.crowding", defaultValue: "Affluence")
+        case "accident":           return AppLocalizer.string("report.type.accident", defaultValue: "Accident")
+        case "retard":             return AppLocalizer.string("report.type.delay", defaultValue: "Retard")
+        case "panne":              return AppLocalizer.string("report.type.breakdown", defaultValue: "Panne")
+        case "incivilite":         return AppLocalizer.string("report.type.incivility", defaultValue: "Incivilité")
+        case "proprete":           return AppLocalizer.string("report.type.cleanliness", defaultValue: "Propreté")
+        case "agression":          return AppLocalizer.string("report.type.aggression", defaultValue: "Agression")
+        case "interruption":       return AppLocalizer.string("report.type.interruption", defaultValue: "Interruption")
+        case "arret non desservi": return AppLocalizer.string("report.type.stop_skipped", defaultValue: "Arrêt non desservi")
+        case "travaux":            return AppLocalizer.string("report.type.works", defaultValue: "Travaux")
+        case "deviation":          return AppLocalizer.string("report.type.detour", defaultValue: "Déviation")
+        case "information stib", "information mivb", "info stib":
+                                   return AppLocalizer.string("report.type.info_stib", defaultValue: "Information STIB")
+        default:                   return canonical
+        }
     }
 
     var effectiveFreshnessMinutes: Int? {

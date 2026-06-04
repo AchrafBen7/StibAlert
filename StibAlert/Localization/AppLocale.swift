@@ -39,9 +39,16 @@ enum AppLocale {
            !override.isEmpty {
             return override.hasPrefix("nl") ? "nl" : "fr"
         }
-        // 2. Fall back to the iOS system language.
-        let preferred = Locale.preferredLanguages.first?.lowercased() ?? "fr"
-        return preferred.hasPrefix("nl") ? "nl" : "fr"
+        // 2. Sinon, on suit la langue RÉELLEMENT affichée par l'app
+        // (Bundle.main.preferredLocalizations = intersection des langues du
+        // téléphone avec celles fournies par l'app). C'est « la langue de l'app »
+        // telle que l'utilisateur la voit à l'écran — donc la reconnaissance
+        // vocale et la réponse de l'assistant collent à ce qui est affiché,
+        // au lieu de suivre une langue système que l'app ne parle même pas.
+        let appLang = (Bundle.main.preferredLocalizations.first
+            ?? Locale.preferredLanguages.first
+            ?? "fr").lowercased()
+        return appLang.hasPrefix("nl") ? "nl" : "fr"
     }
 
     static var localeIdentifier: String {
