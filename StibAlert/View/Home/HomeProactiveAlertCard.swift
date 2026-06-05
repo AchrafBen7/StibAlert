@@ -19,19 +19,23 @@ struct HomeProactiveAlertCard: View {
     }
 
     private var sourceLabel: String {
-        cluster.isOfficial ? "Source officielle" : "Communauté"
+        cluster.isOfficial
+            ? AppLocalizer.string("alert.source.official", defaultValue: "Source officielle")
+            : AppLocalizer.string("alert.source.community", defaultValue: "Communauté")
     }
 
     private var title: String {
         if cluster.isOfficial {
-            return "Perturbation sur ta ligne"
+            return AppLocalizer.string("alert.title.official", defaultValue: "Perturbation sur ta ligne")
         }
         // A1 — titre piloté par le statut de confiance unifié.
         switch cluster.confidenceStatus {
-        case "confirmed": return "Signalement confirmé"
-        case "likely": return "Signalement probable"
+        case "confirmed": return AppLocalizer.string("alert.title.confirmed", defaultValue: "Signalement confirmé")
+        case "likely": return AppLocalizer.string("alert.title.likely", defaultValue: "Signalement probable")
         default:
-            return cluster.reportCount >= 3 ? "Signalement confirmé" : "Alerte autour de toi"
+            return cluster.reportCount >= 3
+                ? AppLocalizer.string("alert.title.confirmed", defaultValue: "Signalement confirmé")
+                : AppLocalizer.string("alert.title.nearby", defaultValue: "Alerte autour de toi")
         }
     }
 
@@ -42,10 +46,10 @@ struct HomeProactiveAlertCard: View {
             return aiSummary
         }
         var parts: [String] = []
-        parts.append("Ligne \(cluster.ligne)")
-        parts.append(cluster.typeProbleme)
+        parts.append(AppLocalizer.format("alert.line_prefix", defaultValue: "Ligne %@", cluster.ligne))
+        parts.append(SignalementDTO.localizedReportType(cluster.typeProbleme))
         if cluster.reportCount > 1 {
-            parts.append("\(cluster.reportCount) retours")
+            parts.append(AppLocalizer.format("alert.reports_count", defaultValue: "%lld retours", cluster.reportCount))
         }
         return parts.joined(separator: " · ")
     }
@@ -125,7 +129,7 @@ struct HomeProactiveAlertCard: View {
 
             HStack(spacing: 8) {
                 actionButton(
-                    title: "Toujours bloqué",
+                    title: AppLocalizer.string("report.action.still_blocked", defaultValue: "Toujours bloqué"),
                     icon: "exclamationmark.circle.fill",
                     isLoading: isSubmittingBlocked,
                     foreground: DS.Color.ink,
@@ -139,7 +143,7 @@ struct HomeProactiveAlertCard: View {
                 }
 
                 actionButton(
-                    title: "Résolu",
+                    title: AppLocalizer.string("report.action.resolved", defaultValue: "Résolu"),
                     icon: "checkmark.circle.fill",
                     isLoading: isSubmittingResolved,
                     foreground: DS.Color.ink,
@@ -157,7 +161,7 @@ struct HomeProactiveAlertCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "map.fill")
                         .font(.system(size: 12, weight: .bold))
-                    Text(verbatim: "Voir l’alerte sur la carte")
+                    Text(verbatim: AppLocalizer.string("alert.see_on_map", defaultValue: "Voir l’alerte sur la carte"))
                         .font(DS.Font.monoSmall.weight(.heavy))
                         .tracking(1)
                     Spacer()
@@ -184,7 +188,7 @@ struct HomeProactiveAlertCard: View {
                 Circle()
                     .fill(accent)
                     .frame(width: 8, height: 8)
-                Text("Ligne \(cluster.ligne) · \(cluster.typeProbleme)")
+                Text(verbatim: "\(AppLocalizer.format("alert.line_prefix", defaultValue: "Ligne %@", cluster.ligne)) · \(SignalementDTO.localizedReportType(cluster.typeProbleme))")
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)

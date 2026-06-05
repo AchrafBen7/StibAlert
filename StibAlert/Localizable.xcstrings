@@ -13422,6 +13422,83 @@
         }
       }
     },
+    "alert.source.official" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Official source" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Source officielle" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officiële bron" } }
+      }
+    },
+    "alert.source.community" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Community" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Community" } }
+      }
+    },
+    "alert.title.official" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Disruption on your line" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Perturbation sur ta ligne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verstoring op je lijn" } }
+      }
+    },
+    "alert.title.confirmed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirmed report" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalement confirmé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bevestigde melding" } }
+      }
+    },
+    "alert.title.likely" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Likely report" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalement probable" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Waarschijnlijke melding" } }
+      }
+    },
+    "alert.title.nearby" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Alert near you" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Alerte autour de toi" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Melding in je buurt" } }
+      }
+    },
+    "alert.line_prefix" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Line %@" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ligne %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lijn %@" } }
+      }
+    },
+    "alert.reports_count" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld reports" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld retours" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen" } }
+      }
+    },
+    "alert.see_on_map" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "See the alert on the map" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Voir l’alerte sur la carte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bekijk de melding op de kaart" } }
+      }
+    },
+    "report.action.still_blocked" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Still blocked" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Toujours bloqué" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nog geblokkeerd" } }
+      }
+    },
+    "report.action.resolved" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Resolved" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Résolu" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Opgelost" } }
+      }
+    },
     "report.select_problem_type" : {
       "extractionState" : "stale",
       "localizations" : {
