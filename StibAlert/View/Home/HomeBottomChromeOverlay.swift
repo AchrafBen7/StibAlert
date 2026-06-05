@@ -14,11 +14,12 @@ struct HomeBottomChromeOverlay: View {
     let onOpenStibAI: () -> Void
     let onRecenter: () -> Void
     let onSelectTab: (AppTab) -> Void
-    // I4 — Inline persistant pour les invités. Non dismissible (l'utilisateur
-    // peut juste cliquer "Crée un compte"). Affiché juste au-dessus de la
-    // tab bar pour ne pas couvrir la carte.
+    // Inline invité affiché au-dessus de la tab bar, mais dismissible pour
+    // éviter de bloquer la carte pendant les tests ou en mode invité prolongé.
     var isGuest: Bool = false
     var onCreateAccount: () -> Void = {}
+
+    @AppStorage("home.guestBannerDismissed") private var isGuestBannerDismissed = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -42,7 +43,7 @@ struct HomeBottomChromeOverlay: View {
                 .transition(.opacity)
             }
 
-            if isGuest {
+            if isGuest && !isGuestBannerDismissed {
                 guestBanner
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
@@ -63,22 +64,25 @@ struct HomeBottomChromeOverlay: View {
     }
 
     private var guestBanner: some View {
-        Button(action: onCreateAccount) {
-            HStack(spacing: 10) {
-                Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(DS.Color.primary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Mode invité")
-                        .font(.system(size: 12, weight: .black))
-                        .foregroundStyle(DS.Color.ink)
-                    Text("Crée un compte pour favoris + alertes push")
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-                Text("Créer")
+        HStack(spacing: 10) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Color.primary)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L10n.Home.guestModeTitle)
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(DS.Color.ink)
+                Text(L10n.Home.guestModeSubtitle)
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            Button(action: onCreateAccount) {
+                Text(L10n.Home.guestModeCTA)
                     .font(.system(size: 11.5, weight: .black))
                     .foregroundStyle(DS.Color.primaryForeground)
                     .padding(.horizontal, 10)
@@ -86,17 +90,32 @@ struct HomeBottomChromeOverlay: View {
                     .background(DS.Color.primary)
                     .clipShape(Capsule())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(DS.Color.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(DS.Color.primary.opacity(0.3), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .shadow(color: DS.Color.ink.opacity(0.08), radius: 6, y: 2)
+            .buttonStyle(.plain)
+
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    isGuestBannerDismissed = true
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(width: 26, height: 26)
+                    .background(DS.Color.paper2)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DS.Color.primary.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: DS.Color.ink.opacity(0.08), radius: 6, y: 2)
         .padding(.horizontal, 14)
         .accessibilityLabel("Mode invité — créer un compte pour favoris et alertes")
     }

@@ -23,7 +23,7 @@ struct OfflineIndicator: View {
             HStack(spacing: 8) {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 13, weight: .semibold))
-                Text("Connexion limitée")
+                Text(AppLocalizer.string("Connexion limitée"))
                     .font(DS.Font.monoSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.ink)
@@ -39,7 +39,7 @@ struct OfflineIndicator: View {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
-                Text("\(pendingReports) signalement\(pendingReports > 1 ? "s" : "") en attente de sync")
+                Text(pendingReportsLabel)
                     .font(DS.Font.monoSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.ink)
@@ -56,8 +56,23 @@ struct OfflineIndicator: View {
 
     private var offlineLabel: String {
         if pendingReports > 0 {
-            return "Hors ligne · \(pendingReports) en file"
+            return AppLocalizer.string(
+                "offline_indicator.pending_queue",
+                defaultValue: "Hors ligne · \(pendingReports) en file"
+            )
         }
-        return "Vous êtes hors ligne"
+        return AppLocalizer.string(
+            "offline_indicator.offline",
+            defaultValue: "Vous êtes hors ligne"
+        )
+    }
+
+    private var pendingReportsLabel: String {
+        AppLocalizer.format(
+            "%lld signalement%@ en attente de sync",
+            defaultValue: "%lld signalement%@ en attente de sync",
+            pendingReports,
+            pendingReports > 1 ? "s" : ""
+        )
     }
 }

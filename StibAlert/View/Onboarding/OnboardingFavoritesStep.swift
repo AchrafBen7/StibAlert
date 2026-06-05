@@ -314,9 +314,9 @@ struct OnboardingFavoritesStep: View {
                         subtitle: "\(stop.distanceMeters) m · STIB",
                         operatorColor: TransitOperator.stib.brandColor,
                         operatorAsset: TransitOperator.stib.assetName,
-                        isSelected: stop.backendId.map { stibSelectedIds.contains($0) } ?? false,
+                        isSelected: stibSelectionId(for: stop).map { stibSelectedIds.contains($0) } ?? false,
                         onToggle: {
-                            guard let id = stop.backendId else { return }
+                            guard let id = stibSelectionId(for: stop) else { return }
                             if stibSelectedIds.contains(id) { stibSelectedIds.remove(id) }
                             else { stibSelectedIds.insert(id) }
                             AppHaptics.soft()
@@ -415,7 +415,7 @@ struct OnboardingFavoritesStep: View {
             .padding(.vertical, 32).frame(maxWidth: .infinity)
     }
 
-    private func emptyRow(_ text: String) -> some View {
+    private func emptyRow(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
             .padding(.vertical, 20).padding(.horizontal, 12)
@@ -452,7 +452,22 @@ struct OnboardingFavoritesStep: View {
         defer { isLoadingStib = false }
         do {
             let stops = try await NearbyStopService.fetchNearby(lat: userCoordinate.latitude, lng: userCoordinate.longitude, radius: 1500)
-            stibStops = dedupedRealStibStops(stops).prefix(25).map { $0 }
+            var candidates = dedupedRealStibStops(stops)
+
+            // TestFlight showed cases where the map had STIB data but the
+            // onboarding radius returned nothing. Keep the step usable with
+            // real backend/catalog stops from central Brussels instead of an
+            // empty "no STIB nearby" state.
+            if candidates.isEmpty {
+                let fallbackStops = try await NearbyStopService.fetchNearby(
+                    lat: Self.brusselsCenter.latitude,
+                    lng: Self.brusselsCenter.longitude,
+                    radius: 1200
+                )
+                candidates = dedupedRealStibStops(fallbackStops)
+            }
+
+            stibStops = candidates.prefix(25).map { $0 }
         } catch {
             stibStops = []
         }
@@ -516,6 +531,10 @@ struct OnboardingFavoritesStep: View {
             }
             return $0.distanceMeters < $1.distanceMeters
         }
+    }
+
+    private func stibSelectionId(for stop: NearbyStop) -> String? {
+        stop.backendId ?? stop.stopId
     }
 
     private func normalizedStopName(_ name: String) -> String {

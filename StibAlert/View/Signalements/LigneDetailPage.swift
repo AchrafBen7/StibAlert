@@ -618,16 +618,15 @@ struct LigneDetailPage: View {
     }
 
     private var hasActiveTrafficIssue: Bool {
-        // FIX — Bandeau rouge "Perturbations en cours" UNIQUEMENT pour des
-        // perturbations concrètes de cette ligne : signalements communauté,
-        // incidents officiels, ou un résumé STIB propre à la ligne. Avant, un
-        // simple résumé RÉSEAU (matchingGlobalSummary, "Réseau sous
-        // surveillance") déclenchait l'alarme rouge alors que le sous-titre
-        // affichait "0 infos" et qu'aucune info ne concernait la ligne → c'est
-        // le "perturbation en cours alors que ya rien". Le résumé réseau reste
-        // affiché en pied de page comme contexte (networkAdvisoryRow), sans
-        // faire passer le bandeau au rouge.
-        activeInfoCount > 0 || hasLineLevelSummary
+        // Bandeau rouge "Perturbations en cours" + ⚠️ sur l'onglet UNIQUEMENT
+        // pour un VRAI problème ouvrable : un signalement communauté ou un
+        // incident officiel CONCRET propre à la ligne. Un simple résumé (réseau
+        // OU ligne) du type "Réseau sous surveillance / signaux faibles /
+        // MIXTE" ne déclenche PLUS l'alarme : il n'a ni "quoi" ni "où" concret,
+        // donc il est montré comme contexte (carte info bleue) dans l'onglet
+        // Officiel, sans faire croire à une perturbation. (cf. hasLineLevelSummary,
+        // gardé pour d'éventuels usages mais volontairement hors de l'alarme.)
+        activeInfoCount > 0
     }
 
     private var trafficStatusIcon: String {
@@ -781,19 +780,22 @@ struct LigneDetailPage: View {
         let hasLineSummary = (lineSummary?.shortText.isEmpty == false) || (lineSummary?.longText.isEmpty == false)
         let globalSummary = viewModel.matchingGlobalSummary
 
-        if incidents.isEmpty && !hasLineSummary {
-            // No line-specific data. If the line is mentioned in the global
-            // network advisory, surface that as a labelled context card —
-            // separate from the (zero) count badge so the user understands
-            // there's no concrete line entry but the line *is* listed in a
-            // wider advisory.
+        if incidents.isEmpty {
+            // Aucun incident officiel CONCRET sur la ligne → PAS de carte
+            // d'alerte orange. Les résumés (ligne ou réseau) du type "Réseau
+            // sous surveillance" sont affichés comme CONTEXTE (carte info
+            // bleue), cohérent avec le bandeau qui reste vert. Avant, un résumé
+            // de ligne vague passait par perturbationSummaryRow (orange ⚠️) et
+            // faisait croire à une perturbation.
             VStack(spacing: 8) {
                 emptyStateCard(
                     icon: "checkmark.seal.fill",
                     title: String(localized: "Pas d'info officielle sur cette ligne"),
                     detail: String(localized: "La STIB-MIVB n'a publié aucune perturbation propre à cette ligne.")
                 )
-                if let globalSummary {
+                if let lineSummary, hasLineSummary {
+                    networkAdvisoryRow(lineSummary)
+                } else if let globalSummary {
                     networkAdvisoryRow(globalSummary)
                 }
             }

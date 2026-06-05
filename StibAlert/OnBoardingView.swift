@@ -287,11 +287,14 @@ private struct OnboardingLinesStep: View {
         defer { isLoadingStib = false }
         do {
             let lignes = try await LigneService.etatLignes()
+            // On réduit chaque ligne à son shortCode (ex: "10:City"/"10:Suburb"
+            // → "10") et on déduplique : avant, les variantes City/Suburb
+            // s'affichaient en doublons "10:CITY" / "10:SUBURB", moches. Le
+            // shortCode permet aussi d'appliquer la vraie couleur de ligne.
             let ids = lignes
-                .map(\.lineid)
-                .map(Self.normalizedStoredLine)
+                .map { LineStatusGrid.shortCode(from: $0.lineid) }
                 .filter { !$0.isEmpty }
-            let uniqueIds = Array(Set(ids)).sorted(by: Self.storedLineSort)
+            let uniqueIds = Array(Set(ids)).sorted { (Int($0) ?? 999) < (Int($1) ?? 999) }
             if !uniqueIds.isEmpty {
                 stibLines = uniqueIds
             }
@@ -572,6 +575,11 @@ private struct OnboardingOperatorLineBadge: View {
            colorHex.uppercased() != "FFFFFF" {
             return Color(hex: colorHex.hasPrefix("#") ? colorHex : "#\(colorHex)")
         }
+        // STIB : vraie couleur OFFICIELLE par ligne (comme la page horaires)
+        // au lieu d'une couleur de marque générique bleue pour toutes les lignes.
+        if candidate.operatorType == .stib {
+            return TransitLinePalette.fill(for: candidate.displayCode)
+        }
         return candidate.operatorType.brandColor
     }
 
@@ -579,6 +587,9 @@ private struct OnboardingOperatorLineBadge: View {
         if let textHex = candidate.textHex?.trimmingCharacters(in: .whitespacesAndNewlines),
            !textHex.isEmpty {
             return Color(hex: textHex.hasPrefix("#") ? textHex : "#\(textHex)")
+        }
+        if candidate.operatorType == .stib {
+            return TransitLinePalette.foreground(for: candidate.displayCode)
         }
         return candidate.operatorType.brandTextColor
     }

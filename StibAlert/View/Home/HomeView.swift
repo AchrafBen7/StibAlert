@@ -752,10 +752,12 @@ struct HomeView: View {
     }
 
     var shouldShowPulseBar: Bool {
-        // Hide the + floating button while the cluster sheet is open —
-        // otherwise it overlaps the "C'est résolu" / "Toujours bloqué" CTAs
-        // at the bottom of the cluster card.
-        homeSurfaceMode == .mapIdle && selectedClusterIndex == nil
+        // Masque les boutons flottants (micro / IA / position / +) quand une
+        // sheet de cluster OU la légende des calques est ouverte : sinon ils
+        // recouvrent le bas de ces panneaux — la légende devenait illisible,
+        // ses derniers items (Villo, Évènements, Vue épurée) passant sous les
+        // boutons.
+        homeSurfaceMode == .mapIdle && selectedClusterIndex == nil && !showLegend
     }
 
     var shouldShowTabBar: Bool {
@@ -800,9 +802,9 @@ struct HomeView: View {
             return "📍 \(stop)"
         }
         if locationManager.userCoordinate != nil {
-            return "📍 autour de moi"
+            return "📍 " + AppLocalizer.string("stibai.scope.around_me", defaultValue: "autour de moi")
         }
-        return "📍 localisation non active"
+        return "📍 " + AppLocalizer.string("stibai.scope.location_off", defaultValue: "localisation non active")
     }
 
     private var stibAIContextSnapshot: STIBAIContext {

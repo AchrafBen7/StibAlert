@@ -148,7 +148,7 @@ struct PrivacyConsentView: View {
         }
     }
 
-    private func sectionView(icon: String, title: String, description: String) -> some View {
+    private func sectionView(icon: String, title: LocalizedStringKey, description: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 22, weight: .semibold))

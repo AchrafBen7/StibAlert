@@ -30,7 +30,7 @@ struct HomeSearchHeaderOverlay: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            if !connectivity.isConnected || connectivity.isConstrained || offlineQueue.pendingCount > 0 {
+            if offlineQueue.pendingCount > 0 {
                 OfflineIndicator(
                     isConnected: connectivity.isConnected,
                     isConstrained: connectivity.isConstrained,

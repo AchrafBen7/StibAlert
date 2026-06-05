@@ -7,12 +7,17 @@ final class STIBAIViewModel: ObservableObject {
     @Published var isStreaming = false
     @Published var errorMessage: String?
 
-    let quickPrompts = [
-        "Y a-t-il des perturbations en ce moment ?",
-        "Mon trajet est-il à risque ?",
-        "Quelle alternative si ma ligne est bloquée ?",
-        "Que se passe-t-il autour de moi ?"
-    ]
+    // Suggestions localisées (avant : codées en dur en français → elles
+    // apparaissaient en FR même dans une app en NL). Computed pour suivre la
+    // langue de l'app à chaque ouverture du chat.
+    var quickPrompts: [String] {
+        [
+            AppLocalizer.string("stibai.prompt.disruptions", defaultValue: "Y a-t-il des perturbations en ce moment ?"),
+            AppLocalizer.string("stibai.prompt.risk", defaultValue: "Mon trajet est-il à risque ?"),
+            AppLocalizer.string("stibai.prompt.alternative", defaultValue: "Quelle alternative si ma ligne est bloquée ?"),
+            AppLocalizer.string("stibai.prompt.around", defaultValue: "Que se passe-t-il autour de moi ?")
+        ]
+    }
 
     private let client: STIBAIClient
     private let contextProvider: @MainActor (_ userMessage: String) async -> STIBAIContext

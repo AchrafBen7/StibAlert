@@ -7,30 +7,32 @@ enum STIBAIError: Error, LocalizedError {
     case network(Error)
 
     var errorDescription: String? {
+        // Messages localisés (avant : FR codé en dur → "Connexion interrompue…"
+        // s'affichait en français dans une app en NL).
         switch self {
         case .invalidURL:
-            return "URL assistant invalide."
+            return AppLocalizer.string("stibai.error.invalid_url", defaultValue: "URL assistant invalide.")
         case .invalidResponse:
-            return "Réponse assistant invalide."
+            return AppLocalizer.string("stibai.error.invalid_response", defaultValue: "Réponse assistant invalide.")
         case .server(let status):
             return status == 429
-                ? "Trop de demandes vers l'assistant. Réessaie dans un instant."
-                : "Assistant temporairement indisponible."
+                ? AppLocalizer.string("stibai.error.too_many", defaultValue: "Trop de demandes vers l'assistant. Réessaie dans un instant.")
+                : AppLocalizer.string("stibai.error.unavailable", defaultValue: "Assistant temporairement indisponible.")
         case .network(let error):
             guard let urlError = error as? URLError else {
-                return "Connexion instable. Réessaie dans quelques secondes."
+                return AppLocalizer.string("stibai.error.unstable", defaultValue: "Connexion instable. Réessaie dans quelques secondes.")
             }
             switch urlError.code {
             case .notConnectedToInternet:
-                return "Aucune connexion internet détectée."
+                return AppLocalizer.string("stibai.error.no_internet", defaultValue: "Aucune connexion internet détectée.")
             case .timedOut:
-                return "L'assistant met trop de temps à répondre. Réessaie."
+                return AppLocalizer.string("stibai.error.timeout", defaultValue: "L'assistant met trop de temps à répondre. Réessaie.")
             case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed:
-                return "Serveur assistant momentanément inaccessible."
+                return AppLocalizer.string("stibai.error.server_unreachable", defaultValue: "Serveur assistant momentanément inaccessible.")
             case .networkConnectionLost:
-                return "Connexion interrompue pendant la réponse. Réessaie."
+                return AppLocalizer.string("stibai.error.connection_lost", defaultValue: "Connexion interrompue pendant la réponse. Réessaie.")
             default:
-                return "Connexion instable. Réessaie dans quelques secondes."
+                return AppLocalizer.string("stibai.error.unstable", defaultValue: "Connexion instable. Réessaie dans quelques secondes.")
             }
         }
     }
