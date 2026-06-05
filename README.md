@@ -1,8 +1,6 @@
-# StibAlert
+# Blayse
 
-StibAlert is an iOS mobility app for Brussels public transport. The project started as a STIB/MIVB incident app and has evolved into a multi-operator transport companion covering STIB/MIVB, SNCB/NMBS, De Lijn, TEC, Villo and community reports.
-
-The current TestFlight name is still `StibAlert`. The product direction is broader than STIB only, so the final public name may change.
+Blayse is an iOS mobility app for Brussels public transport. The project started as a STIB/MIVB incident app and has evolved into a multi-operator transport companion covering STIB/MIVB, SNCB/NMBS, De Lijn, TEC, Villo and community reports.
 
 This project started as a personal project before becoming a final-year project. Some files, comments, labels and internal naming are therefore still written in French. The product itself targets French and Dutch users, while the codebase is being progressively cleaned and localized.
 
