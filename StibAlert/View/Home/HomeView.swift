@@ -1759,7 +1759,7 @@ struct HomeView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color(hex: "#FFB15D"))
 
-            Text("\(highlightedEventCount) événement\(highlightedEventCount == 1 ? "" : "s") à surveiller")
+            Text(AppLocalizer.format("events.to_watch", defaultValue: "%lld événements à surveiller", highlightedEventCount))
                 .font(AppTheme.Fonts.captionStrong)
                 .foregroundStyle(AppTheme.Palette.textPrimary)
 

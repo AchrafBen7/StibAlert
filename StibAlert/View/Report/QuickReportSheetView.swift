@@ -891,7 +891,7 @@ struct QuickReportSheetView: View {
                     Image(systemName: typeIcon(type))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(type.accentColor)
-                    Text(type.title)
+                    Text(type.localizedTitle)
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                     Spacer()
@@ -899,7 +899,7 @@ struct QuickReportSheetView: View {
                         .fill(type.accentColor)
                         .frame(width: 9, height: 9)
                 }
-                Text(type.descriptionLines.first ?? "")
+                Text(type.localizedShortDescription)
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(DS.Color.inkSoft)
                     .lineLimit(2)

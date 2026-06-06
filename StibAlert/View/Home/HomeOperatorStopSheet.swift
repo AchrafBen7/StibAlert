@@ -145,7 +145,7 @@ struct HomeOperatorStopSheet: View {
 
             if let reply, !reply.live, futurePassages.isEmpty {
                 // Cas dégradé : pas de live + pas de fallback
-                Text(reply.error ?? "Données temps réel indisponibles pour cet arrêt.")
+                Text(reply.error ?? AppLocalizer.string("realtime.unavailable_stop", defaultValue: "Données temps réel indisponibles pour cet arrêt."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else if futurePassages.isEmpty, !isLoading {

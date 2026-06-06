@@ -13499,6 +13499,83 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Opgelost" } }
       }
     },
+    "realtime.unavailable_stop" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Real-time data unavailable for this stop." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Données temps réel indisponibles pour cet arrêt." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Realtime gegevens niet beschikbaar voor deze halte." } }
+      }
+    },
+    "events.to_watch" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld events to watch" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld événements à surveiller" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld evenementen te volgen" } }
+      }
+    },
+    "confidence.gps_default" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Based on the GPS proximity observed at the time of the report." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur la proximité GPS observée au moment du signalement." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op de waargenomen GPS-nabijheid op het moment van de melding." } }
+      }
+    },
+    "report.help.control" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Inspectors at the stop or on board" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Contrôleurs à l’arrêt ou à bord" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Controleurs aan de halte of aan boord" } }
+      }
+    },
+    "report.help.crowding" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Packed vehicle" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Véhicule bondé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Overvol voertuig" } }
+      }
+    },
+    "report.help.accident" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Collision or fall" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Collision ou chute" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Aanrijding of val" } }
+      }
+    },
+    "report.help.delay" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "More than 10 min wait?" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Plus de 10 min d’attente?" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meer dan 10 min wachten?" } }
+      }
+    },
+    "report.help.breakdown" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vehicle stuck" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Véhicule bloqué" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Voertuig geblokkeerd" } }
+      }
+    },
+    "report.help.incivility" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loud music or shouting" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Musique ou cris forts" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Luide muziek of geroep" } }
+      }
+    },
+    "report.help.cleanliness" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Litter or strong smell" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Déchets ou odeur forte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Afval of sterke geur" } }
+      }
+    },
+    "report.help.aggression" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Violent behaviour" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Comportement violent" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gewelddadig gedrag" } }
+      }
+    },
     "report.select_problem_type" : {
       "extractionState" : "stale",
       "localizations" : {

@@ -172,7 +172,7 @@ struct SignalementMiniCard: View {
         .alert("Pourquoi cette confiance ?", isPresented: $showConfidenceExplanation) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(signalement.confidenceExplanation ?? "Basée sur la proximité GPS observée au moment du signalement.")
+            Text(signalement.confidenceExplanation ?? AppLocalizer.string("confidence.gps_default", defaultValue: "Basée sur la proximité GPS observée au moment du signalement."))
         }
     }
 

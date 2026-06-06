@@ -122,6 +122,26 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Libellé LOCALISÉ pour l'AFFICHAGE (≠ `title`, qui reste la valeur
+    /// canonique française envoyée au backend). Réutilise le localizer partagé.
+    var localizedTitle: String {
+        SignalementDTO.localizedReportType(title)
+    }
+
+    /// Sous-titre court LOCALISÉ (1ʳᵉ ligne de `descriptionLines`) pour le picker.
+    var localizedShortDescription: String {
+        switch self {
+        case .control:     return AppLocalizer.string("report.help.control", defaultValue: "Contrôleurs à l’arrêt ou à bord")
+        case .crowding:    return AppLocalizer.string("report.help.crowding", defaultValue: "Véhicule bondé")
+        case .accident:    return AppLocalizer.string("report.help.accident", defaultValue: "Collision ou chute")
+        case .delay:       return AppLocalizer.string("report.help.delay", defaultValue: "Plus de 10 min d’attente?")
+        case .breakdown:   return AppLocalizer.string("report.help.breakdown", defaultValue: "Véhicule bloqué")
+        case .incivility:  return AppLocalizer.string("report.help.incivility", defaultValue: "Musique ou cris forts")
+        case .cleanliness: return AppLocalizer.string("report.help.cleanliness", defaultValue: "Déchets ou odeur forte")
+        case .aggression:  return AppLocalizer.string("report.help.aggression", defaultValue: "Comportement violent")
+        }
+    }
+
     var backgroundColor: Color {
         switch self {
         case .control:
