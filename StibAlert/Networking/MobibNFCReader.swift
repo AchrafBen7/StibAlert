@@ -169,12 +169,12 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             await MainActor.run {
                 for line in extraDebug { self.appendDebug(level: "info", line) }
                 if payload.aid != nil {
+                    let df = DateFormatter()
+                    df.dateFormat = "dd/MM/yyyy"
                     var insight = "Décodé: \(payload.networkLabel ?? "MoBIB") • \(payload.contractCount) contrats"
-                    if let birth = payload.holderBirthDate {
-                        let df = DateFormatter()
-                        df.dateFormat = "dd/MM/yyyy"
-                        insight += " • titulaire né le \(df.string(from: birth))"
-                    }
+                    if let number = payload.cardNumber { insight += " • n° \(number)" }
+                    if let validity = payload.validityEnd { insight += " • valable jusqu'au \(df.string(from: validity))" }
+                    if let birth = payload.holderBirthDate { insight += " • né le \(df.string(from: birth))" }
                     self.appendDebug(level: "success", insight)
                 }
                 if !payload.lastValidations.isEmpty {
@@ -363,14 +363,13 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
         //    sinon repli sur les 1ers octets de l'environnement.
         let contractCount = result.files.filter { $0.sfi == 0x09 }.count
         let network = Self.networkLabel(forAID: aid)
-        let env = result.files.first { $0.sfi == 0x07 }
-        let birth = env.flatMap { CalypsoIntercode.findBirthDateBCD(in: $0.data) }
-        let calypsoVersion: Int? = env.map {
-            var reader = CalypsoIntercode.BitReader($0.data)
-            return reader.read(6)
-        }.flatMap { $0 >= 0 ? $0 : nil }
+        let envData = result.files.first { $0.sfi == 0x07 }?.data
+        let mobibEnv = envData.map { CalypsoIntercode.decodeMobibEnvironment($0) }
+            ?? CalypsoIntercode.MobibEnvironment()
+        // Repli sur le scan BCD si la structure positionnelle échoue (autre version).
+        let birth = mobibEnv.birthDate ?? envData.flatMap { CalypsoIntercode.findBirthDateBCD(in: $0) }
         let icc = result.files.first { $0.sfi == 0x02 }
-        let serial = (icc ?? env).map { String(hexString(from: $0.data).prefix(16)) }
+        let chipHex = (icc?.data).map { String(hexString(from: $0).prefix(16)) }
         let country = aid.localizedCaseInsensitiveContains("1TIC") ? "Belgique" : nil
 
         return MobibScanPayload(
@@ -380,15 +379,17 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             debugSummary: "MoBIB \(network) • \(result.files.count) fichiers • \(contractCount) contrats • \(validations.count) validations",
             isPartial: false,
             aid: aid,
-            cardSerial: serial,
+            cardSerial: chipHex,
             lastValidations: validations,
             rawDump: dump,
             networkLabel: network,
             contractCount: contractCount,
             fileCount: result.files.count,
             holderBirthDate: birth,
-            calypsoVersion: calypsoVersion,
-            country: country
+            calypsoVersion: mobibEnv.calypsoVersion,
+            country: country,
+            validityEnd: mobibEnv.validityEnd,
+            cardNumber: mobibEnv.cardNumber
         )
     }
 
@@ -486,6 +487,63 @@ enum CalypsoIntercode {
             date: date(daysSince1997: days),
             minutesSinceMidnight: (minutes >= 0 && minutes < 1440) ? minutes : nil
         )
+    }
+
+    /// Résultat du décodage de l'environnement MoBIB (SFI 07).
+    struct MobibEnvironment {
+        var calypsoVersion: Int? = nil
+        var networkId: Int? = nil
+        var validityEnd: Date? = nil   // date de fin de validité de la carte
+        var birthDate: Date? = nil     // date de naissance du titulaire
+        var cardNumber: String? = nil  // n° de carte imprimé (serial BCD)
+    }
+
+    /// Décode l'environnement MoBIB STIB en suivant la structure réelle
+    /// (alignée sur le parseur open-source Metrodroid, version d'appli > 2) :
+    ///   version(6) | inconnuA(7) | networkId(24) | inconnuB(5) |
+    ///   FIN_VALIDITÉ(date 14) | inconnuC(10) | NAISSANCE(BCD 32) |
+    ///   N°_CARTE(BCD 76 bits = 19 chiffres) | ...
+    /// Double-vérifié sur une vraie carte : networkId = 0x056001 (STIB-MIVB,
+    /// identique au FCI) ET naissance = 2004-03-12 (confirmée par le titulaire),
+    /// ce qui valide tous les offsets — donc la fin de validité (b42) est fiable.
+    static func decodeMobibEnvironment(_ data: Data) -> MobibEnvironment {
+        let bytes = [UInt8](data)
+        guard bytes.count >= 22 else { return MobibEnvironment() }
+        func bit(_ i: Int) -> Int { (Int(bytes[i / 8]) >> (7 - i % 8)) & 1 }
+        func read(_ start: Int, _ count: Int) -> Int {
+            var v = 0
+            for k in 0..<count { v = (v << 1) | bit(start + k) }
+            return v
+        }
+        var env = MobibEnvironment()
+        env.calypsoVersion = read(0, 6)
+        env.networkId = read(13, 24)
+        env.validityEnd = date(daysSince1997: read(42, 14))
+        env.birthDate = bcdToDate(read(66, 32))
+        // N° de carte : 19 chiffres BCD (76 bits) à partir du bit 98.
+        var digits = ""
+        for k in 0..<19 {
+            let nib = read(98 + k * 4, 4)
+            if nib > 9 { digits = ""; break }   // pas du BCD propre → on abandonne
+            digits += String(nib)
+        }
+        env.cardNumber = digits.isEmpty ? nil : digits
+        return env
+    }
+
+    /// Convertit un entier BCD AAAAMMJJ (ex: 0x20040312) en Date.
+    static func bcdToDate(_ value: Int) -> Date? {
+        let nibs = (0..<8).map { (value >> (4 * (7 - $0))) & 0xF }
+        if nibs.contains(where: { $0 > 9 }) { return nil }
+        let year = nibs[0] * 1000 + nibs[1] * 100 + nibs[2] * 10 + nibs[3]
+        let month = nibs[4] * 10 + nibs[5]
+        let day = nibs[6] * 10 + nibs[7]
+        guard (1900...2100).contains(year), (1...12).contains(month), (1...31).contains(day) else { return nil }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
+        var c = DateComponents()
+        c.year = year; c.month = month; c.day = day
+        return cal.date(from: c)
     }
 
     /// MSB-first bit-reader; read() geeft -1 bij onvoldoende data.

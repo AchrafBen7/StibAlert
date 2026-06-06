@@ -125,13 +125,20 @@ struct TransitPassSettingsView: View {
             syncDraftWithSessionNameIfNeeded()
         }
         .onReceive(nfcReader.$lastScan.compactMap { $0 }) { scan in
-            // Store the NFC fingerprint separately from cardNumber. We used to
-            // auto-fill cardNumber with the UID, but that's confusing — the UID
-            // is the chip identifier, not the human-readable serial printed on
-            // the card. The user enters the printed number themselves.
             draftPass.nfcFingerprint = scan.fingerprint
             draftPass.nfcTagType = scan.tagType
             draftPass.lastScannedAt = scan.scannedAt
+            // Auto-remplissage depuis la puce — c'est tout l'intérêt du scan :
+            // on lit le VRAI n° de carte imprimé (serial BCD de l'environnement)
+            // et la date de fin de validité. Plus besoin de saisie manuelle.
+            // L'ancien code laissait l'UID/le champ vide car on n'avait que
+            // l'identifiant du chip ; on a maintenant la donnée utile.
+            if let number = scan.cardNumber, !number.isEmpty {
+                draftPass.cardNumber = number
+            }
+            if let validity = scan.validityEnd {
+                draftPass.expiryDate = validity
+            }
             save()
             triggerDetectionFeedback(isPartial: scan.isPartial)
         }
@@ -292,6 +299,14 @@ struct TransitPassSettingsView: View {
                             icon: "cpu",
                             label: AppLocalizer.string("transit_pass.insight.standard", defaultValue: "Standard"),
                             value: Text(verbatim: "Calypso v\(version)")
+                        )
+                    }
+                    if let validity = scan.validityEnd {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "calendar.badge.clock",
+                            label: AppLocalizer.string("transit_pass.insight.validity", defaultValue: "Valable jusqu'au"),
+                            value: Text(verbatim: birthFormatter.string(from: validity))
                         )
                     }
                     ProfileSettingsDivider()

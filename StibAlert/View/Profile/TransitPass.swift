@@ -110,6 +110,8 @@ struct MobibScanPayload: Equatable {
     var holderBirthDate: Date? = nil  // date de naissance (BCD, env SFI 07)
     var calypsoVersion: Int? = nil    // version appli Calypso (6 bits env)
     var country: String? = nil        // pays émetteur (ex: "Belgique")
+    var validityEnd: Date? = nil      // fin de validité de la carte (env, b42)
+    var cardNumber: String? = nil     // n° de carte imprimé (serial BCD, env)
 }
 
 enum MobibScanState: Equatable {

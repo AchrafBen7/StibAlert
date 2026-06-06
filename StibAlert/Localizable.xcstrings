@@ -21405,6 +21405,29 @@
           }
         }
       }
+    },
+    "transit_pass.insight.validity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valid until"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valable jusqu'au"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geldig tot"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
