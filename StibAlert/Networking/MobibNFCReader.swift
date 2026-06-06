@@ -168,6 +168,15 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
 
             await MainActor.run {
                 for line in extraDebug { self.appendDebug(level: "info", line) }
+                if payload.aid != nil {
+                    var insight = "Décodé: \(payload.networkLabel ?? "MoBIB") • \(payload.contractCount) contrats"
+                    if let birth = payload.holderBirthDate {
+                        let df = DateFormatter()
+                        df.dateFormat = "dd/MM/yyyy"
+                        insight += " • titulaire né le \(df.string(from: birth))"
+                    }
+                    self.appendDebug(level: "success", insight)
+                }
                 if !payload.lastValidations.isEmpty {
                     self.appendDebug(level: "success", "Validations: " + payload.lastValidations.joined(separator: " | "))
                 }
@@ -345,17 +354,37 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
         let serial = result.files.first { $0.sfi == 0x07 && $0.record == 1 }
             .map { String(hexString(from: $0.data).prefix(16)) }
 
+        // Décodage calé sur une vraie MoBIB STIB :
+        //  • contrats = enregistrements du fichier Contrats (SFI 09)
+        //  • date de naissance du titulaire = date BCD (AAAAMMJJ) présente
+        //    dans l'environnement (SFI 07) — ancre fiable, auto-validante.
+        let contractCount = result.files.filter { $0.sfi == 0x09 }.count
+        let network = Self.networkLabel(forAID: aid)
+        let birth = result.files.first { $0.sfi == 0x07 }
+            .flatMap { CalypsoIntercode.findBirthDateBCD(in: $0.data) }
+
         return MobibScanPayload(
             fingerprint: uid.isEmpty ? "MOBIB" : uid,
             tagType: "MoBIB / Calypso (\(aid))",
             scannedAt: Date(),
-            debugSummary: "MoBIB Calypso • \(result.files.count) fichiers • \(validations.count) validations",
+            debugSummary: "MoBIB \(network) • \(result.files.count) fichiers • \(contractCount) contrats • \(validations.count) validations",
             isPartial: false,
             aid: aid,
             cardSerial: serial,
             lastValidations: validations,
-            rawDump: dump
+            rawDump: dump,
+            networkLabel: network,
+            contractCount: contractCount,
+            fileCount: result.files.count,
+            holderBirthDate: birth
         )
+    }
+
+    /// Libellé réseau à partir de l'AID sélectionné. 1TIC.ICA = application
+    /// billettique MoBIB (Belgique) ; sur Bruxelles l'émetteur est la STIB-MIVB.
+    nonisolated private static func networkLabel(forAID aid: String) -> String {
+        if aid.localizedCaseInsensitiveContains("1TIC") { return "STIB-MIVB" }
+        return "MoBIB / Calypso"
     }
 
     nonisolated private static func hexString(from data: Data) -> String {
@@ -382,6 +411,39 @@ enum CalypsoIntercode {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
         return cal.date(byAdding: .day, value: days, to: epoch1997)
+    }
+
+    /// Cherche, dans l'environnement MoBIB (SFI 07), une date BCD (AAAAMMJJ) —
+    /// c'est la date de naissance du titulaire dans le format STIB réel. On fait
+    /// glisser une fenêtre de 32 bits (la date n'est PAS alignée sur l'octet sur
+    /// MoBIB) et on retient la 1ʳᵉ valeur dont les 8 quartets sont des chiffres
+    /// décimaux ET qui forme une date plausible. Auto-validante : un motif
+    /// aléatoire a très peu de chances de produire une vraie AAAAMMJJ.
+    static func findBirthDateBCD(in data: Data) -> Date? {
+        let bytes = [UInt8](data)
+        let totalBits = bytes.count * 8
+        guard totalBits >= 32 else { return nil }
+        func bit(_ i: Int) -> Int { (Int(bytes[i / 8]) >> (7 - i % 8)) & 1 }
+        func read32(_ start: Int) -> Int {
+            var v = 0
+            for k in 0..<32 { v = (v << 1) | bit(start + k) }
+            return v
+        }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
+        for off in 0...(totalBits - 32) {
+            let v = read32(off)
+            let nibs = (0..<8).map { (v >> (4 * (7 - $0))) & 0xF }
+            if nibs.contains(where: { $0 > 9 }) { continue }
+            let year = nibs[0] * 1000 + nibs[1] * 100 + nibs[2] * 10 + nibs[3]
+            let month = nibs[4] * 10 + nibs[5]
+            let day = nibs[6] * 10 + nibs[7]
+            guard (1925...2015).contains(year), (1...12).contains(month), (1...31).contains(day) else { continue }
+            var c = DateComponents()
+            c.year = year; c.month = month; c.day = day
+            if let d = cal.date(from: c) { return d }
+        }
+        return nil
     }
 
     struct Event {

@@ -45,6 +45,8 @@ struct TransitPassSettingsView: View {
 
                         scanStateBanner
 
+                        nfcInsightsSection
+
                         if shouldShowManualCompletionHint {
                             manualCompletionHint
                         }
@@ -153,7 +155,13 @@ struct TransitPassSettingsView: View {
     }
 
     private var cardValidity: TransitCardValidity {
-        TransitCardValidity.from(expiryDate: draftPass.expiryDate)
+        // Carte scannée mais sans date d'expiration lisible sur la puce → on
+        // affiche "LIÉE" (le scan a rattaché la carte) au lieu de "À COMPLÉTER".
+        if draftPass.expiryDate == nil,
+           let fingerprint = draftPass.nfcFingerprint, !fingerprint.isEmpty {
+            return .linked
+        }
+        return TransitCardValidity.from(expiryDate: draftPass.expiryDate)
     }
 
     /// C1 fix : avant on lisait `previewPass.holderName` qui a un fallback
@@ -254,6 +262,73 @@ struct TransitPassSettingsView: View {
             message: state.message,
             accent: Color(hex: state.accentHex)
         )
+    }
+
+    /// Ce que le scan a réellement décodé sur la puce (réseau, contrats, date de
+    /// naissance, dernières validations). N'apparaît qu'après une lecture
+    /// Calypso réussie. Lu en direct depuis `nfcReader.lastScan` (non persisté →
+    /// la date de naissance ne reste jamais en clair sur le disque).
+    @ViewBuilder
+    private var nfcInsightsSection: some View {
+        if let scan = nfcReader.lastScan, scan.aid != nil {
+            sectionGroup(title: AppLocalizer.string("transit_pass.insight.title", defaultValue: "Données lues sur la puce")) {
+                VStack(alignment: .leading, spacing: 0) {
+                    insightRow(
+                        icon: "antenna.radiowaves.left.and.right",
+                        label: AppLocalizer.string("transit_pass.insight.network", defaultValue: "Réseau"),
+                        value: Text(verbatim: scan.networkLabel ?? "MoBIB")
+                    )
+                    ProfileSettingsDivider()
+                    insightRow(
+                        icon: "doc.text.fill",
+                        label: AppLocalizer.string("transit_pass.insight.contracts", defaultValue: "Contrats chargés"),
+                        value: Text(verbatim: "\(scan.contractCount)")
+                    )
+                    if let birth = scan.holderBirthDate {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "person.text.rectangle",
+                            label: AppLocalizer.string("transit_pass.insight.holder", defaultValue: "Titulaire (puce)"),
+                            value: Text(verbatim: birthFormatter.string(from: birth))
+                        )
+                    }
+                    ProfileSettingsDivider()
+                    insightRow(
+                        icon: scan.lastValidations.isEmpty ? "clock.arrow.circlepath" : "checkmark.circle.fill",
+                        label: AppLocalizer.string("transit_pass.insight.validations", defaultValue: "Dernières validations"),
+                        value: scan.lastValidations.isEmpty
+                            ? Text(AppLocalizer.string("transit_pass.insight.none", defaultValue: "Aucune sur la puce"))
+                            : Text(verbatim: scan.lastValidations.prefix(2).joined(separator: " · "))
+                    )
+                }
+                .padding(16)
+            }
+        }
+    }
+
+    private func insightRow(icon: String, label: String, value: Text) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DS.Color.primary)
+                .frame(width: 22)
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(DS.Color.inkSoft)
+            Spacer(minLength: 12)
+            value
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 11)
+    }
+
+    private var birthFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = AppLocale.current
+        formatter.dateFormat = "dd/MM/yyyy"
+        return formatter
     }
 
     private var shouldShowManualCompletionHint: Bool {
@@ -584,6 +659,7 @@ private struct WalletPassPayload: Identifiable {
 
 enum TransitCardValidity {
     case noExpiry
+    case linked
     case valid(daysLeft: Int)
     case expiringSoon(daysLeft: Int)
     case expired(daysAgo: Int)
@@ -602,6 +678,7 @@ enum TransitCardValidity {
     var label: String {
         switch self {
         case .noExpiry: return "À COMPLÉTER"
+        case .linked: return AppLocalizer.string("transit_pass.status.linked", defaultValue: "LIÉE")
         case .valid(let days):
             if days >= 365 { return "VALIDE" }
             return "VALIDE · \(days) j"
@@ -618,6 +695,7 @@ enum TransitCardValidity {
     var color: Color {
         switch self {
         case .noExpiry: return DS.Color.inkMute
+        case .linked: return DS.Color.statusOK
         case .valid: return DS.Color.statusOK
         case .expiringSoon: return DS.Color.statusMinor
         case .expired: return DS.Color.statusMajor

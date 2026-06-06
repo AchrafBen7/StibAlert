@@ -37,7 +37,15 @@ struct TransitPass: Codable, Equatable {
     }
 
     var statusLabel: String {
-        guard let expiryDate else { return "A completer" }
+        guard let expiryDate else {
+            // Carte scannée (empreinte présente) mais sans date d'expiration
+            // lisible sur la puce → "Liée" plutôt que "À compléter" : le scan a
+            // bien rattaché la carte physique au profil.
+            if let fingerprint = nfcFingerprint, !fingerprint.isEmpty {
+                return AppLocalizer.string("transit_pass.status.linked_short", defaultValue: "Liée")
+            }
+            return "A completer"
+        }
         let calendar = Calendar.current
         let now = calendar.startOfDay(for: Date())
         let expiry = calendar.startOfDay(for: expiryDate)
@@ -95,6 +103,11 @@ struct MobibScanPayload: Equatable {
     var cardSerial: String? = nil
     var lastValidations: [String] = []
     var rawDump: String? = nil
+    // Décodage Calypso/MoBIB calé sur le format réel STIB (best-effort).
+    var networkLabel: String? = nil   // ex: "STIB-MIVB"
+    var contractCount: Int = 0        // nb de contrats lus (SFI 09)
+    var fileCount: Int = 0            // nb total de fichiers avec données
+    var holderBirthDate: Date? = nil  // date de naissance (BCD, env SFI 07)
 }
 
 enum MobibScanState: Equatable {
