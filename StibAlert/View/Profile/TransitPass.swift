@@ -89,6 +89,12 @@ struct MobibScanPayload: Equatable {
     let scannedAt: Date
     let debugSummary: String
     let isPartial: Bool
+    // Données Calypso/MoBIB lues réellement sur la carte (optionnelles : les
+    // tags non-Calypso ne les remplissent pas).
+    var aid: String? = nil
+    var cardSerial: String? = nil
+    var lastValidations: [String] = []
+    var rawDump: String? = nil
 }
 
 enum MobibScanState: Equatable {

@@ -141,14 +141,36 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
     nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
         guard let firstTag = tags.first else { return }
 
-        session.connect(to: firstTag) { error in
-            if let error {
+        Task {
+            do {
+                try await session.connect(to: firstTag)
+            } catch {
+                await MainActor.run {
+                    self.appendDebug(level: "error", "Connexion au tag échouée: \(error.localizedDescription)")
+                }
                 session.invalidate(errorMessage: error.localizedDescription)
                 return
             }
 
-            let payload = Self.buildPayload(from: firstTag)
-            Task { @MainActor in
+            // MoBIB = Calypso (ISO 7816). On LIT réellement la carte (SELECT de
+            // l'application transport + READ RECORD) pour en sortir un max
+            // d'infos : dernières validations + fichiers bruts. Les autres types
+            // de tag retombent sur l'empreinte UID seule.
+            let payload: MobibScanPayload
+            var extraDebug: [String] = []
+            if case let .iso7816(iso) = firstTag {
+                let result = await Self.readCalypso(iso)
+                extraDebug = result.debug
+                payload = Self.buildCalypsoPayload(tag: iso, result: result)
+            } else {
+                payload = Self.buildPayload(from: firstTag)
+            }
+
+            await MainActor.run {
+                for line in extraDebug { self.appendDebug(level: "info", line) }
+                if !payload.lastValidations.isEmpty {
+                    self.appendDebug(level: "success", "Validations: " + payload.lastValidations.joined(separator: " | "))
+                }
                 self.lastScan = payload
                 self.isScanning = false
                 self.session = nil
@@ -156,8 +178,8 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
                 self.appendDebug(level: payload.isPartial ? "warning" : "success", payload.debugSummary)
             }
             session.alertMessage = payload.isPartial
-                ? "Tag detecte. Completez les informations manquantes dans le profil."
-                : "Carte detectee et associee a votre profil."
+                ? "Carte lue partiellement — détails dans le profil."
+                : "Carte MoBIB lue."
             session.invalidate()
         }
     }
@@ -223,8 +245,184 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
         }
     }
 
+    /// Lit réellement une carte Calypso/MoBIB : SELECT de l'application
+    /// transport puis READ RECORD sur les SFI usuels (environnement,
+    /// événements, contrats, compteurs). Renvoie les fichiers BRUTS + des lignes
+    /// de debug. Aucun décodage destructif : on ramène les octets bruts pour
+    /// pouvoir caler le parsing exact sur une vraie MoBIB ensuite.
+    nonisolated private static func readCalypso(
+        _ tag: NFCISO7816Tag
+    ) async -> (files: [(sfi: UInt8, record: Int, data: Data)], aid: String?, debug: [String]) {
+        var files: [(sfi: UInt8, record: Int, data: Data)] = []
+        var debug: [String] = []
+
+        // 1) SELECT de l'application : on essaie les AID déclarés dans Info.plist.
+        let aids: [(name: String, bytes: [UInt8])] = [
+            ("1TIC.ICA", [0x31, 0x54, 0x49, 0x43, 0x2E, 0x49, 0x43, 0x41]),
+            ("Calypso BPrime", [0xA0, 0x00, 0x00, 0x04, 0x04, 0x01, 0x25, 0x00, 0x91, 0x01]),
+            ("Calypso", [0x33, 0x4D, 0x54, 0x52, 0x00, 0x10])
+        ]
+        var selectedAID: String?
+        for aid in aids {
+            let apdu = NFCISO7816APDU(
+                instructionClass: 0x00, instructionCode: 0xA4,
+                p1Parameter: 0x04, p2Parameter: 0x00,
+                data: Data(aid.bytes), expectedResponseLength: 256
+            )
+            if let (resp, sw1, sw2) = try? await tag.sendCommand(apdu: apdu) {
+                debug.append(String(format: "SELECT %@ → SW %02X%02X", aid.name, sw1, sw2))
+                if sw1 == 0x90 && sw2 == 0x00 {
+                    selectedAID = aid.name
+                    if !resp.isEmpty { debug.append("  FCI: " + String(hexString(from: resp).prefix(48))) }
+                    break
+                }
+            } else {
+                debug.append("SELECT \(aid.name) → erreur I/O")
+            }
+        }
+        guard let selectedAID else {
+            debug.append("Aucune application Calypso sélectionnée (carte non MoBIB ou lecture refusée).")
+            return (files: [], aid: nil, debug: debug)
+        }
+
+        // 2) READ RECORD sur les SFI usuels Calypso/Intercode.
+        let sfis: [UInt8] = [0x07, 0x06, 0x08, 0x09, 0x0A, 0x19, 0x1A, 0x1D]
+        for sfi in sfis {
+            for record in 1...3 {
+                let p2 = UInt8((Int(sfi) << 3) | 0x04)
+                let apdu = NFCISO7816APDU(
+                    instructionClass: 0x00, instructionCode: 0xB2,
+                    p1Parameter: UInt8(record), p2Parameter: p2,
+                    data: Data(), expectedResponseLength: 256
+                )
+                guard let (resp, sw1, sw2) = try? await tag.sendCommand(apdu: apdu) else { break }
+                if sw1 == 0x90 && sw2 == 0x00 && !resp.isEmpty {
+                    files.append((sfi: sfi, record: record, data: resp))
+                    debug.append(String(format: "READ sfi=%02X rec=%d (%dB): %@", sfi, record, resp.count, String(hexString(from: resp).prefix(64))))
+                } else {
+                    break // 6A82/6A83 = fichier/record absent → SFI suivant
+                }
+            }
+        }
+        debug.append("Calypso: \(files.count) fichiers lus via \(selectedAID).")
+        return (files: files, aid: selectedAID, debug: debug)
+    }
+
+    /// Construit le payload à partir des fichiers Calypso lus : dump brut de
+    /// tous les fichiers + décodage des dernières validations (SFI 0x08).
+    nonisolated private static func buildCalypsoPayload(
+        tag: NFCISO7816Tag,
+        result: (files: [(sfi: UInt8, record: Int, data: Data)], aid: String?, debug: [String])
+    ) -> MobibScanPayload {
+        let uid = hexString(from: Data(tag.identifier))
+        guard let aid = result.aid, !result.files.isEmpty else {
+            return MobibScanPayload(
+                fingerprint: uid.isEmpty ? "ISO7816" : uid,
+                tagType: "ISO7816 / Calypso",
+                scannedAt: Date(),
+                debugSummary: "Calypso: SELECT/lecture impossible — UID seul.",
+                isPartial: true,
+                cardSerial: uid.isEmpty ? nil : uid
+            )
+        }
+
+        let dump = result.files
+            .map { String(format: "SFI %02X rec %d: %@", $0.sfi, $0.record, hexString(from: $0.data)) }
+            .joined(separator: "\n")
+
+        var validations: [String] = []
+        for file in result.files where file.sfi == 0x08 {
+            if let line = CalypsoIntercode.decodeEvent(file.data).displayLine {
+                validations.append(line)
+            }
+        }
+
+        let serial = result.files.first { $0.sfi == 0x07 && $0.record == 1 }
+            .map { String(hexString(from: $0.data).prefix(16)) }
+
+        return MobibScanPayload(
+            fingerprint: uid.isEmpty ? "MOBIB" : uid,
+            tagType: "MoBIB / Calypso (\(aid))",
+            scannedAt: Date(),
+            debugSummary: "MoBIB Calypso • \(result.files.count) fichiers • \(validations.count) validations",
+            isPartial: false,
+            aid: aid,
+            cardSerial: serial,
+            lastValidations: validations,
+            rawDump: dump
+        )
+    }
+
     nonisolated private static func hexString(from data: Data) -> String {
         data.map { String(format: "%02X", $0) }.joined()
     }
 }
 #endif
+
+/// Décodeur des champs Calypso/Intercode (date/heure) — sans dépendance CoreNFC,
+/// donc compilable même hors NFC. Le parsing fin (type/ligne/arrêt) varie selon
+/// la révision MoBIB et se cale sur un vrai dump.
+enum CalypsoIntercode {
+    /// Intercode compte les jours depuis le 1ᵉʳ janvier 1997 (Europe/Brussels).
+    static let epoch1997: Date = {
+        var c = DateComponents()
+        c.year = 1997; c.month = 1; c.day = 1
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
+        return cal.date(from: c) ?? Date(timeIntervalSince1970: 852_076_800)
+    }()
+
+    static func date(daysSince1997 days: Int) -> Date? {
+        guard days > 0, days < 40_000 else { return nil }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Brussels") ?? .current
+        return cal.date(byAdding: .day, value: days, to: epoch1997)
+    }
+
+    struct Event {
+        let date: Date?
+        let minutesSinceMidnight: Int?
+        var displayLine: String? {
+            guard let date else { return nil }
+            let df = DateFormatter()
+            df.locale = Locale(identifier: "nl_BE")
+            df.timeZone = TimeZone(identifier: "Europe/Brussels")
+            df.dateFormat = "dd/MM/yyyy"
+            var s = df.string(from: date)
+            if let m = minutesSinceMidnight, m >= 0, m < 1440 {
+                s += String(format: " %02d:%02d", m / 60, m % 60)
+            }
+            return s
+        }
+    }
+
+    /// Indeling gangbaar bij Intercode-events: EventDateStamp (14 bits, dagen
+    /// sinds 1997) + EventTimeStamp (11 bits, minuten sinds middernacht) aan het
+    /// begin van het record.
+    static func decodeEvent(_ data: Data) -> Event {
+        var reader = BitReader(data)
+        let days = reader.read(14)
+        let minutes = reader.read(11)
+        return Event(
+            date: date(daysSince1997: days),
+            minutesSinceMidnight: (minutes >= 0 && minutes < 1440) ? minutes : nil
+        )
+    }
+
+    /// MSB-first bit-reader; read() geeft -1 bij onvoldoende data.
+    struct BitReader {
+        private let bytes: [UInt8]
+        private var pos = 0
+        init(_ data: Data) { bytes = [UInt8](data) }
+        mutating func read(_ count: Int) -> Int {
+            guard count > 0, count <= 32, pos + count <= bytes.count * 8 else { pos += count; return -1 }
+            var value = 0
+            for _ in 0..<count {
+                let bit = (Int(bytes[pos / 8]) >> (7 - pos % 8)) & 1
+                value = (value << 1) | bit
+                pos += 1
+            }
+            return value
+        }
+    }
+}
