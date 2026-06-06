@@ -282,7 +282,7 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
                 debug.append(String(format: "SELECT %@ → SW %02X%02X", aid.name, sw1, sw2))
                 if sw1 == 0x90 && sw2 == 0x00 {
                     selectedAID = aid.name
-                    if !resp.isEmpty { debug.append("  FCI: " + String(hexString(from: resp).prefix(48))) }
+                    if !resp.isEmpty { debug.append("  FCI: " + hexString(from: resp)) }
                     break
                 }
             } else {
@@ -298,7 +298,10 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
         // IGNORE les enregistrements tout-à-zéro (slots vides non utilisés de la
         // carte, ex: sfi 1A/1D) et on logge le HEX COMPLET des fichiers AVEC
         // données — c'est ce dump qui permet de caler le décodage exact MoBIB.
-        let sfis: [UInt8] = [0x07, 0x06, 0x05, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F]
+        // 0x01-0x04 = ICC / ID / titulaire (le n° de série de la puce est en
+        // général dans l'ICC, SFI 0x02). Le reste = environnement, événements,
+        // contrats, compteurs, listes.
+        let sfis: [UInt8] = [0x01, 0x02, 0x03, 0x04, 0x07, 0x06, 0x05, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F]
         var emptyCount = 0
         for sfi in sfis {
             for record in 1...5 {
@@ -351,17 +354,24 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             }
         }
 
-        let serial = result.files.first { $0.sfi == 0x07 && $0.record == 1 }
-            .map { String(hexString(from: $0.data).prefix(16)) }
-
         // Décodage calé sur une vraie MoBIB STIB :
         //  • contrats = enregistrements du fichier Contrats (SFI 09)
-        //  • date de naissance du titulaire = date BCD (AAAAMMJJ) présente
-        //    dans l'environnement (SFI 07) — ancre fiable, auto-validante.
+        //  • date de naissance du titulaire = date BCD (AAAAMMJJ) dans
+        //    l'environnement (SFI 07) — ancre fiable, auto-validante (vérifiée).
+        //  • version de l'application Calypso = 6 premiers bits de l'env.
+        //  • n° de série de la puce = fichier ICC (SFI 02) s'il a été lu,
+        //    sinon repli sur les 1ers octets de l'environnement.
         let contractCount = result.files.filter { $0.sfi == 0x09 }.count
         let network = Self.networkLabel(forAID: aid)
-        let birth = result.files.first { $0.sfi == 0x07 }
-            .flatMap { CalypsoIntercode.findBirthDateBCD(in: $0.data) }
+        let env = result.files.first { $0.sfi == 0x07 }
+        let birth = env.flatMap { CalypsoIntercode.findBirthDateBCD(in: $0.data) }
+        let calypsoVersion: Int? = env.map {
+            var reader = CalypsoIntercode.BitReader($0.data)
+            return reader.read(6)
+        }.flatMap { $0 >= 0 ? $0 : nil }
+        let icc = result.files.first { $0.sfi == 0x02 }
+        let serial = (icc ?? env).map { String(hexString(from: $0.data).prefix(16)) }
+        let country = aid.localizedCaseInsensitiveContains("1TIC") ? "Belgique" : nil
 
         return MobibScanPayload(
             fingerprint: uid.isEmpty ? "MOBIB" : uid,
@@ -376,7 +386,9 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             networkLabel: network,
             contractCount: contractCount,
             fileCount: result.files.count,
-            holderBirthDate: birth
+            holderBirthDate: birth,
+            calypsoVersion: calypsoVersion,
+            country: country
         )
     }
 

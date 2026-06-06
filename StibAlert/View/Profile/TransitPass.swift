@@ -108,6 +108,8 @@ struct MobibScanPayload: Equatable {
     var contractCount: Int = 0        // nb de contrats lus (SFI 09)
     var fileCount: Int = 0            // nb total de fichiers avec données
     var holderBirthDate: Date? = nil  // date de naissance (BCD, env SFI 07)
+    var calypsoVersion: Int? = nil    // version appli Calypso (6 bits env)
+    var country: String? = nil        // pays émetteur (ex: "Belgique")
 }
 
 enum MobibScanState: Equatable {

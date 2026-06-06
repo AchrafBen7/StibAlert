@@ -278,6 +278,22 @@ struct TransitPassSettingsView: View {
                         label: AppLocalizer.string("transit_pass.insight.network", defaultValue: "Réseau"),
                         value: Text(verbatim: scan.networkLabel ?? "MoBIB")
                     )
+                    if let country = scan.country {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "globe.europe.africa.fill",
+                            label: AppLocalizer.string("transit_pass.insight.country", defaultValue: "Pays"),
+                            value: Text(verbatim: country)
+                        )
+                    }
+                    if let version = scan.calypsoVersion {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "cpu",
+                            label: AppLocalizer.string("transit_pass.insight.standard", defaultValue: "Standard"),
+                            value: Text(verbatim: "Calypso v\(version)")
+                        )
+                    }
                     ProfileSettingsDivider()
                     insightRow(
                         icon: "doc.text.fill",
@@ -290,6 +306,14 @@ struct TransitPassSettingsView: View {
                             icon: "person.text.rectangle",
                             label: AppLocalizer.string("transit_pass.insight.holder", defaultValue: "Titulaire (puce)"),
                             value: Text(verbatim: birthFormatter.string(from: birth))
+                        )
+                    }
+                    if let serial = scan.cardSerial, !serial.isEmpty {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "number",
+                            label: AppLocalizer.string("transit_pass.insight.serial", defaultValue: "N° de puce"),
+                            value: Text(verbatim: serial)
                         )
                     }
                     ProfileSettingsDivider()
