@@ -1,11 +1,11 @@
-# StibAlert
+# Blayse
 
 School project — Erasmushogeschool Brussel (EHB)
 Multimedia & Creative Technology · 2025-2026
 
 ## About the project
 
-StibAlert is an iOS app for Brussels public transport that I designed and built myself. It started as a STIB/MIVB incident app and grew into a multi-operator companion covering STIB/MIVB, NMBS/SNCB, De Lijn, TEC and Villo, combined with community reports and an AI assistant.
+Blayse is an iOS app for Brussels public transport that I designed and built myself. It started as a STIB/MIVB incident app and grew into a multi-operator companion covering STIB/MIVB, NMBS/SNCB, De Lijn, TEC and Villo, combined with community reports and an AI assistant. *(The codebase and repository are still named `StibAlert`.)*
 
 It is not just a timetable viewer. The goal is a "Waze for public transport": a live map, real-time and theoretical departures, official disruptions, community alerts, disruption-aware route planning and proactive notifications for everyday commuters in Brussels.
 
