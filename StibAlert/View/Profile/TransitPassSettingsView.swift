@@ -1,5 +1,6 @@
 import SwiftUI
 import PassKit
+import UIKit
 
 struct TransitPassSettingsView: View {
     @EnvironmentObject private var session: AuthSession
@@ -418,14 +419,29 @@ struct TransitPassSettingsView: View {
                     Spacer()
 
                     if !nfcReader.debugEvents.isEmpty {
-                        Button {
-                            nfcReader.clearDebugLog()
-                        } label: {
-                            Text("Effacer")
-                                .font(DS.Font.monoSmall.weight(.semibold))
-                                .foregroundStyle(DS.Color.primary)
+                        HStack(spacing: 16) {
+                            Button {
+                                let text = nfcReader.debugEvents.reversed()
+                                    .map { "[\($0.level)] \($0.message)" }
+                                    .joined(separator: "\n")
+                                UIPasteboard.general.string = text
+                                AppHaptics.success()
+                            } label: {
+                                Text("Copier")
+                                    .font(DS.Font.monoSmall.weight(.semibold))
+                                    .foregroundStyle(DS.Color.primary)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                nfcReader.clearDebugLog()
+                            } label: {
+                                Text("Effacer")
+                                    .font(DS.Font.monoSmall.weight(.semibold))
+                                    .foregroundStyle(DS.Color.inkMute)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
 

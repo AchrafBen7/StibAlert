@@ -285,10 +285,14 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
             return (files: [], aid: nil, debug: debug)
         }
 
-        // 2) READ RECORD sur les SFI usuels Calypso/Intercode.
-        let sfis: [UInt8] = [0x07, 0x06, 0x08, 0x09, 0x0A, 0x19, 0x1A, 0x1D]
+        // 2) READ RECORD sur un large éventail de SFI Calypso/Intercode. On
+        // IGNORE les enregistrements tout-à-zéro (slots vides non utilisés de la
+        // carte, ex: sfi 1A/1D) et on logge le HEX COMPLET des fichiers AVEC
+        // données — c'est ce dump qui permet de caler le décodage exact MoBIB.
+        let sfis: [UInt8] = [0x07, 0x06, 0x05, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F]
+        var emptyCount = 0
         for sfi in sfis {
-            for record in 1...3 {
+            for record in 1...5 {
                 let p2 = UInt8((Int(sfi) << 3) | 0x04)
                 let apdu = NFCISO7816APDU(
                     instructionClass: 0x00, instructionCode: 0xB2,
@@ -296,15 +300,16 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
                     data: Data(), expectedResponseLength: 256
                 )
                 guard let (resp, sw1, sw2) = try? await tag.sendCommand(apdu: apdu) else { break }
-                if sw1 == 0x90 && sw2 == 0x00 && !resp.isEmpty {
-                    files.append((sfi: sfi, record: record, data: resp))
-                    debug.append(String(format: "READ sfi=%02X rec=%d (%dB): %@", sfi, record, resp.count, String(hexString(from: resp).prefix(64))))
-                } else {
-                    break // 6A82/6A83 = fichier/record absent → SFI suivant
+                guard sw1 == 0x90 && sw2 == 0x00 && !resp.isEmpty else { break } // 6A8x = plus de record
+                if resp.allSatisfy({ $0 == 0 }) {
+                    emptyCount += 1
+                    continue // slot vide (non utilisé) → ignoré
                 }
+                files.append((sfi: sfi, record: record, data: resp))
+                debug.append(String(format: "DATA sfi=%02X rec=%d (%dB): %@", sfi, record, resp.count, hexString(from: resp)))
             }
         }
-        debug.append("Calypso: \(files.count) fichiers lus via \(selectedAID).")
+        debug.append("Calypso \(selectedAID): \(files.count) fichiers AVEC DONNÉES, \(emptyCount) vides ignorés.")
         return (files: files, aid: selectedAID, debug: debug)
     }
 
