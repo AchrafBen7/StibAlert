@@ -38,22 +38,18 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                ZStack {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(DS.Color.primary.opacity(0.14))
-                    Image(systemName: "tram.fill")
-                        .font(.system(size: 46, weight: .bold))
-                        .foregroundStyle(DS.Color.primary)
-                }
-                .frame(width: 112, height: 112)
-                .shadow(color: DS.Color.primary.opacity(0.18), radius: 16, y: 8)
-                .scaleEffect(reveal ? 1 : 0.86)
-                .opacity(reveal ? 1 : 0)
+                Image("BlayseLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 132, height: 132)
+                    .shadow(color: DS.Color.primary.opacity(0.18), radius: 16, y: 8)
+                    .scaleEffect(reveal ? 1 : 0.86)
+                    .opacity(reveal ? 1 : 0)
 
-                Text("StibAlert")
+                Text("Blayse")
                     .font(.custom("DelaGothicOne-Regular", size: 30, relativeTo: .largeTitle))
                     .foregroundStyle(DS.Color.ink)
-                    .padding(.top, 28)
+                    .padding(.top, 20)
                     .opacity(reveal ? 1 : 0)
 
                 Text("Le réseau bruxellois, en clair.")

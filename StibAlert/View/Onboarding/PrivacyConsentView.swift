@@ -15,7 +15,7 @@ struct PrivacyConsentView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    Text("Avant de continuer, voici comment StibAlert traite vos données.")
+                    Text("Avant de continuer, voici comment Blayse traite vos données.")
                         .font(DS.Font.body)
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.bottom, 8)
@@ -29,7 +29,7 @@ struct PrivacyConsentView: View {
                     sectionView(
                         icon: "envelope.circle.fill",
                         title: "Compte e-mail",
-                        description: "Vous pouvez utiliser StibAlert anonymement. Avec un compte, vous accédez aux favoris et au scoring de confiance plus élevé."
+                        description: "Vous pouvez utiliser Blayse anonymement. Avec un compte, vous accédez aux favoris et au scoring de confiance plus élevé."
                     )
 
                     sectionView(
@@ -87,7 +87,7 @@ struct PrivacyConsentView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 50)
             }
-            .accessibilityLabel("Consentement RGPD StibAlert")
+            .accessibilityLabel("Consentement RGPD Blayse")
 
             VStack {
                 Spacer()
@@ -175,7 +175,7 @@ struct PrivacyPolicySheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Politique de confidentialité — StibAlert")
+                    Text("Politique de confidentialité — Blayse")
                         .font(DS.Font.displayH2)
                         .foregroundStyle(DS.Color.ink)
 

@@ -16,7 +16,7 @@ import Foundation
 /// - clés courantes regroupées dans `Common` ; spécifiques par feature.
 enum L10n {
     enum Common {
-        static var appName: String { AppLocalizer.string("common.app_name", defaultValue: "StibAlert") }
+        static var appName: String { AppLocalizer.string("common.app_name", defaultValue: "Blayse") }
         static var continueAction: String { AppLocalizer.string("common.continue", defaultValue: "Continuer") }
         static var finishAction: String { AppLocalizer.string("common.finish", defaultValue: "Terminer") }
         static var cancel: String { AppLocalizer.string("common.cancel", defaultValue: "Annuler") }

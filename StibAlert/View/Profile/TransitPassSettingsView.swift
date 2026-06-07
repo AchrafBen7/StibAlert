@@ -38,9 +38,9 @@ struct TransitPassSettingsView: View {
                         }
 
                         HStack(spacing: 8) {
-                            TransitMetaCell(label: "Type", value: "Personnelle")
-                            TransitMetaCell(label: "Émise", value: issuedAtLabel)
-                            TransitMetaCell(label: "Statut", value: previewPass.statusLabel, accent: true)
+                            TransitMetaCell(label: AppLocalizer.string("transit_pass.meta.type", defaultValue: "Type"), value: AppLocalizer.string("transit_pass.meta.personal", defaultValue: "Personnelle"))
+                            TransitMetaCell(label: AppLocalizer.string("transit_pass.meta.issued", defaultValue: "Émise"), value: issuedAtLabel)
+                            TransitMetaCell(label: AppLocalizer.string("transit_pass.meta.status", defaultValue: "Statut"), value: previewPass.statusLabel, accent: true)
                         }
 
                         scanStateBanner
@@ -51,10 +51,10 @@ struct TransitPassSettingsView: View {
                             manualCompletionHint
                         }
 
-                        sectionGroup(title: "Actions") {
+                        sectionGroup(title: AppLocalizer.string("transit_pass.section.actions", defaultValue: "Actions")) {
                             TransitActionRow(
                                 icon: nfcReader.isScanning ? "dot.radiowaves.left.and.right" : "wave.3.right.circle.fill",
-                                label: nfcReader.isScanning ? "Lecture NFC en cours" : "Scanner en NFC",
+                                label: nfcReader.isScanning ? AppLocalizer.string("transit_pass.action.scanning", defaultValue: "Lecture NFC en cours") : AppLocalizer.string("transit_pass.action.scan", defaultValue: "Scanner en NFC"),
                                 value: previewPass.lastScannedAt.map(relativeDateText),
                                 action: { nfcReader.beginScan() }
                             )
@@ -72,7 +72,7 @@ struct TransitPassSettingsView: View {
                             }
                             TransitActionRow(
                                 icon: "arrow.counterclockwise",
-                                label: "Réinitialiser la carte",
+                                label: AppLocalizer.string("transit_pass.action.reset", defaultValue: "Réinitialiser la carte"),
                                 value: nil,
                                 action: {
                                     draftPass = .empty
@@ -92,7 +92,6 @@ struct TransitPassSettingsView: View {
 
                         infoSection
                         formSection
-                        debugSection
 
                         Text("MOBIB · STIB-MIVB · BRUXELLES")
                             .font(DS.Font.monoSmall)
@@ -214,19 +213,19 @@ struct TransitPassSettingsView: View {
 
         var userMessage: String {
             switch self {
-            case .walletUnavailable:  return "Apple Wallet n'est pas disponible sur cet appareil."
-            case .nfcPartial:         return "Le scan NFC est incomplet — complète les infos manuellement."
-            case .missingCardNumber:  return "Saisis le numéro de la carte MoBIB."
-            case .invalidCardNumber:  return "Le numéro de carte semble trop court."
-            case .missingHolderName:  return "Indique le nom du titulaire."
+            case .walletUnavailable:  return AppLocalizer.string("transit_pass.wallet.unavailable", defaultValue: "Apple Wallet n'est pas disponible sur cet appareil.")
+            case .nfcPartial:         return AppLocalizer.string("transit_pass.wallet.nfc_partial", defaultValue: "Le scan NFC est incomplet — complète les infos manuellement.")
+            case .missingCardNumber:  return AppLocalizer.string("transit_pass.wallet.missing_number", defaultValue: "Saisis le numéro de la carte MoBIB.")
+            case .invalidCardNumber:  return AppLocalizer.string("transit_pass.wallet.invalid_number", defaultValue: "Le numéro de carte semble trop court.")
+            case .missingHolderName:  return AppLocalizer.string("transit_pass.wallet.missing_name", defaultValue: "Indique le nom du titulaire.")
             }
         }
     }
 
     private var walletButtonLabel: String {
-        if isFetchingWalletPass { return "Génération du pass…" }
+        if isFetchingWalletPass { return AppLocalizer.string("transit_pass.wallet.generating", defaultValue: "Génération du pass…") }
         if let issue = walletValidationIssue { return issue.userMessage }
-        return "Ajouter à Apple Wallet"
+        return AppLocalizer.string("transit_pass.wallet.add", defaultValue: "Ajouter à Apple Wallet")
     }
 
     @MainActor
@@ -391,9 +390,9 @@ struct TransitPassSettingsView: View {
             .buttonStyle(ProfileRootRowPressableStyle())
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Carte de transport")
+                Text(AppLocalizer.string("transit_pass.header.eyebrow", defaultValue: "Carte de transport"))
                     .eyebrow()
-                Text("Ma carte STIB")
+                Text(AppLocalizer.string("transit_pass.header.title", defaultValue: "Ma carte STIB"))
                     .font(DS.Font.displayH2)
                     .foregroundStyle(DS.Color.ink)
             }
@@ -422,10 +421,10 @@ struct TransitPassSettingsView: View {
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Compléter manuellement")
+                Text(AppLocalizer.string("transit_pass.manual.title", defaultValue: "Compléter manuellement"))
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
-                Text("Si le scan ne remonte pas toutes les données, ajoute au minimum le numéro visible et la date d’expiration.")
+                Text(AppLocalizer.string("transit_pass.manual.body", defaultValue: "Si le scan ne remonte pas toutes les données, ajoute au minimum le numéro visible et la date d’expiration."))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
@@ -444,14 +443,14 @@ struct TransitPassSettingsView: View {
     }
 
     private var infoSection: some View {
-        sectionGroup(title: "Association") {
+        sectionGroup(title: AppLocalizer.string("transit_pass.section.association", defaultValue: "Association")) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Le scan NFC rattache la carte physique au profil et évite les erreurs de saisie. Oriente la carte lentement autour du haut de l’iPhone.")
+                Text(AppLocalizer.string("transit_pass.info.body1", defaultValue: "Le scan NFC rattache la carte physique au profil et évite les erreurs de saisie. Oriente la carte lentement autour du haut de l’iPhone."))
                     .font(.system(size: 12.5))
                     .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Si certaines informations ne remontent pas, tu peux compléter le formulaire manuellement.")
+                Text(AppLocalizer.string("transit_pass.info.body2", defaultValue: "Si certaines informations ne remontent pas, tu peux compléter le formulaire manuellement."))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -461,25 +460,25 @@ struct TransitPassSettingsView: View {
     }
 
     private var formSection: some View {
-        sectionGroup(title: "Détails de la carte") {
+        sectionGroup(title: AppLocalizer.string("transit_pass.section.details", defaultValue: "Détails de la carte")) {
             VStack(spacing: 14) {
-                formField(title: "Titulaire") {
-                    TextField("Nom complet", text: binding(\.holderName))
+                formField(title: AppLocalizer.string("transit_pass.form.holder", defaultValue: "Titulaire")) {
+                    TextField(AppLocalizer.string("transit_pass.form.holder_ph", defaultValue: "Nom complet"), text: binding(\.holderName))
                         .textInputAutocapitalization(.words)
                 }
 
-                formField(title: "Abonnement") {
-                    TextField("Ex: Abonnement annuel", text: binding(\.subscriptionLabel))
+                formField(title: AppLocalizer.string("transit_pass.form.subscription", defaultValue: "Abonnement")) {
+                    TextField(AppLocalizer.string("transit_pass.form.subscription_ph", defaultValue: "Ex: Abonnement annuel"), text: binding(\.subscriptionLabel))
                         .textInputAutocapitalization(.words)
                 }
 
-                formField(title: "Numéro de carte") {
+                formField(title: AppLocalizer.string("transit_pass.form.number", defaultValue: "Numéro de carte")) {
                     TextField("6396 5320 0000 0000", text: binding(\.cardNumber))
                         .keyboardType(.numbersAndPunctuation)
                         .textInputAutocapitalization(.never)
                 }
 
-                formField(title: "Expiration") {
+                formField(title: AppLocalizer.string("transit_pass.form.expiry", defaultValue: "Expiration")) {
                     DatePicker(
                         "",
                         selection: Binding(
@@ -498,7 +497,7 @@ struct TransitPassSettingsView: View {
 
                 if let fingerprint = draftPass.nfcFingerprint, !fingerprint.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Empreinte NFC")
+                        Text(AppLocalizer.string("transit_pass.form.fingerprint", defaultValue: "Empreinte NFC"))
                             .font(DS.Font.monoSmall.weight(.semibold))
                             .foregroundStyle(DS.Color.inkMute)
 
@@ -516,79 +515,6 @@ struct TransitPassSettingsView: View {
                             .stroke(DS.Color.ink.opacity(0.1), lineWidth: DS.Stroke.hairline)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-                }
-            }
-            .padding(16)
-        }
-    }
-
-    private var debugSection: some View {
-        sectionGroup(title: "Diagnostic NFC") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Journal de lecture")
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-
-                    Spacer()
-
-                    if !nfcReader.debugEvents.isEmpty {
-                        HStack(spacing: 16) {
-                            Button {
-                                let text = nfcReader.debugEvents.reversed()
-                                    .map { "[\($0.level)] \($0.message)" }
-                                    .joined(separator: "\n")
-                                UIPasteboard.general.string = text
-                                AppHaptics.success()
-                            } label: {
-                                Text("Copier")
-                                    .font(DS.Font.monoSmall.weight(.semibold))
-                                    .foregroundStyle(DS.Color.primary)
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                nfcReader.clearDebugLog()
-                            } label: {
-                                Text("Effacer")
-                                    .font(DS.Font.monoSmall.weight(.semibold))
-                                    .foregroundStyle(DS.Color.inkMute)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-
-                if nfcReader.debugEvents.isEmpty {
-                    Text("Les évènements NFC apparaîtront ici pendant vos tests sur iPhone.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(DS.Color.inkMute)
-                } else {
-                    VStack(spacing: 10) {
-                        ForEach(nfcReader.debugEvents) { event in
-                            HStack(alignment: .top, spacing: 10) {
-                                Text(event.level)
-                                    .font(DS.Font.monoSmall.weight(.semibold))
-                                    .foregroundStyle(DS.Color.primary)
-                                    .frame(width: 54, alignment: .leading)
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(event.message)
-                                        .font(.system(size: 11.5))
-                                        .foregroundStyle(DS.Color.ink)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Text(relativeDateText(from: event.date))
-                                        .font(DS.Font.caption)
-                                        .foregroundStyle(DS.Color.inkMute)
-                                }
-
-                                Spacer()
-                            }
-                            .padding(12)
-                            .background(DS.Color.paper2.opacity(0.45))
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-                        }
-                    }
                 }
             }
             .padding(16)
@@ -716,18 +642,18 @@ enum TransitCardValidity {
 
     var label: String {
         switch self {
-        case .noExpiry: return "À COMPLÉTER"
+        case .noExpiry: return AppLocalizer.string("transit_pass.validity.todo", defaultValue: "À COMPLÉTER")
         case .linked: return AppLocalizer.string("transit_pass.status.linked", defaultValue: "LIÉE")
         case .valid(let days):
-            if days >= 365 { return "VALIDE" }
-            return "VALIDE · \(days) j"
+            if days >= 365 { return AppLocalizer.string("transit_pass.validity.valid", defaultValue: "VALIDE") }
+            return AppLocalizer.format("transit_pass.validity.valid_days", defaultValue: "VALIDE · %d j", days)
         case .expiringSoon(let days):
-            if days == 0 { return "EXPIRE AUJOURD'HUI" }
-            if days == 1 { return "EXPIRE DEMAIN" }
-            return "EXPIRE DANS \(days) j"
+            if days == 0 { return AppLocalizer.string("transit_pass.validity.expires_today", defaultValue: "EXPIRE AUJOURD'HUI") }
+            if days == 1 { return AppLocalizer.string("transit_pass.validity.expires_tomorrow", defaultValue: "EXPIRE DEMAIN") }
+            return AppLocalizer.format("transit_pass.validity.expires_in", defaultValue: "EXPIRE DANS %d j", days)
         case .expired(let days):
-            if days == 0 { return "EXPIRÉE AUJOURD'HUI" }
-            return "EXPIRÉE · -\(days) j"
+            if days == 0 { return AppLocalizer.string("transit_pass.validity.expired_today", defaultValue: "EXPIRÉE AUJOURD'HUI") }
+            return AppLocalizer.format("transit_pass.validity.expired_days", defaultValue: "EXPIRÉE · -%d j", days)
         }
     }
 
@@ -772,7 +698,7 @@ private struct TransitPassCardView: View {
 
     private var holderDisplay: String {
         let value = pass.holderName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? "TITULAIRE" : value.uppercased()
+        return value.isEmpty ? AppLocalizer.string("transit_pass.form.holder", defaultValue: "Titulaire").uppercased() : value.uppercased()
     }
 
     private var suffixDisplay: String {
@@ -811,7 +737,7 @@ private struct TransitPassCardView: View {
                 Image(systemName: "creditcard.viewfinder")
                     .font(.system(size: 38, weight: .light))
                     .foregroundStyle(DS.Color.inkMute)
-                Text("Aucune carte enregistrée")
+                Text(AppLocalizer.string("transit_pass.empty.title", defaultValue: "Aucune carte enregistrée"))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
                 Text(AppLocalizer.string("transit_pass.empty.scan_hint"))
@@ -913,7 +839,7 @@ private struct TransitPassCardView: View {
 
                 // Subscription label + holder name
                 VStack(alignment: .leading, spacing: 4) {
-                    Text((pass.subscriptionLabel.isEmpty ? "Abonnement STIB" : pass.subscriptionLabel).uppercased())
+                    Text((pass.subscriptionLabel.isEmpty ? AppLocalizer.string("transit_pass.subscription_default", defaultValue: "Abonnement STIB") : pass.subscriptionLabel).uppercased())
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(1.4)
                         // Crème chaud : l'orange d'avant serait invisible sur un
@@ -932,7 +858,7 @@ private struct TransitPassCardView: View {
                 // Card number row
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("NUMÉRO CARTE")
+                        Text(AppLocalizer.string("transit_pass.card.number_label", defaultValue: "NUMÉRO CARTE"))
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                             .tracking(1.4)
                             .foregroundStyle(Color.white.opacity(0.45))
@@ -944,7 +870,7 @@ private struct TransitPassCardView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text("CLIENT")
+                        Text(AppLocalizer.string("transit_pass.card.client_label", defaultValue: "CLIENT"))
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                             .tracking(1.4)
                             .foregroundStyle(Color.white.opacity(0.45))

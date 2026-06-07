@@ -196,7 +196,7 @@ private extension GuestAuthReason {
     var tabEyebrow: String {
         switch self {
         case .favorites: return "Ton réseau personnel"
-        case .profile: return "Compte StibAlert"
+        case .profile: return "Compte Blayse"
         case .report: return "Participation"
         case .confirm: return "Validation terrain"
         }

@@ -175,11 +175,11 @@ struct LoginView: View {
     private func openPasswordReset() {
         // Self-service reset isn't wired yet — opens a pre-filled support
         // mail so reviewers (and real users) reach a working escalation path.
-        let subject = "Réinitialisation de mot de passe — StibAlert"
+        let subject = "Réinitialisation de mot de passe — Blayse"
         let body = """
         Bonjour,
 
-        J'ai besoin de réinitialiser mon mot de passe StibAlert.
+        J'ai besoin de réinitialiser mon mot de passe Blayse.
         Email associé au compte : \(email.isEmpty ? "(à compléter)" : email)
 
         Merci.

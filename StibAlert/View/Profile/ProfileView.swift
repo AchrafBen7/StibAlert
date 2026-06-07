@@ -322,7 +322,7 @@ struct ProfileView: View {
                         }
 
                         // P12 — Inviter un ami : partage du lien App Store
-                        // de StibAlert via ShareLink. Apple recommande ce
+                        // de Blayse via ShareLink. Apple recommande ce
                         // pattern pour la viralité organique. Texte du lien
                         // pré-rempli avec accroche FR.
                         profileGroup(title: "Communauté") {
@@ -332,7 +332,7 @@ struct ProfileView: View {
                             // constante dans AppConfig dès attribution.
                             ShareLink(
                                 item: AppConfig.shareAppURL,
-                                message: Text("Tu prends les transports à Bruxelles ? Avec StibAlert je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :")
+                                message: Text("Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :")
                             ) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "person.2.fill")
@@ -343,7 +343,7 @@ struct ProfileView: View {
                                         Text("Inviter un ami")
                                             .font(.system(size: 13.5, weight: .semibold))
                                             .foregroundStyle(DS.Color.ink)
-                                        Text("Partage StibAlert avec tes proches qui prennent les transports.")
+                                        Text("Partage Blayse avec tes proches qui prennent les transports.")
                                             .font(.system(size: 11.5))
                                             .foregroundStyle(DS.Color.inkMute)
                                             .lineLimit(2)
@@ -1530,7 +1530,7 @@ private struct NotificationSettingsView: View {
             onClose: onClose
         ) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Choisis quels types de notifications tu reçois. StibAlert ne t'enverra rien d'autre.")
+                Text("Choisis quels types de notifications tu reçois. Blayse ne t'enverra rien d'autre.")
                     .font(.system(size: 12.5))
                     .foregroundColor(DS.Color.inkSoft)
 
@@ -2213,7 +2213,7 @@ private struct PrivacySettingsView: View {
                 .buttonStyle(ProfileRootRowPressableStyle())
             }
 
-            ProfileSettingsSection(title: "Ce que StibAlert collecte") {
+            ProfileSettingsSection(title: "Ce que Blayse collecte") {
                 PrivacySummaryRow(
                     icon: "location.fill",
                     title: "Localisation",
@@ -2391,7 +2391,7 @@ private struct SupportSettingsView: View {
                 }
             }
 
-            Text("Réponse par email selon disponibilité de l’équipe StibAlert.")
+            Text("Réponse par email selon disponibilité de l’équipe Blayse.")
                 .font(.system(size: 11.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .padding(.horizontal, 4)
@@ -2401,11 +2401,11 @@ private struct SupportSettingsView: View {
             // mention claire d'indépendance.
             ProfileSettingsSection(title: "À propos") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("StibAlert est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+                    Text("Blayse est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
                         .font(.system(size: 12.5))
                         .foregroundColor(DS.Color.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté StibAlert. Les marques citées appartiennent à leurs propriétaires respectifs.")
+                    Text("Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté Blayse. Les marques citées appartiennent à leurs propriétaires respectifs.")
                         .font(.system(size: 12))
                         .foregroundColor(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2482,10 +2482,10 @@ private struct SupportItem: Identifiable {
 
 private enum SupportMockData {
     static let items: [SupportItem] = [
-        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Aide%20StibAlert"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
-        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Bug%20StibAlert"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
+        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Aide%20Blayse"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
+        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Bug%20Blayse"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
         .init(url: URL(string: "mailto:community@stib-alert.be"), title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
-        .init(url: URL(string: "mailto:contact@stib-alert.be?subject=Contact%20StibAlert"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
+        .init(url: URL(string: "mailto:contact@stib-alert.be?subject=Contact%20Blayse"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
     ]
 }
 

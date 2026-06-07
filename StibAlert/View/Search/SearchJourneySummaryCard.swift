@@ -145,10 +145,10 @@ struct SearchJourneySummaryCard: View {
                     toLat: journey.destination.coordinate.latitude,
                     toLng: journey.destination.coordinate.longitude
                 )
-                let shareMessage = "\(journey.origin.name) → \(journey.destination.name) • \(journey.eta) min • \(journey.lineSummary) (via StibAlert)"
+                let shareMessage = "\(journey.origin.name) → \(journey.destination.name) • \(journey.eta) min • \(journey.lineSummary) (via Blayse)"
                 ShareLink(
                     item: shareURL ?? URL(string: "https://stib-alert-backend.onrender.com/")!,
-                    subject: Text("Trajet StibAlert"),
+                    subject: Text("Trajet Blayse"),
                     message: Text(shareMessage)
                 ) {
                     Image(systemName: "square.and.arrow.up")

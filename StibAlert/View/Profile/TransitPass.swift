@@ -11,7 +11,7 @@ struct TransitPass: Codable, Equatable {
 
     static let empty = TransitPass(
         holderName: "",
-        subscriptionLabel: "Abonnement STIB",
+        subscriptionLabel: "",
         cardNumber: "",
         expiryDate: nil,
         nfcFingerprint: nil,
@@ -21,7 +21,7 @@ struct TransitPass: Codable, Equatable {
 
     var maskedCardNumber: String {
         let digits = cardNumber.filter(\.isNumber)
-        guard !digits.isEmpty else { return "Ajoutez votre numero" }
+        guard !digits.isEmpty else { return AppLocalizer.string("transit_pass.card.add_number", defaultValue: "Ajoutez votre numéro") }
         if digits.count <= 4 { return digits }
 
         let suffix = String(digits.suffix(4))
@@ -29,7 +29,7 @@ struct TransitPass: Codable, Equatable {
     }
 
     var formattedExpiryDate: String {
-        guard let expiryDate else { return "Ajouter l'expiration" }
+        guard let expiryDate else { return AppLocalizer.string("transit_pass.card.add_expiry", defaultValue: "Ajouter l'expiration") }
         let formatter = DateFormatter()
         formatter.locale = AppLocale.current
         formatter.dateFormat = "dd.MM.yyyy"
@@ -44,17 +44,17 @@ struct TransitPass: Codable, Equatable {
             if let fingerprint = nfcFingerprint, !fingerprint.isEmpty {
                 return AppLocalizer.string("transit_pass.status.linked_short", defaultValue: "Liée")
             }
-            return "A completer"
+            return AppLocalizer.string("transit_pass.status.todo", defaultValue: "A completer")
         }
         let calendar = Calendar.current
         let now = calendar.startOfDay(for: Date())
         let expiry = calendar.startOfDay(for: expiryDate)
 
-        if expiry < now { return "Expire" }
+        if expiry < now { return AppLocalizer.string("transit_pass.status.expired", defaultValue: "Expiré") }
         if let days = calendar.dateComponents([.day], from: now, to: expiry).day, days <= 14 {
-            return "Expire bientot"
+            return AppLocalizer.string("transit_pass.status.expiring", defaultValue: "Expire bientôt")
         }
-        return "Valide"
+        return AppLocalizer.string("transit_pass.status.valid", defaultValue: "Valide")
     }
 }
 
@@ -124,28 +124,28 @@ enum MobibScanState: Equatable {
     var title: String {
         switch self {
         case .idle:
-            return "Scannez ici"
+            return AppLocalizer.string("transit_pass.scan.idle.title", defaultValue: "Scannez ici")
         case .scanning:
-            return "Lecture en cours"
+            return AppLocalizer.string("transit_pass.scan.scanning.title", defaultValue: "Lecture en cours")
         case .detected:
-            return "Carte detectee"
+            return AppLocalizer.string("transit_pass.scan.detected.title", defaultValue: "Carte détectée")
         case .partial:
-            return "Lecture incomplete"
+            return AppLocalizer.string("transit_pass.scan.partial.title", defaultValue: "Lecture incomplète")
         case .error:
-            return "Lecture NFC indisponible"
+            return AppLocalizer.string("transit_pass.scan.error.title", defaultValue: "Lecture NFC indisponible")
         }
     }
 
     var message: String {
         switch self {
         case .idle:
-            return "Approchez votre carte MoBIB de la partie haute de l'iPhone pour l'associer au profil."
+            return AppLocalizer.string("transit_pass.scan.idle.msg", defaultValue: "Approchez votre carte MoBIB de la partie haute de l'iPhone pour l'associer au profil.")
         case .scanning:
-            return "Gardez la carte immobile 1 a 2 secondes. Si rien ne se passe, deplacez-la legerement."
+            return AppLocalizer.string("transit_pass.scan.scanning.msg", defaultValue: "Gardez la carte immobile 1 à 2 secondes. Si rien ne se passe, déplacez-la légèrement.")
         case .detected(let payload):
-            return "Tag \(payload.tagType) detecte \(Self.relativeText(from: payload.scannedAt))."
+            return AppLocalizer.format("transit_pass.scan.detected.msg", defaultValue: "Tag %@ détecté %@.", payload.tagType, Self.relativeText(from: payload.scannedAt))
         case .partial:
-            return "Le tag a ete lu, mais certaines informations restent incompletes. Completez manuellement si besoin."
+            return AppLocalizer.string("transit_pass.scan.partial.msg", defaultValue: "Le tag a été lu, mais certaines informations restent incomplètes. Complétez manuellement si besoin.")
         case .error(let message):
             return message
         }

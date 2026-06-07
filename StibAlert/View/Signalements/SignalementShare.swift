@@ -44,7 +44,7 @@ enum SignalementShare {
         // Lien deep pour ouvrir l'app si installée. Les apps de messagerie
         // n'affichent pas de preview riche pour les schemes custom, mais
         // le texte reste lisible et le tap ouvre StibAlert si installée.
-        out += "\n\n📲 StibAlert (app indépendante) — stibalert://signalement/\(s.id)"
+        out += "\n\n📲 Blayse (app indépendante) — stibalert://signalement/\(s.id)"
 
         return out
     }

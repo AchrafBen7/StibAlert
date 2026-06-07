@@ -57,7 +57,7 @@ struct SignalerArretIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let token = KeychainHelper.readToken() else {
             return .result(dialog: IntentDialog(
-                "Vous devez être connecté à StibAlert pour signaler. Ouvrez l'app et connectez-vous."
+                "Vous devez être connecté à Blayse pour signaler. Ouvrez l'app et connectez-vous."
             ))
         }
 
@@ -97,7 +97,7 @@ struct SignalerArretIntent: AppIntent {
                     "Signalement \(typeProbleme.rawValue.lowercased()) créé pour \(arret)\(ligne). Merci !"
                 ))
             case 401:
-                return .result(dialog: "Session expirée. Ouvrez StibAlert pour vous reconnecter.")
+                return .result(dialog: "Session expirée. Ouvrez Blayse pour vous reconnecter.")
             case 404:
                 return .result(dialog: "L'arrêt \(nomArret) est introuvable. Vérifiez l'orthographe.")
             default:
@@ -240,7 +240,7 @@ struct NextPassageIntent: AppIntent {
 struct OpenLiveMapIntent: AppIntent {
     static let title: LocalizedStringResource = "Voir la carte live STIB"
     static let description = IntentDescription(
-        "Ouvre la carte en temps réel de StibAlert.",
+        "Ouvre la carte en temps réel de Blayse.",
         categoryName: "Transport"
     )
     static let openAppWhenRun = true
