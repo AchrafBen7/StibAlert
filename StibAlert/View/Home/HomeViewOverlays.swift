@@ -312,7 +312,9 @@ extension HomeView {
             onOpenStibAI: openStibAIFromHome,
             onRecenter: recenterFromHome,
             onSelectTab: selectTab(_:),
-            isGuest: session.isGuest,
+            // Bannière "Gastmodus" masquée pendant la recherche pour ne pas
+            // recouvrir la liste de suggestions (cohérent avec boutons/tabbar).
+            isGuest: session.isGuest && searchSuggestions.isEmpty,
             onCreateAccount: {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 nav.authInitialRoute = .signUp

@@ -758,6 +758,7 @@ struct HomeView: View {
         // ses derniers items (Villo, Évènements, Vue épurée) passant sous les
         // boutons.
         homeSurfaceMode == .mapIdle && selectedClusterIndex == nil && !showLegend
+            && searchSuggestions.isEmpty
     }
 
     var shouldShowTabBar: Bool {
@@ -768,6 +769,10 @@ struct HomeView: View {
         && selectedRouteDetail == nil
         && homeSurfaceMode != .routePreview
         && homeSurfaceMode != .routeDetail
+        // Pendant une recherche (liste de suggestions ouverte), on masque la
+        // tabbar : sinon la liste passe derrière la tabbar + les boutons
+        // flottants et on ne voit plus les derniers résultats.
+        && searchSuggestions.isEmpty
     }
 
     var shouldShowAllClearChip: Bool {
