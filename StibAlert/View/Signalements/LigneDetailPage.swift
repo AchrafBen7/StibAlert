@@ -368,17 +368,25 @@ struct LigneDetailPage: View {
     @Namespace private var tabUnderlineNamespace
 
     private let onBackOverride: (() -> Void)?
+    /// Incidents officiels que la grille Verkeersinfo a utilisés pour BADGER
+    /// cette ligne. On les passe au détail pour garantir « badge ⟺ détail
+    /// visible » : sans ça, l'overview réseau badgeait (ex. travaux ligne 1)
+    /// mais le fetch par ligne renvoyait `activeIncidents` vide → page « Pas
+    /// d'info officielle ». On les fusionne avec ce que le fetch ramène.
+    private let seedOfficialIncidents: [TransportIncidentDTO]
 
-    init(lineId: String, initialTab: DetailTab = .stops) {
+    init(lineId: String, initialTab: DetailTab = .stops, seedOfficialIncidents: [TransportIncidentDTO] = []) {
         let fallback = LigneDetailPage.makeFallbackLine(lineId: lineId)
         _viewModel = StateObject(wrappedValue: LigneDetailViewModel(line: fallback))
         self.onBackOverride = nil
+        self.seedOfficialIncidents = seedOfficialIncidents
         self._selectedTab = State(initialValue: initialTab)
     }
 
-    init(line: LineStatusItem, initialTab: DetailTab = .stops, onBack: (() -> Void)? = nil) {
+    init(line: LineStatusItem, initialTab: DetailTab = .stops, seedOfficialIncidents: [TransportIncidentDTO] = [], onBack: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: LigneDetailViewModel(line: line))
         self.onBackOverride = onBack
+        self.seedOfficialIncidents = seedOfficialIncidents
         self._selectedTab = State(initialValue: initialTab)
     }
 
@@ -608,7 +616,7 @@ struct LigneDetailPage: View {
     /// sous-titre du bandeau ; le reste de la logique s'y aligne pour éviter
     /// le "Perturbations en cours · 0 infos".
     private var activeInfoCount: Int {
-        viewModel.lineSignalements.count + (viewModel.activeLine?.activeIncidents.count ?? 0)
+        viewModel.lineSignalements.count + mergedOfficialIncidents.count
     }
 
     /// Résumé STIB propre à CETTE ligne (≠ résumé réseau global).
@@ -716,7 +724,21 @@ struct LigneDetailPage: View {
         // l'en-tête affichait "0 infos" et qu'aucun incident réel n'était
         // listé. Le résumé réseau reste affiché en carte d'info distincte
         // (perturbationSummaryRow / networkAdvisoryRow) mais ne compte plus.
-        viewModel.activeLine?.activeIncidents.count ?? 0
+        mergedOfficialIncidents.count
+    }
+
+    /// Incidents officiels du fetch par ligne + ceux que la grille a utilisés
+    /// pour badger (seed), dédupliqués par id. Garantit que si la grille a mis
+    /// un badge, le détail liste bien l'incident correspondant.
+    private var mergedOfficialIncidents: [TransportIncidentDTO] {
+        let fetched = viewModel.activeLine?.activeIncidents ?? []
+        guard !seedOfficialIncidents.isEmpty else { return fetched }
+        var result = fetched
+        let known = Set(fetched.map(\.id))
+        for incident in seedOfficialIncidents where !known.contains(incident.id) {
+            result.append(incident)
+        }
+        return result
     }
 
     private func trafficSubtabChip(_ tab: TrafficSubtab, label: String, count: Int = 0) -> some View {
@@ -775,7 +797,7 @@ struct LigneDetailPage: View {
 
     @ViewBuilder
     private var officialIncidentsList: some View {
-        let incidents = viewModel.activeLine?.activeIncidents ?? []
+        let incidents = mergedOfficialIncidents
         let lineSummary = viewModel.activeLine?.perturbationSummary
         let hasLineSummary = (lineSummary?.shortText.isEmpty == false) || (lineSummary?.longText.isEmpty == false)
         let globalSummary = viewModel.matchingGlobalSummary

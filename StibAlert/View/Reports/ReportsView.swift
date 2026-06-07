@@ -45,6 +45,7 @@ struct ReportsView: View {
     /// sheet that pushes `LigneDetailPage` directly without going through
     /// the Signalements tab.
     @State private var selectedLineForDetail: String? = nil
+    @State private var selectedLineIncidents: [TransportIncidentDTO] = []
     @State private var transportOverview: TransportOverviewDTO? = nil
     @State private var selectedLineTransport: TransportLineDTO? = nil
     @State private var selectedLineSummary: TransportPerturbationSummaryDTO? = nil
@@ -774,6 +775,14 @@ struct ReportsView: View {
                                 // tab — the user only wants the line detail
                                 // from this tap, not the broader signalements
                                 // landing.
+                                // On capture les incidents officiels qui ont
+                                // BADGÉ cette ligne pour les passer au détail →
+                                // "badge ⟺ détail visible" (fini le badge sans
+                                // rien quand on ouvre la ligne).
+                                let code = LineStatusGrid.shortCode(from: lineId)
+                                selectedLineIncidents = currentOfficialIncidents.filter {
+                                    LineStatusGrid.shortCode(from: $0.line ?? "") == code
+                                }
                                 selectedLineForDetail = lineId
                             }
                         )
@@ -843,7 +852,7 @@ struct ReportsView: View {
                 // wants the line detail to feel like a real page push, not a
                 // modal. Closing happens via LigneDetailPage's own back
                 // button (which calls `dismiss()` from the inner scope).
-                LigneDetailPage(lineId: lineId, initialTab: .traffic)
+                LigneDetailPage(lineId: lineId, initialTab: .traffic, seedOfficialIncidents: selectedLineIncidents)
                     .environmentObject(session)
                     .environmentObject(nav)
             }
