@@ -13,6 +13,9 @@ struct HomeProactiveAlertCard: View {
     @State private var isCollapsed = false
     @State private var dragOffset: CGFloat = 0
     @State private var collapseTask: Task<Void, Never>?
+    // Nom lisible de l'arrêt concerné (résolu depuis le catalogue) — pour
+    // qu'on comprenne À QUEL arrêt se situe le problème, pas juste la ligne.
+    @State private var affectedStopName: String?
 
     private var accent: Color {
         cluster.isOfficial ? DS.Color.danger : SignalVisuals.communityColor(for: cluster)
@@ -84,6 +87,9 @@ struct HomeProactiveAlertCard: View {
         .accessibilityHint("Glisse vers le bas pour fermer. Tape pour étendre ou réduire.")
         .onAppear { scheduleAutoCollapse() }
         .onDisappear { collapseTask?.cancel() }
+        .task(id: cluster.arretId) {
+            affectedStopName = await NearbyStopService.resolveStopName(arretId: cluster.arretId)
+        }
     }
 
     private var expandedBody: some View {
@@ -111,6 +117,19 @@ struct HomeProactiveAlertCard: View {
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(DS.Color.inkMute)
                         .lineLimit(3)
+
+                    if let stop = affectedStopName, !stop.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(accent)
+                            Text(verbatim: AppLocalizer.format("alert.at_stop", defaultValue: "Arrêt : %@", stop))
+                                .font(DS.Font.monoSmall.weight(.heavy))
+                                .foregroundStyle(DS.Color.ink)
+                                .lineLimit(1)
+                        }
+                        .padding(.top, 1)
+                    }
                 }
 
                 Spacer(minLength: 8)

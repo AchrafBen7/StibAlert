@@ -437,6 +437,17 @@ enum NearbyStopService {
         return mapped
     }
 
+    /// Résout l'ID d'arrêt d'un cluster/perturbation vers son nom lisible via le
+    /// catalogue STIB local — pour afficher CLAIREMENT à quel arrêt se situe un
+    /// problème. Renvoie nil si introuvable (autre opérateur, ou perturbation
+    /// ligne entière sans arrêt précis).
+    static func resolveStopName(arretId: String?) async -> String? {
+        guard let raw = arretId?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        guard let catalog = (try? await StaticTransitCatalogStore.loadOrRefresh()).flatMap({ $0 }),
+              !catalog.stops.isEmpty else { return nil }
+        return catalog.stops.first(where: { $0.id == raw || $0.stopId == raw })?.name
+    }
+
     static func fetchNearby(lat: Double, lng: Double, radius: Double = 600) async throws -> [NearbyStop] {
         if AppConfig.isBackendEnabled {
             do {
