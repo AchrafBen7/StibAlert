@@ -62,19 +62,39 @@ final class STIBAIClient {
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue(KeychainHelper.anonymousDeviceId(), forHTTPHeaderField: "x-stib-device-id")
-        request.timeoutInterval = 45
+        // Cold start Render (plan gratuit) : la 1ʳᵉ requête réveille le serveur
+        // (~30-60 s) → timeout / 502-503-504. On laisse le temps + on retente.
+        request.timeoutInterval = 60
         request.httpBody = try encoder.encode(STIBAIRequest(messages: messages, context: context))
 
-        let bytes: URLSession.AsyncBytes
-        let response: URLResponse
-        do {
-            (bytes, response) = try await session.bytes(for: request)
-        } catch {
-            throw STIBAIError.network(error)
+        // Connexion avec retry SUR LE COLD START uniquement (avant le moindre
+        // delta : on ne rejoue jamais un flux déjà commencé). C'est ce qui fait
+        // que « le 1er message » passe enfin au lieu d'afficher "indisponible".
+        var connectedBytes: URLSession.AsyncBytes?
+        var attempt = 0
+        while connectedBytes == nil {
+            attempt += 1
+            do {
+                let (bytes, response) = try await session.bytes(for: request)
+                guard let http = response as? HTTPURLResponse else { throw STIBAIError.invalidResponse }
+                if (200..<300).contains(http.statusCode) {
+                    connectedBytes = bytes
+                } else if [502, 503, 504].contains(http.statusCode), attempt < 3 {
+                    try? await Task.sleep(nanoseconds: UInt64(attempt) * 2_500_000_000)
+                } else {
+                    throw STIBAIError.server(http.statusCode)
+                }
+            } catch let error as STIBAIError {
+                throw error
+            } catch {
+                if Self.isColdStartError(error), attempt < 3 {
+                    try? await Task.sleep(nanoseconds: UInt64(attempt) * 2_500_000_000)
+                } else {
+                    throw STIBAIError.network(error)
+                }
+            }
         }
-
-        guard let http = response as? HTTPURLResponse else { throw STIBAIError.invalidResponse }
-        guard (200..<300).contains(http.statusCode) else { throw STIBAIError.server(http.statusCode) }
+        let bytes = connectedBytes!
 
         var didReceiveDelta = false
         do {
@@ -103,6 +123,30 @@ final class STIBAIClient {
     private static func isRecoverableStreamClose(_ error: Error) -> Bool {
         guard let urlError = error as? URLError else { return false }
         return urlError.code == .networkConnectionLost || urlError.code == .cancelled
+    }
+
+    /// Erreurs typiques d'un serveur Render endormi qui se réveille.
+    private static func isColdStartError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .timedOut, .cannotConnectToHost, .cannotFindHost,
+             .networkConnectionLost, .dnsLookupFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Réveille le backend Render dès l'ouverture du chat (fire-and-forget),
+    /// pour que le serveur soit déjà chaud quand l'utilisateur envoie son
+    /// 1er message — au lieu de le faire attendre le cold start.
+    static func warmUp() {
+        guard AppConfig.isBackendEnabled,
+              let url = URL(string: AppConfig.backendBaseURL) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        Task.detached { _ = try? await URLSession.shared.data(for: request) }
     }
 }
 

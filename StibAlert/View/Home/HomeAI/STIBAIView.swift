@@ -33,6 +33,7 @@ struct STIBAIView: View {
         }
         .background(DS.Color.paper.ignoresSafeArea())
         .preferredColorScheme(.light)
+        .onAppear { STIBAIClient.warmUp() }
         .onDisappear { viewModel.cancel() }
     }
 
