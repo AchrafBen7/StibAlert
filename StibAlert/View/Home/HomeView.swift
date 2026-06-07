@@ -1449,12 +1449,21 @@ struct HomeView: View {
         let hasRoutine = user.routine?.enabled == true
         guard !favoriteLines.isEmpty || hasRoutine else { return }
 
+        // Proximité : on ne réveille la carte « confirme si c'est encore bloqué »
+        // QUE si l'utilisateur est PRÈS de la perturbation — sinon on lui
+        // demandait son avis sur une ligne qu'il n'emprunte pas et ne peut pas
+        // observer. Sans position connue (ou cluster sans coordonnée), on garde
+        // l'ancien comportement basé sur les favoris / arrêts domicile-travail.
+        let userLoc = locationManager.userCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        let maxDistanceMeters = 1500.0
         let affectedCluster = activeClusters.first { cluster in
             let line = cluster.ligne.uppercased()
-            if favoriteLines.contains(line) { return true }
-            if let homeStopId = user.routine?.homeStopId, cluster.arretId == homeStopId { return true }
-            if let workStopId = user.routine?.workStopId, cluster.arretId == workStopId { return true }
-            return false
+            let isRelevant = favoriteLines.contains(line)
+                || (user.routine?.homeStopId).map { cluster.arretId == $0 } == true
+                || (user.routine?.workStopId).map { cluster.arretId == $0 } == true
+            guard isRelevant else { return false }
+            guard let userLoc, let lat = cluster.latitude, let lng = cluster.longitude else { return true }
+            return userLoc.distance(from: CLLocation(latitude: lat, longitude: lng)) <= maxDistanceMeters
         }
 
         guard let affectedCluster else { return }

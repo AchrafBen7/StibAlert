@@ -248,6 +248,11 @@ extension HomeView {
            !(Self.isCommutePriorityWindow(Date())
              && (session.currentUser?.routine).map { CommuteQuickLaunchCard.shouldShow(routine: $0, now: Date()) } == true),
            selectedClusterIndex == nil,
+           // Pas par-dessus une fiche d'arrêt ouverte : la carte se posait en
+           // haut et chevauchait la fiche (KASSEI) → illisible. On la garde pour
+           // la carte au repos uniquement.
+           selectedMapStopPreview == nil,
+           selectedMapStopSummary == nil,
            !nav.showReportSheet {
             HomeProactiveAlertCard(
                 cluster: cluster,
