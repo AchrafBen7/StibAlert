@@ -236,7 +236,7 @@ struct FavoritesView: View {
             sncbFavoritesEmptyState
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                FavoriteSectionHeading(text: "GARES ÉPINGLÉES", systemImage: "star.fill")
+                FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.pinned_stations", defaultValue: "Gares épinglées"), systemImage: "star.fill")
                 VStack(spacing: 0) {
                     ForEach(favoriteGares) { sncbGareRow($0) }
                 }
@@ -294,7 +294,7 @@ struct FavoritesView: View {
             Image(systemName: "star")
                 .font(.system(size: 26))
                 .foregroundStyle(DS.Color.inkMute)
-            Text("Aucune gare en favori")
+            Text(AppLocalizer.string("favorites.empty.no_station", defaultValue: "Aucune gare en favori"))
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
             Text("Ouvrez une gare (Horaires ou Infos trafic) et appuyez sur ★ pour l'épingler ici.")
@@ -316,7 +316,7 @@ struct FavoritesView: View {
             VStack(spacing: 10) {
                 Spacer().frame(height: 50)
                 Image(systemName: "star").font(.system(size: 26)).foregroundStyle(DS.Color.inkMute)
-                Text("Aucun arrêt \(op.mapLabel) en favori").font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
+                Text(AppLocalizer.format("favorites.empty.no_op_stop", defaultValue: "Aucun arrêt %@ en favori", op.mapLabel)).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
                 Text("Appuyez sur + pour épingler un arrêt \(op.mapLabel) proche.")
                     .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute).multilineTextAlignment(.center)
                 Spacer()
@@ -325,7 +325,7 @@ struct FavoritesView: View {
             .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 96)
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                FavoriteSectionHeading(text: "ARRÊTS ÉPINGLÉS", systemImage: "star.fill")
+                FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.pinned_stops", defaultValue: "Arrêts épinglés"), systemImage: "star.fill")
                 VStack(spacing: 0) {
                     ForEach(favs) { operatorFavoriteRow($0) }
                 }
@@ -609,7 +609,7 @@ struct FavoritesView: View {
             return !favoriteStopIds.contains(id)
         }
         VStack(alignment: .leading, spacing: 12) {
-            FavoriteSectionHeading(text: "Ajouter à mes favoris", systemImage: "plus.magnifyingglass")
+            FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.add", defaultValue: "Ajouter à mes favoris"), systemImage: "plus.magnifyingglass")
 
             if isDiscovering && netResults.isEmpty {
                 ProgressView()
@@ -619,7 +619,7 @@ struct FavoritesView: View {
             } else if netResults.isEmpty {
                 EmptyStateView(
                     iconSystemName: "magnifyingglass",
-                    title: "Aucun arrêt trouvé",
+                    title: AppLocalizer.string("favorites.empty.no_stop_found", defaultValue: "Aucun arrêt trouvé"),
                     body: "Rien ne correspond à « \(query) ». Essaie un autre nom d'arrêt ou un numéro de ligne."
                 )
                 .padding(.top, 12)
@@ -719,7 +719,7 @@ struct FavoritesView: View {
     private var searchEmptyState: some View {
         EmptyStateView(
             iconSystemName: "magnifyingglass",
-            title: "Aucun résultat",
+            title: AppLocalizer.string("favorites.empty.no_result", defaultValue: "Aucun résultat"),
             body: "Rien ne correspond à « \(query) ». Essaie un autre nom d'arrêt ou de ligne."
         )
         .padding(.top, 40)
@@ -727,7 +727,7 @@ struct FavoritesView: View {
 
     private var pinnedStopsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            FavoriteSectionHeading(text: "Arrêts épinglés", systemImage: "star.fill")
+            FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.pinned_stops", defaultValue: "Arrêts épinglés"), systemImage: "star.fill")
 
             VStack(spacing: 12) {
                 ForEach(filteredItems) { item in
@@ -830,7 +830,7 @@ struct FavoritesView: View {
     private var followedLinesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                FavoriteSectionHeading(text: "Lignes suivies")
+                FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.followed_lines", defaultValue: "Lignes suivies"))
                 Spacer()
                 Text("\(followedLines.count) lignes")
                     .font(.system(size: 10, design: .monospaced))
@@ -859,7 +859,7 @@ struct FavoritesView: View {
 
     private var smartBriefsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            FavoriteSectionHeading(text: "Alertes intelligentes")
+            FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.smart_alerts", defaultValue: "Alertes intelligentes"))
 
             VStack(spacing: 8) {
                 Button {
@@ -867,7 +867,7 @@ struct FavoritesView: View {
                 } label: {
                     favoriteInfoRow(
                         icon: "bell.fill",
-                        title: "Notifications favorites",
+                        title: AppLocalizer.string("favorites.alerts.notifications", defaultValue: "Notifications favorites"),
                         subtitle: (session.currentUser?.notifications ?? false) ? "Activées" : "Désactivées",
                         active: session.currentUser?.notifications ?? false
                     )
@@ -879,8 +879,8 @@ struct FavoritesView: View {
                 } label: {
                     favoriteInfoRow(
                         icon: "newspaper.fill",
-                        title: "Digest hebdomadaire",
-                        subtitle: (session.currentUser?.weeklyDigestEnabled ?? false) ? "Chaque semaine" : "Non activé",
+                        title: AppLocalizer.string("favorites.alerts.digest", defaultValue: "Digest hebdomadaire"),
+                        subtitle: (session.currentUser?.weeklyDigestEnabled ?? false) ? AppLocalizer.string("favorites.alerts.weekly", defaultValue: "Chaque semaine") : AppLocalizer.string("favorites.alerts.off", defaultValue: "Non activé"),
                         active: session.currentUser?.weeklyDigestEnabled ?? false
                     )
                 }
@@ -1105,9 +1105,13 @@ struct FavoritesView: View {
             let problemLabel: String = {
                 switch severity {
                 case .normal:
-                    return "Aucun actif"
+                    return AppLocalizer.string("favorites.status.none", defaultValue: "Aucun actif")
                 case .warning, .blocked:
-                    return stop.status ?? "À vérifier"
+                    switch stop.status {
+                    case "Bloqué": return AppLocalizer.string("favorites.status.blocked", defaultValue: "Bloqué")
+                    case "Perturbé": return AppLocalizer.string("favorites.status.disrupted", defaultValue: "Perturbé")
+                    default: return AppLocalizer.string("favorites.status.to_check", defaultValue: "À vérifier")
+                    }
                 }
             }()
 
@@ -2061,7 +2065,7 @@ private enum FavoriteTransportFilter: CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all: return "Tous"
+        case .all: return AppLocalizer.string("favorites.filter.all", defaultValue: "Tous")
         case .tram: return "Tram"
         case .bus: return "Bus"
         case .metro: return "Metro"
@@ -2180,23 +2184,25 @@ private struct FavoriteTransitItem: Identifiable {
     /// stop. Replaces the old "Affluence/Drukte" line, which was just this
     /// count relabelled as crowding (a metric STIB doesn't actually publish).
     var activityLabel: String {
-        reportCount == 0 ? "Aucun signalement actif" : "\(reportCount) signalement\(reportCount > 1 ? "s" : "") actif\(reportCount > 1 ? "s" : "")"
+        reportCount == 0
+            ? AppLocalizer.string("favorites.activity.none", defaultValue: "Aucun signalement actif")
+            : (reportCount == 1 ? AppLocalizer.string("favorites.activity.one", defaultValue: "1 signalement actif") : AppLocalizer.format("favorites.activity.count", defaultValue: "%d signalements actifs", reportCount))
     }
 
     var cockpitHeadline: String {
         switch severity {
         case .normal:
-            return reportCount == 0 ? "Aucun incident actif" : "1 signalement actif"
+            return reportCount == 0 ? AppLocalizer.string("favorites.cockpit.none", defaultValue: "Aucun incident actif") : AppLocalizer.string("favorites.cockpit.one_report", defaultValue: "1 signalement actif")
         case .warning:
             if let type = lastProblemType {
-                return "\(type) en cours"
+                return AppLocalizer.format("favorites.cockpit.type_ongoing", defaultValue: "%@ en cours", type)
             }
-            return "\(reportCount) signalements actifs"
+            return AppLocalizer.format("favorites.cockpit.reports", defaultValue: "%d signalements actifs", reportCount)
         case .blocked:
             if let type = lastProblemType {
-                return "\(type) · service perturbé"
+                return AppLocalizer.format("favorites.cockpit.type_disrupted", defaultValue: "%@ · service perturbé", type)
             }
-            return "\(reportCount) signalements critiques"
+            return AppLocalizer.format("favorites.cockpit.critical", defaultValue: "%d signalements critiques", reportCount)
         }
     }
 
@@ -2209,13 +2215,13 @@ private struct FavoriteTransitItem: Identifiable {
     }
 
     var lastUpdatedLabel: String {
-        guard let date = lastUpdatedAt else { return "Mis à jour à l'instant" }
+        guard let date = lastUpdatedAt else { return AppLocalizer.string("favorites.updated.now", defaultValue: "Mis à jour à l'instant") }
         let seconds = Int(Date().timeIntervalSince(date))
-        if seconds < 60 { return "Mis à jour à l'instant" }
+        if seconds < 60 { return AppLocalizer.string("favorites.updated.now", defaultValue: "Mis à jour à l'instant") }
         let minutes = seconds / 60
-        if minutes < 60 { return "Mis à jour il y a \(minutes) min" }
+        if minutes < 60 { return AppLocalizer.format("favorites.updated.min", defaultValue: "Mis à jour il y a %d min", minutes) }
         let hours = minutes / 60
-        return "Mis à jour il y a \(hours) h"
+        return AppLocalizer.format("favorites.updated.hour", defaultValue: "Mis à jour il y a %d h", hours)
     }
 }
 
@@ -2442,7 +2448,7 @@ private struct AddFavoriteSheet: View {
                                 Image(systemName: trimmedQuery.isEmpty ? "mappin.slash" : "magnifyingglass")
                                     .font(.system(size: 32, weight: .light))
                                     .foregroundStyle(DS.Color.inkMute)
-                                Text(trimmedQuery.isEmpty ? "Aucun arrêt trouvé à proximité" : "Aucun arrêt trouvé")
+                                Text(trimmedQuery.isEmpty ? AppLocalizer.string("favorites.empty.no_stop_nearby", defaultValue: "Aucun arrêt trouvé à proximité") : AppLocalizer.string("favorites.empty.no_stop_found", defaultValue: "Aucun arrêt trouvé"))
                                     .font(.system(size: 13.5, weight: .semibold))
                                     .foregroundStyle(DS.Color.ink)
                                 Text(trimmedQuery.isEmpty
