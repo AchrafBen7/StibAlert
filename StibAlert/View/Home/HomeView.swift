@@ -2945,6 +2945,12 @@ struct HomeView: View {
         // dominer la liste pour une app de mobilité.
         async let stibTask = NearbyStopService.topStopsByName(text, limit: 5)
 
+        // Géocodage Google (backend) EN PLUS de MapKit : Apple trouve très mal
+        // les adresses FR en Belgique ("Rue de Lombartzyde" → résultats au
+        // hasard), alors que Google les résout. On ne l'appelle qu'à partir de
+        // 4 caractères (évite de géocoder "rue"/"de"). Voir GeocodeService.
+        async let googleTask: GeocodeResult? = text.count >= 4 ? GeocodeService.search(text) : nil
+
         let req = MKLocalSearch.Request()
         req.naturalLanguageQuery = text
         req.resultTypes = [.address, .pointOfInterest]
@@ -2954,7 +2960,7 @@ struct HomeView: View {
         )
         async let mkTask = (try? await MKLocalSearch(request: req).start())?.mapItems ?? []
 
-        let (stibStops, mkItems) = await (stibTask, mkTask)
+        let (stibStops, googleResult, mkItems) = await (stibTask, googleTask, mkTask)
 
         var merged: [MKMapItem] = []
         var seen = Set<String>()
@@ -2971,12 +2977,30 @@ struct HomeView: View {
             }
         }
 
-        // 2) MKLocalSearch en dessous, en évitant de re-suggérer un arrêt déjà
-        //    proposé en tête.
+        // 2) Résultat Google (adresse réelle) JUSTE après les arrêts STIB :
+        //    c'est lui qui fait remonter l'adresse FR que MapKit ne trouve pas.
+        if let g = googleResult {
+            let displayName = g.name.isEmpty ? g.formattedAddress : g.name
+            if !displayName.isEmpty,
+               !stibStops.contains(where: { $0.name.compare(displayName, options: .caseInsensitive) == .orderedSame }),
+               seen.insert("geo|\(displayName.lowercased())").inserted {
+                let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
+                item.name = displayName
+                merged.append(item)
+            }
+        }
+
+        // 3) MKLocalSearch en dessous, en évitant de re-suggérer un arrêt déjà
+        //    proposé en tête (ou l'adresse Google déjà ajoutée).
         for item in rankedSearchMapItems(mkItems, query: text, limit: 8) {
             let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
             // Skip si le nom est déjà dans la liste STIB (case-insensitive).
             if stibStops.contains(where: { $0.name.compare(item.name ?? "", options: .caseInsensitive) == .orderedSame }) {
+                continue
+            }
+            // Skip si c'est la même adresse que le résultat Google déjà en tête.
+            if let g = googleResult,
+               (item.name ?? "").compare(g.name.isEmpty ? g.formattedAddress : g.name, options: .caseInsensitive) == .orderedSame {
                 continue
             }
             if seen.insert(key).inserted {
