@@ -514,8 +514,10 @@ struct QuickReportSheetView: View {
             UISelectionFeedbackGenerator().selectionChanged()
             selectedStop = stop
             selectedLine = stop.issueLines.first
-            selectedProblem = nil
-            description = ""
+            // On NE réinitialise PLUS le type de problème ni la description en
+            // changeant d'arrêt : ils sont indépendants de l'arrêt. Avant,
+            // choisir un autre arrêt effaçait le type déjà sélectionné (et le
+            // texte) → l'utilisateur devait tout recommencer.
             withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
                 isStopPickerExpanded = false
                 stopSearchQuery = ""
