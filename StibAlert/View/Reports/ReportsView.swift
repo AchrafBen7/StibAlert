@@ -201,7 +201,7 @@ struct ReportsView: View {
     private var nowItems: [EditorialNowItem] {
         if let summary = currentSummary, !summary.affectedLines.isEmpty {
             return Array(summary.affectedLines.prefix(8)).map {
-                EditorialNowItem(id: "summary-\($0)", line: $0, reason: summary.shortText)
+                EditorialNowItem(id: "summary-\($0)", line: $0, reason: summary.localizedShortText)
             }
         }
 
@@ -996,7 +996,7 @@ struct ReportsView: View {
             return directItems
         }
 
-        let bullets = summary.bullets.isEmpty ? [summary.shortText] : summary.bullets
+        let bullets = summary.localizedBullets.isEmpty ? [summary.localizedShortText] : summary.localizedBullets
         let summaryItems = bullets.prefix(4).enumerated().map { index, bullet in
             EditorialFeedItem(
                 id: "official-summary-\(index)",
@@ -1744,8 +1744,8 @@ struct ReportsView: View {
                 guard matchesSelectedMode(lines: lines) else { return nil }
                 return NetworkIssueCarouselItem(
                     id: "official-\(incident.id)",
-                    keyword: issueKeyword(from: incident.type ?? incident.description ?? summary.shortText),
-                    detail: incident.description ?? summary.shortText,
+                    keyword: issueKeyword(from: incident.type ?? incident.description ?? summary.localizedShortText),
+                    detail: incident.description ?? summary.localizedShortText,
                     lines: lines,
                     location: incident.stop?.name,
                     sourceLabel: "Officiel STIB",
@@ -1773,7 +1773,7 @@ struct ReportsView: View {
             )
         }
 
-        let bullets = summary.bullets.isEmpty ? [summary.shortText] : summary.bullets
+        let bullets = summary.localizedBullets.isEmpty ? [summary.localizedShortText] : summary.localizedBullets
         items += bullets.prefix(6).enumerated().map { index, bullet in
             NetworkIssueCarouselItem(
                 id: "summary-\(index)",
@@ -1790,8 +1790,8 @@ struct ReportsView: View {
             items.append(
                 NetworkIssueCarouselItem(
                     id: "summary-fallback",
-                    keyword: issueKeyword(from: summary.shortText),
-                    detail: summary.shortText,
+                    keyword: issueKeyword(from: summary.localizedShortText),
+                    detail: summary.localizedShortText,
                     lines: summary.affectedLines,
                     location: summary.affectedStops.first,
                     sourceLabel: sourcePreviewTitle(for: summary),
@@ -3106,11 +3106,11 @@ private struct ReportsSummarySheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(summary.title)
+                        Text(summary.localizedTitle)
                             .font(DS.Font.displayH3)
                             .foregroundStyle(DS.Color.primary)
 
-                        Text(summary.longText)
+                        Text(summary.localizedLongText)
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkSoft)
                             .fixedSize(horizontal: false, vertical: true)
@@ -3214,10 +3214,10 @@ private struct ReportsSummarySheet: View {
                         }
                     }
 
-                    if !summary.bullets.isEmpty {
+                    if !summary.localizedBullets.isEmpty {
                         summarySection(title: "Lecture rapide") {
                             VStack(alignment: .leading, spacing: 10) {
-                                ForEach(summary.bullets, id: \.self) { bullet in
+                                ForEach(summary.localizedBullets, id: \.self) { bullet in
                                     HStack(alignment: .top, spacing: 10) {
                                         Circle()
                                             .fill(DS.Color.primary)
@@ -3297,8 +3297,8 @@ private struct ReportsSummarySheet: View {
     private var copyableSummary: String {
         var lines: [String] = []
         lines.append(lineLabel.map { "Résumé ligne \($0)" } ?? "Résumé perturbations")
-        lines.append(summary.title)
-        lines.append(summary.longText)
+        lines.append(summary.localizedTitle)
+        lines.append(summary.localizedLongText)
 
         if !summary.affectedLines.isEmpty {
             lines.append("Lignes touchées: \(summary.affectedLines.joined(separator: ", "))")
@@ -3308,9 +3308,9 @@ private struct ReportsSummarySheet: View {
             lines.append("Zones clés: \(summary.affectedStops.joined(separator: ", "))")
         }
 
-        if !summary.bullets.isEmpty {
+        if !summary.localizedBullets.isEmpty {
             lines.append("Lecture rapide:")
-            lines.append(contentsOf: summary.bullets.map { "• \($0)" })
+            lines.append(contentsOf: summary.localizedBullets.map { "• \($0)" })
         }
 
         if let sourceLabel = summary.sourceLabel {

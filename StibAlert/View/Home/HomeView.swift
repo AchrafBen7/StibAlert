@@ -837,8 +837,8 @@ struct HomeView: View {
             activeTrip: stibAIActiveTrip(),
             network: NetworkState(
                 level: transportOverview?.severity ?? selectedMapStopDetail?.severity ?? "unknown",
-                headline: transportOverview?.perturbationSummary?.shortText
-                    ?? selectedMapStopDetail?.perturbationSummary?.shortText
+                headline: transportOverview?.perturbationSummary?.localizedShortText
+                    ?? selectedMapStopDetail?.perturbationSummary?.localizedShortText
                     ?? "Données réseau chargées depuis l'app.",
                 affectedLines: affectedLines
             ),

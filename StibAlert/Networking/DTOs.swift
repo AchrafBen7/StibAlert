@@ -929,6 +929,30 @@ struct TransportPerturbationSummaryDTO: Codable, Equatable {
     let sourceBreakdown: TransportPerturbationSourceBreakdownDTO?
     let crowdingRisk: TransportCrowdingRiskDTO?
     let source: String?
+    // Variantes NL fournies par le backend (le texte FR était affiché tel quel
+    // dans l'app NL). Optionnelles : nil si l'ancien backend répond encore.
+    let titleNl: String?
+    let shortTextNl: String?
+    let longTextNl: String?
+    let bulletsNl: [String]?
+
+    private var prefersDutch: Bool { AppLocale.languageCode == "nl" }
+    var localizedTitle: String {
+        if prefersDutch, let value = titleNl, !value.isEmpty { return value }
+        return title
+    }
+    var localizedShortText: String {
+        if prefersDutch, let value = shortTextNl, !value.isEmpty { return value }
+        return shortText
+    }
+    var localizedLongText: String {
+        if prefersDutch, let value = longTextNl, !value.isEmpty { return value }
+        return longText
+    }
+    var localizedBullets: [String] {
+        if prefersDutch, let value = bulletsNl, !value.isEmpty { return value }
+        return bullets
+    }
 }
 
 struct TransportPerturbationSourceBreakdownDTO: Codable, Equatable {
