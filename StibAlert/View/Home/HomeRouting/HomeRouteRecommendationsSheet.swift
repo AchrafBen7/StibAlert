@@ -46,6 +46,15 @@ struct RouteRecommendationsSheet: View {
     }
     private var recommended: HomeRouteOption? { filteredOptions.first }
     private var others: [HomeRouteOption] { Array(filteredOptions.dropFirst()) }
+
+    /// Route recommandée pour un mode donné, calculée sans dépendre de la
+    /// propagation de `selectedModeKey` (utilisé dans onAppear/onChange où le
+    /// @State n'est pas encore reflété). Même règle que `filteredOptions`.
+    private func recommendedOption(for mode: String) -> HomeRouteOption? {
+        let subset = options.filter { $0.primaryModeKey == mode }
+        let base = subset.isEmpty ? options : subset
+        return base.min { $0.totalDurationMinutes < $1.totalDurationMinutes }
+    }
     private var preferredInitialMode: String {
         if modeSummaries.contains(where: { $0.modeKey == "transit" && $0.durationText != "—" }) {
             return "transit"
@@ -112,12 +121,27 @@ struct RouteRecommendationsSheet: View {
             }
             .ignoresSafeArea()
             .onAppear {
-                selectedModeKey = preferredInitialMode
-                expandedRouteID = recommended?.id
+                let mode = preferredInitialMode
+                selectedModeKey = mode
+                let rec = recommendedOption(for: mode)
+                expandedRouteID = rec?.id
+                // Aligne la CARTE sur la route recommandée (1ʳᵉ carte, la plus
+                // rapide du mode). Sans ça, la carte traçait `routeOptions.first`
+                // (1er trajet brut, non trié) → un itinéraire différent de la
+                // proposition affichée → confusion. On ne force que si rien
+                // n'est déjà sélectionné (respecte un choix manuel).
+                if selectedRouteID == nil {
+                    selectedRouteID = rec?.id
+                }
             }
             .onChange(of: modeSummaries.map(\.modeKey)) { _, _ in
-                selectedModeKey = preferredInitialMode
-                expandedRouteID = filteredOptions.first?.id
+                let mode = preferredInitialMode
+                selectedModeKey = mode
+                let rec = recommendedOption(for: mode)
+                expandedRouteID = rec?.id
+                // Nouveau jeu de routes → on réaligne la carte sur la nouvelle
+                // recommandation pour qu'elles ne divergent jamais.
+                selectedRouteID = rec?.id
             }
         }
     }
