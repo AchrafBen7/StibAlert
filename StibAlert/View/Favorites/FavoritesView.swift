@@ -2195,12 +2195,12 @@ private struct FavoriteTransitItem: Identifiable {
             return reportCount == 0 ? AppLocalizer.string("favorites.cockpit.none", defaultValue: "Aucun incident actif") : AppLocalizer.string("favorites.cockpit.one_report", defaultValue: "1 signalement actif")
         case .warning:
             if let type = lastProblemType {
-                return AppLocalizer.format("favorites.cockpit.type_ongoing", defaultValue: "%@ en cours", type)
+                return AppLocalizer.format("favorites.cockpit.type_ongoing", defaultValue: "%@ en cours", SignalementDTO.localizedReportType(type))
             }
             return AppLocalizer.format("favorites.cockpit.reports", defaultValue: "%d signalements actifs", reportCount)
         case .blocked:
             if let type = lastProblemType {
-                return AppLocalizer.format("favorites.cockpit.type_disrupted", defaultValue: "%@ · service perturbé", type)
+                return AppLocalizer.format("favorites.cockpit.type_disrupted", defaultValue: "%@ · service perturbé", SignalementDTO.localizedReportType(type))
             }
             return AppLocalizer.format("favorites.cockpit.critical", defaultValue: "%d signalements critiques", reportCount)
         }
