@@ -1487,7 +1487,7 @@ private struct TransportLineSnapshotCard: View {
                         Text("Alternative immédiate")
                             .sectionTitle()
 
-                        Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                        Text(alternative.localizedExplanationDetails?.summary ?? alternative.explanation)
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkSoft)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1554,7 +1554,7 @@ private struct TransportStopDetailOverlay: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Alternative recommandée")
                                     .sectionTitle()
-                                Text(stopDetail.recommendedAlternatives[0].explanationDetails?.summary ?? stopDetail.recommendedAlternatives[0].explanation)
+                                Text(stopDetail.recommendedAlternatives[0].localizedExplanationDetails?.summary ?? stopDetail.recommendedAlternatives[0].explanation)
                                     .font(DS.Font.bodySmall)
                                     .foregroundStyle(DS.Color.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)

@@ -3185,7 +3185,7 @@ private struct ReportsSummarySheet: View {
                                     }
                                 }
 
-                                Text(crowdingRisk.longText)
+                                Text(crowdingRisk.localizedLongText)
                                     .font(DS.Font.body)
                                     .foregroundStyle(DS.Color.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)

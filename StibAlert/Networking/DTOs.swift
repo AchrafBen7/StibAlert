@@ -711,6 +711,19 @@ struct TransportAlternativeDTO: Codable, Identifiable, Equatable {
     let realtimeArrivalAt: Date?
     let activeVehicle: TransportVehicleDTO?
     let officialAlerts: [TransportOfficialAlertDTO]?
+    // Variantes NL (le backend renvoie l'explication d'itinéraire en FR+NL).
+    let explanationDetailsNl: TransportAlternativeExplanationDTO?
+    let reasonsNl: [String]?
+
+    private var prefersDutch: Bool { AppLocale.languageCode == "nl" }
+    var localizedExplanationDetails: TransportAlternativeExplanationDTO? {
+        if prefersDutch, let nl = explanationDetailsNl { return nl }
+        return explanationDetails
+    }
+    var localizedReasons: [String]? {
+        if prefersDutch, let nl = reasonsNl, !nl.isEmpty { return nl }
+        return reasons
+    }
 }
 
 struct TransportAlternativeExplanationDTO: Codable, Equatable {
@@ -953,6 +966,14 @@ struct TransportPerturbationSummaryDTO: Codable, Equatable {
         if prefersDutch, let value = bulletsNl, !value.isEmpty { return value }
         return bullets
     }
+    /// Vrai uniquement si l'avis pointe un « quoi + où » concret (lignes ou
+    /// arrêts touchés). Les avis vagues type « Réseau sous surveillance »
+    /// (signaux faibles, sans ligne ni arrêt) sont considérés NON concrets et
+    /// ne doivent pas s'afficher comme une perturbation — règle « vrais
+    /// problèmes ou rien ».
+    var hasConcreteContent: Bool {
+        !affectedLines.isEmpty || !affectedStops.isEmpty
+    }
 }
 
 struct TransportPerturbationSourceBreakdownDTO: Codable, Equatable {
@@ -972,6 +993,23 @@ struct TransportCrowdingRiskDTO: Codable, Equatable {
     let impactedStops: [String]
     let confidence: Double?
     let source: String?
+    let titleNl: String?
+    let shortTextNl: String?
+    let longTextNl: String?
+
+    private var prefersDutch: Bool { AppLocale.languageCode == "nl" }
+    var localizedTitle: String {
+        if prefersDutch, let v = titleNl, !v.isEmpty { return v }
+        return title
+    }
+    var localizedShortText: String {
+        if prefersDutch, let v = shortTextNl, !v.isEmpty { return v }
+        return shortText
+    }
+    var localizedLongText: String {
+        if prefersDutch, let v = longTextNl, !v.isEmpty { return v }
+        return longText
+    }
 }
 
 struct TransportStopDTO: Codable, Equatable {

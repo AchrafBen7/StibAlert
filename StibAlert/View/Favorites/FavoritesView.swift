@@ -1923,12 +1923,12 @@ private struct FavoriteStopDecisionCard: View {
             }
 
             if let alternative = stop.recommendedAlternatives.first {
-                Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                Text(alternative.localizedExplanationDetails?.summary ?? alternative.explanation)
                     .font(.system(size: 13))
                     .foregroundStyle(DS.Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let firstHighlight = alternative.explanationDetails?.highlights.first {
+                if let firstHighlight = alternative.localizedExplanationDetails?.highlights.first {
                     Text(firstHighlight)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(DS.Color.primary)

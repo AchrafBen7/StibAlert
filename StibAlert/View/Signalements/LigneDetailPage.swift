@@ -180,7 +180,7 @@ final class LigneDetailViewModel: ObservableObject {
     }
 
     var alternativeSummary: String? {
-        activeLine?.recommendedAlternatives.first?.explanationDetails?.summary
+        activeLine?.recommendedAlternatives.first?.localizedExplanationDetails?.summary
             ?? activeLine?.recommendedAlternatives.first?.explanation
     }
 
@@ -815,9 +815,14 @@ struct LigneDetailPage: View {
                     title: String(localized: "Pas d'info officielle sur cette ligne"),
                     detail: String(localized: "La STIB-MIVB n'a publié aucune perturbation propre à cette ligne.")
                 )
-                if let lineSummary, hasLineSummary {
+                // « Vrais problèmes ou rien » : on n'affiche l'avis QUE s'il
+                // pointe un quoi + où concret (lignes/arrêts touchés). L'avis
+                // vague « Réseau sous surveillance » (signaux faibles, sans
+                // ligne ni arrêt) n'apparaît plus du tout → la ligne reste
+                // simplement « pas d'info officielle » (bandeau vert).
+                if let lineSummary, lineSummary.hasConcreteContent {
                     networkAdvisoryRow(lineSummary)
-                } else if let globalSummary {
+                } else if let globalSummary, globalSummary.hasConcreteContent {
                     networkAdvisoryRow(globalSummary)
                 }
             }

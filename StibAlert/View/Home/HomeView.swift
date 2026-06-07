@@ -3921,7 +3921,7 @@ private struct HomeAlternativeDetailsSheet: View {
                             .font(.custom("DelaGothicOne-Regular", size: 22))
                             .foregroundStyle(.white)
 
-                        Text(alternative.explanationDetails?.summary ?? alternative.explanation)
+                        Text(alternative.localizedExplanationDetails?.summary ?? alternative.explanation)
                             .font(.custom("Montserrat-Regular", size: 13))
                             .foregroundStyle(.white.opacity(0.76))
                             .fixedSize(horizontal: false, vertical: true)
@@ -3944,7 +3944,7 @@ private struct HomeAlternativeDetailsSheet: View {
                             .foregroundStyle(Color(hex: "#B5CFF8"))
                     }
 
-                    if let reasons = alternative.reasons, !reasons.isEmpty {
+                    if let reasons = alternative.localizedReasons, !reasons.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(L10n.Routing.alternativeReason)
                                 .font(.custom("Montserrat-SemiBold", size: 12))
@@ -3959,7 +3959,7 @@ private struct HomeAlternativeDetailsSheet: View {
                         }
                     }
 
-                    if let categories = alternative.explanationDetails?.categories, !categories.isEmpty {
+                    if let categories = alternative.localizedExplanationDetails?.categories, !categories.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(L10n.Routing.choiceReading)
                                 .font(.custom("Montserrat-SemiBold", size: 12))
