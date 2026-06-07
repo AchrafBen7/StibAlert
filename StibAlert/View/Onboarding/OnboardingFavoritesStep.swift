@@ -32,6 +32,11 @@ struct OnboardingFavoritesStep: View {
     @State private var userCoordinate: CLLocationCoordinate2D = OneShotLocationManager.fallback
     @State private var isSeedingFallback = false
 
+    // Recherche d'arrêts (n'importe quel arrêt, pas seulement ceux à proximité).
+    @State private var searchQuery = ""
+    @State private var stibSearchResults: [NearbyStop] = []
+    @State private var isSearchingStib = false
+
     private static let brusselsCenterFallbackNames: [String] = [
         "DE BROUCKERE", "BOURSE", "GARE CENTRALE"
     ]
@@ -55,6 +60,7 @@ struct OnboardingFavoritesStep: View {
                             enabledOperators: [.stib, .sncb, .delijn, .tec],
                             onSelect: { selectedOperator = $0 }
                         )
+                        searchField
                         operatorContent
                     } else {
                         locationGate
@@ -98,6 +104,79 @@ struct OnboardingFavoritesStep: View {
         }
         .background(DS.Color.background)
         .task { await loadAll() }
+        .task(id: searchQuery) { await runStibSearch() }
+    }
+
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Recherche
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+            TextField(
+                AppLocalizer.string("onboarding.fav.search_ph", defaultValue: "Rechercher un arrêt…"),
+                text: $searchQuery
+            )
+            .font(DS.Font.body)
+            .foregroundStyle(DS.Color.ink)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .submitLabel(.search)
+            if isSearchingStib && selectedOperator == .stib {
+                ProgressView().tint(DS.Color.inkMute).scaleEffect(0.7)
+            } else if !trimmedQuery.isEmpty {
+                Button {
+                    searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 48)
+        .background(DS.Color.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.15), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+    }
+
+    /// Recherche STIB côté backend (tous les arrêts, pas seulement à proximité).
+    /// Débouncée via `.task(id:)` qui s'annule à chaque frappe.
+    @MainActor
+    private func runStibSearch() async {
+        let query = trimmedQuery
+        guard query.count >= 2 else {
+            stibSearchResults = []
+            isSearchingStib = false
+            return
+        }
+        isSearchingStib = true
+        try? await Task.sleep(nanoseconds: 300_000_000) // debounce 0.3s
+        if Task.isCancelled { return }
+        do {
+            let results = try await NearbyStopService.searchStopsByName(query)
+            if Task.isCancelled { return }
+            stibSearchResults = dedupedRealStibStops(results).prefix(40).map { $0 }
+        } catch {
+            stibSearchResults = []
+        }
+        isSearchingStib = false
+    }
+
+    private func nameMatchesQuery(_ name: String) -> Bool {
+        let q = trimmedQuery
+        guard !q.isEmpty else { return true }
+        return normalizedStopName(name).contains(normalizedStopName(q))
     }
 
     private enum LocationState {
@@ -301,17 +380,26 @@ struct OnboardingFavoritesStep: View {
         }
     }
 
+    private var displayedStibStops: [NearbyStop] {
+        trimmedQuery.isEmpty ? stibStops : stibSearchResults
+    }
+
     private var stibList: some View {
         VStack(spacing: 0) {
-            if isLoadingStib && stibStops.isEmpty {
+            if trimmedQuery.isEmpty && isLoadingStib && stibStops.isEmpty {
                 loadingRow
-            } else if stibStops.isEmpty {
-                emptyRow("Aucun arrêt STIB à proximité.")
+            } else if !trimmedQuery.isEmpty && isSearchingStib && stibSearchResults.isEmpty {
+                loadingRow
+            } else if displayedStibStops.isEmpty {
+                emptyRow(trimmedQuery.isEmpty
+                    ? AppLocalizer.string("onboarding.fav.empty_stib", defaultValue: "Aucun arrêt STIB à proximité.")
+                    : AppLocalizer.string("onboarding.fav.empty_search", defaultValue: "Aucun arrêt trouvé. Essaie un autre nom."))
             } else {
-                ForEach(stibStops) { stop in
+                ForEach(displayedStibStops) { stop in
                     selectableRow(
                         title: stop.name,
-                        subtitle: "\(stop.distanceMeters) m · STIB",
+                        subtitle: stop.distanceMeters > 0 ? "\(stop.distanceMeters) m · STIB" : "STIB",
+                        lines: stop.lines,
                         operatorColor: TransitOperator.stib.brandColor,
                         operatorAsset: TransitOperator.stib.assetName,
                         isSelected: stibSelectionId(for: stop).map { stibSelectedIds.contains($0) } ?? false,
@@ -329,13 +417,16 @@ struct OnboardingFavoritesStep: View {
     }
 
     private var sncbList: some View {
-        VStack(spacing: 0) {
+        let stations = trimmedQuery.isEmpty ? sncbStations : sncbStations.filter { nameMatchesQuery($0.displayName) }
+        return VStack(spacing: 0) {
             if isLoadingSncb && sncbStations.isEmpty {
                 loadingRow
-            } else if sncbStations.isEmpty {
-                emptyRow("Aucune gare SNCB à proximité.")
+            } else if stations.isEmpty {
+                emptyRow(trimmedQuery.isEmpty
+                    ? AppLocalizer.string("onboarding.fav.empty_sncb", defaultValue: "Aucune gare SNCB à proximité.")
+                    : AppLocalizer.string("onboarding.fav.empty_search", defaultValue: "Aucun arrêt trouvé. Essaie un autre nom."))
             } else {
-                ForEach(sncbStations) { station in
+                ForEach(stations) { station in
                     selectableRow(
                         title: station.displayName,
                         subtitle: "\(station.displayProvince) · Gare SNCB",
@@ -355,13 +446,16 @@ struct OnboardingFavoritesStep: View {
 
     @ViewBuilder
     private func operatorList(_ op: TransitOperator) -> some View {
-        let stops = op == .delijn ? delijnStops : tecStops
+        let allStops = op == .delijn ? delijnStops : tecStops
+        let stops = trimmedQuery.isEmpty ? allStops : allStops.filter { nameMatchesQuery($0.name) }
         let loading = op == .delijn ? isLoadingDelijn : isLoadingTec
         VStack(spacing: 0) {
-            if loading && stops.isEmpty {
+            if loading && allStops.isEmpty {
                 loadingRow
             } else if stops.isEmpty {
-                emptyRow("Aucun arrêt \(op.mapLabel) à proximité.")
+                emptyRow(trimmedQuery.isEmpty
+                    ? AppLocalizer.format("onboarding.fav.empty_operator", defaultValue: "Aucun arrêt %@ à proximité.", op.mapLabel)
+                    : AppLocalizer.string("onboarding.fav.empty_search", defaultValue: "Aucun arrêt trouvé. Essaie un autre nom."))
             } else {
                 ForEach(stops) { stop in
                     selectableRow(
@@ -384,7 +478,7 @@ struct OnboardingFavoritesStep: View {
 
     // MARK: - Row helpers
 
-    private func selectableRow(title: String, subtitle: String, operatorColor: Color, operatorAsset: String, isSelected: Bool, onToggle: @escaping () -> Void) -> some View {
+    private func selectableRow(title: String, subtitle: String, lines: [StopLine] = [], operatorColor: Color, operatorAsset: String, isSelected: Bool, onToggle: @escaping () -> Void) -> some View {
         Button(action: onToggle) {
             HStack(spacing: 12) {
                 Image(operatorAsset)
@@ -392,9 +486,12 @@ struct OnboardingFavoritesStep: View {
                     .frame(width: 28, height: 28).frame(width: 42, height: 42)
                     .background(operatorColor.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink).lineLimit(1)
                     Text(subtitle).font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute).lineLimit(1)
+                    if !lines.isEmpty {
+                        lineBadges(lines)
+                    }
                 }
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
@@ -410,13 +507,35 @@ struct OnboardingFavoritesStep: View {
         .buttonStyle(.plain)
     }
 
+    /// Badges des lignes qui passent par l'arrêt (numéro + couleur officielle),
+    /// affichés sous le nom — limité à 8 pour ne pas surcharger la rangée.
+    private func lineBadges(_ lines: [StopLine]) -> some View {
+        let shown = Array(lines.prefix(8))
+        return HStack(spacing: 4) {
+            ForEach(shown) { line in
+                Text(line.number)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(line.color.isDark ? Color.white : Color.black)
+                    .padding(.horizontal, 6)
+                    .frame(minWidth: 22, minHeight: 18)
+                    .background(line.color)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            if lines.count > shown.count {
+                Text("+\(lines.count - shown.count)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+        }
+    }
+
     private var loadingRow: some View {
         HStack { ProgressView().tint(DS.Color.ink); Spacer() }
             .padding(.vertical, 32).frame(maxWidth: .infinity)
     }
 
-    private func emptyRow(_ text: LocalizedStringKey) -> some View {
-        Text(text)
+    private func emptyRow(_ text: String) -> some View {
+        Text(verbatim: text)
             .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
             .padding(.vertical, 20).padding(.horizontal, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
