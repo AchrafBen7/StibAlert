@@ -12,14 +12,20 @@ struct RouteRecommendationsSheet: View {
     let onSelect: (HomeRouteOption) -> Void
     let onClose: () -> Void
 
-    @GestureState private var dragOffset: CGFloat = 0
+    // Translation de drag en @State (et non @GestureState) : @GestureState se
+    // remet à 0 INSTANTANÉMENT au relâchement → la feuille « sautait » avant que
+    // la hauteur ne s'anime (le « bug » quand on descend la feuille). Ici on
+    // anime le retour à 0 dans le même ressort que le changement de hauteur.
+    @State private var dragTranslation: CGFloat = 0
     @State private var expandedRouteID: UUID?
     @State private var selectedModeKey: String = "transit"
 
     private var sheetDragGesture: some Gesture {
         DragGesture(minimumDistance: 8)
-            .updating($dragOffset) { value, state, _ in
-                state = value.translation.height
+            .onChanged { value in
+                // On ne suit que les drags vers le BAS ; vers le haut = expand
+                // au relâchement (pas de déplacement visuel pendant le geste).
+                dragTranslation = max(0, value.translation.height)
             }
             .onEnded { value in
                 let verticalMove = value.translation.height
@@ -35,6 +41,7 @@ struct RouteRecommendationsSheet: View {
                             onClose()
                         }
                     }
+                    dragTranslation = 0 // retour animé → plus de saut
                 }
             }
     }
@@ -44,8 +51,20 @@ struct RouteRecommendationsSheet: View {
         let base = subset.isEmpty ? options : subset
         return base.sorted { $0.totalDurationMinutes < $1.totalDurationMinutes }
     }
-    private var recommended: HomeRouteOption? { filteredOptions.first }
-    private var others: [HomeRouteOption] { Array(filteredOptions.dropFirst()) }
+    /// La carte « recommandée » (grande, en haut) suit la route SÉLECTIONNÉE :
+    /// taper une autre route la fait monter en tête (« sélectionner à la place »)
+    /// au lieu de rester enterrée dans la liste. Par défaut (rien de sélectionné)
+    /// c'est la plus rapide.
+    private var recommended: HomeRouteOption? {
+        if let selectedRouteID, let selected = filteredOptions.first(where: { $0.id == selectedRouteID }) {
+            return selected
+        }
+        return filteredOptions.first
+    }
+    private var others: [HomeRouteOption] {
+        guard let recommendedID = recommended?.id else { return [] }
+        return filteredOptions.filter { $0.id != recommendedID }
+    }
 
     /// Route recommandée pour un mode donné, calculée sans dépendre de la
     /// propagation de `selectedModeKey` (utilisé dans onAppear/onChange où le
@@ -116,7 +135,7 @@ struct RouteRecommendationsSheet: View {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
                 )
-                .offset(y: max(0, dragOffset))
+                .offset(y: dragTranslation)
                 .allowsHitTesting(true)
             }
             .ignoresSafeArea()
@@ -204,9 +223,11 @@ struct RouteRecommendationsSheet: View {
                     )
                     .onTapGesture {
                         selectedModeKey = summary.modeKey
-                        if let first = options.first(where: { $0.primaryModeKey == summary.modeKey }) {
-                            expandedRouteID = first.id
-                            onSelect(first)
+                        // Promeut la PLUS RAPIDE du mode choisi (cohérent avec la
+                        // carte « recommandée » qui suit la sélection).
+                        if let fastest = recommendedOption(for: summary.modeKey) {
+                            expandedRouteID = fastest.id
+                            onSelect(fastest)
                         }
                     }
                     if index < modeSummaries.count - 1 {
