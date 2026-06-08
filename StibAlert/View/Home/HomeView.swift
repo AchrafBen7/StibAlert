@@ -3321,7 +3321,7 @@ struct HomeView: View {
         originName: String,
         destinationName: String
     ) -> [HomeRouteOption] {
-        guard let recommendation else { return fallbackOptions }
+        guard let recommendation else { return demoteWalkingOnlyOptions(fallbackOptions) }
 
         var backendOptions = recommendation.recommendedAlternatives.enumerated().map { index, alternative in
             let matchedRoute = matchedFallbackRoute(for: alternative, in: fallbackOptions)
@@ -3345,7 +3345,21 @@ struct HomeView: View {
             }
         }
 
-        return backendOptions
+        return demoteWalkingOnlyOptions(backendOptions)
+    }
+
+    /// Une option « à pied uniquement » ne doit JAMAIS être la recommandation
+    /// n°1 quand un trajet en transport en commun existe : on la repousse après
+    /// les options transport (tram/bus/métro/vélo). C'est une app de mobilité —
+    /// « marche 26 min, c'est plus rapide que le tram » n'est pas ce qu'on veut
+    /// proposer en tête (ni dans la carte trajet, ni dans STIB·AI). L'ordre
+    /// relatif des autres options est préservé ; on ne garde la marche en tête
+    /// que s'il n'existe AUCUN trajet en transport.
+    private func demoteWalkingOnlyOptions(_ options: [HomeRouteOption]) -> [HomeRouteOption] {
+        let nonWalk = options.filter { $0.primaryModeKey != "walk" }
+        guard !nonWalk.isEmpty else { return options }
+        let walk = options.filter { $0.primaryModeKey == "walk" }
+        return nonWalk + walk
     }
 
     private func matchedFallbackRoute(
