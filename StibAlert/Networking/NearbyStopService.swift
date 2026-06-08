@@ -285,6 +285,13 @@ enum NearbyStopService {
         "impasse", "drève", "dreve", "carrefour", "gare", "station", "metro",
         "métro", "tram", "bus", "arret", "arrêt", "rond-point", "rondpoint",
         "des", "les", "aux", "sur", "sous", "par", "pour", "avec", "vers",
+        // Articles / prépositions FR + NL : ne doivent JAMAIS déclencher un
+        // match d'arrêt à eux seuls. Sans "de", taper « Rue DE lombartzyde »
+        // matchait « DE Wand », « Gare DE Berchem », « Cim. DE Molenbeek » sur
+        // le seul mot « de » → ces arrêts passaient AVANT la vraie adresse.
+        "de", "du", "la", "le", "au", "et", "en", "a",
+        "het", "van", "een", "op", "aan", "naar",
+        "straat", "laan", "plein", "steenweg", "weg",
     ]
 
     /// Search the local static STIB catalog for a stop whose name best matches
