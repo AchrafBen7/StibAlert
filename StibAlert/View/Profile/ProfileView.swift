@@ -1522,42 +1522,45 @@ private struct NotificationSettingsView: View {
     let onBack: () -> Void
     let onClose: () -> Void
 
+    @State private var isTestingPush = false
+    @State private var testStatus: String? = nil
+
     var body: some View {
         ProfileSubpageScaffold(
-            eyebrow: "Profil · Préférences",
-            title: "Notifications",
+            eyebrow: AppLocalizer.string("notif.eyebrow", defaultValue: "Profil · Préférences"),
+            title: AppLocalizer.string("notif.title", defaultValue: "Notifications"),
             onBack: onBack,
             onClose: onClose
         ) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Choisis quels types de notifications tu reçois. Blayse ne t'enverra rien d'autre.")
+                Text(AppLocalizer.string("notif.intro", defaultValue: "Choisis quels types de notifications tu reçois. Blayse ne t'enverra rien d'autre."))
                     .font(.system(size: 12.5))
                     .foregroundColor(DS.Color.inkSoft)
 
                 frequencySelectorSection
 
-                ProfileSettingsSection(title: "Types d'alertes") {
+                ProfileSettingsSection(title: AppLocalizer.string("notif.section.types", defaultValue: "Types d'alertes")) {
                     NotificationToggleRow(
                         icon: "sparkles",
-                        title: "Brief pré-trajet",
-                        description: "15 min avant ton départ habituel, un verdict actionable",
-                        payloadExample: "Ligne 92 OK ce matin — départ habituel 8h40 conseillé.",
+                        title: AppLocalizer.string("notif.pretrip.title", defaultValue: "Brief pré-trajet"),
+                        description: AppLocalizer.string("notif.pretrip.desc", defaultValue: "15 min avant ton départ habituel, un verdict actionable"),
+                        payloadExample: AppLocalizer.string("notif.pretrip.example", defaultValue: "Ligne 92 OK ce matin — départ habituel 8h40 conseillé."),
                         isOn: $preTripPushEnabled
                     )
                     ProfileSettingsDivider()
                     NotificationToggleRow(
                         icon: "exclamationmark.triangle.fill",
-                        title: "Alertes communauté",
-                        description: "Quand un cluster touche une de tes lignes favorites",
-                        payloadExample: "Ligne 92 perturbée à Bailli — 3 confirmations.",
+                        title: AppLocalizer.string("notif.community.title", defaultValue: "Alertes communauté"),
+                        description: AppLocalizer.string("notif.community.desc", defaultValue: "Quand un cluster touche une de tes lignes favorites"),
+                        payloadExample: AppLocalizer.string("notif.community.example", defaultValue: "Ligne 92 perturbée à Bailli — 3 confirmations."),
                         isOn: $communityClusterPushEnabled
                     )
                     ProfileSettingsDivider()
                     NotificationToggleRow(
                         icon: "hands.sparkles.fill",
-                        title: "Mercis",
-                        description: "Quand ton signalement aide d'autres voyageurs",
-                        payloadExample: "Merci ! 12 voyageurs ont vu ton signalement.",
+                        title: AppLocalizer.string("notif.mercis.title", defaultValue: "Mercis"),
+                        description: AppLocalizer.string("notif.mercis.desc", defaultValue: "Quand ton signalement aide d'autres voyageurs"),
+                        payloadExample: AppLocalizer.string("notif.mercis.example", defaultValue: "Merci ! 12 voyageurs ont vu ton signalement."),
                         isOn: $mercisPushEnabled
                     )
                 }
@@ -1568,7 +1571,7 @@ private struct NotificationSettingsView: View {
                     Image(systemName: "lock.shield.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(DS.Color.statusOK)
-                    Text("Jamais de marketing — uniquement des événements de transport.")
+                    Text(AppLocalizer.string("notif.no_marketing", defaultValue: "Jamais de marketing — uniquement des événements de transport."))
                         .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -1580,12 +1583,12 @@ private struct NotificationSettingsView: View {
                     lineRulesSection
                 }
 
-                ProfileSettingsSection(title: "Plage silencieuse") {
+                ProfileSettingsSection(title: AppLocalizer.string("notif.section.quiet", defaultValue: "Plage silencieuse")) {
                     NotificationToggleRow(
                         icon: "moon.zzz.fill",
                         title: quietHoursWindowLabel,
-                        description: "Aucune push pendant ces heures, sauf urgences critiques",
-                        payloadExample: "Accident bloque ligne 92 cette nuit (urgence — exception silence).",
+                        description: AppLocalizer.string("notif.quiet.desc", defaultValue: "Aucune push pendant ces heures, sauf urgences critiques"),
+                        payloadExample: AppLocalizer.string("notif.quiet.example", defaultValue: "Accident bloque ligne 92 cette nuit (urgence — exception silence)."),
                         isOn: $quietHoursEnabled
                     )
                     if quietHoursEnabled {
@@ -1594,16 +1597,18 @@ private struct NotificationSettingsView: View {
                     }
                 }
 
-                ProfileSettingsSection(title: "Canaux") {
+                ProfileSettingsSection(title: AppLocalizer.string("notif.section.channels", defaultValue: "Canaux")) {
                     NotificationToggleRow(
                         icon: "bell.fill",
-                        title: "Push principal",
-                        description: "Master switch pour toutes les notifications iOS",
+                        title: AppLocalizer.string("notif.master.title", defaultValue: "Push principal"),
+                        description: AppLocalizer.string("notif.master.desc", defaultValue: "Master switch pour toutes les notifications iOS"),
                         isOn: $pushEnabled
                     )
+                    ProfileSettingsDivider()
+                    testPushRow
                 }
 
-                Text("STIBALERT · V1.0.0")
+                Text("BLAYSE · V1.0.0")
                     .font(DS.Font.monoSmall)
                     .tracking(2)
                     .foregroundColor(DS.Color.inkMute)
@@ -1613,16 +1618,18 @@ private struct NotificationSettingsView: View {
         }
     }
 
-    // Sélecteur de débit global des alertes (#3).
-    private let frequencyOptions: [(value: String, label: String, desc: String)] = [
-        ("tout", "Tout", "Toutes les alertes pertinentes"),
-        ("essentiel", "Essentiel", "Perturbations + confirmées (recommandé)"),
-        ("critique", "Critique", "Uniquement accident / agression / coupure"),
-        ("digest", "Résumé", "Un seul récap, pas d'alerte en direct"),
-    ]
+    // Sélecteur de débit global des alertes (#3). Computed pour suivre la langue.
+    private var frequencyOptions: [(value: String, label: String, desc: String)] {
+        [
+            ("tout", AppLocalizer.string("notif.freq.all.label", defaultValue: "Tout"), AppLocalizer.string("notif.freq.all.desc", defaultValue: "Toutes les alertes pertinentes")),
+            ("essentiel", AppLocalizer.string("notif.freq.essential.label", defaultValue: "Essentiel"), AppLocalizer.string("notif.freq.essential.desc", defaultValue: "Perturbations + confirmées (recommandé)")),
+            ("critique", AppLocalizer.string("notif.freq.critical.label", defaultValue: "Critique"), AppLocalizer.string("notif.freq.critical.desc", defaultValue: "Uniquement accident / agression / coupure")),
+            ("digest", AppLocalizer.string("notif.freq.digest.label", defaultValue: "Résumé"), AppLocalizer.string("notif.freq.digest.desc", defaultValue: "Un seul récap, pas d'alerte en direct")),
+        ]
+    }
 
     private var frequencySelectorSection: some View {
-        ProfileSettingsSection(title: "Fréquence des alertes") {
+        ProfileSettingsSection(title: AppLocalizer.string("notif.section.frequency", defaultValue: "Fréquence des alertes")) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(frequencyOptions, id: \.value) { opt in
                     Button {
@@ -1653,23 +1660,29 @@ private struct NotificationSettingsView: View {
         }
     }
 
-    // #4 — Affinage par ligne favorite (Tout/Essentiel/Critique/Off).
-    private let ruleLevels: [(value: String, label: String)] = [
-        ("tout", "Tout"), ("essentiel", "Essentiel"), ("critique", "Critique seul"), ("off", "Désactivé"),
-    ]
+    // #4 — Affinage par ligne favorite (Tout/Essentiel/Critique/Off). Computed
+    // pour suivre la langue de l'app.
+    private var ruleLevels: [(value: String, label: String)] {
+        [
+            ("tout", AppLocalizer.string("notif.rule.all", defaultValue: "Tout")),
+            ("essentiel", AppLocalizer.string("notif.rule.essential", defaultValue: "Essentiel")),
+            ("critique", AppLocalizer.string("notif.rule.critical_only", defaultValue: "Critique seul")),
+            ("off", AppLocalizer.string("notif.rule.off", defaultValue: "Désactivé")),
+        ]
+    }
 
     private var lineRulesSection: some View {
-        ProfileSettingsSection(title: "Affiner par ligne") {
+        ProfileSettingsSection(title: AppLocalizer.string("notif.section.line_rules", defaultValue: "Affiner par ligne")) {
             VStack(spacing: 0) {
                 ForEach(Array(favoriteLines.enumerated()), id: \.element) { index, line in
                     if index > 0 { ProfileSettingsDivider() }
                     HStack(spacing: 12) {
-                        Text("Ligne \(line)")
+                        Text(AppLocalizer.format("notif.line_prefix", defaultValue: "Ligne %@", line))
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(DS.Color.ink)
                         Spacer()
                         Menu {
-                            Picker("Niveau", selection: Binding(
+                            Picker(AppLocalizer.string("notif.level", defaultValue: "Niveau"), selection: Binding(
                                 get: { lineRuleLevel(line) },
                                 set: { onSetLineRule(line, $0) }
                             )) {
@@ -1679,7 +1692,7 @@ private struct NotificationSettingsView: View {
                             }
                         } label: {
                             HStack(spacing: 4) {
-                                Text(ruleLevels.first { $0.value == lineRuleLevel(line) }?.label ?? "Essentiel")
+                                Text(ruleLevels.first { $0.value == lineRuleLevel(line) }?.label ?? AppLocalizer.string("notif.rule.essential", defaultValue: "Essentiel"))
                                     .font(.system(size: 12.5, weight: .bold))
                                     .foregroundStyle(lineRuleLevel(line) == "off" ? DS.Color.inkMute : DS.Color.primary)
                                 Image(systemName: "chevron.up.chevron.down")
@@ -1699,9 +1712,81 @@ private struct NotificationSettingsView: View {
         }
     }
 
-    // S5 — Libellé dynamique de la fenêtre silencieuse (ex. "22h → 7h").
+    /// Bouton diagnostic : envoie une push de test au compte courant pour
+    /// vérifier toute la chaîne (permission iOS + serveur OneSignal + appareil).
+    private var testPushRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button(action: runPushTest) {
+                HStack(spacing: 12) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Color.primary)
+                        .frame(width: 18)
+                    Text(AppLocalizer.string("notif.test.button", defaultValue: "Envoyer une notification test"))
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                    Spacer()
+                    if isTestingPush {
+                        ProgressView().tint(DS.Color.inkMute)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isTestingPush)
+
+            if let testStatus {
+                Text(testStatus)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+            }
+        }
+    }
+
+    private func runPushTest() {
+        guard !isTestingPush else { return }
+        isTestingPush = true
+        testStatus = nil
+        Task {
+            // On s'assure d'abord que la permission iOS est demandée + que le
+            // device s'enregistre auprès de OneSignal, puis on laisse une seconde
+            // à la souscription pour se propager avant d'envoyer le test.
+            await PushNotificationManager.current?.requestAuthorizationAndRegister()
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            do {
+                let res = try await UtilisateurService.testPush()
+                let message = (res.recipients ?? 0) == 0
+                    ? AppLocalizer.string("notif.test.no_device", defaultValue: "Aucun appareil abonné. Autorise les notifications dans Réglages iOS.")
+                    : AppLocalizer.string("notif.test.sent", defaultValue: "Notification envoyée ✅ Tu devrais la recevoir dans quelques secondes.")
+                await MainActor.run {
+                    testStatus = message
+                    isTestingPush = false
+                }
+            } catch {
+                await MainActor.run {
+                    testStatus = error.localizedDescription
+                    isTestingPush = false
+                }
+            }
+        }
+    }
+
+    // S5 — Libellé dynamique de la fenêtre silencieuse (ex. "22h → 7h" / "22u → 7u").
     private var quietHoursWindowLabel: String {
-        "\(quietHoursStartHour)h → \(quietHoursEndHour)h"
+        "\(hourLabel(quietHoursStartHour)) → \(hourLabel(quietHoursEndHour))"
+    }
+
+    /// "Xh" en FR, "Xu" en NL — suit la langue de l'app.
+    private func hourLabel(_ hour: Int) -> String {
+        AppLocalizer.format("notif.hour", defaultValue: "%dh", hour)
     }
 
     /// Deux sélecteurs d'heure (0–23) pour la plage silencieuse. Persistés au
@@ -1713,17 +1798,17 @@ private struct NotificationSettingsView: View {
                 .foregroundStyle(DS.Color.ink)
                 .frame(width: 18)
 
-            Text("Plage")
+            Text(AppLocalizer.string("notif.quiet.range", defaultValue: "Plage"))
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(DS.Color.ink)
 
             Spacer()
 
-            hourPicker(selection: $quietHoursStartHour, label: "Début")
+            hourPicker(selection: $quietHoursStartHour, label: AppLocalizer.string("notif.quiet.start", defaultValue: "Début"))
             Image(systemName: "arrow.right")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(DS.Color.inkMute)
-            hourPicker(selection: $quietHoursEndHour, label: "Fin")
+            hourPicker(selection: $quietHoursEndHour, label: AppLocalizer.string("notif.quiet.end", defaultValue: "Fin"))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -1733,12 +1818,12 @@ private struct NotificationSettingsView: View {
         Menu {
             Picker(label, selection: selection) {
                 ForEach(0..<24, id: \.self) { hour in
-                    Text("\(hour)h").tag(hour)
+                    Text(hourLabel(hour)).tag(hour)
                 }
             }
         } label: {
             HStack(spacing: 4) {
-                Text("\(selection.wrappedValue)h")
+                Text(hourLabel(selection.wrappedValue))
                     .font(.system(size: 13.5, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Image(systemName: "chevron.up.chevron.down")
@@ -1751,7 +1836,7 @@ private struct NotificationSettingsView: View {
             .clipShape(Capsule())
             .overlay(Capsule().stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
         }
-        .accessibilityLabel("\(label) de la plage silencieuse : \(selection.wrappedValue) heures")
+        .accessibilityLabel(AppLocalizer.format("notif.quiet.a11y", defaultValue: "%@ de la plage silencieuse : %d heures", label, selection.wrappedValue))
     }
 }
 

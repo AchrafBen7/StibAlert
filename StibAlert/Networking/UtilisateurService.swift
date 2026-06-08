@@ -73,6 +73,24 @@ enum UtilisateurService {
             requiresAuth: true
         )
     }
+
+    /// Diagnostic : déclenche une push de test vers le compte courant. Renvoie
+    /// le nombre d'appareils abonnés (`recipients`) — 0 signifie qu'aucun
+    /// appareil n'est abonné (autorisation iOS refusée). Lève une erreur lisible
+    /// si OneSignal n'est pas configuré côté serveur.
+    static func testPush() async throws -> TestPushResponse {
+        try await APIClient.shared.request(
+            "/api/utilisateurs/test-push",
+            method: .POST,
+            requiresAuth: true
+        )
+    }
+}
+
+struct TestPushResponse: Decodable {
+    let ok: Bool
+    let recipients: Int?
+    let notificationId: String?
 }
 
 private struct ProfilUpdateRequest: Encodable {

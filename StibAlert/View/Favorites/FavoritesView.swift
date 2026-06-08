@@ -2352,31 +2352,47 @@ private struct FavoriteIncident: Identifiable {
     let severity: String?
 }
 
+/// Un arrêt unifié, tous opérateurs confondus, pour la feuille « Ajouter un
+/// arrêt favori ». Normalise STIB (backend), SNCB (catalogue embarqué) et
+/// De Lijn / TEC (viewport) dans un même modèle pour une recherche unique.
+private struct UnifiedFavoriteStop: Identifiable {
+    let op: TransitOperator
+    let stopId: String
+    let name: String
+    let lines: [StopLine]          // STIB uniquement (badges de ligne)
+    let distanceMeters: Int
+    let coordinate: CLLocationCoordinate2D
+    var id: String { "\(op.rawValue):\(stopId)" }
+}
+
 private struct AddFavoriteSheet: View {
     @EnvironmentObject private var session: AuthSession
     @StateObject private var locator = OneShotLocationManager()
+    @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
+    @ObservedObject private var operatorFavorites = OperatorStopFavorites.shared
 
-    @State private var nearbyStops: [NearbyStop] = []
-    @State private var searchResults: [NearbyStop] = []
+    @State private var nearbyStops: [UnifiedFavoriteStop] = []
+    @State private var searchResults: [UnifiedFavoriteStop] = []
     @State private var isLoading = false
     @State private var isSearching = false
     @State private var addingId: String? = nil
-    @State private var addedIds: Set<String> = []
+    @State private var addedStibIds: Set<String> = []
     @State private var errorMessage: String? = nil
     @State private var searchQuery = ""
     @State private var searchTask: Task<Void, Never>? = nil
+    @State private var userCoordinate: CLLocationCoordinate2D? = nil
 
     let existingIds: Set<String>
     let onClose: () -> Void
 
-    private var pendingIds: Set<String> { existingIds.union(addedIds) }
+    private var pendingStibIds: Set<String> { existingIds.union(addedStibIds) }
     private var trimmedQuery: String {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    /// Sans recherche : les arrêts proches. Avec recherche : les résultats
-    /// RÉSEAU (endpoint /recherche), pas un simple filtre du cache proximité —
-    /// c'est ce qui permet enfin de trouver un arrêt éloigné comme « Paduwa ».
-    private var displayedStops: [NearbyStop] {
+    /// Sans recherche : les arrêts proches (STIB + SNCB + De Lijn + TEC). Avec
+    /// recherche : STIB & SNCB par nom sur tout le réseau + De Lijn / TEC filtrés
+    /// dans les arrêts déjà chargés (pas d'endpoint « nom » pour ces deux réseaux).
+    private var displayedStops: [UnifiedFavoriteStop] {
         trimmedQuery.isEmpty ? nearbyStops : searchResults
     }
 
@@ -2388,10 +2404,13 @@ private struct AddFavoriteSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .top, spacing: 12) {
                         // large=false uses displayH2 (22pt) instead of
-                        // displayH1 (32pt) so "Ajouter un arrêt favori" no
-                        // longer wraps to "Ajouter un / arrêt favori" with
-                        // the orphan "un" on its own line.
-                        PageHeader(title: "Ajouter un arrêt favori", eyebrow: "Réseau personnel", large: false)
+                        // displayH1 (32pt) so the title no longer wraps with
+                        // an orphan word on its own line.
+                        PageHeader(
+                            title: AppLocalizer.string("favorites.add.title", defaultValue: "Ajouter un arrêt favori"),
+                            eyebrow: AppLocalizer.string("favorites.add.eyebrow", defaultValue: "Réseau personnel"),
+                            large: false
+                        )
 
                         Spacer(minLength: 12)
 
@@ -2411,12 +2430,12 @@ private struct AddFavoriteSheet: View {
                     .padding(.top, 28) // keep the eyebrow clear of the sheet's safe area edge
 
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("Ajoute un arrêt proche pour suivre ses passages et recevoir des alertes ciblées.")
+                        Text(AppLocalizer.string("favorites.add.subtitle", defaultValue: "Ajoute un arrêt — STIB, SNCB, De Lijn ou TEC — pour suivre ses passages et recevoir des alertes ciblées."))
                             .font(.system(size: 13.5))
                             .foregroundStyle(DS.Color.inkSoft)
 
                         FavoritePickerSearchField(
-                            placeholder: "Chercher un arrêt ou une ligne",
+                            placeholder: AppLocalizer.string("favorites.add.search_placeholder", defaultValue: "Chercher un arrêt ou une ligne"),
                             text: $searchQuery
                         )
                         .onChange(of: searchQuery) { _, newValue in
@@ -2452,8 +2471,8 @@ private struct AddFavoriteSheet: View {
                                     .font(.system(size: 13.5, weight: .semibold))
                                     .foregroundStyle(DS.Color.ink)
                                 Text(trimmedQuery.isEmpty
-                                     ? "Active la localisation, ou cherche par nom d’arrêt / numéro de ligne."
-                                     : "Vérifie l’orthographe ou essaie un numéro de ligne.")
+                                     ? AppLocalizer.string("favorites.add.empty_nearby_hint", defaultValue: "Active la localisation, ou cherche par nom d’arrêt / numéro de ligne.")
+                                     : AppLocalizer.string("favorites.add.empty_search_hint", defaultValue: "Vérifie l’orthographe ou essaie un numéro de ligne."))
                                     .font(.system(size: 12))
                                     .foregroundStyle(DS.Color.inkMute)
                                     .multilineTextAlignment(.center)
@@ -2479,9 +2498,8 @@ private struct AddFavoriteSheet: View {
         .task { await load() }
     }
 
-    /// Recherche réseau débouncée (250 ms) : annule la requête précédente à
-    /// chaque frappe. En-dessous de 2 caractères on vide les résultats (la vue
-    /// retombe sur les arrêts proches).
+    /// Recherche débouncée (250 ms) : annule la requête précédente à chaque
+    /// frappe. Sous 2 caractères on vide les résultats (retour aux arrêts proches).
     private func scheduleSearch(for raw: String) {
         searchTask?.cancel()
         let query = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2491,30 +2509,66 @@ private struct AddFavoriteSheet: View {
             return
         }
         isSearching = true
+        let origin = userCoordinate
+        let loadedOperatorStops = nearbyStops.filter { $0.op == .delijn || $0.op == .tec }
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             if Task.isCancelled { return }
-            do {
-                let results = try await NearbyStopService.searchStopsByName(query)
-                if Task.isCancelled { return }
-                searchResults = results
-            } catch {
-                if Task.isCancelled { return }
-                searchResults = []
+
+            // STIB : recherche réseau (endpoint /recherche) → vrais backendId.
+            let stib = ((try? await NearbyStopService.searchStopsByName(query)) ?? [])
+                .map { unified(fromStib: $0, fallback: origin) }
+            if Task.isCancelled { return }
+
+            // SNCB : catalogue embarqué, recherche par nom.
+            let sncb = SNCBStationService.searchByName(query, around: origin, limit: 6)
+                .map { unified(fromSncb: $0) }
+
+            // De Lijn / TEC : pas d'endpoint « nom » → on filtre les arrêts déjà
+            // chargés autour de l'utilisateur.
+            let operators = loadedOperatorStops.filter {
+                $0.name.localizedCaseInsensitiveContains(query)
             }
+
+            let merged = (stib + sncb + operators).sorted { $0.distanceMeters < $1.distanceMeters }
+            if Task.isCancelled { return }
+            searchResults = merged
             isSearching = false
         }
     }
 
-    private func addFavoriteRow(_ stop: NearbyStop) -> some View {
-        let isFav = stop.backendId.map { pendingIds.contains($0) } ?? false
-        let isAdding = stop.backendId == addingId
+    @ViewBuilder
+    private func operatorChip(_ op: TransitOperator) -> some View {
+        Text(op.mapLabel)
+            .font(.system(size: 9, weight: .bold))
+            .tracking(0.4)
+            .foregroundStyle(op.brandTextColor)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(op.brandColor))
+    }
+
+    private func isFavorited(_ stop: UnifiedFavoriteStop) -> Bool {
+        switch stop.op {
+        case .stib:           return pendingStibIds.contains(stop.stopId)
+        case .sncb:           return gareFavorites.contains(stop.stopId)
+        case .delijn, .tec:   return operatorFavorites.contains(stop.stopId)
+        }
+    }
+
+    private func addFavoriteRow(_ stop: UnifiedFavoriteStop) -> some View {
+        let isFav = isFavorited(stop)
+        let isAdding = stop.op == .stib && stop.stopId == addingId
 
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(stop.name)
-                    .font(.system(size: 14.5, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
+                HStack(spacing: 8) {
+                    operatorChip(stop.op)
+                    Text(stop.name)
+                        .font(.system(size: 14.5, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                }
 
                 if !stop.lines.isEmpty {
                     HStack(spacing: 6) {
@@ -2532,8 +2586,8 @@ private struct AddFavoriteSheet: View {
             Spacer()
 
             Button {
-                guard stop.backendId != nil, !isFav else { return }
-                Task { await addFavori(stop) }
+                guard !isFav else { return }
+                addFavori(stop)
             } label: {
                 Group {
                     if isAdding {
@@ -2543,13 +2597,13 @@ private struct AddFavoriteSheet: View {
                     } else if isFav {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark")
-                            Text("Ajouté")
+                            Text(AppLocalizer.string("favorites.add.button_added", defaultValue: "Ajouté"))
                         }
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                         .frame(width: 88, height: 36)
                     } else {
-                        Text("+ Ajouter")
+                        Text(AppLocalizer.string("favorites.add.button_add", defaultValue: "+ Ajouter"))
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(DS.Color.ink)
                             .frame(width: 88, height: 36)
@@ -2575,27 +2629,133 @@ private struct AddFavoriteSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
+    // MARK: - Normalisation vers le modèle unifié
+
+    private func unified(fromStib stop: NearbyStop, fallback: CLLocationCoordinate2D?) -> UnifiedFavoriteStop {
+        UnifiedFavoriteStop(
+            op: .stib,
+            stopId: stop.backendId ?? stop.name,
+            name: stop.name,
+            lines: stop.lines,
+            distanceMeters: stop.distanceMeters,
+            coordinate: stop.coordinate ?? fallback ?? CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
+        )
+    }
+
+    private func unified(fromSncb entry: SNCBStationDistance) -> UnifiedFavoriteStop {
+        UnifiedFavoriteStop(
+            op: .sncb,
+            stopId: entry.station.id,
+            name: entry.station.displayName,
+            lines: [],
+            distanceMeters: entry.distanceMeters,
+            coordinate: entry.station.coordinate
+        )
+    }
+
+    private func unified(fromOperator stop: OperatorMapStop, origin: CLLocationCoordinate2D) -> UnifiedFavoriteStop {
+        let distance = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+            .distance(from: CLLocation(latitude: stop.lat, longitude: stop.lng))
+        return UnifiedFavoriteStop(
+            op: stop.op,
+            stopId: stop.id,
+            name: stop.name,
+            lines: [],
+            distanceMeters: Int(distance.rounded()),
+            coordinate: stop.coordinate
+        )
+    }
+
+    // MARK: - Chargement (proximité, tous opérateurs)
+
     private func load() async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
         let loc = await locator.getCurrentLocation()
-        do {
-            let all = try await NearbyStopService.fetchNearby(lat: loc.latitude, lng: loc.longitude, radius: 1500)
-            nearbyStops = all
-        } catch {
-            print("AddFavoriteSheet load failed: \(error.localizedDescription)")
+        let origin = CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude)
+        userCoordinate = origin
+
+        async let stibStops = loadStibNearby(origin)
+        async let sncbStops = loadSncbNearby(origin)
+        async let delijnStops = loadOperatorNearby(.delijn, origin)
+        async let tecStops = loadOperatorNearby(.tec, origin)
+
+        let stib = await stibStops
+        let sncb = await sncbStops
+        let delijn = await delijnStops
+        let tec = await tecStops
+        let merged = stib + sncb + delijn + tec
+        nearbyStops = merged
+            .sorted { $0.distanceMeters < $1.distanceMeters }
+            .prefix(40)
+            .map { $0 }
+    }
+
+    private func loadStibNearby(_ origin: CLLocationCoordinate2D) async -> [UnifiedFavoriteStop] {
+        guard let stops = try? await NearbyStopService.fetchNearby(lat: origin.latitude, lng: origin.longitude, radius: 1500) else {
+            return []
+        }
+        return stops.map { unified(fromStib: $0, fallback: origin) }
+    }
+
+    private func loadSncbNearby(_ origin: CLLocationCoordinate2D) async -> [UnifiedFavoriteStop] {
+        SNCBStationService.nearbyStations(around: origin, radiusMeters: 8_000, limit: 4)
+            .map { unified(fromSncb: $0) }
+    }
+
+    private func loadOperatorNearby(_ op: TransitOperator, _ origin: CLLocationCoordinate2D) async -> [UnifiedFavoriteStop] {
+        func fetch(_ d: Double) async -> [OperatorMapStop] {
+            await OperatorStopService.stops(
+                operator: op,
+                minLat: origin.latitude - d, maxLat: origin.latitude + d,
+                minLng: origin.longitude - d, maxLng: origin.longitude + d,
+                limit: 60
+            )
+        }
+        var found = await fetch(0.03)
+        if found.isEmpty { found = await fetch(0.07) }
+        return found
+            .map { unified(fromOperator: $0, origin: origin) }
+            .sorted { $0.distanceMeters < $1.distanceMeters }
+            .prefix(8)
+            .map { $0 }
+    }
+
+    // MARK: - Ajout (routé vers le bon store par opérateur)
+
+    private func addFavori(_ stop: UnifiedFavoriteStop) {
+        switch stop.op {
+        case .stib:
+            Task { await addStibFavori(stopId: stop.stopId) }
+        case .sncb:
+            if !gareFavorites.contains(stop.stopId) {
+                gareFavorites.toggle(stop.stopId)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        case .delijn, .tec:
+            if !operatorFavorites.contains(stop.stopId) {
+                operatorFavorites.toggle(FavoriteOperatorStop(
+                    op: stop.op.rawValue,
+                    stopId: stop.stopId,
+                    name: stop.name,
+                    lat: stop.coordinate.latitude,
+                    lng: stop.coordinate.longitude
+                ))
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
         }
     }
 
-    private func addFavori(_ stop: NearbyStop) async {
-        guard let userId = session.currentUser?.id, let stopId = stop.backendId else { return }
+    private func addStibFavori(stopId: String) async {
+        guard let userId = session.currentUser?.id else { return }
         addingId = stopId
         errorMessage = nil
         defer { addingId = nil }
         do {
             let response = try await UtilisateurService.toggleFavori(userId: userId, arretId: stopId)
-            addedIds.insert(stopId)
+            addedStibIds.insert(stopId)
             if let updatedUser = session.currentUser.map({
                 UtilisateurDTO(
                     id: $0.id,

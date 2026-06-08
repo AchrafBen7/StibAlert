@@ -148,6 +148,41 @@ enum SNCBStationService {
         }
     }()
 
+    /// Recherche une gare par nom (catalogue local embarqué, accent-insensible).
+    /// Utilisée par la feuille unifiée « Ajouter un arrêt favori » pour trouver
+    /// une gare SNCB par son nom au milieu des arrêts STIB/De Lijn/TEC. Si une
+    /// position est fournie, on trie par distance, sinon par ordre alphabétique.
+    static func searchByName(
+        _ query: String,
+        around coordinate: CLLocationCoordinate2D? = nil,
+        limit: Int = 6
+    ) -> [SNCBStationDistance] {
+        let needle = query
+            .folding(options: .diacriticInsensitive, locale: AppLocale.current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespaces)
+        guard needle.count >= 2 else { return [] }
+
+        let origin = coordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
+        return allStations
+            .filter { station in
+                let name = station.displayName.folding(options: .diacriticInsensitive, locale: AppLocale.current).lowercased()
+                let raw = station.name.folding(options: .diacriticInsensitive, locale: AppLocale.current).lowercased()
+                return name.contains(needle) || raw.contains(needle)
+            }
+            .map { station -> SNCBStationDistance in
+                let distance = origin.map { Int($0.distance(from: CLLocation(latitude: station.lat, longitude: station.lng)).rounded()) } ?? 0
+                return SNCBStationDistance(station: station, distanceMeters: distance)
+            }
+            .sorted { lhs, rhs in
+                origin != nil
+                    ? lhs.distanceMeters < rhs.distanceMeters
+                    : lhs.station.displayName.localizedCaseInsensitiveCompare(rhs.station.displayName) == .orderedAscending
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     static func nearbyStations(
         around coordinate: CLLocationCoordinate2D?,
         radiusMeters: CLLocationDistance = 35_000,
