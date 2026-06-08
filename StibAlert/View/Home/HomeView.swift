@@ -143,6 +143,9 @@ struct HomeView: View {
 
     @State private var hasAutoShownDecision = false
     @State var proactiveAlertCluster: ClusterDTO? = nil
+    /// Clés (ligne|arrêt|type) des alertes que l'utilisateur a marquées « pas
+    /// passé par là » → on ne les réaffiche plus en carte proactive.
+    @State private var dismissedProactiveClusterKeys: Set<String> = []
     @State var tripDestination: TripDestination? = nil
     @State private var showDestinationPicker = false
     /// Trip prepared from the voice flow (geocoded + planned), kept around so
@@ -1457,6 +1460,8 @@ struct HomeView: View {
         let userLoc = locationManager.userCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
         let maxDistanceMeters = 1500.0
         let affectedCluster = activeClusters.first { cluster in
+            // « Pas passé par là » : ne plus jamais representer cette perturbation.
+            guard !dismissedProactiveClusterKeys.contains(proactiveClusterKey(cluster)) else { return false }
             let line = cluster.ligne.uppercased()
             let isRelevant = favoriteLines.contains(line)
                 || (user.routine?.homeStopId).map { cluster.arretId == $0 } == true
@@ -2616,6 +2621,21 @@ struct HomeView: View {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
             proactiveAlertCluster = nil
         }
+    }
+
+    /// Clé stable d'un cluster pour la suppression « pas passé par là » : la
+    /// même perturbation (ligne + arrêt + type) ne redéclenchera plus la carte,
+    /// même après un re-fetch qui change son clusterIndex.
+    private func proactiveClusterKey(_ cluster: ClusterDTO) -> String {
+        "\(cluster.ligne.uppercased())|\(cluster.arretId ?? "")|\(cluster.typeProbleme)"
+    }
+
+    @MainActor
+    func dismissProactiveAlertNotConcerned(_ cluster: ClusterDTO) {
+        // Aucun vote envoyé (on n'a pas observé l'arrêt) — on masque + on retient
+        // pour ne plus harceler l'utilisateur avec cette perturbation.
+        dismissedProactiveClusterKeys.insert(proactiveClusterKey(cluster))
+        closeProactiveAlert()
     }
 
     @MainActor

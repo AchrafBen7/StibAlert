@@ -6,6 +6,10 @@ struct HomeProactiveAlertCard: View {
     let onOpenDetails: () -> Void
     let onStillBlocked: () async -> Void
     let onResolved: () async -> Void
+    /// L'utilisateur n'est pas passé par là → on ne le force pas à voter
+    /// « bloqué / résolu » sur un arrêt qu'il n'a pas vu. Ferme la carte ET
+    /// empêche cette alerte de revenir le harceler.
+    let onNotConcerned: () -> Void
 
     @State private var isSubmittingBlocked = false
     @State private var isSubmittingResolved = false
@@ -175,6 +179,20 @@ struct HomeProactiveAlertCard: View {
                     isSubmittingResolved = false
                 }
             }
+
+            // Échappatoire honnête : si on n'est pas passé par l'arrêt, on ne
+            // peut pas confirmer/infirmer → un bouton neutre qui n'envoie aucun
+            // vote et ne remontre plus cette alerte.
+            Button(action: onNotConcerned) {
+                Text(verbatim: AppLocalizer.string("alert.action.not_there", defaultValue: "Je n’y suis pas passé"))
+                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Ferme l’alerte sans voter et ne te la remontre plus.")
 
             Button(action: onOpenDetails) {
                 HStack(spacing: 8) {

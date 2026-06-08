@@ -24806,6 +24806,29 @@
           }
         }
       }
+    },
+    "alert.action.not_there" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I didn’t pass by there"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je n’y suis pas passé"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet langsgekomen"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

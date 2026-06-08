@@ -265,6 +265,9 @@ extension HomeView {
                 },
                 onResolved: {
                     await confirmProactiveAlertResolved(cluster)
+                },
+                onNotConcerned: {
+                    dismissProactiveAlertNotConcerned(cluster)
                 }
             )
             .padding(.horizontal, 14)
