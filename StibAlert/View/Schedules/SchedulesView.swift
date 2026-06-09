@@ -70,7 +70,7 @@ struct SchedulesView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(DS.Color.inkMute)
-            TextField(selectedOperator == .sncb ? "Chercher une gare" : "Chercher une ligne", text: $searchQuery)
+            TextField(searchPlaceholder, text: $searchQuery)
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.ink)
                 .autocorrectionDisabled()
@@ -95,14 +95,28 @@ struct SchedulesView: View {
         .padding(.horizontal, 18)
     }
 
+    private var searchPlaceholder: String {
+        switch selectedOperator {
+        case .sncb:   return "Chercher une gare"
+        case .delijn: return "Chercher un arrêt"   // De Lijn = horaires par arrêt
+        default:      return "Chercher une ligne"
+        }
+    }
+
     // MARK: - Content
 
     @ViewBuilder
     private var content: some View {
         if selectedOperator == .sncb {
             sncbContent
-        } else if selectedOperator == .delijn || selectedOperator == .tec {
-            OperatorLineDirectory(op: selectedOperator, searchQuery: $searchQuery)
+        } else if selectedOperator == .delijn {
+            // De Lijn : modèle "arrêts" (comme SNCB) → vrais passages temps réel
+            // par arrêt. L'API De Lijn donne le realtime par halte, pas ligne→arrêts.
+            OperatorStopDirectory(op: .delijn, searchQuery: $searchQuery)
+        } else if selectedOperator == .tec {
+            // TEC : pas de temps réel par arrêt branché → catalogue de lignes +
+            // perturbations (détail cliquable), sans horaires.
+            OperatorLineDirectory(op: .tec, searchQuery: $searchQuery)
         } else if isLoading && allLines.isEmpty {
             VStack(spacing: 14) {
                 Spacer().frame(height: 60)

@@ -283,6 +283,142 @@ struct OperatorLineDirectory: View {
     }
 }
 
+/// Annuaire d'arrêts pour De Lijn dans l'onglet Horaires. Le temps réel De Lijn
+/// est PAR ARRÊT (l'API donne les prochains passages d'une halte, pas la liste
+/// des arrêts d'une ligne) → comme SNCB, on liste les arrêts proches + une
+/// recherche, et un tap ouvre les VRAIS passages temps réel (HomeOperatorStopSheet).
+struct OperatorStopDirectory: View {
+    let op: TransitOperator
+    @Binding var searchQuery: String
+
+    @StateObject private var locator = OneShotLocationManager()
+    @State private var stops: [OperatorMapStop] = []
+    @State private var isLoading = true
+    @State private var selectedStop: OperatorMapStop?
+
+    private var filteredStops: [OperatorMapStop] {
+        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return stops }
+        return stops.filter { $0.name.localizedCaseInsensitiveContains(q) }
+    }
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            if isLoading && stops.isEmpty {
+                VStack(spacing: 14) {
+                    Spacer().frame(height: 60)
+                    ProgressView().tint(DS.Color.ink)
+                    Text("Arrêts \(op.mapLabel) à proximité…")
+                        .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+                }
+                .frame(maxWidth: .infinity)
+            } else if stops.isEmpty {
+                stopEmptyState(title: "Aucun arrêt \(op.mapLabel) à proximité",
+                               subtitle: "Active la localisation et réessaie.")
+            } else if filteredStops.isEmpty {
+                stopEmptyState(title: "Aucun arrêt trouvé",
+                               subtitle: "Essaie un autre nom d'arrêt.")
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(op.brandColor)
+                        Text(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "ARRÊTS PROCHES" : "RÉSULTATS")
+                            .font(DS.Font.eyebrow).tracking(1.6).foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text("\(filteredStops.count)")
+                            .font(DS.Font.monoSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
+                    }
+                    VStack(spacing: 0) {
+                        ForEach(filteredStops) { stopRow($0) }
+                    }
+                    .background(DS.Color.paper.opacity(0.95))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+                .padding(.bottom, 18)
+            }
+        }
+        .task(id: op) { await load() }
+        .sheet(item: $selectedStop) { stop in
+            // Réutilise la fiche temps réel De Lijn qui marche déjà sur la carte.
+            HomeOperatorStopSheet(stop: stop, onReport: { selectedStop = nil })
+        }
+    }
+
+    private func stopRow(_ stop: OperatorMapStop) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selectedStop = stop
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(op.brandColor).frame(width: 30, height: 30)
+                    Image(systemName: "bus.fill")
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundStyle(op.brandTextColor)
+                }
+                Text(stop.name)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .contentShape(Rectangle())
+            .overlay(Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1), alignment: .bottom)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func stopEmptyState(title: String, subtitle: String) -> some View {
+        VStack(spacing: 8) {
+            Spacer().frame(height: 60)
+            Image(systemName: "mappin.slash").font(.system(size: 22)).foregroundStyle(DS.Color.inkMute)
+            Text(title).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
+            Text(subtitle).font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+    }
+
+    private func load() async {
+        isLoading = true
+        defer { isLoading = false }
+        let loc = await locator.getCurrentLocation()
+        let origin = CLLocationCoordinate2D(latitude: loc.latitude, longitude: loc.longitude)
+        func fetch(_ d: Double) async -> [OperatorMapStop] {
+            await OperatorStopService.stops(
+                operator: op,
+                minLat: origin.latitude - d, maxLat: origin.latitude + d,
+                minLng: origin.longitude - d, maxLng: origin.longitude + d,
+                limit: 120
+            )
+        }
+        var found = await fetch(0.02)
+        if found.isEmpty { found = await fetch(0.06) }
+        let originLoc = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+        stops = found
+            .sorted {
+                originLoc.distance(from: CLLocation(latitude: $0.lat, longitude: $0.lng))
+                    < originLoc.distance(from: CLLocation(latitude: $1.lat, longitude: $1.lng))
+            }
+            .prefix(50)
+            .map { $0 }
+    }
+}
+
 /// Official De Lijn / TEC disruptions list (Infos trafic tab).
 struct OperatorDisruptionsList: View {
     let op: TransitOperator
