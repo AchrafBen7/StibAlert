@@ -9,6 +9,8 @@ struct OperatorLineDirectory: View {
     @Binding var searchQuery: String
 
     @State private var lines: [OperatorLine] = []
+    @State private var disruptions: [OperatorDisruption] = []
+    @State private var selectedLine: OperatorLine?
     @State private var selectedZone: String = OperatorLineZone.allKey
     @State private var isLoading = true
 
@@ -61,7 +63,18 @@ struct OperatorLineDirectory: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            if isLoading && lines.isEmpty {
+            if let selectedLine {
+                // Détail d'une ligne (cliquable comme STIB/SNCB) : en-tête +
+                // perturbations live de la ligne, ou « rien à signaler ».
+                OperatorLineDisruptionDetail(
+                    op: op,
+                    issue: issue(for: selectedLine),
+                    onBack: { withAnimation(.easeInOut(duration: 0.2)) { self.selectedLine = nil } }
+                )
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 18)
+            } else if isLoading && lines.isEmpty {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 60)
                     ProgressView().tint(DS.Color.ink)
@@ -90,7 +103,11 @@ struct OperatorLineDirectory: View {
         }
         .task(id: op) {
             isLoading = true
-            lines = await OperatorCatalogService.lines(operator: op)
+            selectedLine = nil
+            async let linesTask = OperatorCatalogService.lines(operator: op)
+            async let disruptionsTask = OperatorCatalogService.disruptions(operator: op)
+            lines = await linesTask
+            disruptions = await disruptionsTask
             if selectedZone == OperatorLineZone.allKey || !lines.contains(where: { $0.zoneKey(for: op) == selectedZone }) {
                 selectedZone = OperatorLine.preferredZoneKey(for: op, in: lines)
             }
@@ -99,6 +116,17 @@ struct OperatorLineDirectory: View {
         .onChange(of: op) { _, newOperator in
             selectedZone = OperatorLine.preferredZoneKey(for: newOperator, in: lines)
         }
+    }
+
+    /// Construit l'« issue » d'une ligne = la ligne + ses perturbations
+    /// (matchées par routeId : id GTFS complet OU short_name brut, selon
+    /// l'opérateur). Vide = aucune perturbation connue → état « rijdt normaal ».
+    private func issue(for line: OperatorLine) -> OperatorLineIssue {
+        var seen = Set<String>()
+        let matched = disruptions.filter { d in
+            (d.routeIds.contains(line.id) || d.routeIds.contains(line.shortName)) && seen.insert(d.id).inserted
+        }
+        return OperatorLineIssue(line: line, disruptions: matched)
     }
 
     private var zoneFilter: some View {
@@ -203,33 +231,43 @@ struct OperatorLineDirectory: View {
     }
 
     private func lineRow(_ line: OperatorLine) -> some View {
-        HStack(spacing: 12) {
-            Text(line.shortName)
-                .font(.system(size: 13, weight: .black, design: .rounded))
-                .foregroundStyle(badgeTextColor(line))
-                .frame(minWidth: 38, minHeight: 30)
-                .padding(.horizontal, 6)
-                .background(badgeColor(line))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            Text(line.longName)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.ink)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            if selectedZone == OperatorLineZone.allKey || !searchQuery.isEmpty {
-                Text(line.zoneLabel(for: op))
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .tracking(0.7)
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.easeInOut(duration: 0.2)) { selectedLine = line }
+        } label: {
+            HStack(spacing: 12) {
+                Text(line.shortName)
+                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .foregroundStyle(badgeTextColor(line))
+                    .frame(minWidth: 38, minHeight: 30)
+                    .padding(.horizontal, 6)
+                    .background(badgeColor(line))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Text(line.longName)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if selectedZone == OperatorLineZone.allKey || !searchQuery.isEmpty {
+                    Text(line.zoneLabel(for: op))
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(0.7)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .padding(.horizontal, 7)
+                        .frame(height: 22)
+                        .background(DS.Color.paper2)
+                        .clipShape(Capsule())
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
-                    .padding(.horizontal, 7)
-                    .frame(height: 22)
-                    .background(DS.Color.paper2)
-                    .clipShape(Capsule())
             }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .contentShape(Rectangle())
+            .overlay(Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1), alignment: .bottom)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .overlay(Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1), alignment: .bottom)
+        .buttonStyle(.plain)
     }
 
     private func badgeColor(_ line: OperatorLine) -> Color {
@@ -915,7 +953,9 @@ private struct OperatorLineDisruptionDetail: View {
                         .font(.system(size: 19, weight: .black, design: .rounded))
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(2)
-                    Text("\(issue.disruptions.count) perturbation\(issue.disruptions.count > 1 ? "s" : "") officielle\(issue.disruptions.count > 1 ? "s" : "") · \(op.mapLabel)")
+                    Text(issue.disruptions.isEmpty
+                         ? "\(op.mapLabel) · \(issue.line.modeLabel)"
+                         : "\(issue.disruptions.count) perturbation\(issue.disruptions.count > 1 ? "s" : "") officielle\(issue.disruptions.count > 1 ? "s" : "") · \(op.mapLabel)")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -929,20 +969,44 @@ private struct OperatorLineDisruptionDetail: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("DÉTAIL DES PROBLÈMES")
-                        .font(DS.Font.eyebrow)
-                        .tracking(1.6)
-                        .foregroundStyle(DS.Color.inkMute)
-                    Spacer()
-                    Text("\(issue.disruptions.count)")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .foregroundStyle(DS.Color.inkMute)
+            if issue.disruptions.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DS.Color.statusOK)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Aucune perturbation connue")
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        Text("Cette ligne circule normalement selon les données disponibles.")
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
+                    Spacer(minLength: 0)
                 }
+                .padding(14)
+                .background(DS.Color.statusOK.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                        .stroke(DS.Color.statusOK.opacity(0.25), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text("DÉTAIL DES PROBLÈMES")
+                            .font(DS.Font.eyebrow)
+                            .tracking(1.6)
+                            .foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text("\(issue.disruptions.count)")
+                            .font(DS.Font.monoSmall.weight(.bold))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
 
-                VStack(spacing: 8) {
-                    ForEach(issue.disruptions) { disruptionCard($0) }
+                    VStack(spacing: 8) {
+                        ForEach(issue.disruptions) { disruptionCard($0) }
+                    }
                 }
             }
         }
