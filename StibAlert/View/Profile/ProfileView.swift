@@ -298,14 +298,13 @@ struct ProfileView: View {
                             }
                         }
 
-                        // Community polish — mini-card score & impact :
-                        // visible si l'utilisateur a au moins 1 contribution.
-                        // Pose les bases de la gamification (level visible)
-                        // sans backend changes — calcul local depuis summary.
-                        if let summary = contributionsSummary,
-                           summary.totalContributions > 0 {
-                            contributionScoreCard(summary)
-                        }
+                        // Mini-card score/niveau (points · BRONZE · validés/aidés/1ers)
+                        // MASQUÉE pour le moment (choix visuel). Le code reste en
+                        // place — décommenter le bloc ci-dessous pour la réactiver.
+                        // if let summary = contributionsSummary,
+                        //    summary.totalContributions > 0 {
+                        //     contributionScoreCard(summary)
+                        // }
 
                         // P11 — Activité récente : affichée UNIQUEMENT si
                         // l'utilisateur a au moins 1 contribution, sinon on
