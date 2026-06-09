@@ -3708,6 +3708,9 @@
         }
       }
     },
+    "Aucune perturbation connue" : {
+
+    },
     "Aucune perturbation officielle liée à une ligne." : {
       "localizations" : {
         "en" : {
@@ -5048,6 +5051,9 @@
           }
         }
       }
+    },
+    "Cette ligne circule normalement selon les données disponibles." : {
+
     },
     "Cette ligne est mentionnée dans l'avis général — pas d'incident propre à elle pour le moment." : {
       "localizations" : {
