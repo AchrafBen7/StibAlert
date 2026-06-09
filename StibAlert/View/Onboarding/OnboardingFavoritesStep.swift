@@ -569,27 +569,29 @@ struct OnboardingFavoritesStep: View {
     private func loadStib() async {
         isLoadingStib = true
         defer { isLoadingStib = false }
-        do {
-            let stops = try await NearbyStopService.fetchNearby(lat: userCoordinate.latitude, lng: userCoordinate.longitude, radius: 1500)
-            var candidates = dedupedRealStibStops(stops)
 
-            // TestFlight showed cases where the map had STIB data but the
-            // onboarding radius returned nothing. Keep the step usable with
-            // real backend/catalog stops from central Brussels instead of an
-            // empty "no STIB nearby" state.
-            if candidates.isEmpty {
-                let fallbackStops = try await NearbyStopService.fetchNearby(
-                    lat: Self.brusselsCenter.latitude,
-                    lng: Self.brusselsCenter.longitude,
-                    radius: 1200
-                )
-                candidates = dedupedRealStibStops(fallbackStops)
-            }
+        // `try?` (et non `try`) : si le 1ᵉʳ appel ÉCHOUE (backend en cold-start,
+        // timeout…) au lieu de renvoyer une liste vide, on veut quand même
+        // tenter le repli « centre de Bruxelles ». Avant, une erreur partait
+        // direct dans le catch et laissait l'étape vide (« aucun arrêt STIB »).
+        let nearby = (try? await NearbyStopService.fetchNearby(
+            lat: userCoordinate.latitude, lng: userCoordinate.longitude, radius: 1500
+        )) ?? []
+        var candidates = dedupedRealStibStops(nearby)
 
-            stibStops = candidates.prefix(25).map { $0 }
-        } catch {
-            stibStops = []
+        // Localisation hors Bruxelles (simulateur, ou réseau pas couvert) OU
+        // 1ᵉʳ appel raté → on garde l'étape utilisable avec de vrais arrêts du
+        // centre de Bruxelles plutôt qu'un état vide.
+        if candidates.isEmpty {
+            let fallbackStops = (try? await NearbyStopService.fetchNearby(
+                lat: Self.brusselsCenter.latitude,
+                lng: Self.brusselsCenter.longitude,
+                radius: 1200
+            )) ?? []
+            candidates = dedupedRealStibStops(fallbackStops)
         }
+
+        stibStops = candidates.prefix(25).map { $0 }
     }
 
     @MainActor
