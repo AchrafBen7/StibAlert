@@ -171,7 +171,7 @@ extension HomeView {
                 tracker: tripTracker,
                 onCancel: { clearRouteSelection(keepDestination: false) }
             )
-            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .padding(.top, shouldShowSearchHeader ? 120 : 14)
             .zLayer(.stopPreview)
             .accessibilitySortPriority(20)
         }
@@ -196,7 +196,7 @@ extension HomeView {
                 Task { await launchCommute(direction: direction, routine: routine) }
             })
             .padding(.horizontal, 14)
-            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .padding(.top, shouldShowSearchHeader ? 120 : 14)
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.stopPreview)
             .accessibilitySortPriority(15)
@@ -213,7 +213,7 @@ extension HomeView {
                 onDismiss: { commuteNudgeDismissed = true }
             )
             .padding(.horizontal, 14)
-            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .padding(.top, shouldShowSearchHeader ? 120 : 14)
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.stopPreview)
             .accessibilitySortPriority(14)
@@ -271,7 +271,7 @@ extension HomeView {
                 }
             )
             .padding(.horizontal, 14)
-            .padding(.top, shouldShowSearchHeader ? 104 : 14)
+            .padding(.top, shouldShowSearchHeader ? 120 : 14)
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.stopPreview)
             .accessibilitySortPriority(20)
