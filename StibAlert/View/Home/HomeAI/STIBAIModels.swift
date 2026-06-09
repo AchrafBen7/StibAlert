@@ -115,4 +115,7 @@ struct STIBAIMessage: Identifiable, Equatable, Encodable {
 struct STIBAIRequest: Encodable {
     let messages: [STIBAIMessage]
     let context: STIBAIContext
+    /// Langue de l'app (fr/nl/en) — pour que les messages d'erreur serveur
+    /// (assistant saturé/indisponible) reviennent dans la bonne langue.
+    var lang: String = AppLocale.languageCode
 }

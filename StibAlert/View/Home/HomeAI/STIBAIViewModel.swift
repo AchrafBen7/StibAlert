@@ -69,10 +69,13 @@ final class STIBAIViewModel: ObservableObject {
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                self.errorMessage = (error as? LocalizedError)?.errorDescription ?? "Assistant indisponible."
+                // Repli localisé (avant : "Assistant indisponible." codé en dur
+                // en FR → s'affichait en français dans une app NL/EN).
+                let fallback = AppLocalizer.string("stibai.error.unavailable", defaultValue: "Assistant temporairement indisponible.")
+                self.errorMessage = (error as? LocalizedError)?.errorDescription ?? fallback
                 if let index = self.messages.firstIndex(where: { $0.id == assistantID }),
                    self.messages[index].content.isEmpty {
-                    self.messages[index].content = self.errorMessage ?? "Assistant indisponible."
+                    self.messages[index].content = self.errorMessage ?? fallback
                 }
             }
             self.isStreaming = false

@@ -50,7 +50,7 @@ struct STIBAIView: View {
             .frame(width: 40, height: 40)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("STIB·AI")
+                Text(verbatim: "Blayse AI")
                     .font(DS.Font.monoLarge)
                     .tracking(2.2)
                     .foregroundStyle(DS.Color.ink)
