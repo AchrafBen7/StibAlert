@@ -129,8 +129,14 @@ struct ArretDetailPage: View {
         stopDetail?.stop ?? stopSummary
     }
 
+    // Coordonnées invalides (NaN, hors plage, ou 0,0 — jamais un arrêt réel à
+    // Bruxelles) : MapKit crash dur sur une MKCoordinateRegion avec un centre
+    // NaN, donc on filtre ici plutôt qu'au niveau de heroMap.
     private var stopCoordinate: CLLocationCoordinate2D? {
-        guard let latitude = effectiveStop.latitude, let longitude = effectiveStop.longitude else { return nil }
+        guard let latitude = effectiveStop.latitude, let longitude = effectiveStop.longitude,
+              latitude.isFinite, longitude.isFinite,
+              (-90...90).contains(latitude), (-180...180).contains(longitude),
+              !(latitude == 0 && longitude == 0) else { return nil }
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 

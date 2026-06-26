@@ -361,6 +361,7 @@ struct LigneDetailPage: View {
 
     @StateObject private var viewModel: LigneDetailViewModel
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var session: AuthSession
 
     @State private var selectedStopForDetail: LigneDetailViewModel.StopSnapshot?
     @State private var selectedTab: DetailTab
@@ -414,6 +415,7 @@ struct LigneDetailPage: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $selectedStopForDetail) { stop in
             LigneStopDetailSheet(stop: stop)
+                .environmentObject(session)
         }
     }
 
