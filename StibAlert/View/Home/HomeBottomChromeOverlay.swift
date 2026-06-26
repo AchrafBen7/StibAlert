@@ -24,16 +24,12 @@ struct HomeBottomChromeOverlay: View {
     var body: some View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
-                // Layout: [Mic] far-left  ........  [AI]  [ Location / + ].
-                // Le bouton "ma position" est désormais EMPILÉ juste au-dessus
-                // du bouton "+" (même colonne, bord droit). Mic reste à gauche,
-                // AI à gauche de la colonne +. alignment .bottom pour que Mic
-                // et AI s'alignent sur le `+`.
+                // Mic et Blayse AI désactivés avant lancement (pas encore
+                // assez fiables en prod) — seule la colonne droite reste
+                // affichée. onOpenVoice/onOpenStibAI restent câblés plus bas
+                // pour réactiver facilement une fois les deux features prêtes.
                 HStack(alignment: .bottom, spacing: 10) {
-                    MapVoiceFloatingButton(action: onOpenVoice)
                     Spacer(minLength: 8)
-                    STIBAIFloatingButton(action: onOpenStibAI)
-                        .padding(.trailing, 6) // gap supplémentaire vers la colonne `+`
                     VStack(spacing: 10) {
                         LocationFloatingButton(action: onRecenter)
                         HomeReportFloatingButton(action: onOpenReportSheet)
