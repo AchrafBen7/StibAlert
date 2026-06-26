@@ -1381,7 +1381,14 @@
       }
     },
     "⚡ %@" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚡ %@"
+          }
+        }
+      }
     },
     "⚡ RAPIDE" : {
       "comment" : "A label indicating the fastest route option.",
@@ -3026,7 +3033,14 @@
       }
     },
     "Arrêts %@ à proximité…" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haltes %@ in de buurt…"
+          }
+        }
+      }
     },
     "Arrêts à proximité" : {
       "comment" : "A label for a section displaying nearby stops.",
@@ -3053,7 +3067,14 @@
       }
     },
     "ARRÊTS PROCHES" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HALTES IN DE BUURT"
+          }
+        }
+      }
     },
     "Arrivé à %@" : {
       "comment" : "A label indicating that a journey has been successfully completed. The argument is the name of the destination.",
@@ -3715,7 +3736,14 @@
       }
     },
     "Aucune perturbation connue" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen gekende storing"
+          }
+        }
+      }
     },
     "Aucune perturbation officielle liée à une ligne." : {
       "localizations" : {
@@ -4592,7 +4620,14 @@
       }
     },
     "BLAYSE · V1.0.0" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BLAYSE · V1.0.0"
+          }
+        }
+      }
     },
     "Blayse est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC." : {
       "localizations" : {
@@ -5059,7 +5094,14 @@
       }
     },
     "Cette ligne circule normalement selon les données disponibles." : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze lijn rijdt normaal volgens de beschikbare gegevens."
+          }
+        }
+      }
     },
     "Cette ligne est mentionnée dans l'avis général — pas d'incident propre à elle pour le moment." : {
       "localizations" : {
@@ -9474,7 +9516,14 @@
       }
     },
     "Ferme l’alerte sans voter et ne te la remontre plus." : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sluit de melding zonder te stemmen en toon ze niet meer."
+          }
+        }
+      }
     },
     "Fermée · %lld m" : {
       "comment" : "A line of text showing the number of available bikes, bike stands, and distance to a Villo station. The first argument is the number of available bikes at the station. The second argument is the number of available",
@@ -11800,7 +11849,14 @@
       }
     },
     "Mobi" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mobi"
+          }
+        }
+      }
     },
     "MoBIB" : {
       "localizations" : {
@@ -14477,7 +14533,14 @@
       }
     },
     "Perturbation officielle" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Officiële storing"
+          }
+        }
+      }
     },
     "PERTURBATION OFFICIELLE" : {
       "localizations" : {
@@ -16850,7 +16913,14 @@
       }
     },
     "RÉSULTATS" : {
-
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RESULTATEN"
+          }
+        }
+      }
     },
     "Résumé ligne %@" : {
       "localizations" : {
