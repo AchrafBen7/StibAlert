@@ -476,7 +476,7 @@ struct FavoritesView: View {
             )
             remoteItems = mapFavoriteItems(from: favoriteDetails, fallbackStops: fallbackStops)
         } catch {
-            print("Favorites load failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "favorites.load")
             syncRemoteItemsFromSession()
         }
     }
@@ -1280,7 +1280,10 @@ private struct FavoriteStopDetailView: View {
                         .padding(.top, 24)
 
                     if isLoadingTransportStop {
-                        EmptyView()
+                        ProgressView()
+                            .tint(DS.Color.inkMute)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
                     } else if incidents.isEmpty {
                         detailEmptyState("Aucun incident signalé sur cet arrêt.")
                             .padding(.horizontal, 20)

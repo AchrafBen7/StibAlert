@@ -1326,7 +1326,7 @@ struct QuickReportSheetView: View {
                 ) ?? stops.first
                 selectedLine = selectedStop?.issueLines.first
             } catch {
-                print("NearbyStopService failed: \(error.localizedDescription)")
+                ErrorReporting.capture(error, tag: "quickReport.nearbyStops")
             }
         }
     }

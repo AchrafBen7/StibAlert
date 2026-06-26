@@ -160,7 +160,7 @@ struct ProfileView: View {
             )
             session.applyCurrentUserUpdate(updated)
         } catch {
-            print("Push preference update failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "profile.pushPreferences")
         }
     }
 
@@ -1057,7 +1057,7 @@ struct ProfileView: View {
             let updated = try await UtilisateurService.modifierLangue(userId: user.id, langue: code)
             session.applyCurrentUserUpdate(updated)
         } catch {
-            print("Language update failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "profile.language")
         }
     }
 
@@ -1071,7 +1071,7 @@ struct ProfileView: View {
                 await PushNotificationManager.current?.requestAuthorizationAndRegister()
             }
         } catch {
-            print("Notifications update failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "profile.notificationsToggle")
         }
     }
 
@@ -1101,7 +1101,7 @@ struct ProfileView: View {
                 )
                 session.applyCurrentUserUpdate(updated)
             } catch {
-                print("Account update failed: \(error.localizedDescription)")
+                ErrorReporting.capture(error, tag: "profile.accountUpdate")
             }
         }
     }

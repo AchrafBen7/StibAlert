@@ -270,7 +270,7 @@ struct SignalementsView: View {
             let mergedStates = buildMergedLineStates(from: etats, catalog: catalog)
             remoteLines = buildLineStatusItems(from: mergedStates, signalements: signalementsResponse.signalements)
         } catch {
-            print("SignalementsView remote load failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "signalements.remoteLoad")
         }
     }
 
@@ -1213,7 +1213,7 @@ private struct LineOverviewView: View {
                 })
             }
         } catch {
-            print("LineOverview remote stops failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "signalements.lineOverviewStops")
         }
     }
 
@@ -1243,7 +1243,7 @@ private struct LineOverviewView: View {
         }
 
         if city == nil && suburb == nil && base == nil {
-            print("Transport line detail failed: no line variant available")
+            ErrorReporting.captureMessage("No line variant available", tag: "signalements.lineDetail", context: ["line": line.line])
         }
     }
 
@@ -1256,7 +1256,7 @@ private struct LineOverviewView: View {
         do {
             selectedStopDetail = try await TransportService.stop(id: stopIdentifier)
         } catch {
-            print("Transport stop detail failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "signalements.stopDetail")
         }
     }
 
@@ -1731,7 +1731,7 @@ private struct TransportIncidentCommunityCard: View {
             }
             community = response.community ?? community
         } catch {
-            print("Incident community action failed: \(error.localizedDescription)")
+            ErrorReporting.capture(error, tag: "signalements.communityAction")
         }
     }
 

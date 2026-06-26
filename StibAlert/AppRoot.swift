@@ -238,8 +238,12 @@ struct AppRoot: View {
             let alreadyFav = Set(updated.favoris ?? [])
             var didToggle = false
             for stopId in preferences.stibFavoriteStopIds where !alreadyFav.contains(stopId) {
-                _ = try? await UtilisateurService.toggleFavori(userId: user.id, arretId: stopId)
-                didToggle = true
+                do {
+                    _ = try await UtilisateurService.toggleFavori(userId: user.id, arretId: stopId)
+                    didToggle = true
+                } catch {
+                    ErrorReporting.capture(error, tag: "onboarding.applyFavorites", context: ["stopId": stopId])
+                }
             }
             if didToggle {
                 await session.refreshCurrentUser()

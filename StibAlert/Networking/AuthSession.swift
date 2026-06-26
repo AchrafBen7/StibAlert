@@ -121,7 +121,11 @@ final class AuthSession: ObservableObject {
     }
 
     func deconnexion() async {
-        try? await AuthService.deconnexion()
+        do {
+            try await AuthService.deconnexion()
+        } catch {
+            ErrorReporting.capture(error, tag: "auth.deconnexion")
+        }
         KeychainHelper.deleteToken()
         KeychainHelper.deleteRefreshToken()
         pendingActivationToken = nil

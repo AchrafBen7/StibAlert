@@ -298,7 +298,9 @@ private struct OnboardingLinesStep: View {
             if !uniqueIds.isEmpty {
                 stibLines = uniqueIds
             }
-        } catch {}
+        } catch {
+            ErrorReporting.capture(error, tag: "onboarding.lignes")
+        }
     }
 
     @MainActor

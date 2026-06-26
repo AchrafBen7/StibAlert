@@ -211,6 +211,7 @@ struct APIClient {
             let preview = String(data: data.prefix(800), encoding: .utf8) ?? "<binary>"
             print("⚠️ Decode failure for \(Response.self): \(error)\nJSON preview: \(preview)")
             #endif
+            ErrorReporting.capture(error, tag: "api.decode", context: ["type": String(describing: Response.self)])
             throw APIError.decoding(error)
         }
     }

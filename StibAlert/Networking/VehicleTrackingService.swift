@@ -149,9 +149,7 @@ final class VehicleTrackingService: ObservableObject {
                 .items
                 .filter { $0.latitude != nil && $0.longitude != nil }
         } catch {
-            #if DEBUG
-            print("[VehicleTracker] snapshot failed for \(url.absoluteString): \(error.localizedDescription)")
-            #endif
+            ErrorReporting.capture(error, tag: "vehicleTracking.snapshot")
             return []
         }
     }
@@ -208,9 +206,7 @@ final class VehicleTrackingService: ObservableObject {
             cacheByLines[visibleLines] = stable
             bearingsCacheByLines[visibleLines] = newBearings
         } catch {
-            #if DEBUG
-            print("[VehicleTracker] fetch failed for \(url.absoluteString): \(error.localizedDescription)")
-            #endif
+            ErrorReporting.capture(error, tag: "vehicleTracking.fetch")
             // silently fail — map still works without vehicles
         }
     }
