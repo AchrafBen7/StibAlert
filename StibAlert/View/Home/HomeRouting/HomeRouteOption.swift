@@ -405,25 +405,38 @@ struct HomeRouteOption: Identifiable {
         }
     }
 
-    var visualSegments: [RouteVisualSegment] {
+    /// Tracé géographique par tronçon (couleur de ligne officielle), pour le
+    /// mini-aperçu dessiné sur la card — contrairement à `legChips` qui n'est
+    /// qu'iconographique (badges de ligne), ceci montre la FORME réelle du
+    /// trajet. Vide si aucune coordonnée n'est exploitable ; le caller retombe
+    /// alors sur `legChips`.
+    var thumbnailSegments: [RouteThumbnailSegment] {
         if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
-            return steps.map { step in
-                RouteVisualSegment(
-                    tint: Self.segmentColor(for: step),
-                    weight: max(CGFloat(step.durationMinutes), 0.8)
+            return steps.sorted { $0.order < $1.order }.compactMap { step in
+                let coordinates = Self.segmentCoordinates(for: step)
+                guard coordinates.count > 1 else { return nil }
+                return RouteThumbnailSegment(
+                    coordinates: coordinates,
+                    color: Self.mapStrokeColor(for: step),
+                    width: Self.mapStrokeWidth(for: step)
                 )
             }
         }
+        guard routeCoordinates.count > 1 else { return [] }
+        return [RouteThumbnailSegment(coordinates: routeCoordinates, color: DS.Color.primary, width: 5)]
+    }
 
-        let usefulSteps = (route?.steps ?? []).filter { $0.distance > 8 || !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        return usefulSteps.map { step in
-            RouteVisualSegment(
-                tint: step.transportType == .walking
-                    ? DS.Color.ink.opacity(0.28)
-                    : TransitLinePalette.fill(for: Self.extractLineCode(from: step.instructions) ?? "1"),
-                weight: max(CGFloat(Self.estimatedMinutes(for: step)), 0.8)
-            )
+    /// Court tag expliquant POURQUOI cette option diffère (ex. "Plus fiable",
+    /// "Moins de marche") au lieu d'un simple delta de minutes — vient du
+    /// label déjà calculé par le scoring backend (routeScoringService),
+    /// localisé FR/NL. Nil seulement en fallback Apple-Maps-only (aucune
+    /// alternative backend) : le caller retombe alors sur `deltaText`.
+    var comparisonTag: String? {
+        guard let backendAlternative else { return nil }
+        if let reason = backendAlternative.localizedReasons?.first, !reason.isEmpty {
+            return reason
         }
+        return backendAlternative.label.isEmpty ? nil : backendAlternative.label
     }
 
     var inlineSteps: [InlineRouteStepItem] {
@@ -776,17 +789,6 @@ struct HomeRouteOption: Identifiable {
         case "bike": return L10n.Routing.bikeToNextStep
         case "walk": return L10n.Routing.walkInProgress
         default: return L10n.Routing.transportInProgress
-        }
-    }
-
-    private static func segmentColor(for step: TransportRouteStepDTO) -> Color {
-        if let descriptor = lineDescriptor(for: step) {
-            return descriptor.fillColor
-        }
-        switch step.mode.lowercased() {
-        case "bike": return DS.Color.villo
-        case "walk": return DS.Color.ink.opacity(0.28)
-        default: return DS.Color.ink.opacity(0.22)
         }
     }
 

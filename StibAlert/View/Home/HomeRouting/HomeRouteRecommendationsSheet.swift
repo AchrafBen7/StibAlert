@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 struct RouteRecommendationsSheet: View {
@@ -269,7 +270,8 @@ struct RouteRecommendationsSheet: View {
                         expandedRouteID = expandedRouteID == recommended.id ? nil : recommended.id
                         isExpanded = true
                     }
-                }
+                },
+                comparisonText: recommended.comparisonTag
             )
             .padding(.horizontal, 16)
         } else {
@@ -353,7 +355,7 @@ struct RouteRecommendationsSheet: View {
                             isExpanded = true
                         }
                     },
-                    deltaText: option.deltaText(comparedTo: recommended)
+                    comparisonText: option.comparisonTag ?? option.deltaText(comparedTo: recommended)
                 )
             }
         }
@@ -371,7 +373,10 @@ private struct RouteOptionCard: View {
     var isExpandedCard: Bool = false
     var expandedContent: AnyView? = nil
     var onToggleExpanded: (() -> Void)? = nil
-    var deltaText: String? = nil
+    /// Pourquoi cette option diffère de la recommandée — le label backend
+    /// ("Plus fiable", "Moins de marche"…) si disponible, sinon un delta de
+    /// minutes en repli (cas Apple-Maps-only, sans alternative backend).
+    var comparisonText: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -401,34 +406,27 @@ private struct RouteOptionCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    /// État collapsed simplifié : un repère visuel (mini-tracé), UN nombre
+    /// proéminent (durée), UN tag de comparaison — le détail (correspondances,
+    /// horaires précis, étapes) reste dans `expandedContent` (InlineRouteDetails),
+    /// pas dupliqué ici. Avant, cette carte affichait 4-5 informations
+    /// textuelles en même temps (durée + retard + heure d'arrivée + mode/
+    /// transferts + flow-strip + prochain départ) ; jugé trop chargé.
     private var recommendedLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(DS.Color.ink)
-                        .frame(width: 42, height: 42)
-                    Image(systemName: option.primaryModeIcon)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(DS.Color.paper)
-                }
+                routeThumbnail(size: 56)
 
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(option.durationText)
-                            .font(.system(size: 26, weight: .black))
-                            .tracking(-0.8)
+                            .font(.system(size: 24, weight: .black))
+                            .tracking(-0.7)
                             .foregroundStyle(DS.Color.ink)
-                        if let timingSecondaryText = option.timingSecondaryText {
-                            Text(timingSecondaryText)
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(DS.Color.statusMinor)
-                                .padding(.horizontal, 6)
-                                .frame(height: 18)
-                                .background(DS.Color.statusMinor.opacity(0.14))
-                                .clipShape(Capsule())
+                        if let comparisonText {
+                            comparisonTag(comparisonText, prominent: true)
                         }
-                        Spacer(minLength: 12)
+                        Spacer(minLength: 8)
                         Button(action: { onToggleExpanded?() }) {
                             Image(systemName: isExpandedCard ? "chevron.up" : "chevron.down")
                                 .font(.system(size: 16, weight: .semibold))
@@ -438,17 +436,10 @@ private struct RouteOptionCard: View {
                         .buttonStyle(.plain)
                     }
 
-                    Text(option.timingHeadlineText)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-
-                    Text("\(option.primaryModeLabel.uppercased()) · \(option.transferSummary.uppercased())")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.8)
+                    Text(arrivalSubtitleText)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(DS.Color.inkMute)
-
-                    RouteLegFlowStrip(chips: option.legChips)
-                        .padding(.top, 2)
+                        .lineLimit(1)
 
                     if let nextDeparture = option.nextDepartureInsight {
                         RouteNextDepartureLine(insight: nextDeparture)
@@ -462,57 +453,86 @@ private struct RouteOptionCard: View {
         }
     }
 
+    /// Arrivée + retard sur UNE ligne (avant : deux éléments de texte séparés
+    /// avec leur propre traitement visuel pour la même info temporelle).
+    private var arrivalSubtitleText: String {
+        guard let secondary = option.timingSecondaryText else { return option.timingHeadlineText }
+        return "\(option.timingHeadlineText) · \(secondary)"
+    }
+
     private var alternativeLayout: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 14) {
+            routeThumbnail(size: 40)
+
+            VStack(alignment: .leading, spacing: 3) {
                 Text(option.durationText)
-                    .font(.system(size: 18, weight: .black))
-                    .tracking(-0.6)
+                    .font(.system(size: 17, weight: .black))
+                    .tracking(-0.5)
                     .foregroundStyle(DS.Color.ink)
-                if let deltaText {
-                    Text(deltaText.uppercased())
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(2)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-                Text(option.timingHeadlineText)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(1)
-                if let nextDeparture = option.nextDepartureInsight {
-                    Text("\(nextDeparture.lineCode) · \(nextDeparture.waitText)")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(1.1)
-                        .foregroundStyle(DS.Color.primary)
-                        .lineLimit(1)
+                if let comparisonText {
+                    comparisonTag(comparisonText, prominent: false)
                 }
             }
-            .frame(width: 88, alignment: .leading)
 
-            Rectangle()
-                .fill(DS.Color.ink.opacity(0.12))
-                .frame(width: 1)
-                .frame(maxHeight: .infinity)
+            Spacer(minLength: 8)
 
-            VStack(alignment: .leading, spacing: 10) {
-                RouteLegFlowStrip(chips: option.legChips)
-
-                Text("\(option.transferSummary.uppercased()) · \(option.terminalLabel.uppercased())")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1.8)
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 10)
+            Text(option.timingHeadlineText)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.Color.inkMute)
-                .padding(.trailing, 2)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    /// Mini-tracé géographique si on a des coordonnées exploitables, sinon
+    /// l'icône de mode (repli identique à l'ancien design de la carte
+    /// recommandée, juste réutilisé aussi pour les alternatives).
+    @ViewBuilder
+    private func routeThumbnail(size: CGFloat) -> some View {
+        if !option.thumbnailSegments.isEmpty {
+            RouteShapeThumbnail(segments: option.thumbnailSegments, size: size)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(DS.Color.ink)
+                Image(systemName: option.primaryModeIcon)
+                    .font(.system(size: size * 0.34, weight: .medium))
+                    .foregroundStyle(DS.Color.paper)
+            }
+            .frame(width: size, height: size)
+        }
+    }
+
+    private func comparisonTag(_ text: String, prominent: Bool) -> some View {
+        Text(text.uppercased(with: AppLocale.current))
+            .font(DS.Font.monoSmall.weight(.bold))
+            .tracking(prominent ? 0.6 : 0.4)
+            .foregroundStyle(prominent ? DS.Color.primary : DS.Color.inkMute)
+            .lineLimit(1)
+            .modifier(ComparisonTagBackground(prominent: prominent))
+    }
+}
+
+/// Pastille pour la version "recommandée" (proéminente), texte nu pour les
+/// alternatives compactes (cohérent avec leur densité réduite).
+private struct ComparisonTagBackground: ViewModifier {
+    let prominent: Bool
+    func body(content: Content) -> some View {
+        if prominent {
+            content
+                .padding(.horizontal, 7)
+                .frame(height: 20)
+                .background(DS.Color.primary.opacity(0.12))
+                .clipShape(Capsule())
+        } else {
+            content
+        }
     }
 }
 
@@ -607,145 +627,64 @@ private struct RouteLineMiniBadge: View {
     }
 }
 
-/// Google-style journey flow: 🚶 → line → line → 🚶, with chevrons between
-/// legs. Makes a multi-leg trip readable at a glance instead of a bare list of
-/// line badges. Le flux PASSE À LA LIGNE (flow layout) au lieu d'être coupé /
-/// scrollé : un trajet multi-correspondances (🚶 → 7 → 🚶 → IC → 🚶 → 9)
-/// s'affiche en entier sur plusieurs lignes, plus rien n'est rogné au bord de
-/// la carte.
-private struct RouteLegFlowStrip: View {
-    let chips: [RouteLegChip]
+/// Mini-aperçu géographique du tracé : normalise les coordonnées dans une
+/// bounding box (avec correction cos(latitude) pour que la forme ne soit pas
+/// distordue est-ouest) puis dessine chaque tronçon avec sa couleur de ligne
+/// officielle. Donne une vraie FORME au trajet sur la card, là où avant seuls
+/// des badges de ligne (`legChips`) étaient visibles.
+private struct RouteShapeThumbnail: View {
+    let segments: [RouteThumbnailSegment]
+    var size: CGFloat = 56
 
     var body: some View {
-        // Chaque chevron reste collé au chip qui le suit (HStack groupé) pour
-        // ne jamais laisser un « › » orphelin en fin de ligne quand ça wrappe.
-        RouteLegWrapLayout(horizontalSpacing: 5, verticalSpacing: 6) {
-            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
-                if index == 0 {
-                    chipView(chip)
-                } else {
-                    HStack(spacing: 5) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 8, weight: .black))
-                            .foregroundStyle(DS.Color.inkMute)
-                        chipView(chip)
-                    }
-                }
+        Canvas { context, canvasSize in
+            let allCoordinates = segments.flatMap(\.coordinates)
+            guard allCoordinates.count > 1 else { return }
+
+            let lats = allCoordinates.map(\.latitude)
+            let lngs = allCoordinates.map(\.longitude)
+            guard let minLat = lats.min(), let maxLat = lats.max(),
+                  let minLng = lngs.min(), let maxLng = lngs.max() else { return }
+
+            let midLat = (minLat + maxLat) / 2
+            let midLng = (minLng + maxLng) / 2
+            let lngCorrection = cos(midLat * .pi / 180)
+
+            let latSpan = max(maxLat - minLat, 0.0008)
+            let correctedLngSpan = max((maxLng - minLng) * lngCorrection, 0.0008)
+            let inset: CGFloat = 6
+            let drawable = min(canvasSize.width, canvasSize.height) - inset * 2
+            let scale = drawable / CGFloat(max(latSpan, correctedLngSpan))
+            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+
+            func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
+                CGPoint(
+                    x: center.x + CGFloat((coordinate.longitude - midLng) * lngCorrection) * scale,
+                    y: center.y - CGFloat(coordinate.latitude - midLat) * scale
+                )
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
-    @ViewBuilder
-    private func chipView(_ chip: RouteLegChip) -> some View {
-        switch chip {
-        case .walk:
-            Image(systemName: "figure.walk")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(DS.Color.inkMute)
-                .frame(width: 30, height: 30)
-                .background(DS.Color.paper2.opacity(0.7))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        case .line(let descriptor):
-            RouteLineMiniBadge(descriptor: descriptor)
-        }
-    }
-}
-
-/// Flow layout maison : place les chips de gauche à droite et passe à la ligne
-/// dès que la largeur dispo est dépassée (même logique que STIBAIFlowLayout).
-/// Permet à la séquence d'un itinéraire alternatif de ne jamais être coupée au
-/// bord de la carte.
-private struct RouteLegWrapLayout: Layout {
-    var horizontalSpacing: CGFloat
-    var verticalSpacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? 320
-        let rows = computeRows(maxWidth: maxWidth, subviews: subviews)
-        return CGSize(width: maxWidth, height: rows.last.map { $0.y + $0.height } ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for row in computeRows(maxWidth: bounds.width, subviews: subviews) {
-            for item in row.items {
-                subviews[item.index].place(
-                    at: CGPoint(x: bounds.minX + item.x, y: bounds.minY + row.y),
-                    proposal: ProposedViewSize(width: item.size.width, height: item.size.height)
+            for segment in segments {
+                guard segment.coordinates.count > 1 else { continue }
+                var path = Path()
+                path.move(to: point(for: segment.coordinates[0]))
+                for coordinate in segment.coordinates.dropFirst() {
+                    path.addLine(to: point(for: coordinate))
+                }
+                context.stroke(
+                    path,
+                    with: .color(segment.color),
+                    style: StrokeStyle(lineWidth: max(segment.width * 0.55, 2), lineCap: .round, lineJoin: .round)
                 )
             }
         }
-    }
-
-    private func computeRows(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
-        var rows: [Row] = []
-        var currentItems: [Item] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
-            let nextX = currentItems.isEmpty ? 0 : x + horizontalSpacing
-            if !currentItems.isEmpty, nextX + size.width > maxWidth {
-                rows.append(Row(y: y, height: rowHeight, items: currentItems))
-                y += rowHeight + verticalSpacing
-                currentItems = []
-                x = 0
-                rowHeight = 0
-            }
-
-            let itemX = currentItems.isEmpty ? 0 : x + horizontalSpacing
-            currentItems.append(Item(index: index, x: itemX, size: size))
-            x = itemX + size.width
-            rowHeight = max(rowHeight, size.height)
-        }
-
-        if !currentItems.isEmpty {
-            rows.append(Row(y: y, height: rowHeight, items: currentItems))
-        }
-        return rows
-    }
-
-    private struct Row {
-        let y: CGFloat
-        let height: CGFloat
-        let items: [Item]
-    }
-
-    private struct Item {
-        let index: Int
-        let x: CGFloat
-        let size: CGSize
-    }
-}
-
-private struct RouteDurationStrip: View {
-    let segments: [RouteVisualSegment]
-
-    private var totalWeight: CGFloat {
-        max(segments.reduce(0) { $0 + $1.weight }, 1)
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            let totalSpacing = CGFloat(max(segments.count - 1, 0)) * 2
-            let usableWidth = max(geo.size.width - totalSpacing, 0)
-
-            HStack(spacing: 2) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(segment.tint)
-                        .frame(width: max(10, usableWidth * (segment.weight / totalWeight)), height: 12)
-                }
-            }
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 16)
-            .background(DS.Color.ink.opacity(0.22))
-            .clipShape(Capsule())
-        }
-        .frame(height: 16)
+        .frame(width: size, height: size)
+        .background(DS.Color.paper2.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
+        )
     }
 }
 
