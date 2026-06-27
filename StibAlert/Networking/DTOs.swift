@@ -861,6 +861,10 @@ struct TransportVehicleDTO: Codable, Identifiable, Equatable {
     /// Name of the stop the vehicle is currently at / approaching, as
     /// reported by the backend. Drives the popup shown on vehicle tap.
     let stopNom: String?
+    /// Human-readable terminus of the vehicle's current trip, resolved
+    /// backend-side from STIB's `directionId` (a terminus pointId) → stop
+    /// name. The real direction, no longer guessed from a heuristic cache.
+    let destination: String?
     /// Distance from the user's location to this vehicle in metres. Only
     /// populated when the request included a lat/lng/rayon filter.
     let distanceFromPoint: Int?

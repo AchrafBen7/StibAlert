@@ -311,6 +311,7 @@ private extension TransportVehicleDTO {
             longitude: longitude,
             updatedAt: updatedAt,
             stopNom: stopNom,
+            destination: destination,
             distanceFromPoint: distanceFromPoint
         )
     }

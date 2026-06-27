@@ -26,19 +26,18 @@ struct VehicleDetailSheet: View {
     }
 
     private var destinationLabel: String? {
+        // Vraie destination résolue côté backend (STIB directionId → nom du
+        // terminus) : la source de vérité. Le cache heuristique
+        // direction→terminus ne sert plus que de repli pour un véhicule dont
+        // le terminus n'a pas pu être résolu.
+        if let destination = vehicle.destination,
+           !destination.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return destination.capitalized
+        }
         guard let direction = vehicle.direction,
               let mapped = destinationByDirection[direction]
         else { return nil }
         return mapped.capitalized
-    }
-
-    private var updatedAgoText: String {
-        guard let updatedAt = vehicle.updatedAt else { return "À l'instant" }
-        let seconds = Int(Date().timeIntervalSince(updatedAt))
-        if seconds < 5 { return "À l'instant" }
-        if seconds < 60 { return "il y a \(seconds)s" }
-        let minutes = seconds / 60
-        return "il y a \(minutes) min"
     }
 
     var body: some View {
@@ -56,18 +55,6 @@ struct VehicleDetailSheet: View {
                     label: "Arrêt actuel",
                     value: vehicle.stopNom?.capitalized ?? "—"
                 )
-                infoRow(
-                    icon: "clock.arrow.circlepath",
-                    label: "Mise à jour",
-                    value: updatedAgoText
-                )
-                if let distance = vehicle.distanceFromPoint {
-                    infoRow(
-                        icon: "figure.walk",
-                        label: "Distance",
-                        value: "\(distance) m"
-                    )
-                }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
