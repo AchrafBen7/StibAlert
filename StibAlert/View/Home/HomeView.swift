@@ -2201,6 +2201,14 @@ struct HomeView: View {
     }
 
     @MainActor
+    /// Refresh manuel des passages depuis la mini-carte (bouton ↻) : recharge
+    /// le détail de l'arrêt courant, donc les départs temps réel fusionnés des
+    /// deux quais. Wrapper internal car `loadStopDetail` est `private` (même
+    /// fichier) et la mini-carte vit dans HomeViewOverlays.
+    func reloadMapStopDetail(for stop: TransportStopSummaryDTO) {
+        loadStopDetail(for: stop)
+    }
+
     private func loadStopDetail(for stop: TransportStopSummaryDTO) {
         selectedMapStopDetail = nil
         isLoadingMapStopDetail = true

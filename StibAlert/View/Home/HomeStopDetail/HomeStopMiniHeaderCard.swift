@@ -16,6 +16,7 @@ struct HomeStopMiniHeaderCard: View {
     let onSelectLine: (String) -> Void
     let onFollowVehicle: (TransportVehicleDTO) -> Void
     let onShowDetail: () -> Void
+    let onRefresh: () -> Void
 
     /// Vehicle confirmed at the focused stop. We intentionally avoid showing
     /// a generic "closest vehicle" here: vehicle feeds can expose a current
@@ -62,10 +63,12 @@ struct HomeStopMiniHeaderCard: View {
     private var lineDepartures: [TransportDepartureDTO] {
         guard let selectedLine else { return [] }
         let normalized = normalize(selectedLine)
-        return nextDepartures
-            .filter { normalize($0.line) == normalized }
-            .prefix(6)
-            .map { $0 }
+        // Pas de .prefix global ici : il coupait AVANT le groupement par
+        // direction, donc quand les prochains passages partaient tous dans le
+        // même sens, l'autre direction (pourtant bien présente — loadStopDetail
+        // fusionne les départs des deux quais) disparaissait. La limite se fait
+        // par direction dans departuresByDestination / directionRow.
+        return nextDepartures.filter { normalize($0.line) == normalized }
     }
 
     /// Departures grouped by destination so the user can see at a glance
@@ -111,6 +114,23 @@ struct HomeStopMiniHeaderCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Ouvre les détails complets de l'arrêt")
+
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    onRefresh()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 32, height: 32)
+                        .background(DS.Color.paper2)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .opacity(isLoading ? 0.5 : 1)
+                .disabled(isLoading)
+                .accessibilityLabel("Rafraîchir les passages")
 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -169,7 +189,10 @@ struct HomeStopMiniHeaderCard: View {
                 .foregroundStyle(DS.Color.inkMute)
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(departuresByDestination, id: \.destination) { group in
+                // Toutes les directions réelles de la ligne (en pratique 2),
+                // chacune avec ses 3 prochains passages — plafond à 3 sens par
+                // sécurité contre un cas dégénéré.
+                ForEach(Array(departuresByDestination.prefix(3)), id: \.destination) { group in
                     directionRow(destination: group.destination, items: Array(group.items.prefix(3)))
                 }
             }

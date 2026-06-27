@@ -81,6 +81,9 @@ extension HomeView {
                         },
                         onShowDetail: {
                             openStopDetailFromMiniCard(for: stop)
+                        },
+                        onRefresh: {
+                            reloadMapStopDetail(for: stop)
                         }
                     )
                     .padding(.horizontal, 14)
