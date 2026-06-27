@@ -33,35 +33,26 @@ struct HomeOperatorStopSheet: View {
             header
 
             if supportsRealtime {
-                linesSection
-                liveSection
-                disruptionsSection
+                // Header + CTA "Signaler" restent fixes ; seul le contenu
+                // (lignes, passages, perturbations) scrolle. Sans ça, un arrêt
+                // avec beaucoup de lignes poussait les passages temps réel hors
+                // de l'écran sans aucun moyen de les atteindre.
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        linesSection
+                        liveSection
+                        disruptionsSection
+                    }
+                    .padding(.bottom, 4)
+                }
             } else {
                 Text("Horaires et infos trafic \(stop.op.mapLabel) arrivent bientôt pour cet arrêt.")
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
+                Spacer(minLength: 0)
             }
 
-            Button(action: onReport) {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .black))
-                    Text("Signaler cet arrêt")
-                        .font(DS.Font.bodyBold)
-                }
-                .foregroundStyle(DS.Color.primaryForeground)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(DS.Color.primary)
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                        .stroke(DS.Color.ink, lineWidth: 1.5)
-                )
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: 0)
+            reportButton
         }
         .padding(.horizontal, 22)
         .padding(.top, 22)
@@ -78,6 +69,27 @@ struct HomeOperatorStopSheet: View {
         .onDisappear {
             refreshTask?.cancel()
         }
+    }
+
+    private var reportButton: some View {
+        Button(action: onReport) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .black))
+                Text("Signaler cet arrêt")
+                    .font(DS.Font.bodyBold)
+            }
+            .foregroundStyle(DS.Color.primaryForeground)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(DS.Color.primary)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                    .stroke(DS.Color.ink, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Header
@@ -153,14 +165,14 @@ struct HomeOperatorStopSheet: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 8) {
-                        ForEach(futurePassages) { p in
-                            passageRow(p)
-                        }
+                // Plus de ScrollView imbriqué ici : le scroll global de la
+                // feuille gère tout (un scroll dans un scroll = conflit de
+                // gestes + double barre de défilement).
+                VStack(spacing: 8) {
+                    ForEach(futurePassages) { p in
+                        passageRow(p)
                     }
                 }
-                .frame(maxHeight: 320)
             }
         }
         .padding(.top, 4)
@@ -168,18 +180,25 @@ struct HomeOperatorStopSheet: View {
 
     @ViewBuilder
     private var linesSection: some View {
-        let lines = stopInfo?.lines ?? []
-        if !lines.isEmpty {
+        // Une ligne peut apparaître plusieurs fois (une entrée par direction) ;
+        // en vue d'ensemble on ne veut qu'un badge par numéro. Les directions
+        // réapparaissent ligne par ligne dans "Prochains passages".
+        let uniqueLines = dedupedLines(stopInfo?.lines ?? [])
+        if !uniqueLines.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Lignes à cet arrêt")
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
-                // Badge ligne + direction (→ destination) en liste verticale,
-                // pour qu'on voie quelles lignes passent ET vers où — même
-                // quand le temps réel est vide (nuit / hors fenêtre 30 min).
-                VStack(spacing: 8) {
-                    ForEach(lines.prefix(12)) { line in
-                        deLijnLineRow(line)
+                // Grille compacte de badges : un arrêt avec 10+ lignes tient en
+                // quelques rangées au lieu d'une liste pleine hauteur qui
+                // enterrait les passages temps réel.
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 50), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(uniqueLines, id: \.self) { line in
+                        lineBadge(line)
                     }
                 }
             }
@@ -230,14 +249,14 @@ struct HomeOperatorStopSheet: View {
     @ViewBuilder
     private func passageRow(_ p: OperatorRealtimePassage) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // Petit badge ligne (style monotone — pas de couleur ligne dispo
-            // côté backend De Lijn pour l'instant)
+            // Badge ligne aux couleurs De Lijn/TEC, cohérent avec la grille
+            // de lignes au-dessus.
             Text(p.line)
                 .font(DS.Font.bodyBold)
-                .foregroundStyle(.white)
+                .foregroundStyle(stop.op.brandTextColor)
                 .frame(minWidth: 38, minHeight: 28)
                 .padding(.horizontal, 8)
-                .background(DS.Color.ink)
+                .background(stop.op.brandColor)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
@@ -255,53 +274,56 @@ struct HomeOperatorStopSheet: View {
 
             Spacer(minLength: 0)
 
-            // Délai en minutes (vert si à l'heure / -, rouge si retard)
-            if let delay = p.delayMin {
-                Text(delayLabel(delay))
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .foregroundStyle(delayColor(delay))
+            // Temps d'attente proéminent, juste à côté de sa ligne : c'est
+            // l'info qu'on cherche en priorité (« mon bus arrive dans ? »).
+            // Le countdown prime sur l'heure absolue ; le délai passe en
+            // sous-texte coloré.
+            VStack(alignment: .trailing, spacing: 1) {
+                if let minutes = minutesUntil(p.effectiveTime) {
+                    Text(minutes == 0 ? "maintenant" : "\(minutes) min")
+                        .font(.system(size: minutes == 0 ? 13 : 17, weight: .black))
+                        .foregroundStyle(DS.Color.ink)
+                        .monospacedDigit()
+                }
+                if let delay = p.delayMin, delay != 0 {
+                    Text(delayLabel(delay))
+                        .font(DS.Font.monoSmall.weight(.bold))
+                        .foregroundStyle(delayColor(delay))
+                }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .background(DS.Color.paper2.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func deLijnLineRow(_ info: OperatorStopLineInfo) -> some View {
-        HStack(spacing: 12) {
-            Text(info.line)
-                .font(DS.Font.bodyBold)
-                .foregroundStyle(stop.op.brandTextColor)
-                .frame(width: 40, height: 30)
-                .background(stop.op.brandColor)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
-                )
-            if let dest = deLijnTerminus(info.destination) {
-                Text("→ \(dest)")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Color.paper2.opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    private func lineBadge(_ line: String) -> some View {
+        Text(line)
+            .font(DS.Font.bodyBold)
+            .foregroundStyle(stop.op.brandTextColor)
+            .frame(minWidth: 44, minHeight: 34)
+            .padding(.horizontal, 6)
+            .background(stop.op.brandColor)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.18), lineWidth: 1)
+            )
     }
 
-    /// De Lijn renvoie une description de tracé verbeuse
-    /// ("Brussel Noord - Dilbeek - Roosdaal - Ninove"). On garde le terminus
-    /// (dernier segment) pour un affichage type "→ Ninove".
-    private func deLijnTerminus(_ raw: String?) -> String? {
-        guard let raw, !raw.isEmpty else { return nil }
-        let parts = raw.components(separatedBy: " - ")
-        return parts.last?.trimmingCharacters(in: .whitespaces)
+    /// Dédoublonne les lignes par numéro (le backend renvoie une entrée par
+    /// direction), en préservant l'ordre d'apparition.
+    private func dedupedLines(_ lines: [OperatorStopLineInfo]) -> [String] {
+        var seen = Set<String>()
+        return lines.compactMap { seen.insert($0.line).inserted ? $0.line : nil }
+    }
+
+    /// Minutes (plancher) avant le passage, jamais négatif — `futurePassages`
+    /// a déjà écarté les passages dépassés.
+    private func minutesUntil(_ date: Date?) -> Int? {
+        guard let date else { return nil }
+        return max(0, Int(date.timeIntervalSinceNow / 60))
     }
 
     // MARK: - Formatting helpers
