@@ -316,20 +316,19 @@ struct HomeStopMiniHeaderCard: View {
     }
 
     private func lineChip(_ line: String) -> some View {
-        let isSelected = selectedLine.map(normalize) == normalize(line)
+        // Sélection = vif vs estompé (même traitement que HomeStopPreviewCard).
+        // Plus de contour noir (le « carré » qui alourdissait le badge) : la
+        // ligne choisie reste en couleur pleine, les autres sont désaturées +
+        // estompées. Aucune sélection → tout vif.
+        let isDimmed = selectedLine != nil && !(selectedLine.map(normalize) == normalize(line))
         return Button {
             UISelectionFeedbackGenerator().selectionChanged()
             onSelectLine(line)
         } label: {
             LineBadge(line: line, size: .sm)
-                .padding(2)
-                .background(
-                    Circle().stroke(
-                        isSelected ? DS.Color.ink : DS.Color.ink.opacity(0.0),
-                        lineWidth: 2
-                    )
-                )
-                .opacity(isSelected || selectedLine == nil ? 1 : 0.5)
+                .saturation(isDimmed ? 0.25 : 1)
+                .opacity(isDimmed ? 0.5 : 1)
+                .animation(.easeOut(duration: 0.18), value: selectedLine)
         }
         .buttonStyle(.plain)
     }
