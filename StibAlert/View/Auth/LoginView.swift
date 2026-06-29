@@ -35,7 +35,7 @@ struct LoginView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             (
                 Text("Reprenez votre ")
                     .foregroundColor(DS.Color.ink)
@@ -53,7 +53,7 @@ struct LoginView: View {
                 .font(.system(size: 13.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
-                .padding(.top, 6)
+                .padding(.top, DS.Spacing.xs)
         }
     }
 
@@ -65,7 +65,7 @@ struct LoginView: View {
         AppleSignInButtonView { result in
             handleAppleSignIn(result)
         }
-        .padding(.bottom, 12)
+        .padding(.bottom, DS.Spacing.md)
     }
 
     private func handleAppleSignIn(_ result: Result<AppleSignInPayload, Error>) {
@@ -96,9 +96,9 @@ struct LoginView: View {
     }
 
     private var formSection: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: DS.Spacing.lg) {
             AuthField(
-                label: "EMAIL",
+                label: AppLocalizer.string("auth.field.email", defaultValue: "EMAIL"),
                 icon: "envelope",
                 text: $email,
                 isSecure: false,
@@ -107,7 +107,7 @@ struct LoginView: View {
             .focused($focusedField, equals: .email)
 
             AuthField(
-                label: "MOT DE PASSE",
+                label: AppLocalizer.string("auth.field.password", defaultValue: "MOT DE PASSE"),
                 icon: "lock",
                 text: $motDePasse,
                 isSecure: !showPassword,
@@ -141,10 +141,10 @@ struct LoginView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, 4)
+            .padding(.top, DS.Spacing.xs)
 
             Button(action: submit) {
-                HStack(spacing: 8) {
+                HStack(spacing: DS.Spacing.sm) {
                     if isLoading {
                         ProgressView()
                             .progressViewStyle(.circular)
@@ -226,7 +226,7 @@ struct LoginView: View {
             }
             Spacer()
         }
-        .padding(.top, 24)
+        .padding(.top, DS.Spacing.xxl)
     }
 }
 
@@ -256,15 +256,15 @@ struct AuthEditorialScaffold<Content: View>: View {
                     .accessibilityLabel("Fermer")
                     Spacer()
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.top, DS.Spacing.sm)
 
                 VStack(alignment: .leading, spacing: 0) {
                     content()
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 40)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.top, DS.Spacing.xxl)
+                .padding(.bottom, DS.Spacing.xxxl)
             }
         }
         .background(DS.Color.paper.ignoresSafeArea())
@@ -301,7 +301,7 @@ struct AuthModeSwitch: View {
             }
         }
         .frame(height: 40)
-        .padding(.bottom, 20)
+        .padding(.bottom, DS.Spacing.xl)
     }
 
     private func modeButton(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
@@ -345,7 +345,7 @@ struct AuthSocialButton: View {
 
 struct AuthDivider: View {
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DS.Spacing.md) {
             DS.Rule().frame(maxWidth: .infinity)
             Text("OU AVEC VOTRE EMAIL")
                 .font(DS.Font.monoSmall.weight(.bold))
@@ -353,7 +353,7 @@ struct AuthDivider: View {
                 .tracking(1)
             DS.Rule().frame(maxWidth: .infinity)
         }
-        .padding(.bottom, 20)
+        .padding(.bottom, DS.Spacing.xl)
     }
 }
 
@@ -366,14 +366,14 @@ struct AuthField: View {
     var trailing: AnyView? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             Text(label)
                 .font(DS.Font.monoSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
-                .padding(.horizontal, 2)
+                .padding(.horizontal, DS.Spacing.xxs)
 
-            HStack(spacing: 8) {
+            HStack(spacing: DS.Spacing.sm) {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                     .foregroundColor(DS.Color.inkMute)
@@ -398,7 +398,7 @@ struct AuthField: View {
                     trailing
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DS.Spacing.md)
             .frame(height: 48)
             .background(DS.Color.paper)
             .overlay(
