@@ -749,9 +749,8 @@ struct FavoritesView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                     .tracking(-0.2)
-                Text(item.code)
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .foregroundStyle(DS.Color.inkMute)
+                // Numéro de ligne à côté du nom retiré : redondant avec les
+                // badges de lignes affichés juste en dessous (item.detailLines).
                 Spacer()
                 Button {
                     Task { await removeFavori(item) }
