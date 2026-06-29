@@ -3988,6 +3988,52 @@
         }
       }
     },
+    "auth.field.email" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EMAIL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EMAIL"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "E-MAIL"
+          }
+        }
+      }
+    },
+    "auth.field.password" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PASSWORD"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MOT DE PASSE"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WACHTWOORD"
+          }
+        }
+      }
+    },
     "auth.forgot_password" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -21015,6 +21061,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diensten"
+          }
+        }
+      }
+    },
+    "stopdetail.line_no_departures" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No upcoming departures for this line right now."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun passage prévu pour cette ligne pour le moment."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen verwachte doorkomsten voor deze lijn op dit moment."
+          }
+        }
+      }
+    },
+    "stopdetail.line_not_served" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This line doesn't serve this stop."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette ligne n'est pas desservie à cet arrêt."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze lijn bedient deze halte niet."
           }
         }
       }
