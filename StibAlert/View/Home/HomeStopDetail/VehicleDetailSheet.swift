@@ -26,18 +26,22 @@ struct VehicleDetailSheet: View {
     }
 
     private var destinationLabel: String? {
-        // Vraie destination résolue côté backend (STIB directionId → nom du
-        // terminus) : la source de vérité. Le cache heuristique
-        // direction→terminus ne sert plus que de repli pour un véhicule dont
-        // le terminus n'a pas pu être résolu.
-        if let destination = vehicle.destination,
-           !destination.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return destination.capitalized
-        }
+        // Terminus appris via les départs des arrêts (cache heuristique), quand
+        // il existe. On n'utilise PAS le `directionId` brut du backend : ce
+        // n'est pas un terminus fiable (souvent un arrêt intermédiaire, ex.
+        // "BUYL" au lieu de "VANDERKINDERE"). À défaut, le header reste neutre
+        // et la direction concrète est donnée par le prochain arrêt (cf. body).
         guard let direction = vehicle.direction,
               let mapped = destinationByDirection[direction]
         else { return nil }
         return mapped.capitalized
+    }
+
+    /// Le `stopNom` du véhicule est le pointId STIB vers lequel il roule :
+    /// `distanceFromPoint > 0` ⇒ il s'en approche (prochain arrêt), `0` ⇒ il y
+    /// est. Donne une indication de direction fiable, sans dépendre du terminus.
+    private var isHeadingToStop: Bool {
+        (vehicle.distanceFromPoint ?? 0) > 0
     }
 
     var body: some View {
@@ -51,8 +55,10 @@ struct VehicleDetailSheet: View {
 
             VStack(spacing: 10) {
                 infoRow(
-                    icon: "mappin.and.ellipse",
-                    label: "Arrêt actuel",
+                    icon: isHeadingToStop ? "arrow.right.circle" : "mappin.and.ellipse",
+                    label: isHeadingToStop
+                        ? AppLocalizer.string("vehicle.next_stop", defaultValue: "Prochain arrêt")
+                        : AppLocalizer.string("vehicle.current_stop", defaultValue: "Arrêt actuel"),
                     value: vehicle.stopNom?.capitalized ?? "—"
                 )
             }
