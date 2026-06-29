@@ -199,7 +199,16 @@ struct SchedulesView: View {
                 .padding(.bottom, 18)
             }
             .navigationDestination(for: String.self) { lineId in
+                // .navigationDestination ne propage pas de façon fiable les
+                // @EnvironmentObject à travers sa boundary : on ré-injecte
+                // session (+ nav) explicitement, sinon LigneDetailPage et ses
+                // sous-vues (sheet arrêt → ArretDetailPage, qui lit
+                // session.currentUser dans sa topBar) crashent sur un
+                // EnvironmentObject manquant. Même contournement que le
+                // fullScreenCover de ReportsView.
                 LigneDetailPage(lineId: lineId)
+                    .environmentObject(session)
+                    .environmentObject(nav)
             }
         }
     }
