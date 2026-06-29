@@ -245,6 +245,27 @@ struct ArretDetailPage: View {
             return "Passages indisponibles pour le moment."
         }
 
+        // Si une ligne précise est filtrée et qu'elle n'a aucun passage, le
+        // message doit parler DE CETTE LIGNE. Sinon on affichait "Temps réel
+        // STIB disponible." (calculé sur TOUS les passages de l'arrêt) alors
+        // que la ligne sélectionnée est vide — typiquement une ligne en travaux
+        // non desservie ici pendant qu'une autre ligne passe encore. Trompeur.
+        if let line = selectedLineFilter {
+            let normLine = Self.normalizedLineNumber(line)
+            let notServed = disruptions.contains { incident in
+                guard let incidentLine = incident.line,
+                      Self.normalizedLineNumber(incidentLine) == normLine else { return false }
+                let type = (incident.type ?? "").lowercased()
+                return type.contains("non desservi") || type.contains("niet bedien") || type.contains("not served")
+            }
+            if notServed {
+                return AppLocalizer.string("stopdetail.line_not_served",
+                                           defaultValue: "Cette ligne n'est pas desservie à cet arrêt.")
+            }
+            return AppLocalizer.string("stopdetail.line_no_departures",
+                                       defaultValue: "Aucun passage prévu pour cette ligne pour le moment.")
+        }
+
         if !stopDetail.nextDepartures.isEmpty {
             let hasRealtime = stopDetail.nextDepartures.contains { $0.source != "scheduled" }
             let hasScheduled = stopDetail.nextDepartures.contains { $0.source == "scheduled" }
