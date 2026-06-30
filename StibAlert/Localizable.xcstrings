@@ -17415,6 +17415,38 @@
         }
       }
     },
+    "routing.transit_unavailable.subtitle" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun itinéraire en transport en commun trouvé pour ce trajet. Voici les options à pied et à vélo."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geen route met het openbaar vervoer gevonden voor dit traject. Hieronder de opties te voet en met de fiets."
+          }
+        }
+      }
+    },
+    "routing.transit_unavailable.title" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transport en commun indisponible"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Openbaar vervoer niet beschikbaar"
+          }
+        }
+      }
+    },
     "routing.avoids" : {
       "extractionState" : "stale",
       "localizations" : {

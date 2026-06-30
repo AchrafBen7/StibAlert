@@ -176,6 +176,8 @@ enum L10n {
         }
         static var recalculatedTitle: String { AppLocalizer.string("routing.recalculated.title", defaultValue: "Itinéraire recalculé") }
         static var avoids: String { AppLocalizer.string("routing.avoids", defaultValue: "évite") }
+        static var transitUnavailableTitle: String { AppLocalizer.string("routing.transit_unavailable.title", defaultValue: "Transport en commun indisponible") }
+        static var transitUnavailableSubtitle: String { AppLocalizer.string("routing.transit_unavailable.subtitle", defaultValue: "Aucun itinéraire en transport en commun trouvé pour ce trajet. Voici les options à pied et à vélo.") }
         static var followItinerary: String { AppLocalizer.string("routing.follow_itinerary", defaultValue: "Suivre l’itinéraire") }
         static var takeNextTransport: String { AppLocalizer.string("routing.take_next_transport", defaultValue: "Prendre le transport suivant") }
         static var transportStep: String { AppLocalizer.string("routing.transport_step", defaultValue: "Étape transport") }

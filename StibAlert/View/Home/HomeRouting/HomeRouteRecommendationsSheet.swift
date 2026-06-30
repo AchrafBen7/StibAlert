@@ -52,6 +52,15 @@ struct RouteRecommendationsSheet: View {
         let base = subset.isEmpty ? options : subset
         return base.sorted { $0.totalDurationMinutes < $1.totalDurationMinutes }
     }
+
+    /// Vrai quand l'utilisateur regarde le mode Transport mais qu'AUCUNE option
+    /// transit n'existe (provider transit en échec, ou trajet trop court).
+    /// `filteredOptions` retombe alors en silence sur marche/vélo : sans cette
+    /// bannière l'utilisateur croyait que ces options étaient « le transport »
+    /// — c'est le 🔴 « échec d'API silencieux ». On l'avertit explicitement.
+    private var showTransitUnavailableNotice: Bool {
+        selectedModeKey == "transit" && !options.contains { $0.primaryModeKey == "transit" }
+    }
     /// La carte « recommandée » (grande, en haut) suit la route SÉLECTIONNÉE :
     /// taper une autre route la fait monter en tête (« sélectionner à la place »)
     /// au lieu de rester enterrée dans la liste. Par défaut (rien de sélectionné)
@@ -99,6 +108,7 @@ struct RouteRecommendationsSheet: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             modeSummaryStrip
+                            transitUnavailableBanner
                             rerouteBanner
                             recommendedSection
                             optionsHeader
@@ -173,6 +183,37 @@ struct RouteRecommendationsSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 14)
+    }
+
+    @ViewBuilder private var transitUnavailableBanner: some View {
+        if showTransitUnavailableNotice {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "tram.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMajor)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.Routing.transitUnavailableTitle)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text(L10n.Routing.transitUnavailableSubtitle)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(DS.Color.statusMajor.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.statusMajor.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 6)
+        }
     }
 
     // Bannière "itinéraire recalculé" : montre EXPLICITEMENT que le trajet
