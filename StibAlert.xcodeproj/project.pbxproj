@@ -14,6 +14,7 @@
 		9B8AAF8B2F9BFF0900B8581A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B8AAF8A2F9BFF0900B8581A /* SwiftUI.framework */; };
 		9B8AAF9A2F9BFF0A00B8581A /* StibAlertWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9B8AAF862F9BFF0900B8581A /* StibAlertWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9BABEB452FF3C84000DE6B28 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 9BABEB442FF3C84000DE6B28 /* TelemetryDeck */; };
+		9BABEB482FF46EF300DE6B28 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 9BABEB472FF46EF300DE6B28 /* Sentry */; };
 		A14F33013B8D100100A1B2C3 /* GoogleMaps3D in Frameworks */ = {isa = PBXBuildFile; productRef = A14F33003B8D100100A1B2C3 /* GoogleMaps3D */; };
 		A15F44013C01000100A1B2C3 /* SocketIO in Frameworks */ = {isa = PBXBuildFile; productRef = A15F44003C01000100A1B2C3 /* SocketIO */; };
 		A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = A16F55003C22000100A1B2C3 /* OneSignalFramework */; };
@@ -126,6 +127,7 @@
 				A16F55013C22000100A1B2C3 /* OneSignalFramework in Frameworks */,
 				9BABEB452FF3C84000DE6B28 /* TelemetryDeck in Frameworks */,
 				A17F66013C33000100A1B2C3 /* DotLottie in Frameworks */,
+				9BABEB482FF46EF300DE6B28 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -225,6 +227,7 @@
 				A16F55003C22000100A1B2C3 /* OneSignalFramework */,
 				A17F66003C33000100A1B2C3 /* DotLottie */,
 				9BABEB442FF3C84000DE6B28 /* TelemetryDeck */,
+				9BABEB472FF46EF300DE6B28 /* Sentry */,
 			);
 			productName = StibAlert;
 			productReference = 3831C0812D79C1D100452AA0 /* StibAlert.app */;
@@ -340,6 +343,7 @@
 				A16F55023C22000100A1B2C3 /* XCRemoteSwiftPackageReference "OneSignal-XCFramework" */,
 				A17F66023C33000100A1B2C3 /* XCRemoteSwiftPackageReference "dotlottie-ios" */,
 				9BABEB432FF3C84000DE6B28 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+				9BABEB462FF46EF300DE6B28 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3831C0822D79C1D100452AA0 /* Products */;
@@ -836,6 +840,14 @@
 				minimumVersion = 2.14.1;
 			};
 		};
+		9BABEB462FF46EF300DE6B28 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.19.0;
+			};
+		};
 		A14F33023B8D100100A1B2C3 /* XCRemoteSwiftPackageReference "ios-maps-3d-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googlemaps/ios-maps-3d-sdk";
@@ -875,6 +887,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BABEB432FF3C84000DE6B28 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
 			productName = TelemetryDeck;
+		};
+		9BABEB472FF46EF300DE6B28 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BABEB462FF46EF300DE6B28 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 		A14F33003B8D100100A1B2C3 /* GoogleMaps3D */ = {
 			isa = XCSwiftPackageProductDependency;
