@@ -1229,7 +1229,14 @@ struct HomeView: View {
             mergeIncomingSignalement(signalement)
         }
         .onChange(of: nav.currentPage) { _, newValue in
-            guard newValue == .home else { return }
+            guard newValue == .home else {
+                // Quitter la carte ferme le popup véhicule : c'est un overlay
+                // global (pas conditionné à l'onglet comme la preview d'arrêt),
+                // donc sans ça il restait affiché par-dessus Diensten /
+                // Verkeersinfo / etc.
+                selectedVehicle = nil
+                return
+            }
             nav.hidesTabBar = false
             if nav.pendingMapStopFocusBackendId != nil {
                 Task { await applyPendingMapStopFocusIfPossible() }
