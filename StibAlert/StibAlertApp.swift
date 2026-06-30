@@ -19,6 +19,8 @@ struct StibAlertApp: App {
 
     init() {
         ErrorReporting.setUp()
+        Analytics.start()
+        Analytics.track(.appOpened)
         UIWindow.appearance().overrideUserInterfaceStyle = .light
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()

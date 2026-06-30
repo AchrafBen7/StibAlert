@@ -58,11 +58,16 @@ enum UtilisateurService {
     }
 
     static func toggleFavori(userId: String, arretId: String) async throws -> FavorisUpdateResponse {
-        try await APIClient.shared.request(
+        let result: FavorisUpdateResponse = try await APIClient.shared.request(
             "/api/utilisateurs/\(userId)/favoris/\(arretId)",
             method: .PATCH,
             requiresAuth: true
         )
+        // Ne compter que les ajouts : l'arrêt est présent dans la liste après le toggle.
+        if result.favoris?.contains(arretId) == true {
+            Analytics.track(.favoriteAdded)
+        }
+        return result
     }
 
     static func enregistrerTokenPush(_ token: String? = nil, oneSignalPlayerId: String? = nil) async throws {

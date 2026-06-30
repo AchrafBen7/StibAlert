@@ -227,16 +227,17 @@ struct FeatureTourView: View {
                 pageIndex += 1
             }
         } else {
-            finish()
+            finish(completed: true)
         }
     }
 
     private func skip() {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        finish()
+        finish(completed: false)
     }
 
-    private func finish() {
+    private func finish(completed: Bool) {
+        Analytics.track(.onboardingCompleted, ["completed": completed ? "true" : "false"])
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         // U3 — petit délai pour que le user perçoive le haptic et le tap du
         // bouton AVANT que le fullScreenCover ne disparaisse (sans ça la

@@ -53,7 +53,7 @@ enum TransportService {
         destination: String,
         lignesBloquees: [String] = []
     ) async throws -> TransportRecommendationDTO {
-        try await APIClient.shared.request(
+        let result: TransportRecommendationDTO = try await APIClient.shared.request(
             "/api/transport/route/recommend",
             method: .POST,
             body: TransportRecommendationRequest(
@@ -62,5 +62,7 @@ enum TransportService {
                 lignesBloquees: lignesBloquees
             )
         )
+        Analytics.track(.routeCalculated)
+        return result
     }
 }

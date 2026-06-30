@@ -177,6 +177,7 @@ final class PushNotificationManager: NSObject, UIApplicationDelegate, UNUserNoti
 #if canImport(OneSignalFramework)
 extension PushNotificationManager: OSNotificationClickListener {
     func onClick(event: OSNotificationClickEvent) {
+        Analytics.track(.pushOpened)
         let additionalData = event.notification.additionalData ?? [:]
         NotificationCenter.default.post(name: .pushOpened, object: nil, userInfo: additionalData)
     }

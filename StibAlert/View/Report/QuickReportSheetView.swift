@@ -1506,6 +1506,7 @@ struct QuickReportSheetView: View {
                 // Hand the new signalement back to the parent so it can appear
                 // on the map + in the stop detail before the next backend poll.
                 onSubmitted?(response.signalement)
+                Analytics.track(.signalementCreated, ["operator": selectedOperator.rawValue])
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 withAnimation(.easeOut(duration: 0.25)) {
                     submitSuccess = true
