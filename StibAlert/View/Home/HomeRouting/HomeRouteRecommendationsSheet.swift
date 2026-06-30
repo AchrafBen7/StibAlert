@@ -441,6 +441,11 @@ private struct RouteOptionCard: View {
                         .foregroundStyle(DS.Color.inkMute)
                         .lineLimit(1)
 
+                    if !option.legChips.isEmpty {
+                        RouteLinesStrip(chips: option.legChips)
+                            .padding(.top, 3)
+                    }
+
                     if let nextDeparture = option.nextDepartureInsight {
                         RouteNextDepartureLine(insight: nextDeparture)
                             .padding(.top, 2)
@@ -469,6 +474,9 @@ private struct RouteOptionCard: View {
                     .font(.system(size: 17, weight: .black))
                     .tracking(-0.5)
                     .foregroundStyle(DS.Color.ink)
+                if !option.legChips.isEmpty {
+                    RouteLinesStrip(chips: option.legChips)
+                }
                 if let comparisonText {
                     comparisonTag(comparisonText, prominent: false)
                 }
@@ -533,6 +541,40 @@ private struct ComparisonTagBackground: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Séquence des lignes d'un itinéraire (🚶 → 35 → 🚶 → R30), affichée
+/// directement sur la carte pour qu'on voie les lignes utilisées SANS avoir à
+/// déplier le détail. Badges aux couleurs officielles de chaque ligne.
+private struct RouteLinesStrip: View {
+    let chips: [RouteLegChip]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+                if index > 0 {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 7, weight: .black))
+                        .foregroundStyle(DS.Color.inkMute.opacity(0.45))
+                }
+                switch chip {
+                case .walk:
+                    Image(systemName: "figure.walk")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.Color.inkMute)
+                case .line(let descriptor):
+                    Text(descriptor.code)
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(descriptor.foregroundColor)
+                        .padding(.horizontal, 5)
+                        .frame(minWidth: 20, minHeight: 18)
+                        .background(descriptor.fillColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
+            }
+        }
+        .lineLimit(1)
     }
 }
 
