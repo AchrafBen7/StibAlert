@@ -324,10 +324,6 @@ struct HomeView: View {
     /// Les types non bloquants (propreté, incivilité) n'excluent pas la ligne :
     /// seuls les incidents qui empêchent le trajet comptent.
     private var liveBlockedLines: [String] {
-        let blockingTypes: Set<String> = [
-            "panne", "interruption", "accident", "travaux", "déviation",
-            "perturbation", "arrêt non desservi",
-        ]
         var lines = Set<String>()
         for cluster in activeClusters {
             guard !cluster.resolved, cluster.status != "resolved" else { continue }
@@ -336,9 +332,21 @@ struct HomeView: View {
                 || cluster.confidence == .medium
                 || cluster.confidenceStatus == "confirmed"
             guard reliable else { continue }
-            // Type bloquant uniquement (un "propreté" ne ferme pas la ligne).
+            // EXCLUSION STRICTE : on ne retire une ligne de l'itinéraire que si
+            // elle est vraiment INTERROMPUE (aucun transport ne passe). Travaux,
+            // déviation, perturbation, panne, retard, arrêt non desservi laissent
+            // la ligne circuler (déviée ou ralentie) → les exclure masquait des
+            // trajets valides (ex. éviter le 10 alors qu'il roule). On se base
+            // sur le type ET sur le texte officiel ("interrompu", "supprimé",
+            // "ne circule pas"…), y compris pour un incident officiel — un simple
+            // "Travaux" officiel ne ferme PLUS la ligne automatiquement.
             let type = cluster.typeProbleme.lowercased()
-            guard cluster.isOfficial || blockingTypes.contains(type) else { continue }
+            let summary = (cluster.summary ?? "").lowercased()
+            let interrupted = type.contains("interrup") || type.contains("suspend")
+                || summary.contains("interromp") || summary.contains("suspend")
+                || summary.contains("ne circule") || summary.contains("supprimé")
+                || summary.contains("pas de circulation")
+            guard interrupted else { continue }
             let code = normalizedLineNumber(cluster.ligne)
             if !code.isEmpty { lines.insert(code) }
         }
