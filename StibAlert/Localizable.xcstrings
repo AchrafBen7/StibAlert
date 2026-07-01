@@ -2670,6 +2670,56 @@
         }
       }
     },
+    "Contenu offensant ou inapproprié" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aanstootgevende of ongepaste inhoud"
+          }
+        }
+      }
+    },
+    "Contenu signalé" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inhoud gemeld"
+          }
+        }
+      }
+    },
+    "Information erronée ou fausse" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Onjuiste of valse informatie"
+          }
+        }
+      }
+    },
+    "Signaler ce contenu" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze inhoud melden"
+          }
+        }
+      }
+    },
+    "Spam" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spam"
+          }
+        }
+      }
+    },
     "Annuler" : {
       "localizations" : {
         "en" : {

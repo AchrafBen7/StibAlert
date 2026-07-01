@@ -35,6 +35,7 @@ struct SignalementDetailView: View {
     @State private var isSubmitting = false
     @State private var feedback: String? = nil
     @State private var reportedFake = false
+    @State private var showReportOptions = false
     @AppStorage("stib.hasSeenVoteHint.v2") private var hasSeenVoteHint: Bool = false
 
     init(
@@ -515,11 +516,11 @@ struct SignalementDetailView: View {
                 .buttonStyle(PressableScaleStyle())
             }
 
-            Button(action: triggerReportFake) {
+            Button(action: { showReportOptions = true }) {
                 HStack(spacing: 5) {
                     Image(systemName: reportedFake ? "flag.fill" : "flag")
                         .font(.system(size: 11, weight: .semibold))
-                    Text(reportedFake ? "Signalé comme faux" : "Signaler comme faux / abus")
+                    Text(reportedFake ? "Contenu signalé" : "Signaler ce contenu")
                         .font(DS.Font.bodySmall)
                 }
                 .foregroundStyle(reportedFake ? DS.Color.inkMute : DS.Color.statusCritical.opacity(0.8))
@@ -527,6 +528,12 @@ struct SignalementDetailView: View {
             }
             .buttonStyle(.plain)
             .disabled(reportedFake || isSubmitting)
+            .confirmationDialog("Signaler ce contenu", isPresented: $showReportOptions, titleVisibility: .visible) {
+                Button("Contenu offensant ou inapproprié", role: .destructive) { reportContent(.offensive) }
+                Button("Spam") { reportContent(.spam) }
+                Button("Information erronée ou fausse") { triggerReportFake() }
+                Button("Annuler", role: .cancel) {}
+            }
         }
         .padding(.top, 24)
     }
@@ -596,6 +603,23 @@ struct SignalementDetailView: View {
         onDismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             nav.showReportSheet = true
+        }
+    }
+
+    /// Signale un contenu offensant/spam à la MODÉRATION (endpoint /flag),
+    /// distinct du vote communautaire « faux » — exigé par Apple 1.2.
+    private func reportContent(_ reason: FlagReason) {
+        guard !reportedFake && !isSubmitting else { return }
+        isSubmitting = true
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Task {
+            defer { isSubmitting = false }
+            do {
+                _ = try await ClusterService.flagSignalement(latest.id, reason: reason)
+                reportedFake = true
+            } catch {
+                feedback = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
 

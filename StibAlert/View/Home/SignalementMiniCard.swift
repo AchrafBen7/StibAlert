@@ -13,6 +13,7 @@ struct SignalementMiniCard: View {
     @State private var feedback: String?
     @State private var showConfidenceExplanation = false
     @State private var reportedFake = false
+    @State private var showReportOptions = false
 
     private var accentColor: Color {
         // Logique couleur sur le type CANONIQUE (français stable), pas sur le
@@ -141,11 +142,11 @@ struct SignalementMiniCard: View {
             }
             .padding(.top, 14)
 
-            Button(action: triggerReportFake) {
+            Button(action: { showReportOptions = true }) {
                 HStack(spacing: 5) {
                     Image(systemName: reportedFake ? "flag.fill" : "flag")
                         .font(.system(size: 11, weight: .semibold))
-                    Text(reportedFake ? "Signalé comme faux" : "Signaler comme faux / abus")
+                    Text(reportedFake ? "Contenu signalé" : "Signaler ce contenu")
                         .font(DS.Font.caption)
                 }
                 .foregroundStyle(reportedFake ? DS.Color.inkMute : DS.Color.statusCritical)
@@ -153,6 +154,12 @@ struct SignalementMiniCard: View {
             .buttonStyle(.plain)
             .disabled(reportedFake || isSubmitting)
             .padding(.top, 6)
+            .confirmationDialog("Signaler ce contenu", isPresented: $showReportOptions, titleVisibility: .visible) {
+                Button("Contenu offensant ou inapproprié", role: .destructive) { reportContent(.offensive) }
+                Button("Spam") { reportContent(.spam) }
+                Button("Information erronée ou fausse") { triggerReportFake() }
+                Button("Annuler", role: .cancel) {}
+            }
         }
         .padding(DS.Spacing.lg)
         .background(DS.Color.paper)
@@ -261,6 +268,22 @@ struct SignalementMiniCard: View {
             await onResolved()
             feedback = "Merci, le signalement est marqué résolu."
             isSubmitting = false
+        }
+    }
+
+    /// Signale un contenu offensant/spam à la MODÉRATION (endpoint /flag),
+    /// distinct du vote communautaire « faux » — exigé par Apple 1.2 (report
+    /// offensive content). Le back-end classe reason:"offensive" en priorité.
+    private func reportContent(_ reason: FlagReason) {
+        guard !reportedFake && !isSubmitting else { return }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Task {
+            do {
+                _ = try await ClusterService.flagSignalement(signalement.id, reason: reason)
+                reportedFake = true
+            } catch {
+                // Silent fail — déjà signalé ou erreur réseau
+            }
         }
     }
 
