@@ -213,7 +213,7 @@ struct PrivacyPolicySheet: View {
                     - Rectifier vos informations
                     - Désactiver les statistiques anonymes
 
-                    Contact : privacy@stib-alert.be
+                    Contact : privacy@blayse.app
                     """)
 
                     sectionText(title: "5. Rétention", body: """

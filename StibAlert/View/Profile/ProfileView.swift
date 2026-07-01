@@ -367,7 +367,7 @@ struct ProfileView: View {
                                 selectedSubpage = .support
                             }
                             profileDivider
-                            // P4 : "contact@stib-alert.be" hardcodé (qui ne
+                            // P4 : "support@blayse.app" hardcodé (qui ne
                             // résolvait rien) remplacé par l'URL Support
                             // publique servie depuis le backend. La page
                             // affiche l'email de contact + FAQ + redirige
@@ -2566,10 +2566,10 @@ private struct SupportItem: Identifiable {
 
 private enum SupportMockData {
     static let items: [SupportItem] = [
-        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Aide%20Blayse"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
-        .init(url: URL(string: "mailto:support@stib-alert.be?subject=Bug%20Blayse"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
-        .init(url: URL(string: "mailto:community@stib-alert.be"), title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
-        .init(url: URL(string: "mailto:contact@stib-alert.be?subject=Contact%20Blayse"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
+        .init(url: URL(string: "mailto:support@blayse.app?subject=Aide%20Blayse"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
+        .init(url: URL(string: "mailto:support@blayse.app?subject=Bug%20Blayse"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
+        .init(url: URL(string: "mailto:support@blayse.app"), title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
+        .init(url: URL(string: "mailto:support@blayse.app?subject=Contact%20Blayse"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
     ]
 }
 
