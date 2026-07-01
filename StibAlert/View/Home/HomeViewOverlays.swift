@@ -319,7 +319,6 @@ extension HomeView {
             refreshedAt: lastHomeRefreshAt,
             onOpenReports: openReportsFromHome,
             onOpenReportSheet: openQuickReportFromHome,
-            onOpenVoice: openVoiceFromHome,
             onOpenStibAI: openStibAIFromHome,
             onRecenter: recenterFromHome,
             onSelectTab: selectTab(_:),

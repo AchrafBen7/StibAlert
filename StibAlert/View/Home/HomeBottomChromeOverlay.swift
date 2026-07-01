@@ -10,7 +10,6 @@ struct HomeBottomChromeOverlay: View {
     let refreshedAt: Date?
     let onOpenReports: () -> Void
     let onOpenReportSheet: () -> Void
-    let onOpenVoice: () -> Void
     let onOpenStibAI: () -> Void
     let onRecenter: () -> Void
     let onSelectTab: (AppTab) -> Void
@@ -24,10 +23,10 @@ struct HomeBottomChromeOverlay: View {
     var body: some View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
-                // Mic et Blayse AI désactivés avant lancement (pas encore
-                // assez fiables en prod) — seule la colonne droite reste
-                // affichée. onOpenVoice/onOpenStibAI restent câblés plus bas
-                // pour réactiver facilement une fois les deux features prêtes.
+                // Blayse AI (chat texte) désactivé avant lancement — seule la
+                // colonne droite reste affichée. onOpenStibAI reste câblé pour
+                // réactiver facilement une fois la feature prête. (L'assistant
+                // vocal a été retiré du binaire pour la conformité App Store.)
                 HStack(alignment: .bottom, spacing: 10) {
                     Spacer(minLength: 8)
                     VStack(spacing: 10) {

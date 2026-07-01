@@ -23,7 +23,7 @@ struct FeatureTourView: View {
         TourPage(
             symbol: "map.fill",
             symbolTint: DS.Color.info,
-            eyebrow: "1 SUR 3 · CARTE",
+            eyebrow: "1 SUR 2 · CARTE",
             title: "Ta carte du réseau",
             description: "Tu vois en direct les arrêts proches, les vrais signalements de la communauté et les perturbations live des 4 opérateurs (STIB, SNCB, De Lijn, TEC).",
             bullets: [
@@ -35,25 +35,13 @@ struct FeatureTourView: View {
         TourPage(
             symbol: "plus.circle.fill",
             symbolTint: DS.Color.warning,
-            eyebrow: "2 SUR 3 · SIGNALER",
+            eyebrow: "2 SUR 2 · SIGNALER",
             title: "Signale en 2 tap",
             description: "Tu vois un retard, une panne, un incident ? Préviens la communauté en 2 tap depuis le bouton « + » de la carte. Plus tu contribues, plus le réseau réagit vite.",
             bullets: [
                 ("hand.tap.fill", "2 tap : type d'incident + ligne, c'est tout"),
                 ("checkmark.seal.fill", "Confirmé automatiquement si d'autres signalent pareil"),
                 ("bell.badge.fill", "Push envoyés aux gens sur la même ligne")
-            ]
-        ),
-        TourPage(
-            symbol: "waveform",
-            symbolTint: DS.Color.danger,
-            eyebrow: "3 SUR 3 · VOIX",
-            title: "Hey Mobi, ton assistant",
-            description: "Appuie sur le micro et demande ton trajet ou l'état du réseau à voix haute. Mobi te répond avec les vraies lignes STIB et te calcule le meilleur itinéraire.",
-            bullets: [
-                ("mic.fill", "Demande naturelle, en français"),
-                ("tram.fill", "Réponses 100% transport en commun"),
-                ("speaker.wave.2.fill", "Lecture à voix haute pendant que tu marches")
             ]
         )
     ]

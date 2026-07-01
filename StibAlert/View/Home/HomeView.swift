@@ -46,7 +46,6 @@ struct HomeView: View {
     @State var showLegend = false
     @State var showRoutePlanner = false
     @State private var showStibAI = false
-    @State private var showVoiceOverlay = false
     @StateObject var tripTracker = ActiveTripTracker()
     @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
@@ -1089,33 +1088,6 @@ struct HomeView: View {
                 onClose: { showStibAI = false }
             )
         }
-        .fullScreenCover(isPresented: $showVoiceOverlay) {
-            VoiceOverlay(
-                contextProvider: { message in
-                    await stibAIContextSnapshot(for: message)
-                },
-                prepareTrip: { name in
-                    await prepareVoiceTrip(name)
-                },
-                applyTrip: {
-                    applyPreparedVoiceTrip()
-                },
-                onClose: {
-                    pendingVoiceTrip = nil
-                    showVoiceOverlay = false
-                },
-                onSwitchToText: {
-                    // N12 — Si mic refusé, on ferme l'overlay vocal et on
-                    // bascule sur la chat STIB·AI dans la foulée.
-                    pendingVoiceTrip = nil
-                    showVoiceOverlay = false
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 250_000_000)
-                        showStibAI = true
-                    }
-                }
-            )
-        }
         .onReceive(locationManager.$userCoordinate) { coord in
             tripTracker.onLocationUpdate(coord)
         }
@@ -1642,11 +1614,6 @@ struct HomeView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             nav.showReportSheet = true
         }
-    }
-
-    @MainActor
-    func openVoiceFromHome() {
-        showVoiceOverlay = true
     }
 
     @MainActor
@@ -3640,7 +3607,6 @@ struct HomeView: View {
     private func applyPreparedVoiceTrip() {
         guard let trip = pendingVoiceTrip else { return }
         pendingVoiceTrip = nil
-        showVoiceOverlay = false
 
         destinationCoord = trip.destination.placemark.coordinate
         searchSuggestions = []

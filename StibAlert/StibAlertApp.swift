@@ -24,9 +24,6 @@ struct StibAlertApp: App {
         UIWindow.appearance().overrideUserInterfaceStyle = .light
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
-        // Pre-warm Speech framework hors thread main pour éviter le freeze
-        // ~300 ms au 1er tap du bouton micro. Idempotent et silent fail.
-        VoiceAssistant.prewarm()
     }
 
     var body: some Scene {
