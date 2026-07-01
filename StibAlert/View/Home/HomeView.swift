@@ -3768,7 +3768,7 @@ private struct WazeMenuPanel: View {
                 item("bubble.left.and.exclamationmark.bubble.right", "Reports") { onNavigate(.reports); onClose() }
                 item("heart",                "Mes favoris")                { onNavigate(.favorites);    onClose() }
                 item("gearshape",            "Paramètres")                 { onNavigate(.profile);      onClose() }
-                item("questionmark.circle",  "Besoin d'aide ?")            {}
+                item("questionmark.circle",  "Besoin d'aide ?")            { onNavigate(.profile);      onClose() }
 
                 Spacer()
                 Text("Version 1.0.0")

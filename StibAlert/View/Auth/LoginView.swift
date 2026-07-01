@@ -316,33 +316,6 @@ struct AuthModeSwitch: View {
     }
 }
 
-struct AuthSocialButton: View {
-    let label: String
-    let icon: AnyView
-    let primary: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                icon
-                Text(label)
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .foregroundColor(primary ? DS.Color.paper : DS.Color.ink)
-            .background(primary ? DS.Color.ink : DS.Color.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md)
-                    .stroke(primary ? DS.Color.ink : DS.Color.ink.opacity(0.2), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-        }
-        .buttonStyle(PressableScaleStyle())
-        .padding(.bottom, label == "Continuer avec Google" ? 20 : 0)
-    }
-}
-
 struct AuthDivider: View {
     var body: some View {
         HStack(spacing: DS.Spacing.md) {
@@ -410,20 +383,3 @@ struct AuthField: View {
     }
 }
 
-struct AuthGoogleIcon: View {
-    var body: some View {
-        Image(systemName: "g.circle.fill")
-            .font(.system(size: 16))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.26, green: 0.52, blue: 0.96),
-                        Color(red: 0.92, green: 0.26, blue: 0.21)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .frame(width: 16, height: 16)
-    }
-}
