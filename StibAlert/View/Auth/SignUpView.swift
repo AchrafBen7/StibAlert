@@ -293,13 +293,31 @@ struct SignUpView: View {
     }
 
     private var termsBlock: some View {
-        Text("En créant un compte vous acceptez nos conditions et notre politique de confidentialité.")
-            .font(.system(size: 11))
-            .foregroundColor(DS.Color.inkMute)
-            .multilineTextAlignment(.center)
-            .lineSpacing(2)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 20)
+        VStack(spacing: 8) {
+            Text("En créant un compte vous acceptez nos conditions et notre politique de confidentialité.")
+                .font(.system(size: 11))
+                .foregroundColor(DS.Color.inkMute)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+            HStack(spacing: 12) {
+                if let url = URL(string: "\(AppConfig.backendBaseURL)/terms") {
+                    Link(destination: url) {
+                        Text("Conditions d’utilisation")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(DS.Color.statusMajor)
+                    }
+                }
+                if let url = URL(string: "\(AppConfig.backendBaseURL)/privacy") {
+                    Link(destination: url) {
+                        Text("Politique de confidentialité")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(DS.Color.statusMajor)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20)
     }
 
     private var guestLink: some View {
