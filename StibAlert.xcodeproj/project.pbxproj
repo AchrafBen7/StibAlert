@@ -574,7 +574,6 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StibAlert/Info.plist;
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pour parler à Mobi en mains-libres et lui poser des questions sur le réseau.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pour transcrire ta question vocale et répondre à voix haute.";
@@ -614,7 +613,6 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StibAlert/Info.plist;
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Utilisé pour vous montrer les arrêts proches, même en arrière-plan.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Nous avons besoin de votre position pour afficher les arrêts proches.\nNous avons besoin de votre position actuelle pour afficher les arrets proches.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Pour parler à Mobi en mains-libres et lui poser des questions sur le réseau.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Pour transcrire ta question vocale et répondre à voix haute.";
