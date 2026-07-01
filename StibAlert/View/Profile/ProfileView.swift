@@ -386,7 +386,7 @@ struct ProfileView: View {
                         // account n'est pas "easily discoverable".
                         accountActionsSection
 
-                        Text("STIBALERT · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
+                        Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
                             .font(DS.Font.monoSmall)
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
@@ -557,7 +557,7 @@ struct ProfileView: View {
                     Text(displayProfileName)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(DS.Color.ink)
-                    Text("MEMBRE STIBALERT · \(profileLanguageLabel.uppercased())")
+                    Text("MEMBRE BLAYSE · \(profileLanguageLabel.uppercased())")
                         .font(DS.Font.monoSmall)
                         .tracking(1.2)
                         .foregroundColor(DS.Color.inkMute)
@@ -1607,7 +1607,7 @@ private struct NotificationSettingsView: View {
                     testPushRow
                 }
 
-                Text("BLAYSE · V1.0.0")
+                Text("BLAYSE · V\(Bundle.main.shortVersion)")
                     .font(DS.Font.monoSmall)
                     .tracking(2)
                     .foregroundColor(DS.Color.inkMute)
@@ -1988,7 +1988,7 @@ private struct AccountSettingsView: View {
             .disabled(isSaving)
             .opacity(isSaving ? 0.7 : 1)
 
-            Text("STIBALERT · V1.0.0 · BRUXELLES")
+            Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
                 .font(DS.Font.monoSmall)
                 .tracking(2)
                 .foregroundColor(DS.Color.inkMute)
@@ -2059,7 +2059,7 @@ private struct AccountSettingsView: View {
 
     private var handleText: String {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "COMPTE STIBALERT" : "@\(trimmed.uppercased())"
+        return trimmed.isEmpty ? "COMPTE BLAYSE" : "@\(trimmed.uppercased())"
     }
 }
 

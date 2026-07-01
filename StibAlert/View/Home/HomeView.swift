@@ -3771,7 +3771,7 @@ private struct WazeMenuPanel: View {
                 item("questionmark.circle",  "Besoin d'aide ?")            { onNavigate(.profile);      onClose() }
 
                 Spacer()
-                Text("Version 1.0.0")
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1")")
                     .font(AppTheme.Fonts.caption)
                     .foregroundStyle(AppTheme.Palette.textMuted)
                     .frame(maxWidth: .infinity, alignment: .center)
