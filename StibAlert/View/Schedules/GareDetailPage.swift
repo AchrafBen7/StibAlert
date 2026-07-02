@@ -244,7 +244,7 @@ struct GareDetailPage: View {
                 favoritesSection
             }
             timetable
-            Text("Horaires théoriques · temps réel bientôt")
+            Text("Horaires théoriques")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -719,8 +719,8 @@ struct GareDetailPage: View {
     private var socialPlaceholder: some View {
         emptyStateCard(
             icon: "bubble.left.and.text.bubble.right.fill",
-            title: "Twitter / X — bientôt",
-            detail: "Recherche en temps réel des mentions SNCB / NMBS sur les réseaux. Intégration en cours."
+            title: "Réseaux sociaux",
+            detail: "Aucune mention récente à afficher pour cette gare."
         )
     }
 

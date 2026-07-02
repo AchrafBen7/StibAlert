@@ -279,7 +279,7 @@ struct SchedulesView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 42, height: 42)
-            Text("\(transitOperator.shortName) arrive bientôt")
+            Text("Horaires \(transitOperator.shortName) indisponibles")
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
             Text("La base locale n’est pas encore branchée pour cet opérateur.")

@@ -924,8 +924,8 @@ struct LigneDetailPage: View {
     private var socialPlaceholder: some View {
         emptyStateCard(
             icon: "bubble.left.and.text.bubble.right.fill",
-            title: "Twitter / X — bientôt",
-            detail: "Recherche en temps réel des mentions STIB / MIVB sur les réseaux. Intégration en cours."
+            title: "Réseaux sociaux",
+            detail: "Aucune mention récente à afficher pour cette ligne."
         )
     }
 

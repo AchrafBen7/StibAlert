@@ -136,20 +136,6 @@ struct MapLegendOverlay: View {
         .buttonStyle(.plain)
     }
 
-    private func operatorDisabledRow(asset: String, title: String) -> some View {
-        rowBody(
-            leading: operatorLogo(asset, active: false),
-            title: title,
-            titleColor: DS.Color.inkMute,
-            trailing: AnyView(
-                Text("BIENTÔT")
-                    .font(DS.Font.monoSmall.weight(.bold))
-                    .tracking(1)
-                    .foregroundStyle(DS.Color.inkMute)
-            )
-        )
-        .opacity(0.7)
-    }
 
     private func iconToggleRow(letter: String, fill: Color, title: String, isOn: Binding<Bool>) -> some View {
         Button {

@@ -113,6 +113,6 @@ struct TransitOperatorRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .accessibilityLabel(op.accessibilityLabel + (isEnabled ? "" : " (bientôt)"))
+        .accessibilityLabel(op.accessibilityLabel + (isEnabled ? "" : " (indisponible)"))
     }
 }

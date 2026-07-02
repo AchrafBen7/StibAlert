@@ -94,7 +94,7 @@ struct HomeSncbStationSheet: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-                Text("Horaires théoriques · temps réel bientôt")
+                Text("Horaires théoriques")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
             }

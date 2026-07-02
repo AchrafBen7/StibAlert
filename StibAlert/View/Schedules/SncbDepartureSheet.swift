@@ -77,7 +77,7 @@ struct SncbDepartureSheet: View {
             }
             .buttonStyle(.plain)
 
-            Text("Horaire théorique · le temps réel (retards) arrive bientôt.")
+            Text("Horaires théoriques (indicatifs).")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)

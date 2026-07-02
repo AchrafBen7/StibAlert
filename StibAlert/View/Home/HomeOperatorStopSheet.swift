@@ -46,7 +46,7 @@ struct HomeOperatorStopSheet: View {
                     .padding(.bottom, 4)
                 }
             } else {
-                Text("Horaires et infos trafic \(stop.op.mapLabel) arrivent bientôt pour cet arrêt.")
+                Text("Horaires détaillés indisponibles pour cet arrêt \(stop.op.mapLabel).")
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer(minLength: 0)
