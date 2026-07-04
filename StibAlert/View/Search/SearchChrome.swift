@@ -86,6 +86,13 @@ struct SearchDestinationSheet: View {
     let onUseCurrentLocation: () -> Void
     let onSelectSuggestion: (SearchPlaceSuggestion) -> Void
     let onSelect: (SearchPlace) -> Void
+    // Découverte (champ vide) : récents + Domicile/Travail — style Google Maps.
+    var recents: [SearchPlace] = []
+    var home: SearchPlace?
+    var work: SearchPlace?
+    var onTapHome: () -> Void = {}
+    var onTapWork: () -> Void = {}
+    var onClearRecents: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -217,6 +224,15 @@ struct SearchDestinationSheet: View {
                         }
                     }
 
+                    if suggestions.isEmpty {
+                        if selectedField == .destination {
+                            homeWorkRow
+                        }
+                        if !recents.isEmpty {
+                            recentsSection
+                        }
+                    }
+
                     if !places.isEmpty {
                         Text(L10n.Routing.brussels)
                             .font(DesignSystem.Typography.labelSemibold)
@@ -276,5 +292,103 @@ struct SearchDestinationSheet: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.black.opacity(0.06), lineWidth: 1)
         )
+    }
+
+    // MARK: - Découverte (champ vide) — style Google Maps
+
+    private var homeWorkRow: some View {
+        HStack(spacing: 12) {
+            quickChip(place: home, filledIcon: "house.fill", label: "Domicile", onTap: onTapHome)
+            quickChip(place: work, filledIcon: "briefcase.fill", label: "Travail", onTap: onTapWork)
+        }
+    }
+
+    private func quickChip(place: SearchPlace?, filledIcon: String, label: String, onTap: @escaping () -> Void) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(DesignSystem.Colors.accentSoft)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Image(systemName: place == nil ? "plus" : filledIcon)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(DesignSystem.Colors.accent)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(DesignSystem.Typography.bodySemibold)
+                        .foregroundStyle(DesignSystem.Colors.primaryText)
+                    Text(place?.name ?? "Ajouter")
+                        .font(DesignSystem.Typography.description)
+                        .foregroundStyle(DesignSystem.Colors.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(DesignSystem.Colors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(label) : \(place?.name ?? "non défini")")
+    }
+
+    private var recentsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Récent")
+                    .font(DesignSystem.Typography.labelSemibold)
+                    .foregroundStyle(DesignSystem.Colors.secondaryText)
+                Spacer()
+                Button(action: onClearRecents) {
+                    Text("Effacer")
+                        .font(DesignSystem.Typography.labelSemibold)
+                        .foregroundStyle(DesignSystem.Colors.accent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            ForEach(recents) { place in
+                Button {
+                    onSelect(place)
+                } label: {
+                    HStack(spacing: 14) {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(DesignSystem.Colors.background.opacity(0.5))
+                            .frame(width: 46, height: 46)
+                            .overlay(
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(DesignSystem.Colors.secondaryText)
+                            )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(place.name)
+                                .font(DesignSystem.Typography.bodySemibold)
+                                .foregroundStyle(DesignSystem.Colors.primaryText)
+                                .lineLimit(1)
+                            Text(place.subtitle)
+                                .font(DesignSystem.Typography.description)
+                                .foregroundStyle(DesignSystem.Colors.secondaryText)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(DesignSystem.Colors.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(DesignSystem.Colors.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L10n.Routing.placeLabel(place.name))
+            }
+        }
     }
 }

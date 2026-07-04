@@ -7274,6 +7274,36 @@
         }
       }
     },
+    "Ajouter" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toevoegen"
+          }
+        }
+      }
+    },
+    "Choisis ton domicile" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies je thuisadres"
+          }
+        }
+      }
+    },
+    "Choisis ton lieu de travail" : {
+      "localizations" : {
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies je werkadres"
+          }
+        }
+      }
+    },
     "Domicile" : {
       "extractionState" : "stale",
       "localizations" : {

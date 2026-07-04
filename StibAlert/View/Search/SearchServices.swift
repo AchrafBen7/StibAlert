@@ -3,7 +3,7 @@ import SwiftUI
 import CoreLocation
 import MapKit
 
-struct TransitCoordinate: Hashable, Equatable {
+struct TransitCoordinate: Hashable, Equatable, Codable {
     let latitude: Double
     let longitude: Double
 

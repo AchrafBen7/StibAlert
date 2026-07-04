@@ -9,6 +9,7 @@ struct SearchView: View {
     @StateObject private var coordinator = SearchCoordinator()
     @StateObject private var guidanceSession = SearchGuidanceSession()
     @StateObject private var realtimeSignalements = SignalementsRealtimeService()
+    @StateObject private var quickAccess = SearchQuickAccessStore()
 
     private var effectiveOrigin: SearchPlace {
         if viewState.useCurrentLocation, let current = locationManager.currentPlace {
@@ -92,7 +93,7 @@ struct SearchView: View {
 
                 if viewState.activeField != .none {
                     SearchDestinationSheet(
-                        title: "Ou voulez-vous aller ?",
+                        title: destinationSheetTitle,
                         query: $viewState.query,
                         selectedField: viewState.activeField,
                         suggestions: visibleSuggestions,
@@ -104,7 +105,13 @@ struct SearchView: View {
                             viewState.clearSearchUI()
                         },
                         onSelectSuggestion: applySuggestion,
-                        onSelect: viewState.applySelection
+                        onSelect: handleSelectedPlace,
+                        recents: quickAccess.recents,
+                        home: quickAccess.home,
+                        work: quickAccess.work,
+                        onTapHome: { tapSlot(.home) },
+                        onTapWork: { tapSlot(.work) },
+                        onClearRecents: quickAccess.clearRecents
                     )
                     .padding(.horizontal, DesignSystem.Spacing.md)
                     .padding(.top, 14)
@@ -268,7 +275,49 @@ struct SearchView: View {
         viewState.useCurrentLocation = false
     }
 
+    private var destinationSheetTitle: String {
+        switch quickAccess.pendingSaveSlot {
+        case .home: return "Choisis ton domicile"
+        case .work: return "Choisis ton lieu de travail"
+        case .none: return "Où voulez-vous aller ?"
+        }
+    }
+
+    private func tapSlot(_ slot: SearchQuickAccessStore.SavedSlot) {
+        if let place = quickAccess.place(for: slot) {
+            handleSelectedPlace(place)
+        } else {
+            // Domicile/Travail non défini → mode « définir » : la prochaine
+            // sélection sera enregistrée dans ce slot au lieu de lancer un trajet.
+            quickAccess.pendingSaveSlot = slot
+            viewState.query = ""
+        }
+    }
+
+    private func handleSelectedPlace(_ place: SearchPlace) {
+        if let slot = quickAccess.pendingSaveSlot {
+            quickAccess.save(place, to: slot)
+            quickAccess.pendingSaveSlot = nil
+            viewState.query = ""
+            viewState.clearSearchUI()
+            return
+        }
+        quickAccess.addRecent(place)
+        viewState.applySelection(place)
+    }
+
     private func applySuggestion(_ suggestion: SearchPlaceSuggestion) {
+        let place = SearchPlace(
+            id: "place-\(suggestion.coordinate.latitude)-\(suggestion.coordinate.longitude)",
+            name: suggestion.title,
+            subtitle: suggestion.subtitle,
+            coordinate: suggestion.coordinate
+        )
+        if quickAccess.pendingSaveSlot != nil {
+            handleSelectedPlace(place)
+            return
+        }
+        quickAccess.addRecent(place)
         coordinator.applySuggestion(
             suggestion,
             autocompleteManager: autocompleteManager,
@@ -313,7 +362,7 @@ enum SearchField {
     case none
 }
 
-struct SearchPlace: Identifiable, Equatable {
+struct SearchPlace: Identifiable, Equatable, Codable {
     let id: String
     let name: String
     let subtitle: String
