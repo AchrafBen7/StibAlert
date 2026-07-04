@@ -250,6 +250,7 @@ struct SearchView: View {
         }
         .onReceive(locationManager.$latestLocation.compactMap { $0 }) { location in
             guidanceSession.handleLocationUpdate(location)
+            autocompleteManager.setUserCoordinate(location.coordinate)
         }
         .task(id: guidanceSession.rerouteRequestID) {
             guard guidanceSession.rerouteRequestID > 0 else { return }

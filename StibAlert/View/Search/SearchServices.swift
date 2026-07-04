@@ -176,67 +176,48 @@ enum SearchRouteCalculator {
 }
 
 @MainActor
-final class SearchAutocompleteManager: NSObject, ObservableObject, @preconcurrency MKLocalSearchCompleterDelegate {
+final class SearchAutocompleteManager: ObservableObject {
     @Published var suggestions: [SearchPlaceSuggestion] = []
 
-    private let completer = MKLocalSearchCompleter()
+    private var debounceTask: Task<Void, Never>?
+    private var userCoordinate: CLLocationCoordinate2D?
 
-    override init() {
-        super.init()
-        completer.delegate = self
-        completer.resultTypes = [.address, .pointOfInterest]
-        completer.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 50.84673, longitude: 4.35247),
-            span: MKCoordinateSpan(latitudeDelta: 0.22, longitudeDelta: 0.22)
-        )
+    /// Biaise les résultats sur la position de l'utilisateur (proximité).
+    func setUserCoordinate(_ coordinate: CLLocationCoordinate2D?) {
+        userCoordinate = coordinate
     }
 
     func updateQuery(_ query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
+        debounceTask?.cancel()
+        guard trimmed.count >= 2 else {
             suggestions = []
-            completer.queryFragment = ""
             return
         }
-
-        completer.queryFragment = trimmed
+        // Debounce ~250 ms : on n'appelle pas Photon à chaque frappe.
+        debounceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard let self, !Task.isCancelled else { return }
+            let preds = await AddressSearchService.autocomplete(trimmed, coordinate: self.userCoordinate)
+            guard !Task.isCancelled else { return }
+            self.suggestions = preds.map {
+                SearchPlaceSuggestion(
+                    title: $0.title,
+                    subtitle: $0.subtitle,
+                    coordinate: TransitCoordinate(latitude: $0.lat, longitude: $0.lng)
+                )
+            }
+        }
     }
 
     func resolve(_ suggestion: SearchPlaceSuggestion) async throws -> SearchPlace {
-        let request = MKLocalSearch.Request(completion: suggestion.completion)
-        let response = try await MKLocalSearch(request: request).start()
-        guard let item = response.mapItems.first else {
-            throw NSError(domain: "SearchAutocompleteManager", code: 0)
-        }
-
-        let coordinate = item.placemark.coordinate
-        let subtitle = [
-            item.placemark.name,
-            item.placemark.locality
-        ]
-        .compactMap { $0 }
-        .joined(separator: " • ")
-
+        // Photon renvoie déjà les coordonnées → résolution locale, sans réseau.
         return SearchPlace(
-            id: "search-\(coordinate.latitude)-\(coordinate.longitude)-\(suggestion.title)",
+            id: "place-\(suggestion.coordinate.latitude)-\(suggestion.coordinate.longitude)",
             name: suggestion.title,
-            subtitle: subtitle.isEmpty ? suggestion.subtitle : subtitle,
-            coordinate: TransitCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            subtitle: suggestion.subtitle,
+            coordinate: suggestion.coordinate
         )
-    }
-
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        suggestions = completer.results.prefix(5).map {
-            SearchPlaceSuggestion(
-                title: $0.title,
-                subtitle: $0.subtitle,
-                completion: $0
-            )
-        }
-    }
-
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: any Error) {
-        suggestions = []
     }
 }
 
@@ -321,7 +302,7 @@ struct SearchPlaceSuggestion: Identifiable {
     let id = UUID()
     let title: String
     let subtitle: String
-    let completion: MKLocalSearchCompletion
+    let coordinate: TransitCoordinate
 }
 
 struct SearchRouteAlternative: Identifiable, Equatable {
