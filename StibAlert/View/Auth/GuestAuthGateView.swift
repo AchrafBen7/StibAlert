@@ -37,7 +37,7 @@ struct GuestAuthGateView: View {
                 .padding(.horizontal, 28)
 
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(reason.gateBenefits, id: \.title) { benefit in
+                ForEach(reason.gateBenefits, id: \.icon) { benefit in
                     HStack(spacing: 10) {
                         Image(systemName: benefit.icon)
                             .font(.system(size: 12, weight: .semibold))
@@ -114,9 +114,11 @@ struct GuestAuthGateView: View {
 }
 
 private extension GuestAuthReason {
-    struct GateBenefit: Hashable {
-        /// `title` en LocalizedStringKey (Hashable, donc utilisable comme `id`
-        /// du ForEach) : en `String`, les littéraux resteraient figés en français.
+    /// Pas de `Hashable` : `LocalizedStringKey` est `Equatable` mais PAS `Hashable`,
+    /// donc la conformance ne peut pas être synthétisée. Le `ForEach` s'identifie
+    /// par `icon` (unique dans chaque groupe), ce qui est de toute façon plus stable
+    /// qu'un titre traduit — l'identité ne change pas quand on change de langue.
+    struct GateBenefit {
         let icon: String
         let title: LocalizedStringKey
     }
