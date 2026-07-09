@@ -463,8 +463,8 @@ struct SignalementsView: View {
     private var linesSearchEmptyState: some View {
         EmptyStateView(
             iconSystemName: "magnifyingglass",
-            title: "Aucun résultat",
-            body: "Rien ne correspond à « \(query) »."
+            title: AppLocalizer.string("search.no_result", defaultValue: "Aucun résultat"),
+            body: AppLocalizer.format("search.no_match", defaultValue: "Rien ne correspond à « %@ ».", query)
         )
     }
 }
@@ -1137,8 +1137,10 @@ private struct LineOverviewView: View {
 
     private var routeSummary: some View {
         HStack(spacing: 10) {
-            overviewMetric(text: "\(stops.count) arrêts", icon: "mappin.and.ellipse")
-            overviewMetric(text: "\(line.reportsCount) reports", icon: "exclamationmark.bubble")
+            overviewMetric(text: AppLocalizer.format("line.stops_count", defaultValue: "%lld arrêts", stops.count),
+                           icon: "mappin.and.ellipse")
+            overviewMetric(text: AppLocalizer.format("line.reports_count", defaultValue: "%lld signalements", line.reportsCount),
+                           icon: "exclamationmark.bubble")
             if availableVariants.count > 1 {
                 overviewMetric(text: selectedVariant.label, icon: "arrow.left.arrow.right")
             }
@@ -1318,12 +1320,14 @@ private struct LineOverviewView: View {
         }
     }
 
+    // ⚠️ Logique dupliquée avec `confidenceText` plus bas et avec
+    // `TransportViewAdapters.confidenceText(from:)` — trois seuils à garder alignés.
     private static func confidenceLabel(_ confidence: Double) -> String {
         let value = Int((confidence * 100).rounded())
         switch value {
-        case 85...: return "Très sûr"
-        case 65...: return "Assez sûr"
-        default: return "Faible confirmation"
+        case 85...: return AppLocalizer.string("confidence.very_sure", defaultValue: "Très sûr")
+        case 65...: return AppLocalizer.string("confidence.quite_sure", defaultValue: "Assez sûr")
+        default: return AppLocalizer.string("confidence.weak", defaultValue: "Faible confirmation")
         }
     }
 
@@ -1455,9 +1459,9 @@ private struct TransportLineSnapshotCard: View {
     private var confidenceText: String {
         let score = Int((line.confidence * 100).rounded())
         switch score {
-        case 85...: return "Très sûr"
-        case 65...: return "Assez sûr"
-        default: return "Faible confirmation"
+        case 85...: return AppLocalizer.string("confidence.very_sure", defaultValue: "Très sûr")
+        case 65...: return AppLocalizer.string("confidence.quite_sure", defaultValue: "Assez sûr")
+        default: return AppLocalizer.string("confidence.weak", defaultValue: "Faible confirmation")
         }
     }
 
@@ -1592,16 +1596,19 @@ private struct TransportIncidentCommunityCard: View {
     private var isStale: Bool { (effectiveCommunity?.freshnessMinutes ?? 0) >= 120 }
     private var freshnessLabel: String? {
         guard let freshness = effectiveCommunity?.freshnessMinutes else { return nil }
-        if freshness < 1 { return "Signalé à l'instant" }
-        if freshness < 60 { return "Signalé il y a \(freshness) min" }
-        return "Signalé il y a \(freshness / 60) h"
+        if freshness < 1 { return AppLocalizer.string("freshness.just_now", defaultValue: "Signalé à l'instant") }
+        if freshness < 60 { return AppLocalizer.format("freshness.minutes", defaultValue: "Signalé il y a %lld min", freshness) }
+        return AppLocalizer.format("freshness.hours", defaultValue: "Signalé il y a %lld h", freshness / 60)
     }
     private var confirmationsSummary: String? {
         guard let community = effectiveCommunity else { return nil }
         let confirmations = community.confirmations ?? 0
         guard confirmations > 0, let freshness = community.freshnessMinutes else { return nil }
-        let window = freshness < 60 ? "\(freshness) min" : "\(freshness / 60) h"
-        return "Confirmé \(confirmations)× en \(window)"
+        let window = freshness < 60
+            ? AppLocalizer.format("window.minutes", defaultValue: "%lld min", freshness)
+            : AppLocalizer.format("window.hours", defaultValue: "%lld h", freshness / 60)
+        return AppLocalizer.format("confirmations.summary",
+                                   defaultValue: "Confirmé %lld× en %@", confirmations, window)
     }
 
     var body: some View {
@@ -1810,19 +1817,20 @@ enum LineFilter: CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all: return "Toutes"
-        case .tram: return "Tram"
-        case .bus: return "Bus"
-        case .metro: return "Métro"
+        case .all: return AppLocalizer.string("filter.all", defaultValue: "Toutes")
+        case .tram: return AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        case .bus: return AppLocalizer.string("mode.bus", defaultValue: "Bus")
+        case .metro: return AppLocalizer.string("mode.metro", defaultValue: "Métro")
         }
     }
 
+    /// Affiché dans le placeholder « Chercher dans … » → traduit.
     var searchLabel: String {
         switch self {
-        case .all: return "le réseau"
-        case .tram: return "Tram"
-        case .bus: return "Bus"
-        case .metro: return "Métro"
+        case .all: return AppLocalizer.string("filter.search.network", defaultValue: "le réseau")
+        case .tram: return AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        case .bus: return AppLocalizer.string("mode.bus", defaultValue: "Bus")
+        case .metro: return AppLocalizer.string("mode.metro", defaultValue: "Métro")
         }
     }
 
@@ -1867,9 +1875,9 @@ enum LineHealthStatus {
 
     var label: String {
         switch self {
-        case .fluid: return "Fluide"
-        case .disrupted: return "Perturbé"
-        case .critical: return "Critique"
+        case .fluid: return AppLocalizer.string("status.fluid", defaultValue: "Fluide")
+        case .disrupted: return AppLocalizer.string("status.disrupted", defaultValue: "Perturbé")
+        case .critical: return AppLocalizer.string("status.critical", defaultValue: "Critique")
         }
     }
 }

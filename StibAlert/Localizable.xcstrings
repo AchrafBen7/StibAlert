@@ -12406,6 +12406,114 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld te controleren meldingen op deze lijn" } }
       }
     },
+    "filter.all" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Toutes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Alle" } }
+      }
+    },
+    "filter.search.network" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "le réseau" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "het netwerk" } }
+      }
+    },
+    "status.fluid" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fluide" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vlot" } }
+      }
+    },
+    "status.disrupted" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Perturbé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verstoord" } }
+      }
+    },
+    "status.critical" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Critique" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kritiek" } }
+      }
+    },
+    "confidence.very_sure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Très sûr" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Zeer zeker" } }
+      }
+    },
+    "confidence.quite_sure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Assez sûr" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vrij zeker" } }
+      }
+    },
+    "confidence.weak" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Faible confirmation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Zwakke bevestiging" } }
+      }
+    },
+    "freshness.just_now" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalé à l'instant" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Zonet gemeld" } }
+      }
+    },
+    "freshness.minutes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalé il y a %lld min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld min geleden gemeld" } }
+      }
+    },
+    "freshness.hours" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalé il y a %lld h" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld u geleden gemeld" } }
+      }
+    },
+    "window.minutes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld min" } }
+      }
+    },
+    "window.hours" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld h" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld u" } }
+      }
+    },
+    "confirmations.summary" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Confirmé %lld× en %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld× bevestigd in %@" } }
+      }
+    },
+    "line.stops_count" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld arrêts" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld haltes" } }
+      }
+    },
+    "line.reports_count" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld signalements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen" } }
+      }
+    },
+    "search.no_result" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun résultat" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen resultaat" } }
+      }
+    },
+    "search.no_match" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Rien ne correspond à « %@ »." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Niets komt overeen met « %@ »." } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
