@@ -161,9 +161,11 @@ struct OperatorLineDirectory: View {
 
     private var zoneHeaderTitle: String {
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return op == .tec ? "FILTRER PAR RÉGION TEC" : "FILTRER PAR ZONE"
+            return op == .tec
+                ? AppLocalizer.string("zone.filter_tec", defaultValue: "FILTRER PAR RÉGION TEC")
+                : AppLocalizer.string("zone.filter", defaultValue: "FILTRER PAR ZONE")
         }
-        return "RECHERCHE SUR TOUT LE RÉSEAU"
+        return AppLocalizer.string("zone.search_all", defaultValue: "RECHERCHE SUR TOUT LE RÉSEAU")
     }
 
     private var visibleLineCount: Int {
@@ -442,7 +444,7 @@ struct OperatorStopDirectory: View {
         .buttonStyle(.plain)
     }
 
-    private func stopEmptyState(title: String, subtitle: String) -> some View {
+    private func stopEmptyState(title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         VStack(spacing: 8) {
             Spacer().frame(height: 60)
             Image(systemName: "mappin.slash").font(.system(size: 22)).foregroundStyle(DS.Color.inkMute)
@@ -604,11 +606,11 @@ struct OperatorDisruptionsList: View {
             }
 
             HStack(spacing: 0) {
-                operatorMetric(title: "ÉTAT", value: disruptions.isEmpty ? "NORMAL" : "PERTURBÉ", tint: disruptions.isEmpty ? DS.Color.statusOK : DS.Color.statusMajor)
+                operatorMetric(title: "ÉTAT", value: disruptions.isEmpty ? AppLocalizer.string("status.normal_caps", defaultValue: "NORMAL") : AppLocalizer.string("status.disrupted_caps", defaultValue: "PERTURBÉ"), tint: disruptions.isEmpty ? DS.Color.statusOK : DS.Color.statusMajor)
                 Rectangle().fill(DS.Color.ink.opacity(0.12)).frame(width: 1)
                 operatorMetric(title: "LIGNES TOUCHÉES", value: "\(filteredIssues.count)", tint: DS.Color.ink)
                 Rectangle().fill(DS.Color.ink.opacity(0.12)).frame(width: 1)
-                operatorMetric(title: "SOURCE", value: "OFFICIEL", tint: op.brandColor)
+                operatorMetric(title: "SOURCE", value: AppLocalizer.string("source.official_caps", defaultValue: "OFFICIEL"), tint: op.brandColor)
             }
             .background(DS.Color.paper)
             .overlay(
@@ -855,7 +857,7 @@ struct OperatorDisruptionsList: View {
         .buttonStyle(.plain)
     }
 
-    private func operatorMetric(title: String, value: String, tint: Color) -> some View {
+    private func operatorMetric(title: LocalizedStringKey, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(DS.Font.eyebrow)
@@ -960,13 +962,15 @@ private extension OperatorLine {
         switch op {
         case .tec:
             switch key {
-            case "brabant": return "Brabant / Bruxelles"
-            case "charleroi": return "Charleroi"
-            case "hainaut": return "Hainaut"
-            case "liege": return "Liège"
-            case "namur": return "Namur"
-            case "luxembourg": return "Luxembourg"
-            default: return "Autres"
+            // Les clés ("liege"…) sont canoniques ; les libellés sont affichés et
+            // ont un exonyme néerlandais officiel (Liège → Luik, Namur → Namen).
+            case "brabant": return AppLocalizer.string("zone.brabant", defaultValue: "Brabant / Bruxelles")
+            case "charleroi": return AppLocalizer.string("zone.charleroi", defaultValue: "Charleroi")
+            case "hainaut": return AppLocalizer.string("zone.hainaut", defaultValue: "Hainaut")
+            case "liege": return AppLocalizer.string("zone.liege", defaultValue: "Liège")
+            case "namur": return AppLocalizer.string("zone.namur", defaultValue: "Namur")
+            case "luxembourg": return AppLocalizer.string("zone.luxembourg", defaultValue: "Luxembourg")
+            default: return AppLocalizer.string("zone.other", defaultValue: "Autres")
             }
         case .delijn:
             switch key {

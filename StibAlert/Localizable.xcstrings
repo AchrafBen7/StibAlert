@@ -12514,6 +12514,236 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Niets komt overeen met « %@ »." } }
       }
     },
+    "error.invalid_url" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "URL invalide." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Ongeldige URL." } }
+      }
+    },
+    "error.decoding" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "La réponse du serveur est temporairement incompatible. Réessayez dans quelques secondes." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Het serverantwoord is tijdelijk incompatibel. Probeer over enkele seconden opnieuw." } }
+      }
+    },
+    "error.unauthorized" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Session expirée, reconnectez-vous." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Sessie verlopen, log opnieuw in." } }
+      }
+    },
+    "error.backend_disabled" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fonctionnalités en ligne désactivées." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Onlinefuncties uitgeschakeld." } }
+      }
+    },
+    "error.network.unstable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connexion instable. Vérifiez votre réseau puis réessayez." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Onstabiele verbinding. Controleer je netwerk en probeer opnieuw." } }
+      }
+    },
+    "error.network.offline" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune connexion internet. Les données affichées peuvent être anciennes." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen internetverbinding. De getoonde gegevens kunnen verouderd zijn." } }
+      }
+    },
+    "error.network.timeout" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "De server doet er te lang over. Probeer over enkele seconden opnieuw." } }
+      }
+    },
+    "error.service_unavailable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Service momentanément indisponible. Réessayez un peu plus tard." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Dienst tijdelijk niet beschikbaar. Probeer het later opnieuw." } }
+      }
+    },
+    "error.bad_request" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "La demande n’a pas pu être traitée. Réessayez ou modifiez votre recherche." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "De aanvraag kon niet worden verwerkt. Probeer opnieuw of pas je zoekopdracht aan." } }
+      }
+    },
+    "error.server_temporary" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur serveur temporaire." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Tijdelijke serverfout." } }
+      }
+    },
+    "confidence.pct.very_sure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • très sûr" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • zeer zeker" } }
+      }
+    },
+    "confidence.pct.quite_sure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • assez sûr" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • vrij zeker" } }
+      }
+    },
+    "confidence.pct.weak" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • faible confirmation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% • zwakke bevestiging" } }
+      }
+    },
+    "sources.waiting_times" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "temps d'attente STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB-wachttijden" } }
+      }
+    },
+    "sources.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "source officielle" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "officiële bron" } }
+      }
+    },
+    "sources.field" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "terrain" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "terrein" } }
+      }
+    },
+    "sources.realtime_network" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "réseau en temps réel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "realtime netwerk" } }
+      }
+    },
+    "sources.based_on" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basé sur %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op %@" } }
+      }
+    },
+    "trip.by_bike" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Trajet à vélo" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Fietsroute" } }
+      }
+    },
+    "trip.on_foot" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Trajet à pied" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Wandelroute" } }
+      }
+    },
+    "community.recent_confirmations" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmation(s) terrain récentes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld recente bevestiging(en) ter plaatse" } }
+      }
+    },
+    "community.improvement_reports" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour(s) indiquent une amélioration" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding(en) wijzen op verbetering" } }
+      }
+    },
+    "zone.filter_tec" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "FILTRER PAR RÉGION TEC" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "FILTEREN OP TEC-REGIO" } }
+      }
+    },
+    "zone.filter" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "FILTRER PAR ZONE" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "FILTEREN OP ZONE" } }
+      }
+    },
+    "zone.search_all" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "RECHERCHE SUR TOUT LE RÉSEAU" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "ZOEKEN OP HET HELE NETWERK" } }
+      }
+    },
+    "status.normal_caps" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "NORMAL" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "NORMAAL" } }
+      }
+    },
+    "status.disrupted_caps" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "PERTURBÉ" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "VERSTOORD" } }
+      }
+    },
+    "source.official_caps" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "OFFICIEL" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "OFFICIEEL" } }
+      }
+    },
+    "zone.brabant" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Brabant / Bruxelles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Brabant / Brussel" } }
+      }
+    },
+    "zone.charleroi" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Charleroi" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Charleroi" } }
+      }
+    },
+    "zone.hainaut" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Hainaut" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Henegouwen" } }
+      }
+    },
+    "zone.liege" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Liège" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Luik" } }
+      }
+    },
+    "zone.namur" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Namur" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Namen" } }
+      }
+    },
+    "zone.luxembourg" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Luxembourg" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Luxemburg" } }
+      }
+    },
+    "zone.other" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Autres" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Andere" } }
+      }
+    },
+    "Essaie un autre nom d'arrêt." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Probeer een andere haltenaam." } }
+      }
+    },
+    "Aucun arrêt %@ à proximité" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen %@-halte in de buurt" } }
+      }
+    },
+    "Active la localisation et réessaie." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Schakel locatie in en probeer opnieuw." } }
+      }
+    },
+    "SOURCE" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "BRON" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

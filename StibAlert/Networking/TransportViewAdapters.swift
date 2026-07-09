@@ -111,15 +111,18 @@ enum TransportViewAdapters {
         return "\(percent)% fiable"
     }
 
+    // ⚠️ Seuils dupliqués avec `SignalementsView.confidenceLabel` / `confidenceText`
+    // (85/65 là-bas, 90/75 ici) : les deux écrans peuvent donc qualifier la MÊME
+    // confiance différemment. À unifier — cf. « une seule vérité par écran ».
     static func confidenceText(from confidence: Double) -> String {
         let percent = Int((confidence * 100).rounded())
         switch confidence {
         case 0.9...:
-            return "\(percent)% • très sûr"
+            return AppLocalizer.format("confidence.pct.very_sure", defaultValue: "%lld%% • très sûr", percent)
         case 0.75...:
-            return "\(percent)% • assez sûr"
+            return AppLocalizer.format("confidence.pct.quite_sure", defaultValue: "%lld%% • assez sûr", percent)
         default:
-            return "\(percent)% • faible confirmation"
+            return AppLocalizer.format("confidence.pct.weak", defaultValue: "%lld%% • faible confirmation", percent)
         }
     }
 
@@ -156,22 +159,24 @@ enum TransportViewAdapters {
         var sources: [String] = []
 
         if !recommendation.nextDepartures.isEmpty {
-            sources.append("waiting times STIB")
+            // Était "waiting times STIB" : de l'anglais affiché dans une app FR/NL.
+            sources.append(AppLocalizer.string("sources.waiting_times", defaultValue: "temps d'attente STIB"))
         }
 
         if matchingIncidents.contains(where: { $0.source?.localizedCaseInsensitiveContains("official") == true }) {
-            sources.append("source officielle")
+            sources.append(AppLocalizer.string("sources.official", defaultValue: "source officielle"))
         }
 
         if matchingIncidents.contains(where: { $0.community?.confirmations ?? 0 > 0 }) {
-            sources.append("terrain")
+            sources.append(AppLocalizer.string("sources.field", defaultValue: "terrain"))
         }
 
         if sources.isEmpty {
-            sources.append("réseau en temps réel")
+            sources.append(AppLocalizer.string("sources.realtime_network", defaultValue: "réseau en temps réel"))
         }
 
-        return "Basé sur " + sources.uniqued().joined(separator: " • ")
+        return AppLocalizer.format("sources.based_on", defaultValue: "Basé sur %@",
+                                   sources.uniqued().joined(separator: " • "))
     }
 
     private static func lineSummary(for alternative: TransportAlternativeDTO) -> String {
@@ -180,11 +185,11 @@ enum TransportViewAdapters {
         }
 
         let modes = Set((alternative.steps ?? []).map { $0.mode.lowercased() })
-        if modes.contains("bike") {
-            return "Trajet à vélo"
+        if modes.contains("bike") {   // "bike"/"walk" = valeurs backend, non traduites
+            return AppLocalizer.string("trip.by_bike", defaultValue: "Trajet à vélo")
         }
         if modes.contains("walk") {
-            return "Trajet à pied"
+            return AppLocalizer.string("trip.on_foot", defaultValue: "Trajet à pied")
         }
 
         return "Alternative terrain"
@@ -202,24 +207,28 @@ enum TransportViewAdapters {
         }
 
         if confirmations > 0 || stillBlocked > 0 {
-            return "\(confirmations + stillBlocked) confirmation(s) terrain récentes"
+            return AppLocalizer.format("community.recent_confirmations",
+                                       defaultValue: "%lld confirmation(s) terrain récentes",
+                                       confirmations + stillBlocked)
         }
 
         if resolved > 0 {
-            return "\(resolved) retour(s) indiquent une amélioration"
+            return AppLocalizer.format("community.improvement_reports",
+                                       defaultValue: "%lld retour(s) indiquent une amélioration", resolved)
         }
 
         return nil
     }
 
+    // 4ᵉ copie des mêmes libellés de confiance (cf. `confidenceText` plus haut).
     private static func trustLabel(for confidence: Double) -> String {
         switch confidence {
         case 0.9...:
-            return "Très sûr"
+            return AppLocalizer.string("confidence.very_sure", defaultValue: "Très sûr")
         case 0.75...:
-            return "Assez sûr"
+            return AppLocalizer.string("confidence.quite_sure", defaultValue: "Assez sûr")
         default:
-            return "Faible confirmation"
+            return AppLocalizer.string("confidence.weak", defaultValue: "Faible confirmation")
         }
     }
 }

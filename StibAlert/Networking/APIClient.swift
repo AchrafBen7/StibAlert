@@ -10,41 +10,51 @@ enum APIError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "URL invalide."
+        case .invalidURL: return AppLocalizer.string("error.invalid_url", defaultValue: "URL invalide.")
         case .network(let e): return Self.networkMessage(for: e)
-        case .decoding: return "La réponse du serveur est temporairement incompatible. Réessayez dans quelques secondes."
+        case .decoding:
+            return AppLocalizer.string("error.decoding",
+                                       defaultValue: "La réponse du serveur est temporairement incompatible. Réessayez dans quelques secondes.")
+        // `msg` vient du backend : il arrive déjà dans une langue, on ne le traduit pas.
         case .server(let status, let msg): return msg ?? Self.serverMessage(for: status)
-        case .unauthorized: return "Session expirée, reconnectez-vous."
-        case .backendDisabled: return "Fonctionnalités en ligne désactivées."
+        case .unauthorized:
+            return AppLocalizer.string("error.unauthorized", defaultValue: "Session expirée, reconnectez-vous.")
+        case .backendDisabled:
+            return AppLocalizer.string("error.backend_disabled", defaultValue: "Fonctionnalités en ligne désactivées.")
         }
     }
 
     private static func networkMessage(for error: Error) -> String {
+        let unstable = AppLocalizer.string("error.network.unstable",
+                                           defaultValue: "Connexion instable. Vérifiez votre réseau puis réessayez.")
         let nsError = error as NSError
-        guard nsError.domain == NSURLErrorDomain else {
-            return "Connexion instable. Vérifiez votre réseau puis réessayez."
-        }
+        guard nsError.domain == NSURLErrorDomain else { return unstable }
 
         switch nsError.code {
         case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
-            return "Aucune connexion internet. Les données affichées peuvent être anciennes."
+            return AppLocalizer.string("error.network.offline",
+                                       defaultValue: "Aucune connexion internet. Les données affichées peuvent être anciennes.")
         case NSURLErrorTimedOut:
-            return "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes."
+            return AppLocalizer.string("error.network.timeout",
+                                       defaultValue: "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes.")
         case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed:
-            return "Service momentanément indisponible. Réessayez un peu plus tard."
+            return AppLocalizer.string("error.service_unavailable",
+                                       defaultValue: "Service momentanément indisponible. Réessayez un peu plus tard.")
         default:
-            return "Connexion instable. Vérifiez votre réseau puis réessayez."
+            return unstable
         }
     }
 
     private static func serverMessage(for status: Int) -> String {
         switch status {
         case 400..<500:
-            return "La demande n’a pas pu être traitée. Réessayez ou modifiez votre recherche."
+            return AppLocalizer.string("error.bad_request",
+                                       defaultValue: "La demande n’a pas pu être traitée. Réessayez ou modifiez votre recherche.")
         case 500..<600:
-            return "Service momentanément indisponible. Réessayez un peu plus tard."
+            return AppLocalizer.string("error.service_unavailable",
+                                       defaultValue: "Service momentanément indisponible. Réessayez un peu plus tard.")
         default:
-            return "Erreur serveur temporaire."
+            return AppLocalizer.string("error.server_temporary", defaultValue: "Erreur serveur temporaire.")
         }
     }
 }

@@ -169,6 +169,9 @@ RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL1
 # Déclaration qui RENVOIE une LocalizedStringKey : les `return "…"` de son corps sont
 # traduits — ce ne sont pas des fuites. Sans ça, l'audit ne peut jamais atteindre 0.
 RE_LOCALIZED_RETURN_DECL = re.compile(r":\s*LocalizedStringKey\s*\{|->\s*LocalizedStringKey\b")
+# AppIntents (Siri) : `DisplayRepresentation(title:)` et `@Parameter(title:)` prennent
+# une `LocalizedStringResource` — les littéraux y sont extraits et traduits par Xcode.
+RE_APPINTENTS = re.compile(r"DisplayRepresentation\(|@Parameter\(|TypeDisplayRepresentation\(")
 # Opt-out explicite. Certaines chaînes françaises sont VOLONTAIREMENT non traduites :
 # des valeurs canoniques servant à la logique (couleur, icône, sévérité, comparaison,
 # envoi au backend) — ex. `canonicalTypeProbleme` dans DTOs.swift. Les traduire
@@ -230,6 +233,8 @@ def frozen_string_leaks() -> list[dict[str, str | int]]:
                 continue
             if stripped.startswith("//") or RE_ALREADY_LOCALIZED.search(line):
                 continue
+            if RE_APPINTENTS.search(line):
+                continue  # LocalizedStringResource → déjà traduisible
             for match in RE_FROZEN_ARG.finditer(line):
                 if match.group(1) in localized_params:
                     continue  # LocalizedStringKey → littéral bien traduit
