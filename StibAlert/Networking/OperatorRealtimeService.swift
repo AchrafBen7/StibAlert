@@ -36,8 +36,9 @@ struct OperatorRealtimeReply: Decodable {
     let passages: [OperatorRealtimePassage]
     let error: String?
     /// Vrai quand les passages viennent de l'horaire THÉORIQUE (repli #6) et
-    /// non du temps réel — la fiche l'indique clairement.
-    let scheduledFallback: Bool?
+    /// non du temps réel — la fiche l'indique clairement. Défaut nil pour les
+    /// constructions manuelles (chemins dégradés) sans avoir à le passer.
+    var scheduledFallback: Bool? = nil
 }
 
 struct OperatorStopLineInfo: Decodable, Hashable, Identifiable {
