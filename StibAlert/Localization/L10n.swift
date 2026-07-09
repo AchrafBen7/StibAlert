@@ -368,6 +368,8 @@ enum L10n {
         static var title: String { AppLocalizer.string("schedules.title", defaultValue: "Horaires") }
         static var searchPlaceholder: String { AppLocalizer.string("schedules.search_placeholder", defaultValue: "Chercher une ligne") }
         static var searchStationPlaceholder: String { AppLocalizer.string("schedules.search_station_placeholder", defaultValue: "Chercher une gare") }
+        /// De Lijn expose des horaires par ARRÊT (pas par ligne) → placeholder dédié.
+        static var searchStopPlaceholder: String { AppLocalizer.string("schedules.search_stop_placeholder", defaultValue: "Chercher un arrêt") }
         static var noLineFound: String { AppLocalizer.string("schedules.no_line_found", defaultValue: "Aucune ligne trouvée") }
         static func resetSearchHint(_ operatorName: String) -> String {
             AppLocalizer.format("schedules.reset_search_hint", defaultValue: "Réinitialise la recherche pour voir toutes les lignes %@.", operatorName)

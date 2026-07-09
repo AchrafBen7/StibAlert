@@ -1256,7 +1256,10 @@ struct QuickReportSheetView: View {
 
     // MARK: - Helpers
 
-    private func sectionTitle(icon: String, text: String) -> some View {
+    /// `text` est une LocalizedStringKey : un paramètre `String` gèlerait les
+    /// littéraux des appelants en français (`Text(uneVariable)` ne se traduit pas).
+    /// `icon` reste un String — c'est un nom de symbole SF, pas du texte.
+    private func sectionTitle(icon: String, text: LocalizedStringKey) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .semibold))

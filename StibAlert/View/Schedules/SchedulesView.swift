@@ -95,11 +95,14 @@ struct SchedulesView: View {
         .padding(.horizontal, 18)
     }
 
+    /// Passe par L10n : un littéral renvoyé en `String` ne serait JAMAIS traduit
+    /// (`TextField(uneVariable, …)` n'est pas une LocalizedStringKey) — c'est ce
+    /// qui affichait « Chercher une ligne » en plein écran néerlandais.
     private var searchPlaceholder: String {
         switch selectedOperator {
-        case .sncb:   return "Chercher une gare"
-        case .delijn: return "Chercher un arrêt"   // De Lijn = horaires par arrêt
-        default:      return "Chercher une ligne"
+        case .sncb:   return L10n.Schedules.searchStationPlaceholder
+        case .delijn: return L10n.Schedules.searchStopPlaceholder   // De Lijn = horaires par arrêt
+        default:      return L10n.Schedules.searchPlaceholder
         }
     }
 

@@ -13,8 +13,10 @@ enum AppTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: return AppLocalizer.string("tab.map", defaultValue: "Carte")
-        case .schedules: return AppLocalizer.string("tab.schedules", defaultValue: "Horaires")
-        case .live: return AppLocalizer.string("tab.traffic", defaultValue: "Infos trafic")
+        // Noms « humains » : un usager ne consulte pas des « services », il cherche
+        // sa ligne ou veut savoir s'il y a un problème.
+        case .schedules: return AppLocalizer.string("tab.schedules", defaultValue: "Lignes")
+        case .live: return AppLocalizer.string("tab.traffic", defaultValue: "Alertes")
         case .favorites: return AppLocalizer.string("tab.favorites", defaultValue: "Favoris")
         case .profile: return AppLocalizer.string("tab.profile", defaultValue: "Profil")
         }

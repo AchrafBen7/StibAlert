@@ -238,11 +238,13 @@ struct ArretDetailPage: View {
 
     private var passagesAvailabilityText: String {
         if isLoading {
-            return "Chargement des passages..."
+            return AppLocalizer.string("stopdetail.loading_departures",
+                                       defaultValue: "Chargement des passages...")
         }
 
         guard let stopDetail else {
-            return "Passages indisponibles pour le moment."
+            return AppLocalizer.string("stopdetail.departures_unavailable",
+                                       defaultValue: "Passages indisponibles pour le moment.")
         }
 
         // Si une ligne précise est filtrée et qu'elle n'a aucun passage, le
@@ -270,13 +272,16 @@ struct ArretDetailPage: View {
             let hasRealtime = stopDetail.nextDepartures.contains { $0.source != "scheduled" }
             let hasScheduled = stopDetail.nextDepartures.contains { $0.source == "scheduled" }
             if hasRealtime && hasScheduled {
-                return "Temps réel complété par l'horaire prévu."
+                return AppLocalizer.string("stopdetail.realtime_plus_scheduled",
+                                           defaultValue: "Temps réel complété par l'horaire prévu.")
             }
             if hasRealtime {
-                return "Temps réel STIB disponible."
+                return AppLocalizer.string("stopdetail.realtime_available",
+                                           defaultValue: "Temps réel STIB disponible.")
             }
             if hasScheduled {
-                return "Temps réel indisponible, horaires prévus affichés."
+                return AppLocalizer.string("stopdetail.scheduled_only",
+                                           defaultValue: "Temps réel indisponible, horaires prévus affichés.")
             }
         }
 
@@ -286,11 +291,14 @@ struct ArretDetailPage: View {
 
         switch stopDetail.officialDataStatus {
         case "unavailable":
-            return "Passages indisponibles: source STIB temporairement inaccessible."
+            return AppLocalizer.string("stopdetail.source_unavailable",
+                                       defaultValue: "Passages indisponibles: source STIB temporairement inaccessible.")
         case "limited":
-            return "Données STIB limitées: derniers horaires fiables indisponibles."
+            return AppLocalizer.string("stopdetail.source_limited",
+                                       defaultValue: "Données STIB limitées: derniers horaires fiables indisponibles.")
         default:
-            return "Aucun passage prévu pour le moment."
+            return AppLocalizer.string("stopdetail.no_departures",
+                                       defaultValue: "Aucun passage prévu pour le moment.")
         }
     }
 

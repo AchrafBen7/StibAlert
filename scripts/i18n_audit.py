@@ -150,6 +150,66 @@ def priority_candidates(candidates: list[dict[str, str | int]]) -> list[dict[str
     ]
 
 
+# --- Fuites « String gelé » -----------------------------------------------------
+# Classe de bug DIFFÉRENTE des littéraux hardcodés ci-dessus. En SwiftUI,
+# `Text("littéral")` devient une LocalizedStringKey (donc traduite), mais
+# `Text(uneVariableString)` ne l'est jamais. Un littéral français qui transite par
+# un `String` est donc GELÉ en français, même quand le catalogue est complet à 100 %.
+# C'est ce qui affichait « Chercher une ligne » en plein écran néerlandais.
+FREEZING_PARAMS = ("label", "text", "title", "placeholder", "subtitle", "message", "caption", "hint")
+_PARAMS_RE = "|".join(FREEZING_PARAMS)
+# Paramètre DÉJÀ correct : les littéraux qu'on lui passe sont traduits.
+RE_LOCALIZED_SIG = re.compile(rf"\b({_PARAMS_RE})\s*:\s*LocalizedStringKey\b")
+RE_FROZEN_ARG = re.compile(rf'\b({_PARAMS_RE})\s*:\s*"([^"]{{2,}})"')
+RE_FROZEN_RETURN = re.compile(r'\breturn\s+"([^"]{2,})"')
+RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL10n\.|LocalizedStringKey")
+
+FRENCH_DIACRITICS = set("àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ")
+FRENCH_WORDS = {
+    "le", "la", "les", "un", "une", "des", "du", "de", "au", "aux", "et", "ou",
+    "pour", "dans", "sur", "avec", "sans", "aucun", "aucune", "tout", "toute",
+    "chercher", "ligne", "lignes", "arret", "arrets", "reseau", "prochain",
+    "passage", "passages", "voir", "plus", "moins", "est", "sont", "pas", "cette",
+}
+
+
+def looks_french(value: str) -> bool:
+    if should_ignore(value):
+        return False
+    if any(ch in FRENCH_DIACRITICS for ch in value):
+        return True
+    words = re.findall(r"[A-Za-zÀ-ÿ']+", value.lower())
+    return sum(1 for word in words if word in FRENCH_WORDS) >= 2
+
+
+def frozen_string_leaks() -> list[dict[str, str | int]]:
+    """Littéraux français réellement gelés dans un `String` (donc jamais traduits)."""
+    leaks: list[dict[str, str | int]] = []
+    for path in sorted(APP_ROOT.rglob("*.swift")):
+        rel = path.relative_to(ROOT)
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError as exc:  # fichier évincé par iCloud → on le signale, on ne l'ignore pas
+            leaks.append({"file": str(rel), "line": 0, "kind": "unreadable", "snippet": str(exc)})
+            continue
+        lines = text.splitlines()
+        localized_params = {m.group(1) for line in lines for m in RE_LOCALIZED_SIG.finditer(line)}
+        for number, line in enumerate(lines, 1):
+            if line.lstrip().startswith("//") or RE_ALREADY_LOCALIZED.search(line):
+                continue
+            for match in RE_FROZEN_ARG.finditer(line):
+                if match.group(1) in localized_params:
+                    continue  # LocalizedStringKey → littéral bien traduit
+                if looks_french(decode_swift_string(match.group(2))):
+                    leaks.append({"file": str(rel), "line": number, "kind": "frozen-arg",
+                                  "snippet": f'{match.group(1)}: "{match.group(2)}"'})
+            for match in RE_FROZEN_RETURN.finditer(line):
+                if looks_french(decode_swift_string(match.group(1))):
+                    leaks.append({"file": str(rel), "line": number, "kind": "frozen-return",
+                                  "snippet": f'return "{match.group(1)}"'})
+    return leaks
+
+
 def missing_rows(catalog: dict) -> list[dict[str, str]]:
     strings = catalog.get("strings", {})
     source_language = catalog.get("sourceLanguage")
@@ -272,6 +332,8 @@ def main() -> None:
     parser.add_argument("--export-hardcoded", type=Path)
     parser.add_argument("--priority-only", action="store_true")
     parser.add_argument("--fail-on-hardcoded", action="store_true")
+    parser.add_argument("--fail-on-frozen", action="store_true",
+                        help="échoue s'il reste des littéraux français gelés dans un String")
     args = parser.parse_args()
 
     catalog = load_catalog()
@@ -289,6 +351,19 @@ def main() -> None:
         write_hardcoded_csv(args.export_hardcoded, candidates)
 
     print(report)
+
+    leaks = frozen_string_leaks()
+    unreadable = [leak for leak in leaks if leak["kind"] == "unreadable"]
+    frozen = [leak for leak in leaks if leak["kind"] != "unreadable"]
+    print("\n## Frozen French strings (typed `String`, never translatable)\n")
+    counts = Counter(str(leak["kind"]) for leak in frozen)
+    for kind in sorted(counts):
+        print(f"- {kind}: {counts[kind]}")
+    print(f"- TOTAL: {len(frozen)}")
+    if unreadable:
+        # Un fichier illisible afficherait « 0 fuite » : on refuse de mentir sur le score.
+        print(f"\n⚠️  {len(unreadable)} fichiers illisibles (iCloud dataless ?) — total non fiable.")
+
     if args.write_report:
         print(f"\nReport written to {args.write_report}")
     if args.export_missing:
@@ -296,6 +371,8 @@ def main() -> None:
     if args.export_hardcoded:
         print(f"Hardcoded strings exported to {args.export_hardcoded}")
     if args.fail_on_hardcoded and candidates:
+        raise SystemExit(1)
+    if args.fail_on_frozen and (frozen or unreadable):
         raise SystemExit(1)
 
 
