@@ -160,6 +160,9 @@ FREEZING_PARAMS = ("label", "text", "title", "placeholder", "subtitle", "message
 _PARAMS_RE = "|".join(FREEZING_PARAMS)
 # Paramètre DÉJÀ correct : les littéraux qu'on lui passe sont traduits.
 RE_LOCALIZED_SIG = re.compile(rf"\b({_PARAMS_RE})\s*:\s*LocalizedStringKey\b")
+# Autre forme correcte : le helper localise lui-même son paramètre, p. ex.
+# `Text(AppLocalizer.string(label))`. Les littéraux des appelants sont donc traduits.
+RE_LOCALIZED_VIA_HELPER = re.compile(rf"AppLocalizer\.string\(\s*({_PARAMS_RE})\s*\)")
 RE_FROZEN_ARG = re.compile(rf'\b({_PARAMS_RE})\s*:\s*"([^"]{{2,}})"')
 RE_FROZEN_RETURN = re.compile(r'\breturn\s+"([^"]{2,})"')
 RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL10n\.")
@@ -205,6 +208,7 @@ def frozen_string_leaks() -> list[dict[str, str | int]]:
             continue
         lines = text.splitlines()
         localized_params = {m.group(1) for line in lines for m in RE_LOCALIZED_SIG.finditer(line)}
+        localized_params |= {m.group(1) for line in lines for m in RE_LOCALIZED_VIA_HELPER.finditer(line)}
         # `// i18n:ignore` sur une déclaration exclut TOUT son corps. On borne la
         # portée par l'indentation : on saute tant que les lignes sont plus indentées
         # que la déclaration marquée.

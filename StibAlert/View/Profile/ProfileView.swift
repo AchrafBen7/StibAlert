@@ -423,7 +423,9 @@ struct ProfileView: View {
         }
     }
 
-    private var profileLanguageLabel: String {
+    // Endonymes : une langue s'affiche TOUJOURS dans sa propre langue
+    // (« Nederlands », jamais « Néerlandais »). Les traduire serait un bug.
+    private var profileLanguageLabel: String { // i18n:ignore — noms de langue
         switch selectedLanguageCode.uppercased() {
         case "FR": return "Français"
         case "GB", "EN": return "English"
@@ -635,7 +637,7 @@ struct ProfileView: View {
             // FR exacte du catalogue ("Carte de transport"), pas sa version
             // déjà en MAJ. Les titres arrivent ici en String runtime → init
             // verbatim de Text → non localisés sans ce String(localized:).
-            Text(String(localized: String.LocalizationValue(title)))
+            Text(AppLocalizer.string(title))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2.2)
                 .textCase(.uppercase)
@@ -704,7 +706,7 @@ struct ProfileView: View {
     @ViewBuilder
     private func miniStat(label: String, value: String) -> some View {
         // Localise le label (mot) AVANT interpolation, sinon il reste en FR.
-        let localizedLabel = String(localized: String.LocalizationValue(label))
+        let localizedLabel = AppLocalizer.string(label)
         return Text("\(value) \(localizedLabel)")
             .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
             .tracking(0.5)
@@ -966,7 +968,7 @@ struct ProfileView: View {
             Text(value)
                 .font(DS.Font.monoLarge.weight(.bold))
                 .foregroundColor(DS.Color.ink)
-            Text(String(localized: String.LocalizationValue(label)))
+            Text(AppLocalizer.string(label))
                 .font(DS.Font.monoSmall.weight(.semibold))
                 .tracking(1.4)
                 .textCase(.uppercase)
@@ -988,18 +990,20 @@ struct ProfileView: View {
                     .foregroundColor(DS.Color.ink)
                     .frame(width: 18)
 
-                // label + value arrivent en String runtime (verbatim) → on
-                // localise explicitement. Pour value, String(localized:) renvoie
-                // l'entrée inchangée si aucune clé ne matche (ex : "@pseudo"
-                // reste tel quel, "Activées" est traduit).
-                Text(String(localized: String.LocalizationValue(label)))
+                // label + value arrivent en String runtime (verbatim) → on localise
+                // explicitement via AppLocalizer, qui lit le .lproj de la langue
+                // CHOISIE DANS L'APP. `String(localized:)` suivait `Locale.current`,
+                // donc la langue du téléphone : un override Profil → Nederlands sur
+                // un iPhone en français restait en français. Comme lui, AppLocalizer
+                // renvoie l'entrée inchangée si aucune clé ne matche ("@pseudo").
+                Text(AppLocalizer.string(label))
                     .font(.system(size: 13.5, weight: .medium))
                     .foregroundColor(DS.Color.ink)
 
                 Spacer()
 
                 if let value {
-                    Text(String(localized: String.LocalizationValue(value)))
+                    Text(AppLocalizer.string(value))
                         .font(DS.Font.mono)
                         .foregroundColor(DS.Color.inkMute)
                 }
@@ -1501,8 +1505,9 @@ private struct LanguageItem: Identifiable {
 
 private enum LanguageMockData {
     static let items: [LanguageItem] = [
-        .init(code: "FR", title: "Français", subtitle: "Belgique"),
-        .init(code: "NL", title: "Nederlands", subtitle: "België")
+        // Langue et pays dans leur propre langue — jamais traduits.
+        .init(code: "FR", title: "Français", subtitle: "Belgique"), // i18n:ignore
+        .init(code: "NL", title: "Nederlands", subtitle: "België")  // i18n:ignore
     ]
 }
 
