@@ -18,30 +18,6 @@ struct HomeStopMiniHeaderCard: View {
     let onShowDetail: () -> Void
     let onRefresh: () -> Void
 
-    /// Vehicle confirmed at the focused stop. We intentionally avoid showing
-    /// a generic "closest vehicle" here: vehicle feeds can expose a current
-    /// stop name that is several stops away from the selected stop, which made
-    /// the mini-card claim places like Gare du Nord were "near" ANCRE.
-    private var focusedStopVehicle: TransportVehicleDTO? {
-        guard let selectedLine else { return nil }
-        guard let stopLat = stop.latitude, let stopLng = stop.longitude else { return nil }
-        let stopLocation = CLLocation(latitude: stopLat, longitude: stopLng)
-        let stopKey = stop.name.normalizedStopKey
-        let selectedLineKey = normalize(selectedLine)
-
-        return liveVehicles
-            .compactMap { v -> (TransportVehicleDTO, Double)? in
-                guard normalize(v.line ?? "") == selectedLineKey else { return nil }
-                guard v.stopNom?.normalizedStopKey == stopKey else { return nil }
-                guard let lat = v.latitude, let lng = v.longitude else { return nil }
-                let d = stopLocation.distance(from: CLLocation(latitude: lat, longitude: lng))
-                guard d <= 220 else { return nil }
-                return (v, d)
-            }
-            .min(by: { $0.1 < $1.1 })?
-            .0
-    }
-
     private var selectedLineLiveVehicleCount: Int {
         guard let selectedLine else { return liveVehicleCount }
         let selectedLineKey = normalize(selectedLine)
@@ -155,10 +131,6 @@ struct HomeStopMiniHeaderCard: View {
 
             departuresRow
 
-            if let focusedStopVehicle {
-                focusedStopVehicleRow(focusedStopVehicle)
-            }
-
             detailButton
         }
         .padding(.horizontal, 14)
@@ -195,8 +167,27 @@ struct HomeStopMiniHeaderCard: View {
                 ForEach(Array(departuresByDestination.prefix(3)), id: \.destination) { group in
                     directionRow(destination: group.destination, items: Array(group.items.prefix(3)))
                 }
+                if lineDeparturesAllScheduled {
+                    scheduledCaption
+                }
             }
         }
+    }
+
+    /// Vrai quand la ligne n'a QUE des passages théoriques (temps réel vide) :
+    /// on l'annonce pour ne pas laisser croire que ce sont des horaires live.
+    private var lineDeparturesAllScheduled: Bool {
+        !lineDepartures.isEmpty && lineDepartures.allSatisfy { $0.source == "scheduled" }
+    }
+
+    private var scheduledCaption: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "clock")
+                .font(.system(size: 9, weight: .bold))
+            Text("Horaires théoriques")
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(DS.Color.inkMute)
     }
 
     private func directionRow(destination: String, items: [TransportDepartureDTO]) -> some View {
@@ -226,6 +217,12 @@ struct HomeStopMiniHeaderCard: View {
                 Circle()
                     .fill(DS.Color.statusOK)
                     .frame(width: 5, height: 5)
+            } else {
+                // Passage théorique (horaire GTFS) quand le temps réel est vide :
+                // une petite horloge le distingue clairement d'un passage live.
+                Image(systemName: "clock")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
             }
             Text(minutesText(for: departure.minutes))
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -241,31 +238,6 @@ struct HomeStopMiniHeaderCard: View {
     private func minutesText(for minutes: Int) -> String {
         if minutes <= 0 { return "now" }
         return "\(minutes) min"
-    }
-
-    private func focusedStopVehicleRow(_ vehicle: TransportVehicleDTO) -> some View {
-        let mode = TransitLineMode.mode(for: vehicle.line)
-        return Button {
-            UISelectionFeedbackGenerator().selectionChanged()
-            onFollowVehicle(vehicle)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: mode.sfSymbol)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(DS.Color.statusOK)
-                Text("Un \(mode.label.lowercased()) est à l'arrêt")
-                    .font(.system(size: 11.5, weight: .bold))
-                    .foregroundStyle(DS.Color.statusOK)
-                Spacer(minLength: 0)
-                Image(systemName: "scope")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            .padding(.top, 2)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Centrer la carte sur le véhicule à l'arrêt")
     }
 
     /// Full-width row at the bottom that opens the standalone ArretDetailPage

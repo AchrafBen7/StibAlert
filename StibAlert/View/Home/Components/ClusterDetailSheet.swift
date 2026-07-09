@@ -7,11 +7,6 @@ struct ClusterDetailSheet: View {
     @State private var detail: ClusterDetailDTO? = nil
     @State private var isLoading = true
     @State private var errorMessage: String? = nil
-    @State private var isConfirmingBlocked = false
-    @State private var isConfirmingResolved = false
-    @State private var hasVotedBlocked = false
-    @State private var hasVotedResolved = false
-    @State private var toastMessage: String? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,12 +17,6 @@ struct ClusterDetailSheet: View {
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if detail != nil {
-                Divider()
-                    .background(DS.Color.ink.opacity(0.1))
-                actionsView
-            }
         }
         .background(DS.Color.paper)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -39,29 +28,13 @@ struct ClusterDetailSheet: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 100)
         .task { await loadDetail() }
-        .overlay(alignment: .bottom) {
-            if let toast = toastMessage {
-                Text(toast)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.black.opacity(0.85))
-                    .clipShape(Capsule())
-                    .padding(.bottom, 24)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
     }
 
     private var headerView: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 if let cluster = detail {
-                    Text("Ligne \(cluster.ligne)")
-                        .font(DS.Font.monoSmall.weight(.bold))
-                        .tracking(2)
-                        .foregroundStyle(DS.Color.inkMute)
+                    LineBadge(line: cluster.ligne, size: .lg)
                     Text(cluster.typeProbleme)
                         .font(DS.Font.displayH3)
                         .foregroundStyle(DS.Color.ink)
@@ -320,56 +293,6 @@ struct ClusterDetailSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private var actionsView: some View {
-        HStack(spacing: 10) {
-            Button {
-                Task { await voteStillBlocked() }
-            } label: {
-                HStack(spacing: 6) {
-                    if isConfirmingBlocked {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Image(systemName: hasVotedBlocked ? "checkmark.circle.fill" : "exclamationmark.bubble")
-                    }
-                    Text("Toujours bloqué")
-                        .font(DS.Font.bodyBold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(hasVotedBlocked ? DS.Color.warning.opacity(0.15) : DS.Color.warning)
-                .foregroundStyle(hasVotedBlocked ? DS.Color.warning : .white)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(hasVotedBlocked || isConfirmingBlocked || (detail?.resolved ?? false))
-
-            Button {
-                Task { await voteResolved() }
-            } label: {
-                HStack(spacing: 6) {
-                    if isConfirmingResolved {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Image(systemName: hasVotedResolved ? "checkmark.circle.fill" : "checkmark.circle")
-                    }
-                    Text("C'est résolu")
-                        .font(DS.Font.bodyBold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(hasVotedResolved ? DS.Color.success.opacity(0.15) : DS.Color.success)
-                .foregroundStyle(hasVotedResolved ? DS.Color.success : .white)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(hasVotedResolved || isConfirmingResolved || (detail?.resolved ?? false))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
     private func expiryText(expiresAt: Date) -> String {
         let minutes = max(0, Int(expiresAt.timeIntervalSinceNow / 60))
         if minutes <= 0 { return "Expire bientôt" }
@@ -397,43 +320,4 @@ struct ClusterDetailSheet: View {
         }
     }
 
-    private func voteStillBlocked() async {
-        isConfirmingBlocked = true
-        do {
-            _ = try await ClusterService.confirmStillBlocked(clusterIndex)
-            await MainActor.run {
-                hasVotedBlocked = true
-                showToast("Confirmation enregistrée")
-            }
-            await loadDetail()
-        } catch {
-            await MainActor.run { showToast("Erreur, réessayez") }
-        }
-        await MainActor.run { isConfirmingBlocked = false }
-    }
-
-    private func voteResolved() async {
-        isConfirmingResolved = true
-        do {
-            let response = try await ClusterService.confirmResolved(clusterIndex)
-            await MainActor.run {
-                hasVotedResolved = true
-                showToast(response.message)
-            }
-            await loadDetail()
-        } catch {
-            await MainActor.run { showToast("Erreur, réessayez") }
-        }
-        await MainActor.run { isConfirmingResolved = false }
-    }
-
-    private func showToast(_ message: String) {
-        withAnimation { toastMessage = message }
-        Task {
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            await MainActor.run {
-                withAnimation { toastMessage = nil }
-            }
-        }
-    }
 }

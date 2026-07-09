@@ -56,6 +56,12 @@ struct HomeView: View {
     // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
     // n'affiche pas la card si une route est déjà sélectionnée).
     @State var routeOptions: [HomeRouteOption] = []
+    // #4 — opérateur préféré pour l'itinéraire (nil = tous). Les derniers points
+    // du trajet servent à recalculer quand la préférence change.
+    @State var preferredRouteOperator: String? = nil
+    @State private var lastRoutedSource: MKMapItem? = nil
+    @State private var lastRoutedDestination: MKMapItem? = nil
+    @State private var lastRoutedOriginName: String = ""
     @State private var routeModeSummaries: [RouteModeSummary] = []
     @State private var selectedRouteID: UUID?
     @State private var isRouteSheetExpanded = false
@@ -142,6 +148,10 @@ struct HomeView: View {
 
     @State private var hasAutoShownDecision = false
     @State var proactiveAlertCluster: ClusterDTO? = nil
+    // Mode grève (backend `/api/strike`) : bandeau plein écran en tête de Home
+    // quand une grève est active. Fermable pour la session.
+    @State var strike: StrikeState = .inactive
+    @State var strikeBannerDismissed = false
     /// Clés (ligne|arrêt|type) des alertes que l'utilisateur a marquées « pas
     /// passé par là » → on ne les réaffiche plus en carte proactive.
     @State private var dismissedProactiveClusterKeys: Set<String> = []
@@ -1041,6 +1051,7 @@ struct HomeView: View {
         .overlay(alignment: .top) { commuteOverlay }
         .overlay(alignment: .top) { proactiveAlertOverlay }
         .overlay(alignment: .top) { allClearChipOverlay }
+        .overlay(alignment: .top) { strikeBannerOverlay }
         .overlay(alignment: .bottom) { signalementPreviewOverlay }
         .overlay(alignment: .bottom) { clusterDetailOverlay }
         .overlay(alignment: .bottom) { vehicleDetailOverlay }
@@ -1164,6 +1175,7 @@ struct HomeView: View {
         }
         .task { await loadRemoteSignalements() }
         .task { await loadEventImpacts() }
+        .task { strike = await StrikeService.current() }
         .task { lineShapesLoader.loadIfNeeded() }
         .task { await refreshCatalogMapStops(force: true) }
         .task { await loadActiveClusters(around: cameraCenterCoordinate) }
@@ -1554,6 +1566,8 @@ struct HomeView: View {
             blockedLines: currentTransportRecommendation?.request.lignesBloquees ?? [],
             selectedRouteID: $selectedRouteID,
             isRouteSheetExpanded: $isRouteSheetExpanded,
+            preferredOperator: $preferredRouteOperator,
+            onOperatorChange: { Task { await reRouteForOperatorChange() } },
             selectedRouteDetail: selectedRouteDetail,
             shouldShowRouteSheet: shouldShowRouteSheet,
             shouldShowRouteDetail: shouldShowRouteDetail,
@@ -3162,6 +3176,13 @@ struct HomeView: View {
         await buildRoute(from: source, to: destination, originName: L10n.Routing.currentPosition)
     }
 
+    /// Recalcule le trajet courant avec la nouvelle préférence d'opérateur (#4).
+    @MainActor
+    private func reRouteForOperatorChange() async {
+        guard let source = lastRoutedSource, let destination = lastRoutedDestination else { return }
+        await buildRoute(from: source, to: destination, originName: lastRoutedOriginName)
+    }
+
     @MainActor
     private func buildRoute(
         from source: MKMapItem,
@@ -3170,6 +3191,9 @@ struct HomeView: View {
     ) async {
         isRouting = true
         defer { isRouting = false }
+        lastRoutedSource = source
+        lastRoutedDestination = destination
+        lastRoutedOriginName = originName
         async let recommendationTask = fetchBackendRecommendation(source: source, destination: destination)
         async let transitRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .transit)
         async let walkingRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .walking)
@@ -3225,7 +3249,8 @@ struct HomeView: View {
         return try? await TransportService.recommendRoute(
             depart: depart,
             destination: destinationQuery,
-            lignesBloquees: liveBlockedLines
+            lignesBloquees: liveBlockedLines,
+            preferredOperator: preferredRouteOperator
         )
     }
 
@@ -3433,7 +3458,8 @@ struct HomeView: View {
         guard let recommendation = try? await TransportService.recommendRoute(
             depart: depart,
             destination: destinationQuery,
-            lignesBloquees: liveBlockedLines
+            lignesBloquees: liveBlockedLines,
+            preferredOperator: preferredRouteOperator
         ) else {
             return nil
         }

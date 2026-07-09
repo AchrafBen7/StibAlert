@@ -16,6 +16,7 @@ struct HomeOperatorStopSheet: View {
     @State private var reply: OperatorRealtimeReply?
     @State private var stopInfo: OperatorStopInfoReply?
     @State private var stopDisruptions: OperatorStopDisruptionsReply?
+    @State private var communityReports: [SignalementDTO] = []
     @State private var isLoading = false
     @State private var refreshTask: Task<Void, Never>?
 
@@ -42,6 +43,7 @@ struct HomeOperatorStopSheet: View {
                         linesSection
                         liveSection
                         disruptionsSection
+                        communitySection
                     }
                     .padding(.bottom, 4)
                 }
@@ -64,6 +66,7 @@ struct HomeOperatorStopSheet: View {
         // U1 — `.preferredColorScheme(.light)` retiré. DS.Color.* adapte.
         .task {
             await loadRealtime()
+            await loadCommunityReports()
             startAutoRefresh()
         }
         .onDisappear {
@@ -168,7 +171,10 @@ struct HomeOperatorStopSheet: View {
                 // Plus de ScrollView imbriqué ici : le scroll global de la
                 // feuille gère tout (un scroll dans un scroll = conflit de
                 // gestes + double barre de défilement).
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if reply?.scheduledFallback == true {
+                        scheduledNote
+                    }
                     ForEach(futurePassages) { p in
                         passageRow(p)
                     }
@@ -244,6 +250,87 @@ struct HomeOperatorStopSheet: View {
                 }
             }
         }
+    }
+
+    private var scheduledNote: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "clock")
+                .font(.system(size: 10, weight: .bold))
+            Text("Horaires théoriques")
+                .font(DS.Font.monoSmall.weight(.bold))
+        }
+        .foregroundStyle(DS.Color.inkMute)
+    }
+
+    // MARK: - Signalements communauté pour cet arrêt
+
+    /// Signalements communauté rattachés à CET arrêt : même opérateur (ligne
+    /// « De Lijn » / « TEC ») + même nom d'arrêt. Complète les perturbations
+    /// officielles De Lijn avec ce que les voyageurs remontent sur place.
+    private var stopCommunityReports: [SignalementDTO] {
+        communityReports.filter { report in
+            guard report.status != "resolved" else { return false }
+            let line = report.ligne.uppercased().trimmingCharacters(in: .whitespaces)
+            let opMatch: Bool
+            switch stop.op {
+            case .delijn: opMatch = (line == "DE LIJN" || line == "DELIJN")
+            case .tec:    opMatch = (line == "TEC")
+            default:      opMatch = false
+            }
+            guard opMatch, case .populated(let arret) = report.arretId else { return false }
+            return arret.nom.normalizedStopKey == stop.name.normalizedStopKey
+        }
+    }
+
+    @ViewBuilder
+    private var communitySection: some View {
+        let reports = stopCommunityReports
+        if !reports.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.community)
+                    Text("Signalements communauté")
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                }
+                VStack(spacing: 8) {
+                    ForEach(reports.prefix(4)) { report in
+                        communityRow(report)
+                    }
+                }
+            }
+        }
+    }
+
+    private func communityRow(_ report: SignalementDTO) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: SignalVisuals.icon(forType: report.typeProbleme))
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(DS.Color.statusMajor))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(report.displayTypeProbleme)
+                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                Text(report.freshnessLabel)
+                    .font(DS.Font.monoSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+            Spacer(minLength: 0)
+            if let confirmations = report.community?.confirmations, confirmations > 0 {
+                Text("\(confirmations)×")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(DS.Color.community)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.paper2.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     @ViewBuilder
@@ -375,6 +462,16 @@ struct HomeOperatorStopSheet: View {
         reply = await realtime
         stopInfo = await info
         stopDisruptions = await disruptions
+    }
+
+    @MainActor
+    private func loadCommunityReports() async {
+        // Même source que l'onglet Verkeersinfo (liste active), filtrée à cet
+        // arrêt via `stopCommunityReports`. Silencieux en cas d'échec réseau :
+        // la fiche reste utilisable avec le temps réel + l'officiel.
+        if let response = try? await SignalementService.liste(page: 1, limit: 100) {
+            communityReports = response.signalements
+        }
     }
 
     private func startAutoRefresh() {

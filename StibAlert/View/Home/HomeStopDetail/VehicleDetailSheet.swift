@@ -26,11 +26,15 @@ struct VehicleDetailSheet: View {
     }
 
     private var destinationLabel: String? {
-        // Terminus appris via les départs des arrêts (cache heuristique), quand
-        // il existe. On n'utilise PAS le `directionId` brut du backend : ce
-        // n'est pas un terminus fiable (souvent un arrêt intermédiaire, ex.
-        // "BUYL" au lieu de "VANDERKINDERE"). À défaut, le header reste neutre
-        // et la direction concrète est donnée par le prochain arrêt (cf. body).
+        // Terminus RÉEL résolu côté backend (`directionId` → nom de l'arrêt
+        // final, via le même index statique que les positions) : exposé dans
+        // `vehicle.destination`. C'est la vraie direction, plus une devinette.
+        if let dest = vehicle.destination?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !dest.isEmpty {
+            return dest.capitalized
+        }
+        // Repli : cache heuristique appris via les départs de l'arrêt ; sinon
+        // header neutre et direction concrète donnée par le prochain arrêt.
         guard let direction = vehicle.direction,
               let mapped = destinationByDirection[direction]
         else { return nil }
@@ -102,11 +106,16 @@ struct VehicleDetailSheet: View {
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 if let destinationLabel {
-                    Text(destinationLabel)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundStyle(lineColor)
+                        Text(destinationLabel)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
                 } else {
                     Text("En circulation")
                         .font(.system(size: 18, weight: .bold))

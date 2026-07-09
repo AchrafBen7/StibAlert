@@ -247,6 +247,8 @@ extension HomeView {
     @ViewBuilder
     var proactiveAlertOverlay: some View {
         if let cluster = proactiveAlertCluster,
+           // La grève (bandeau plein écran) prime sur la carte proactive.
+           !(strike.active && !strikeBannerDismissed),
            !tripTracker.isActive,
            !(Self.isCommutePriorityWindow(Date())
              && (session.currentUser?.routine).map { CommuteQuickLaunchCard.shouldShow(routine: $0, now: Date()) } == true),
@@ -278,6 +280,26 @@ extension HomeView {
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.stopPreview)
             .accessibilitySortPriority(20)
+        }
+    }
+
+    /// Bandeau grève en tête de Home (mode grève actif) : la plus grosse
+    /// perturbation possible, montrée d'emblée. Fermable pour la session.
+    @ViewBuilder
+    var strikeBannerOverlay: some View {
+        if strike.active,
+           !strikeBannerDismissed,
+           selectedMapStopPreview == nil,
+           selectedMapStopSummary == nil,
+           !nav.showReportSheet {
+            StrikeBanner(strike: strike, onClose: {
+                withAnimation(.easeOut(duration: 0.2)) { strikeBannerDismissed = true }
+            })
+            .padding(.horizontal, 14)
+            .padding(.top, shouldShowSearchHeader ? 120 : 14)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zLayer(.stopPreview)
+            .accessibilitySortPriority(21)
         }
     }
 

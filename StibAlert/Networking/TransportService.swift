@@ -51,7 +51,8 @@ enum TransportService {
     static func recommendRoute(
         depart: String,
         destination: String,
-        lignesBloquees: [String] = []
+        lignesBloquees: [String] = [],
+        preferredOperator: String? = nil
     ) async throws -> TransportRecommendationDTO {
         let result: TransportRecommendationDTO = try await APIClient.shared.request(
             "/api/transport/route/recommend",
@@ -59,7 +60,8 @@ enum TransportService {
             body: TransportRecommendationRequest(
                 depart: depart,
                 destination: destination,
-                lignesBloquees: lignesBloquees
+                lignesBloquees: lignesBloquees,
+                preferredOperator: preferredOperator
             )
         )
         Analytics.track(.routeCalculated)

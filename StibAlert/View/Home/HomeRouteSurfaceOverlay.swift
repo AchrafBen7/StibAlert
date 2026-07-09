@@ -6,6 +6,8 @@ struct HomeRouteSurfaceOverlay: View {
     var blockedLines: [String] = []
     @Binding var selectedRouteID: UUID?
     @Binding var isRouteSheetExpanded: Bool
+    @Binding var preferredOperator: String?
+    var onOperatorChange: () -> Void = {}
     let selectedRouteDetail: HomeRouteOption?
     let shouldShowRouteSheet: Bool
     let shouldShowRouteDetail: Bool
@@ -24,6 +26,8 @@ struct HomeRouteSurfaceOverlay: View {
                     blockedLines: blockedLines,
                     selectedRouteID: $selectedRouteID,
                     isExpanded: $isRouteSheetExpanded,
+                    preferredOperator: $preferredOperator,
+                    onOperatorChange: onOperatorChange,
                     onSelect: onSelect,
                     onClose: onCloseRouteSheet
                 )

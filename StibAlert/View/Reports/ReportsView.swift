@@ -19,6 +19,7 @@ struct ReportsView: View {
     @StateObject private var locationManager = HomeLocationManager()
     @State private var selectedSortMode: ReportSortMode = .recent
     @State private var reports: [SignalementDTO] = []
+    @State private var strike: StrikeState = .inactive
     @State private var events: [TransportEventImpactDTO] = []
     @State private var lineCatalog: [LigneCatalogDTO] = []
     @State private var isLoading = false
@@ -733,6 +734,12 @@ struct ReportsView: View {
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.md)
 
+                    if strike.active {
+                        StrikeBanner(strike: strike)
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.md)
+                    }
+
                     statusHUD
                         .padding(.horizontal, DS.Spacing.xl)
                         .padding(.top, DS.Spacing.md)
@@ -884,6 +891,7 @@ struct ReportsView: View {
             await loadData()
             applyPendingReportFocusIfPossible()
             await loadSncbRealtime()
+            strike = await StrikeService.current()
         }
         // Auto-refresh : toutes les 60 s, on re-fetch la page 1 en silence
         // et on bump le tick pour que le label "Mis à jour il y a Xs" se
@@ -895,6 +903,7 @@ struct ReportsView: View {
                 if Task.isCancelled { return }
                 refreshTickTrigger = .now
                 await loadData(force: true)
+                strike = await StrikeService.current()
             }
         }
         .onChange(of: selectedOperator) { _, _ in

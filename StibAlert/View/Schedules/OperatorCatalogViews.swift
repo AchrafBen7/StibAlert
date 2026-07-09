@@ -295,16 +295,39 @@ struct OperatorStopDirectory: View {
     @State private var stops: [OperatorMapStop] = []
     @State private var isLoading = true
     @State private var selectedStop: OperatorMapStop?
+    // Recherche serveur (par nom) sur les 30k+ arrêts non embarqués : sans elle,
+    // taper un arrêt hors du viewport déjà chargé (ex. « paduwa » loin de soi)
+    // ne renvoyait rien. Complète les arrêts proches chargés localement.
+    @State private var remoteMatches: [OperatorMapStop] = []
+    @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>?
+
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     private var filteredStops: [OperatorMapStop] {
-        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let q = trimmedQuery
         guard !q.isEmpty else { return stops }
         return stops.filter { $0.name.localizedCaseInsensitiveContains(q) }
     }
 
+    /// Arrêts proches (filtrés) + résultats serveur, dédoublonnés par id : les
+    /// proches d'abord (déjà triés par distance), puis les correspondances
+    /// serveur pas encore listées.
+    private var displayStops: [OperatorMapStop] {
+        guard !trimmedQuery.isEmpty else { return stops }
+        var seen = Set<String>()
+        var out: [OperatorMapStop] = []
+        for stop in filteredStops + remoteMatches where seen.insert(stop.id).inserted {
+            out.append(stop)
+        }
+        return out
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            if isLoading && stops.isEmpty {
+            if isLoading && stops.isEmpty && trimmedQuery.isEmpty {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 60)
                     ProgressView().tint(DS.Color.ink)
@@ -312,26 +335,42 @@ struct OperatorStopDirectory: View {
                         .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
                 }
                 .frame(maxWidth: .infinity)
-            } else if stops.isEmpty {
-                stopEmptyState(title: "Aucun arrêt \(op.mapLabel) à proximité",
-                               subtitle: "Active la localisation et réessaie.")
-            } else if filteredStops.isEmpty {
-                stopEmptyState(title: "Aucun arrêt trouvé",
-                               subtitle: "Essaie un autre nom d'arrêt.")
+            } else if displayStops.isEmpty {
+                if !trimmedQuery.isEmpty {
+                    if isSearching {
+                        VStack(spacing: 14) {
+                            Spacer().frame(height: 60)
+                            ProgressView().tint(DS.Color.ink)
+                            Text("Recherche d'arrêts…")
+                                .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+                        }
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        stopEmptyState(title: "Aucun arrêt trouvé",
+                                       subtitle: "Essaie un autre nom d'arrêt.")
+                    }
+                } else {
+                    stopEmptyState(title: "Aucun arrêt \(op.mapLabel) à proximité",
+                                   subtitle: "Active la localisation et réessaie.")
+                }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 8) {
                         Image(systemName: "location.fill")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(op.brandColor)
-                        Text(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "ARRÊTS PROCHES" : "RÉSULTATS")
+                        Text(trimmedQuery.isEmpty ? "ARRÊTS PROCHES" : "RÉSULTATS")
                             .font(DS.Font.eyebrow).tracking(1.6).foregroundStyle(DS.Color.inkMute)
                         Spacer()
-                        Text("\(filteredStops.count)")
-                            .font(DS.Font.monoSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
+                        if isSearching {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Text("\(displayStops.count)")
+                                .font(DS.Font.monoSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
+                        }
                     }
                     VStack(spacing: 0) {
-                        ForEach(filteredStops) { stopRow($0) }
+                        ForEach(displayStops) { stopRow($0) }
                     }
                     .background(DS.Color.paper.opacity(0.95))
                     .overlay(
@@ -346,9 +385,31 @@ struct OperatorStopDirectory: View {
             }
         }
         .task(id: op) { await load() }
+        .onChange(of: searchQuery) { _, _ in scheduleRemoteSearch() }
         .sheet(item: $selectedStop) { stop in
             // Réutilise la fiche temps réel De Lijn qui marche déjà sur la carte.
             HomeOperatorStopSheet(stop: stop, onReport: { selectedStop = nil })
+        }
+    }
+
+    /// Recherche serveur débouncée par nom d'arrêt sur tout le réseau, pour
+    /// retrouver un arrêt hors des arrêts proches déjà chargés (ex. « paduwa »).
+    private func scheduleRemoteSearch() {
+        searchTask?.cancel()
+        let q = trimmedQuery
+        guard q.count >= 2 else {
+            remoteMatches = []
+            isSearching = false
+            return
+        }
+        isSearching = true
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled, trimmedQuery == q else { return }
+            let results = await OperatorStopService.searchStops(operator: op, query: q)
+            guard !Task.isCancelled, trimmedQuery == q else { return }
+            remoteMatches = results
+            isSearching = false
         }
     }
 

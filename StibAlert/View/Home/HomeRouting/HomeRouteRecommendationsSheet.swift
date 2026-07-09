@@ -10,6 +10,8 @@ struct RouteRecommendationsSheet: View {
     var blockedLines: [String] = []
     @Binding var selectedRouteID: UUID?
     @Binding var isExpanded: Bool
+    @Binding var preferredOperator: String?
+    var onOperatorChange: () -> Void = {}
     let onSelect: (HomeRouteOption) -> Void
     let onClose: () -> Void
 
@@ -108,6 +110,7 @@ struct RouteRecommendationsSheet: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             modeSummaryStrip
+                            operatorPreferenceStrip
                             transitUnavailableBanner
                             rerouteBanner
                             recommendedSection
@@ -183,6 +186,41 @@ struct RouteRecommendationsSheet: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 14)
+    }
+
+    private var operatorChoices: [(label: String, value: String?)] {
+        [("Tous", nil), ("STIB", "stib"), ("De Lijn", "delijn"), ("TEC", "tec")]
+    }
+
+    // #4 — préférence d'opérateur : re-classe les itinéraires pour privilégier
+    // un réseau (sans exclure). Visible seulement quand il y a du transit.
+    @ViewBuilder private var operatorPreferenceStrip: some View {
+        if modeSummaries.contains(where: { $0.modeKey == "transit" && $0.durationText != "—" }) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(operatorChoices, id: \.label) { choice in
+                        let isSelected = preferredOperator == choice.value
+                        Button {
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            preferredOperator = choice.value
+                            onOperatorChange()
+                        } label: {
+                            Text(choice.label)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(isSelected ? DS.Color.primaryForeground : DS.Color.ink)
+                                .padding(.horizontal, 12)
+                                .frame(height: 30)
+                                .background(isSelected ? DS.Color.primary : DS.Color.paper2)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(DS.Color.ink.opacity(isSelected ? 0 : 0.14), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 8)
+        }
     }
 
     @ViewBuilder private var transitUnavailableBanner: some View {

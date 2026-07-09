@@ -1056,6 +1056,9 @@ struct TransportRecommendationRequest: Encodable {
     let depart: String
     let destination: String
     let lignesBloquees: [String]
+    /// Opérateur préféré (stib/delijn/tec/sncb) : le backend remonte les
+    /// alternatives qui l'utilisent. `nil` = aucune préférence.
+    var preferredOperator: String? = nil
 }
 
 struct TransportRecommendationDTO: Codable, Equatable {

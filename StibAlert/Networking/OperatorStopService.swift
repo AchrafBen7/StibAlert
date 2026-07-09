@@ -55,4 +55,33 @@ enum OperatorStopService {
             return []
         }
     }
+
+    /// Stops matched by NAME (e.g. "paduwa" → "Evere De Paduwa"). The Horaires
+    /// line catalog only indexes line numbers, so a stop-name query found
+    /// nothing; this server lookup covers the 30k+ stops that aren't bundled.
+    /// Returns [] on any failure or a query shorter than 2 characters.
+    static func searchStops(
+        operator op: TransitOperator,
+        query: String,
+        limit: Int = 10
+    ) async -> [OperatorMapStop] {
+        guard AppConfig.isBackendEnabled else { return [] }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else { return [] }
+        var components = URLComponents(string: "\(AppConfig.backendBaseURL)/api/operators/\(op.rawValue)/search-stops")
+        components?.queryItems = [
+            .init(name: "q", value: trimmed),
+            .init(name: "limit", value: String(limit)),
+        ]
+        guard let url = components?.url else { return [] }
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(Response.self, from: data)
+            return response.stops.map {
+                OperatorMapStop(id: $0.id, name: $0.name, lat: $0.lat, lng: $0.lng, op: op)
+            }
+        } catch {
+            return []
+        }
+    }
 }
