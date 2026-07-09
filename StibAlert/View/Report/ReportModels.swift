@@ -43,17 +43,6 @@ enum IssueLineCrowding {
     case medium
     case high
 
-    var label: String {
-        switch self {
-        case .low:
-            return "faible"
-        case .medium:
-            return "moyenne"
-        case .high:
-            return "élevée"
-        }
-    }
-
     var level: Int {
         switch self {
         case .low:
@@ -80,7 +69,8 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
 
     // ⚠️ `title` est la valeur ENVOYÉE au backend (typeProbleme). Doit matcher
     // EXACTEMENT l'enum Signalement.js : "Contrôle", "Affluence", …
-    var title: String {
+    // L'affichage passe par `localizedTitle`.
+    var title: String { // i18n:ignore — valeur backend, la traduire casserait l'envoi
         switch self {
         case .control:
             return "Contrôle"
@@ -101,34 +91,13 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         }
     }
 
-    var descriptionLines: [String] {
-        switch self {
-        case .control:
-            return ["Contrôleurs à l’arrêt ou à bord", "Vérification des titres en cours"]
-        case .crowding:
-            return ["Véhicule bondé", "Impossible de monter"]
-        case .accident:
-            return ["Collision ou chute", "Police ou pompiers sur place"]
-        case .delay:
-            return ["Plus de 10 min d’attente?", "Transport non arrivé?"]
-        case .breakdown:
-            return ["Véhicule bloqué", "Portes ou moteur en panne"]
-        case .incivility:
-            return ["Musique ou cris forts", "Comportement gênant répété"]
-        case .cleanliness:
-            return ["Déchets ou odeur forte", "Sol ou siège très sale"]
-        case .aggression:
-            return ["Comportement violent", "Harcèlement observé"]
-        }
-    }
-
     /// Libellé LOCALISÉ pour l'AFFICHAGE (≠ `title`, qui reste la valeur
     /// canonique française envoyée au backend). Réutilise le localizer partagé.
     var localizedTitle: String {
         SignalementDTO.localizedReportType(title)
     }
 
-    /// Sous-titre court LOCALISÉ (1ʳᵉ ligne de `descriptionLines`) pour le picker.
+    /// Sous-titre court LOCALISÉ affiché sous chaque catégorie du picker.
     var localizedShortDescription: String {
         switch self {
         case .control:     return AppLocalizer.string("report.help.control", defaultValue: "Contrôleurs à l’arrêt ou à bord")
@@ -184,26 +153,6 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
         }
     }
 
-    var helpDescription: String {
-        switch self {
-        case .control:
-            return "Contrôleurs présents à l’arrêt ou dans le véhicule."
-        case .crowding:
-            return "Véhicule plein, impossible ou difficile de monter."
-        case .accident:
-            return "Collision, chute, blessé ou véhicule endommagé."
-        case .delay:
-            return "Plus de 10 min d’attente, transport qui n’arrive pas."
-        case .breakdown:
-            return "Véhicule bloqué ou portes qui ne s’ouvrent pas."
-        case .incivility:
-            return "Cris, musique forte, comportements dérangeants."
-        case .cleanliness:
-            return "Mauvaises odeurs, saleté au sol ou sur les sièges."
-        case .aggression:
-            return "Personne violente ou harcèlement observé."
-        }
-    }
 
     // S2/S3 — Sévérité structurée, source de vérité UNIQUE pour le tri des
     // alertes. Doit rester alignée avec le backend (CRITICAL_INCIDENT_TYPES =
