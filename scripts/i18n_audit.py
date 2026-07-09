@@ -162,7 +162,10 @@ _PARAMS_RE = "|".join(FREEZING_PARAMS)
 RE_LOCALIZED_SIG = re.compile(rf"\b({_PARAMS_RE})\s*:\s*LocalizedStringKey\b")
 RE_FROZEN_ARG = re.compile(rf'\b({_PARAMS_RE})\s*:\s*"([^"]{{2,}})"')
 RE_FROZEN_RETURN = re.compile(r'\breturn\s+"([^"]{2,})"')
-RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL10n\.|LocalizedStringKey")
+RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL10n\.")
+# Déclaration qui RENVOIE une LocalizedStringKey : les `return "…"` de son corps sont
+# traduits — ce ne sont pas des fuites. Sans ça, l'audit ne peut jamais atteindre 0.
+RE_LOCALIZED_RETURN_DECL = re.compile(r":\s*LocalizedStringKey\s*\{|->\s*LocalizedStringKey\b")
 # Opt-out explicite. Certaines chaînes françaises sont VOLONTAIREMENT non traduites :
 # des valeurs canoniques servant à la logique (couleur, icône, sévérité, comparaison,
 # envoi au backend) — ex. `canonicalTypeProbleme` dans DTOs.swift. Les traduire
@@ -217,6 +220,10 @@ def frozen_string_leaks() -> list[dict[str, str | int]]:
                 if RE_DECL.match(line):
                     ignore_indent = len(line) - len(line.lstrip())
                 continue  # ligne isolée marquée
+            # `var x: LocalizedStringKey { … }` : tout son corps est déjà traduit.
+            if RE_DECL.match(line) and RE_LOCALIZED_RETURN_DECL.search(line):
+                ignore_indent = len(line) - len(line.lstrip())
+                continue
             if stripped.startswith("//") or RE_ALREADY_LOCALIZED.search(line):
                 continue
             for match in RE_FROZEN_ARG.finditer(line):

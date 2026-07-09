@@ -115,8 +115,10 @@ struct GuestAuthGateView: View {
 
 private extension GuestAuthReason {
     struct GateBenefit: Hashable {
+        /// `title` en LocalizedStringKey (Hashable, donc utilisable comme `id`
+        /// du ForEach) : en `String`, les littéraux resteraient figés en français.
         let icon: String
-        let title: String
+        let title: LocalizedStringKey
     }
 
     var gateAccent: Color {
@@ -169,7 +171,9 @@ enum GuestAuthReason {
         }
     }
 
-    var title: String {
+    /// `title`/`subtitle` sont rendus directement par `Text(...)` (ici et dans
+    /// GuestTabPlaceholder) : en LocalizedStringKey, les littéraux se traduisent.
+    var title: LocalizedStringKey {
         switch self {
         case .favorites: return "Sauvegardez vos lignes"
         case .report:    return "Signalez un problème"
@@ -178,7 +182,7 @@ enum GuestAuthReason {
         }
     }
 
-    var subtitle: String {
+    var subtitle: LocalizedStringKey {
         switch self {
         case .favorites: return "Créez un compte pour sauvegarder vos lignes favorites et recevoir des alertes personnalisées."
         case .report:    return "Connectez-vous pour signaler un problème et aider la communauté STIB en temps réel."

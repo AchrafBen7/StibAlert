@@ -12120,6 +12120,46 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Karma" } }
       }
     },
+    "Sauvegardez vos lignes" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bewaar je lijnen" } }
+      }
+    },
+    "Signalez un problème" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meld een probleem" } }
+      }
+    },
+    "Votre profil" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Jouw profiel" } }
+      }
+    },
+    "Confirmez ce signalement" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bevestig deze melding" } }
+      }
+    },
+    "Créez un compte pour sauvegarder vos lignes favorites et recevoir des alertes personnalisées." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Maak een account om je favoriete lijnen te bewaren en gepersonaliseerde meldingen te ontvangen." } }
+      }
+    },
+    "Connectez-vous pour signaler un problème et aider la communauté STIB en temps réel." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Log in om een probleem te melden en de MIVB-community in realtime te helpen." } }
+      }
+    },
+    "Connectez-vous pour accéder à votre historique et vos contributions." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Log in om je geschiedenis en bijdragen te bekijken." } }
+      }
+    },
+    "Connectez-vous pour confirmer ou résoudre des signalements communautaires." : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Log in om communitymeldingen te bevestigen of op te lossen." } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
