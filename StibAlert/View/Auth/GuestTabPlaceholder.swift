@@ -179,26 +179,33 @@ struct GuestTabPlaceholder: View {
 
 private extension GuestAuthReason {
     struct Benefit {
+        /// `icon` = nom de symbole SF (jamais traduit). `title`/`subtitle` sont des
+        /// LocalizedStringKey : en `String`, les littéraux passés aux `.init(...)`
+        /// resteraient figés en français.
         let icon: String
-        let title: String
-        let subtitle: String
+        let title: LocalizedStringKey
+        let subtitle: LocalizedStringKey
     }
 
+    // Ces libellés partent dans `PageHeader(title:eyebrow:)`, qui prend des `String`
+    // (d'autres appelants y passent déjà du texte dynamique). On localise donc à la
+    // source, comme le fait FavoritesView. Toutes les branches sont traduites : un
+    // « Favoris » sans accent est aussi figé qu'un « Communauté ».
     var tabTitle: String {
         switch self {
-        case .favorites: return "Favoris"
-        case .profile: return "Profil"
-        case .report: return "Reports"
-        case .confirm: return "Communauté"
+        case .favorites: return AppLocalizer.string("guest.title.favorites", defaultValue: "Favoris")
+        case .profile: return AppLocalizer.string("guest.title.profile", defaultValue: "Profil")
+        case .report: return AppLocalizer.string("guest.title.report", defaultValue: "Signalements")
+        case .confirm: return AppLocalizer.string("guest.title.confirm", defaultValue: "Communauté")
         }
     }
 
     var tabEyebrow: String {
         switch self {
-        case .favorites: return "Ton réseau personnel"
-        case .profile: return "Compte Blayse"
-        case .report: return "Participation"
-        case .confirm: return "Validation terrain"
+        case .favorites: return AppLocalizer.string("guest.eyebrow.favorites", defaultValue: "Ton réseau personnel")
+        case .profile: return AppLocalizer.string("guest.eyebrow.profile", defaultValue: "Compte Blayse")
+        case .report: return AppLocalizer.string("guest.eyebrow.report", defaultValue: "Participation")
+        case .confirm: return AppLocalizer.string("guest.eyebrow.confirm", defaultValue: "Validation terrain")
         }
     }
 
@@ -213,37 +220,37 @@ private extension GuestAuthReason {
 
     var statOneLabel: String {
         switch self {
-        case .favorites: return "Lignes"
-        case .profile: return "Historique"
-        case .report: return "Signalements"
-        case .confirm: return "Votes"
+        case .favorites: return AppLocalizer.string("guest.stat1.label.favorites", defaultValue: "Lignes")
+        case .profile: return AppLocalizer.string("guest.stat1.label.profile", defaultValue: "Historique")
+        case .report: return AppLocalizer.string("guest.stat1.label.report", defaultValue: "Signalements")
+        case .confirm: return AppLocalizer.string("guest.stat1.label.confirm", defaultValue: "Votes")
         }
     }
 
     var statOneValue: String {
         switch self {
-        case .favorites: return "∞"
-        case .profile: return "24/7"
-        case .report: return "Live"
-        case .confirm: return "Temps réel"
+        case .favorites: return "∞"                                     // i18n:ignore — symbole
+        case .profile: return "24/7"                                    // i18n:ignore — chiffres
+        case .report: return AppLocalizer.string("guest.stat1.value.report", defaultValue: "Live")
+        case .confirm: return AppLocalizer.string("guest.stat1.value.confirm", defaultValue: "Temps réel")
         }
     }
 
     var statTwoLabel: String {
         switch self {
-        case .favorites: return "Alertes"
-        case .profile: return "Contributions"
-        case .report: return "Communauté"
-        case .confirm: return "Impact"
+        case .favorites: return AppLocalizer.string("guest.stat2.label.favorites", defaultValue: "Alertes")
+        case .profile: return AppLocalizer.string("guest.stat2.label.profile", defaultValue: "Contributions")
+        case .report: return AppLocalizer.string("guest.stat2.label.report", defaultValue: "Communauté")
+        case .confirm: return AppLocalizer.string("guest.stat2.label.confirm", defaultValue: "Impact")
         }
     }
 
     var statTwoValue: String {
         switch self {
-        case .favorites: return "Ciblées"
-        case .profile: return "Centralisées"
-        case .report: return "Active"
-        case .confirm: return "Direct"
+        case .favorites: return AppLocalizer.string("guest.stat2.value.favorites", defaultValue: "Ciblées")
+        case .profile: return AppLocalizer.string("guest.stat2.value.profile", defaultValue: "Centralisées")
+        case .report: return AppLocalizer.string("guest.stat2.value.report", defaultValue: "Active")
+        case .confirm: return AppLocalizer.string("guest.stat2.value.confirm", defaultValue: "Direct")
         }
     }
 

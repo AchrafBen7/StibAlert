@@ -11968,6 +11968,158 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen doorkomst gepland op dit moment." } }
       }
     },
+    "guest.title.favorites" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Favoris" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Favorieten" } }
+      }
+    },
+    "guest.title.profile" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Profil" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Profiel" } }
+      }
+    },
+    "guest.title.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen" } }
+      }
+    },
+    "guest.title.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Community" } }
+      }
+    },
+    "guest.eyebrow.favorites" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ton réseau personnel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Jouw persoonlijke netwerk" } }
+      }
+    },
+    "guest.eyebrow.profile" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Compte Blayse" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Blayse-account" } }
+      }
+    },
+    "guest.eyebrow.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Participation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Deelname" } }
+      }
+    },
+    "guest.eyebrow.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Validation terrain" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Validatie op het terrein" } }
+      }
+    },
+    "guest.stat1.label.favorites" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Lignes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lijnen" } }
+      }
+    },
+    "guest.stat1.label.profile" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Historique" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geschiedenis" } }
+      }
+    },
+    "guest.stat1.label.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen" } }
+      }
+    },
+    "guest.stat1.label.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Votes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Stemmen" } }
+      }
+    },
+    "guest.stat1.value.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Live" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Live" } }
+      }
+    },
+    "guest.stat1.value.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Temps réel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Realtime" } }
+      }
+    },
+    "guest.stat2.label.favorites" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Alertes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen" } }
+      }
+    },
+    "guest.stat2.label.profile" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Contributions" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bijdragen" } }
+      }
+    },
+    "guest.stat2.label.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Community" } }
+      }
+    },
+    "guest.stat2.label.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impact" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Impact" } }
+      }
+    },
+    "guest.stat2.value.favorites" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ciblées" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gericht" } }
+      }
+    },
+    "guest.stat2.value.profile" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Centralisées" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gecentraliseerd" } }
+      }
+    },
+    "guest.stat2.value.report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Active" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Actief" } }
+      }
+    },
+    "guest.stat2.value.confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Direct" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Direct" } }
+      }
+    },
+    "Carte STIB" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB-kaart" } }
+      }
+    },
+    "Confirmation collective" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Collectieve bevestiging" } }
+      }
+    },
+    "Impact direct" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Directe impact" } }
+      }
+    },
+    "Karma" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Karma" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
