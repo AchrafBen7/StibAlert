@@ -163,6 +163,14 @@ RE_LOCALIZED_SIG = re.compile(rf"\b({_PARAMS_RE})\s*:\s*LocalizedStringKey\b")
 RE_FROZEN_ARG = re.compile(rf'\b({_PARAMS_RE})\s*:\s*"([^"]{{2,}})"')
 RE_FROZEN_RETURN = re.compile(r'\breturn\s+"([^"]{2,})"')
 RE_ALREADY_LOCALIZED = re.compile(r"AppLocalizer\.string|String\(localized:|\bL10n\.|LocalizedStringKey")
+# Opt-out explicite. Certaines chaînes françaises sont VOLONTAIREMENT non traduites :
+# des valeurs canoniques servant à la logique (couleur, icône, sévérité, comparaison,
+# envoi au backend) — ex. `canonicalTypeProbleme` dans DTOs.swift. Les traduire
+# casserait le matching. On les marque `// i18n:ignore` sur la déclaration (var/func),
+# ce qui exclut tout son corps, ou en fin de ligne pour un cas isolé.
+RE_IGNORE = re.compile(r"//\s*i18n:ignore\b")
+# `var`/`func` seulement : un `let` local vit DANS un corps et refermerait la portée.
+RE_DECL = re.compile(r"^\s*(?:@\w+\s+)*(?:public|internal|private|fileprivate)?\s*(?:static\s+)?(?:var|func)\s")
 
 FRENCH_DIACRITICS = set("àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ")
 FRENCH_WORDS = {
@@ -194,8 +202,22 @@ def frozen_string_leaks() -> list[dict[str, str | int]]:
             continue
         lines = text.splitlines()
         localized_params = {m.group(1) for line in lines for m in RE_LOCALIZED_SIG.finditer(line)}
+        # `// i18n:ignore` sur une déclaration exclut TOUT son corps. On borne la
+        # portée par l'indentation : on saute tant que les lignes sont plus indentées
+        # que la déclaration marquée.
+        ignore_indent: int | None = None
         for number, line in enumerate(lines, 1):
-            if line.lstrip().startswith("//") or RE_ALREADY_LOCALIZED.search(line):
+            stripped = line.strip()
+            if ignore_indent is not None:
+                if stripped and (len(line) - len(line.lstrip())) <= ignore_indent:
+                    ignore_indent = None  # on est sorti du corps
+                else:
+                    continue
+            if RE_IGNORE.search(line):
+                if RE_DECL.match(line):
+                    ignore_indent = len(line) - len(line.lstrip())
+                continue  # ligne isolée marquée
+            if stripped.startswith("//") or RE_ALREADY_LOCALIZED.search(line):
                 continue
             for match in RE_FROZEN_ARG.finditer(line):
                 if match.group(1) in localized_params:

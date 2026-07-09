@@ -413,7 +413,10 @@ struct ReportsView: View {
         }
     }
 
-    private func sncbSectionHeader(icon: String, title: String, count: Int, tint: Color) -> some View {
+    /// `title` en LocalizedStringKey. La mise en majuscules passe par
+    /// `.textCase(.uppercase)` (appliqué APRÈS traduction) et non par
+    /// `.uppercased()`, qui forcerait un `String` donc du français gelé.
+    private func sncbSectionHeader(icon: String, title: LocalizedStringKey, count: Int, tint: Color) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .bold))
@@ -421,7 +424,8 @@ struct ReportsView: View {
                 .frame(width: 28, height: 28)
                 .background(tint.opacity(0.14))
                 .clipShape(Circle())
-            Text(title.uppercased())
+            Text(title)
+                .textCase(.uppercase)
                 .font(DS.Font.eyebrow).tracking(2)
                 .foregroundStyle(DS.Color.inkMute)
             Spacer()
@@ -2691,7 +2695,8 @@ private struct EventImpactDetailSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
     }
 
-    private func heroStat(icon: String, label: String, value: String) -> some View {
+    /// `label` traduit ; `value` reste un String (donnée dynamique, jamais traduite).
+    private func heroStat(icon: String, label: LocalizedStringKey, value: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 11))
@@ -3330,7 +3335,8 @@ private struct ReportsSummarySheet: View {
     }
 
     @ViewBuilder
-    private func summarySection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    /// `title` en LocalizedStringKey : un `String` gèlerait les littéraux des appelants.
+    private func summarySection<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(DS.Font.eyebrow)

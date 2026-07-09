@@ -329,7 +329,7 @@ extension SignalementDTO {
     /// icône (`SignalVisuals.icon(forType:)`), sévérité, comparaisons. Pour les
     /// STIB "Autre", on devine le type depuis la description. NE PAS afficher
     /// directement : utiliser `displayTypeProbleme` (localisé).
-    var canonicalTypeProbleme: String {
+    var canonicalTypeProbleme: String { // i18n:ignore — valeurs canoniques, pas de l'affichage
         let raw = typeProbleme.trimmingCharacters(in: .whitespacesAndNewlines)
         guard sourceLabel == "Source STIB", raw.localizedCaseInsensitiveCompare("Autre") == .orderedSame else {
             return raw
@@ -475,12 +475,13 @@ extension SignalementDTO {
         return min(max(value, 0), 1)
     }
 
-    /// Human label for the decayed confidence: "Fraîche", "Modérée", "Faible".
+    /// Libellé AFFICHÉ de la confiance décroissante — traduit dans la langue de
+    /// l'app (`AppLocalizer`), sinon il resterait figé en français.
     var liveConfidenceLabel: String {
         switch liveConfidence {
-        case 0.7...: return "Fraîche"
-        case 0.35..<0.7: return "Modérée"
-        default: return "Faible"
+        case 0.7...: return AppLocalizer.string("confidence.fresh", defaultValue: "Fraîche")
+        case 0.35..<0.7: return AppLocalizer.string("confidence.moderate", defaultValue: "Modérée")
+        default: return AppLocalizer.string("confidence.low", defaultValue: "Faible")
         }
     }
 
@@ -526,11 +527,14 @@ extension SignalementDTO {
         guard let confiance else { return nil }
         switch confiance.lowercased() {
         case "haute", "high":
-            return "Basée sur une position GPS très proche de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.high",
+                                       defaultValue: "Basée sur une position GPS très proche de l'arrêt signalé.")
         case "moyenne", "medium":
-            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+            return AppLocalizer.string("confidence.explain.medium",
+                                       defaultValue: "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt.")
         case "basse", "low":
-            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.low",
+                                       defaultValue: "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé.")
         default:
             return "Basée sur la proximité GPS observée au moment du signalement."
         }
@@ -588,11 +592,14 @@ extension TransportIncidentDTO {
     var confidenceExplanation: String {
         switch legacyConfidence?.lowercased() {
         case "haute", "high":
-            return "Basée sur une position GPS très proche de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.high",
+                                       defaultValue: "Basée sur une position GPS très proche de l'arrêt signalé.")
         case "moyenne", "medium":
-            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+            return AppLocalizer.string("confidence.explain.medium",
+                                       defaultValue: "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt.")
         case "basse", "low":
-            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.low",
+                                       defaultValue: "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé.")
         default:
             return "Basée sur les indices réseau et la proximité GPS disponibles."
         }

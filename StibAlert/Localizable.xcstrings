@@ -11968,6 +11968,57 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen doorkomst gepland op dit moment." } }
       }
     },
+    "confidence.fresh" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vers" } }
+      }
+    },
+    "confidence.moderate" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Modérée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Matig" } }
+      }
+    },
+    "confidence.low" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Faible" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Zwak" } }
+      }
+    },
+    "confidence.explain.high" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur une position GPS très proche de l'arrêt signalé." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op een gps-positie heel dicht bij de gemelde halte." } }
+      }
+    },
+    "confidence.explain.medium" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op een coherente maar minder nauwkeurige gps-positie rond de halte." } }
+      }
+    },
+    "confidence.explain.low" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op een ontbrekende of te ver verwijderde gps-positie van de gemelde halte." } }
+      }
+    },
+    "Types dominants" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Dominante types" } }
+      }
+    },
+    "Affluence probable" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verwachte drukte" } }
+      }
+    },
+    "Lecture rapide" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Snel overzicht" } }
+      }
+    },
     "Réseau" : {
       "localizations" : {
         "nl" : {
