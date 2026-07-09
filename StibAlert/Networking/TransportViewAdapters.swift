@@ -126,15 +126,15 @@ enum TransportViewAdapters {
     static func localizedSeverityLabel(severity: String?, fallback: String?) -> String {
         switch severity {
         case "critical":
-            return String(localized: "Bloqué")
+            return AppLocalizer.string("Bloqué")
         case "major":
-            return String(localized: "Perturbé")
+            return AppLocalizer.string("Perturbé")
         case "minor":
-            return String(localized: "Sous surveillance")
+            return AppLocalizer.string("Sous surveillance")
         case "normal":
-            return String(localized: "Normal")
+            return AppLocalizer.string("Normal")
         default:
-            return fallback ?? String(localized: "Normal")
+            return fallback ?? AppLocalizer.string("Normal")
         }
     }
 

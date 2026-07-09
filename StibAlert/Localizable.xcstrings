@@ -12160,6 +12160,18 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Log in om communitymeldingen te bevestigen of op te lossen." } }
       }
     },
+    "cluster.accessibility.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld alertes officielles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld officiële meldingen" } }
+      }
+    },
+    "cluster.accessibility.community" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld signalements communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld communitymeldingen" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

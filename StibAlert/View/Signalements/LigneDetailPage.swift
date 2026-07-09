@@ -532,7 +532,7 @@ struct LigneDetailPage: View {
     /// primary nav and the direction chips stay as the secondary control.
     private var primaryTabSwitcher: some View {
         HStack(spacing: 0) {
-            primaryTabLabel(.stops, label: String(localized: "Arrêts"))
+            primaryTabLabel(.stops, label: AppLocalizer.string("Arrêts"))
             primaryTabLabel(.traffic, label: "Infos trafic", showsStatusIcon: true)
         }
         .frame(height: 44)
@@ -701,9 +701,9 @@ struct LigneDetailPage: View {
     /// scheduled-future ones).
     private var trafficSubtabSwitcher: some View {
         HStack(spacing: 4) {
-            trafficSubtabChip(.live, label: String(localized: "En cours"), count: liveCount)
-            trafficSubtabChip(.upcoming, label: String(localized: "Officiel"), count: officialCount)
-            trafficSubtabChip(.social, label: String(localized: "Twitter / X"), count: 0)
+            trafficSubtabChip(.live, label: AppLocalizer.string("En cours"), count: liveCount)
+            trafficSubtabChip(.upcoming, label: AppLocalizer.string("Officiel"), count: officialCount)
+            trafficSubtabChip(.social, label: AppLocalizer.string("Twitter / X"), count: 0)
         }
         .padding(4)
         .background(DS.Color.paper2.opacity(0.55))
@@ -785,8 +785,8 @@ struct LigneDetailPage: View {
         if viewModel.lineSignalements.isEmpty {
             emptyStateCard(
                 icon: "person.2.fill",
-                title: String(localized: "Pas de signalement communauté"),
-                detail: String(localized: "Aucun usager n'a signalé d'incident actif sur cette ligne.")
+                title: AppLocalizer.string("Pas de signalement communauté"),
+                detail: AppLocalizer.string("Aucun usager n'a signalé d'incident actif sur cette ligne.")
             )
         } else {
             VStack(spacing: 8) {
@@ -814,8 +814,8 @@ struct LigneDetailPage: View {
             VStack(spacing: 8) {
                 emptyStateCard(
                     icon: "checkmark.seal.fill",
-                    title: String(localized: "Pas d'info officielle sur cette ligne"),
-                    detail: String(localized: "La STIB-MIVB n'a publié aucune perturbation propre à cette ligne.")
+                    title: AppLocalizer.string("Pas d'info officielle sur cette ligne"),
+                    detail: AppLocalizer.string("La STIB-MIVB n'a publié aucune perturbation propre à cette ligne.")
                 )
                 // « Vrais problèmes ou rien » : on n'affiche l'avis QUE s'il
                 // pointe un quoi + où concret (lignes/arrêts touchés). L'avis
@@ -864,7 +864,7 @@ struct LigneDetailPage: View {
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(1.2)
                     .foregroundStyle(DS.Color.info)
-                Text(summary.localizedTitle.isEmpty ? String(localized: "Réseau sous surveillance") : summary.localizedTitle)
+                Text(summary.localizedTitle.isEmpty ? AppLocalizer.string("Réseau sous surveillance") : summary.localizedTitle)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Text(summary.localizedShortText.isEmpty ? summary.localizedLongText : summary.localizedShortText)
@@ -896,7 +896,7 @@ struct LigneDetailPage: View {
                 .background(DS.Color.statusMinor.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(summary.localizedTitle.isEmpty ? String(localized: "Perturbation officielle") : summary.localizedTitle)
+                Text(summary.localizedTitle.isEmpty ? AppLocalizer.string("Perturbation officielle") : summary.localizedTitle)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Text(summary.localizedShortText.isEmpty ? summary.localizedLongText : summary.localizedShortText)

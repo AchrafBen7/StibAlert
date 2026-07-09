@@ -636,7 +636,7 @@ struct ProfileView: View {
             // Localise PUIS met en majuscules via textCase : on cherche la clé
             // FR exacte du catalogue ("Carte de transport"), pas sa version
             // déjà en MAJ. Les titres arrivent ici en String runtime → init
-            // verbatim de Text → non localisés sans ce String(localized:).
+            // verbatim de Text → non localisés sans cet AppLocalizer.string().
             Text(AppLocalizer.string(title))
                 .font(DS.Font.monoSmall.weight(.bold))
                 .tracking(2.2)

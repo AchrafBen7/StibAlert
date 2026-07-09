@@ -139,7 +139,7 @@ private struct HomeEditorialSearchField: View {
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
                         Spacer()
-                        Button(String(localized: "Terminé")) {
+                        Button(AppLocalizer.string("Terminé")) {
                             isFocused = false
                         }
                         .fontWeight(.semibold)

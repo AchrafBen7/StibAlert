@@ -46,10 +46,17 @@ struct ClusterCountMarker: View {
         }
     }
 
+    /// `AppLocalizer.format` et non `String(localized:)` : ce dernier suit
+    /// `Locale.current` (la langue du téléphone) au lieu de la langue choisie
+    /// dans l'app (Profil → Langues).
     private var accessibilityText: String {
         switch origin {
-        case .official:  return String(localized: "\(count) alertes officielles")
-        case .community: return String(localized: "\(count) signalements communauté")
+        case .official:
+            return AppLocalizer.format("cluster.accessibility.official",
+                                       defaultValue: "%lld alertes officielles", count)
+        case .community:
+            return AppLocalizer.format("cluster.accessibility.community",
+                                       defaultValue: "%lld signalements communauté", count)
         }
     }
 }

@@ -139,9 +139,9 @@ enum TransitLineMode {
 
     var label: String {
         switch self {
-        case .metro: return String(localized: "Métro")
-        case .tram:  return String(localized: "Tram")
-        case .bus:   return String(localized: "Bus")
+        case .metro: return AppLocalizer.string("Métro")
+        case .tram:  return AppLocalizer.string("Tram")
+        case .bus:   return AppLocalizer.string("Bus")
         }
     }
 }
