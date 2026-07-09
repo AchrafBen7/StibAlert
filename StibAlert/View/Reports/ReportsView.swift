@@ -536,7 +536,7 @@ struct ReportsView: View {
 
     private func operatorStopName(_ report: SignalementDTO) -> String {
         if case .populated(let arret) = report.arretId { return arret.nom }
-        return "Arrêt"
+        return AppLocalizer.string("common.stop", defaultValue: "Arrêt")
     }
 
     private func operatorReportCard(_ report: SignalementDTO) -> some View {
@@ -1162,11 +1162,14 @@ struct ReportsView: View {
     private var scopeHelperText: String {
         switch selectedScope {
         case .reports:
-            return "Signalements en temps réel — communauté + perturbations actives."
+            return AppLocalizer.string("reports.scope.help.reports",
+                                       defaultValue: "Signalements en temps réel — communauté + perturbations actives.")
         case .official:
-            return "Informations officielles STIB : travaux planifiés, perturbations à venir."
+            return AppLocalizer.string("reports.scope.help.official",
+                                       defaultValue: "Informations officielles STIB : travaux planifiés, perturbations à venir.")
         case .events:
-            return "Événements et lieux qui peuvent augmenter l’affluence autour de certaines lignes."
+            return AppLocalizer.string("reports.scope.help.events",
+                                       defaultValue: "Événements et lieux qui peuvent augmenter l’affluence autour de certaines lignes.")
         }
     }
 
@@ -1699,11 +1702,13 @@ struct ReportsView: View {
     }
 
     private func relativeTimeLabel(from date: Date?) -> String {
-        guard let date else { return "il y a quelques min" }
+        guard let date else {
+            return AppLocalizer.string("time.some_minutes_ago", defaultValue: "il y a quelques min")
+        }
         let minutes = max(0, Int(Date().timeIntervalSince(date) / 60))
-        if minutes < 1 { return "à l’instant" }
-        if minutes < 60 { return "il y a \(minutes) min" }
-        return "il y a \(minutes / 60) h"
+        if minutes < 1 { return AppLocalizer.string("time.just_now", defaultValue: "à l’instant") }
+        if minutes < 60 { return AppLocalizer.format("time.minutes_ago", defaultValue: "il y a %lld min", minutes) }
+        return AppLocalizer.format("time.hours_ago", defaultValue: "il y a %lld h", minutes / 60)
     }
 
     private func eventTimeLabel(for event: TransportEventImpactDTO) -> String {
@@ -1872,16 +1877,19 @@ struct ReportsView: View {
         }
     }
 
+    /// Les `contains(...)` comparent du texte opérateur brut (FR/NL) : ce sont des
+    /// motifs de détection, pas de l'affichage. Seules les valeurs RENVOYÉES sont
+    /// montrées à l'écran, donc traduites.
     private func issueKeyword(from text: String) -> String {
         let value = text.lowercased()
-        if value.contains("interrompu") || value.contains("interruption") { return "Interrompu" }
-        if value.contains("travaux") || value.contains("works") { return "Travaux" }
-        if value.contains("dévi") || value.contains("devi") { return "Dévié" }
-        if value.contains("retard") || value.contains("attente") { return "Retard" }
-        if value.contains("bondé") || value.contains("affluence") || value.contains("plein") { return "Affluence" }
-        if value.contains("accident") || value.contains("collision") { return "Accident" }
-        if value.contains("arrêt") || value.contains("halte") { return "Arrêt touché" }
-        return "À vérifier"
+        if value.contains("interrompu") || value.contains("interruption") { return AppLocalizer.string("keyword.interrupted", defaultValue: "Interrompu") }
+        if value.contains("travaux") || value.contains("works") { return AppLocalizer.string("keyword.works", defaultValue: "Travaux") }
+        if value.contains("dévi") || value.contains("devi") { return AppLocalizer.string("keyword.diverted", defaultValue: "Dévié") }
+        if value.contains("retard") || value.contains("attente") { return AppLocalizer.string("keyword.delay", defaultValue: "Retard") }
+        if value.contains("bondé") || value.contains("affluence") || value.contains("plein") { return AppLocalizer.string("keyword.crowding", defaultValue: "Affluence") }
+        if value.contains("accident") || value.contains("collision") { return AppLocalizer.string("keyword.accident", defaultValue: "Accident") }
+        if value.contains("arrêt") || value.contains("halte") { return AppLocalizer.string("keyword.stop_affected", defaultValue: "Arrêt touché") }
+        return AppLocalizer.string("keyword.to_check", defaultValue: "À vérifier")
     }
 
     private func summaryDotColor(for summary: TransportPerturbationSummaryDTO) -> Color {
@@ -1902,13 +1910,13 @@ struct ReportsView: View {
     }
 
     private func sourcePreviewTitle(for summary: TransportPerturbationSummaryDTO) -> String {
-        switch summary.sourceLabel?.lowercased() {
+        switch summary.sourceLabel?.lowercased() {   // valeurs backend, non traduites
         case "officiel":
-            return "Officiel"
+            return AppLocalizer.string("source.official", defaultValue: "Officiel")
         case "communauté":
-            return "Communauté"
+            return AppLocalizer.string("source.community", defaultValue: "Communauté")
         default:
-            return "Mixte"
+            return AppLocalizer.string("source.mixed", defaultValue: "Mixte")
         }
     }
 
@@ -1926,11 +1934,11 @@ struct ReportsView: View {
     private func crowdingBadgeTitle(for risk: TransportCrowdingRiskDTO) -> String {
         switch risk.level {
         case "high":
-            return "Affluence forte"
+            return AppLocalizer.string("crowding.high", defaultValue: "Affluence forte")
         case "moderate":
-            return "Affluence probable"
+            return AppLocalizer.string("crowding.moderate", defaultValue: "Affluence probable")
         default:
-            return "Affluence à surveiller"
+            return AppLocalizer.string("crowding.watch", defaultValue: "Affluence à surveiller")
         }
     }
 
@@ -2017,9 +2025,11 @@ struct EditorialLineGroupCard<NestedContent: View>: View {
     private var headline: String {
         let count = group.items.count
         if count == 1 {
-            return group.items.first?.body ?? group.items.first?.title ?? "Information réseau"
+            return group.items.first?.body ?? group.items.first?.title
+                ?? AppLocalizer.string("reports.network_info", defaultValue: "Information réseau")
         }
-        return "\(count) infos à vérifier sur cette ligne"
+        return AppLocalizer.format("reports.infos_to_check",
+                                   defaultValue: "%lld infos à vérifier sur cette ligne", count)
     }
 
     var body: some View {
@@ -2406,11 +2416,11 @@ struct EditorialFeedCard: View {
     private var sourceTitle: String {
         switch item.type {
         case .community:
-            return "Voyageur · Bruxelles"
+            return AppLocalizer.string("source.title.community", defaultValue: "Voyageur · Bruxelles")
         case .official:
-            return "STIB · Info trafic"
+            return AppLocalizer.string("source.title.official", defaultValue: "STIB · Info trafic")
         case .mixed:
-            return "Signal croisé"
+            return AppLocalizer.string("source.title.mixed", defaultValue: "Signal croisé")
         case .event:
             return meta.label
         }
@@ -2419,24 +2429,24 @@ struct EditorialFeedCard: View {
     private var sourceHandle: String {
         switch item.type {
         case .community:
-            return "@communauté"
+            return AppLocalizer.string("source.handle.community", defaultValue: "@communauté")
         case .official:
-            return "@stib"
+            return "@stib"   // i18n:ignore — nom de l'opérateur
         case .mixed:
-            return "@mixte"
+            return AppLocalizer.string("source.handle.mixed", defaultValue: "@mixte")
         case .event:
-            return "@événement"
+            return AppLocalizer.string("source.handle.event", defaultValue: "@événement")
         }
     }
 
     private var sourceBadgeTitle: String {
         switch item.type {
         case .community:
-            return "COMMUNAUTÉ"
+            return AppLocalizer.string("source.badge.community", defaultValue: "COMMUNAUTÉ")
         case .official:
-            return "CERTIFIÉ STIB"
+            return AppLocalizer.string("source.badge.official", defaultValue: "CERTIFIÉ STIB")
         case .mixed:
-            return "OFFICIEL + TERRAIN"
+            return AppLocalizer.string("source.badge.mixed", defaultValue: "OFFICIEL + TERRAIN")
         case .event:
             return meta.label.uppercased()
         }
@@ -3256,13 +3266,13 @@ private struct ReportsSummarySheet: View {
     }
 
     private var sourceBadgeTitle: String {
-        switch summary.sourceLabel?.lowercased() {
+        switch summary.sourceLabel?.lowercased() {   // valeurs backend, non traduites
         case "officiel":
-            return "Officiel"
+            return AppLocalizer.string("source.official", defaultValue: "Officiel")
         case "communauté":
-            return "Communauté"
+            return AppLocalizer.string("source.community", defaultValue: "Communauté")
         default:
-            return "Mixte"
+            return AppLocalizer.string("source.mixed", defaultValue: "Mixte")
         }
     }
 
@@ -3280,11 +3290,11 @@ private struct ReportsSummarySheet: View {
     private func crowdingRiskBadgeTitle(_ risk: TransportCrowdingRiskDTO) -> String {
         switch risk.level {
         case "high":
-            return "Affluence forte"
+            return AppLocalizer.string("crowding.high", defaultValue: "Affluence forte")
         case "moderate":
-            return "Affluence renforcée"
+            return AppLocalizer.string("crowding.reinforced", defaultValue: "Affluence renforcée")
         default:
-            return "Affluence possible"
+            return AppLocalizer.string("crowding.possible", defaultValue: "Affluence possible")
         }
     }
 
@@ -3471,16 +3481,18 @@ struct EditorialDossierCard: View {
 
     private var lineKind: String {
         let trimmed = primaryLine.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if trimmed.hasPrefix("T") { return "Tram" }
-        if trimmed.hasPrefix("B") { return "Bus" }
+        let tram = AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        let bus = AppLocalizer.string("mode.bus", defaultValue: "Bus")
+        if trimmed.hasPrefix("T") { return tram }
+        if trimmed.hasPrefix("B") { return bus }
         let cleaned = trimmed.allSatisfy(\.isNumber) ? trimmed : trimmed.filter(\.isNumber)
-        guard let n = Int(cleaned) else { return "Ligne" }
+        guard let n = Int(cleaned) else { return AppLocalizer.string("mode.line", defaultValue: "Ligne") }
         // STIB / MIVB Brussels classification
         let metros: Set<Int> = [1, 2, 5, 6]
         let trams: Set<Int> = [3, 4, 7, 8, 9, 10, 18, 19, 25, 32, 35, 39, 51, 55, 62, 81, 82, 92, 93, 97]
-        if metros.contains(n) { return "Métro" }
-        if trams.contains(n) { return "Tram" }
-        return "Bus"
+        if metros.contains(n) { return AppLocalizer.string("mode.metro", defaultValue: "Métro") }
+        if trams.contains(n) { return tram }
+        return bus
     }
 
     private var lineColor: Color {

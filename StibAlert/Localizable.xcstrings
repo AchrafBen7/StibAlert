@@ -12172,6 +12172,240 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld communitymeldingen" } }
       }
     },
+    "reports.scope.help.reports" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalements en temps réel — communauté + perturbations actives." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Realtime meldingen — community + actieve storingen." } }
+      }
+    },
+    "reports.scope.help.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Informations officielles STIB : travaux planifiés, perturbations à venir." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officiële MIVB-info: geplande werken, komende storingen." } }
+      }
+    },
+    "reports.scope.help.events" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Événements et lieux qui peuvent augmenter l’affluence autour de certaines lignes." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Evenementen en plaatsen die de drukte rond bepaalde lijnen kunnen verhogen." } }
+      }
+    },
+    "common.stop" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêt" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Halte" } }
+      }
+    },
+    "time.some_minutes_ago" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "il y a quelques min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "enkele min geleden" } }
+      }
+    },
+    "time.just_now" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "à l’instant" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "zonet" } }
+      }
+    },
+    "time.minutes_ago" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "il y a %lld min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld min geleden" } }
+      }
+    },
+    "time.hours_ago" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "il y a %lld h" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld u geleden" } }
+      }
+    },
+    "keyword.interrupted" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Interrompu" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Onderbroken" } }
+      }
+    },
+    "keyword.works" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Travaux" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Werken" } }
+      }
+    },
+    "keyword.diverted" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dévié" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Omgeleid" } }
+      }
+    },
+    "keyword.delay" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Retard" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vertraging" } }
+      }
+    },
+    "keyword.crowding" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Drukte" } }
+      }
+    },
+    "keyword.accident" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Accident" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Ongeval" } }
+      }
+    },
+    "keyword.stop_affected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêt touché" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Halte getroffen" } }
+      }
+    },
+    "keyword.to_check" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "À vérifier" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Te controleren" } }
+      }
+    },
+    "source.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Officiel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officieel" } }
+      }
+    },
+    "source.community" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Community" } }
+      }
+    },
+    "source.mixed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mixte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gemengd" } }
+      }
+    },
+    "source.title.community" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Voyageur · Bruxelles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Reiziger · Brussel" } }
+      }
+    },
+    "source.title.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "STIB · Info trafic" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB · Verkeersinfo" } }
+      }
+    },
+    "source.title.mixed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signal croisé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gekruist signaal" } }
+      }
+    },
+    "source.handle.community" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "@communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "@community" } }
+      }
+    },
+    "source.handle.mixed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "@mixte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "@gemengd" } }
+      }
+    },
+    "source.handle.event" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "@événement" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "@evenement" } }
+      }
+    },
+    "source.badge.community" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "COMMUNAUTÉ" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "COMMUNITY" } }
+      }
+    },
+    "source.badge.official" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "CERTIFIÉ STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB-GECERTIFICEERD" } }
+      }
+    },
+    "source.badge.mixed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "OFFICIEL + TERRAIN" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "OFFICIEEL + TERREIN" } }
+      }
+    },
+    "crowding.high" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence forte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Grote drukte" } }
+      }
+    },
+    "crowding.moderate" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence probable" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Waarschijnlijke drukte" } }
+      }
+    },
+    "crowding.watch" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence à surveiller" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Drukte in de gaten houden" } }
+      }
+    },
+    "crowding.reinforced" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence renforcée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Toegenomen drukte" } }
+      }
+    },
+    "crowding.possible" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence possible" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Mogelijke drukte" } }
+      }
+    },
+    "mode.tram" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tram" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Tram" } }
+      }
+    },
+    "mode.bus" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Bus" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bus" } }
+      }
+    },
+    "mode.metro" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Métro" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Metro" } }
+      }
+    },
+    "mode.line" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ligne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lijn" } }
+      }
+    },
+    "reports.network_info" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Information réseau" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Netwerkinformatie" } }
+      }
+    },
+    "reports.infos_to_check" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld infos à vérifier sur cette ligne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld te controleren meldingen op deze lijn" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
