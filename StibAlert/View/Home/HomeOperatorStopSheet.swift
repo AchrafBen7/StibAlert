@@ -20,7 +20,7 @@ struct HomeOperatorStopSheet: View {
     @State private var isLoading = false
     @State private var refreshTask: Task<Void, Never>?
 
-    private var supportsRealtime: Bool { stop.op == .delijn }
+    private var supportsRealtime: Bool { stop.op == .delijn || stop.op == .tec }
     private var futurePassages: [OperatorRealtimePassage] {
         let now = Date().addingTimeInterval(-60) // tolérance 1 min pour les passages "à l'arrêt"
         return (reply?.passages ?? [])
@@ -164,7 +164,7 @@ struct HomeOperatorStopSheet: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else if futurePassages.isEmpty, !isLoading {
-                Text("Aucun passage De Lijn annoncé dans les prochaines minutes.")
+                Text("Aucun passage \(stop.op.mapLabel) annoncé dans les prochaines minutes.")
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
@@ -456,6 +456,13 @@ struct HomeOperatorStopSheet: View {
         guard supportsRealtime else { return }
         isLoading = true
         defer { isLoading = false }
+        // TEC : horaires GTFS + retards RT via /api/tec/stop-departures (par
+        // coordonnées). Pas de stopInfo/disruptions dédiés côté TEC — les lignes
+        // se lisent sur les passages, les perturbations via le flux communautaire.
+        if stop.op == .tec {
+            reply = await OperatorRealtimeService.tecStop(lat: stop.lat, lng: stop.lng)
+            return
+        }
         async let realtime = OperatorRealtimeService.delijnStop(stop.id)
         async let info = OperatorRealtimeService.delijnStopInfo(stop.id)
         async let disruptions = OperatorRealtimeService.delijnStopDisruptions(stop.id)

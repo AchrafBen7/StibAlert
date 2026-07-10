@@ -96,6 +96,61 @@ enum OperatorRealtimeService {
         stopId.split(separator: ":").last.map(String.init) ?? stopId
     }
 
+    // Réponse de /api/tec/stop-departures (horaires TEC pré-traités + retards RT).
+    private struct TecStopResponse: Decodable {
+        struct Stop: Decodable { let name: String? }
+        struct Departure: Decodable {
+            let line: String
+            let headsign: String?
+            let whenMin: Int
+            let realtime: Bool
+            let delayMin: Int?
+        }
+        let stop: Stop?
+        let departures: [Departure]
+    }
+
+    /// Prochains passages TEC à un arrêt, via coordonnées (le backend trouve l'arrêt
+    /// GTFS le plus proche). Mappé sur `OperatorRealtimeReply` pour réutiliser toute
+    /// l'UI De Lijn. `whenMin` inclut déjà le retard temps réel ; on reconstruit donc
+    /// l'heure prévue et l'heure théorique côté client.
+    static func tecStop(lat: Double, lng: Double) async -> OperatorRealtimeReply? {
+        guard AppConfig.isBackendEnabled else { return nil }
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/tec/stop-departures?lat=\(lat)&lng=\(lng)&limit=10") else {
+            return nil
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let decoded = try JSONDecoder().decode(TecStopResponse.self, from: data)
+            let now = Date()
+            let passages = decoded.departures.map { d -> OperatorRealtimePassage in
+                let predicted = now.addingTimeInterval(TimeInterval(d.whenMin * 60))
+                // whenMin contient déjà le retard : l'heure théorique = prévu − retard.
+                let scheduled = predicted.addingTimeInterval(TimeInterval(-(d.delayMin ?? 0) * 60))
+                return OperatorRealtimePassage(
+                    line: d.line,
+                    entity: "tec",
+                    direction: nil,
+                    destination: d.headsign ?? "",
+                    destinationNl: nil,
+                    scheduledAt: scheduled,
+                    predictedAt: d.realtime ? predicted : nil,
+                    delayMin: d.realtime ? d.delayMin : nil,
+                    hasRealtime: d.realtime,
+                    tripId: nil
+                )
+            }
+            let anyLive = passages.contains { $0.hasRealtime }
+            return OperatorRealtimeReply(
+                stopId: nil, entity: "tec", live: anyLive, fetchedAt: now,
+                passages: passages, error: nil, scheduledFallback: !anyLive
+            )
+        } catch {
+            return nil
+        }
+    }
+
     /// Fetches the next live passages for a De Lijn stop. Returns nil if the
     /// backend is disabled, the network failed, or De Lijn isn't configured
     /// server-side. Caller is expected to show a graceful placeholder.
