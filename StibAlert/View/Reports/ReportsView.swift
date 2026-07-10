@@ -1101,15 +1101,21 @@ struct ReportsView: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Image(systemName: scope.icon)
                             .font(.system(size: 12, weight: .bold))
+                        // Les 3 segments ont la même largeur, mais « Evenementen » (NL)
+                        // est bien plus long que « Événements ». Sans ces contraintes il
+                        // se coupait en « Evene-menten » ; à 0.75 il était encore tronqué.
+                        // On rétrécit jusqu'à 0.6 plutôt que de casser la mise en page.
                         Text(scope.title)
                             .font(DS.Font.bodyBold)
                             .tracking(0.4)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     .foregroundStyle(selectedScope == scope ? DS.Color.paper : DS.Color.ink)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 6)
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
                     .background(selectedScope == scope ? DS.Color.ink : DS.Color.paper)

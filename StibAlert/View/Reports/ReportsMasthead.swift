@@ -41,7 +41,9 @@ struct ReportsMasthead: View {
         // user wants across the Horaires / Favoris / Infos trafic tabs.
         // Dropped the Dela Gothic display font + eyebrow that were too
         // dominant on a content-dense page.
-        Text("Infos trafic")
+        // Doit dire la même chose que son onglet (`tab.traffic`) : l'onglet affichait
+        // « Meldingen » pendant que ce titre affichait encore « Verkeersinfo ».
+        Text("Alertes")
             .font(.system(size: 22, weight: .bold))
             .foregroundStyle(DS.Color.ink)
             .frame(maxWidth: .infinity)

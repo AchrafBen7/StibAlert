@@ -12744,6 +12744,29 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "BRON" } }
       }
     },
+    "line.subtitle.disruptions" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld arrêts · %lld perturbations" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld haltes · %lld storingen" } }
+      }
+    },
+    "line.subtitle.disruption_one" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld arrêts · %lld perturbation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld haltes · %lld storing" } }
+      }
+    },
+    "line.subtitle.realtime" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld arrêts · temps réel STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld haltes · MIVB-realtime" } }
+      }
+    },
+    "Alertes" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

@@ -97,9 +97,13 @@ final class LigneDetailViewModel: ObservableObject {
         let stopsCount = orderedStops.count
         if orderedStops.contains(where: { $0.disruption != nil }) {
             let count = orderedStops.filter { $0.disruption != nil }.count
-            return "\(stopsCount) arrêts · \(count) perturbation\(count > 1 ? "s" : "")"
+            // Le pluriel est porté par la traduction, pas par un `count > 1 ? "s" : ""`
+            // codé en dur : le néerlandais ne forme pas ses pluriels comme le français.
+            return count > 1
+                ? AppLocalizer.format("line.subtitle.disruptions", defaultValue: "%lld arrêts · %lld perturbations", stopsCount, count)
+                : AppLocalizer.format("line.subtitle.disruption_one", defaultValue: "%lld arrêts · %lld perturbation", stopsCount, count)
         }
-        return "\(stopsCount) arrêts · temps réel STIB"
+        return AppLocalizer.format("line.subtitle.realtime", defaultValue: "%lld arrêts · temps réel STIB", stopsCount)
     }
 
     /// Normalised stop keys where a live vehicle of this line is currently
@@ -533,7 +537,7 @@ struct LigneDetailPage: View {
     private var primaryTabSwitcher: some View {
         HStack(spacing: 0) {
             primaryTabLabel(.stops, label: AppLocalizer.string("Arrêts"))
-            primaryTabLabel(.traffic, label: "Infos trafic", showsStatusIcon: true)
+            primaryTabLabel(.traffic, label: AppLocalizer.string("Infos trafic"), showsStatusIcon: true)
         }
         .frame(height: 44)
         .overlay(alignment: .bottom) {
