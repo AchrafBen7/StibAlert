@@ -29,11 +29,11 @@ class NetworkConnectivityMonitor: NSObject, ObservableObject {
     var statusMessage: String? {
         guard !isConnected else {
             if isConstrained {
-                return "Connexion limitée"
+                return AppLocalizer.string("network.constrained", defaultValue: "Connexion limitée")
             }
             return nil
         }
-        return "Hors ligne"
+        return AppLocalizer.string("network.offline", defaultValue: "Hors ligne")
     }
 
     deinit {

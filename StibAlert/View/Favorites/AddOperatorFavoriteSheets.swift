@@ -10,7 +10,7 @@ struct AddSncbFavoriteSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AddFavoriteSheetHeader(title: "Épingler une gare", onClose: onClose)
+            AddFavoriteSheetHeader(title: AppLocalizer.string("favorite.pin_station", defaultValue: "Épingler une gare"), onClose: onClose)
             ScrollView(showsIndicators: false) {
                 SncbGareDirectory(
                     searchQuery: $searchQuery,
@@ -55,9 +55,9 @@ struct AddOperatorFavoriteSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            AddFavoriteSheetHeader(title: "Épingler un arrêt \(op.mapLabel)", onClose: onClose)
+            AddFavoriteSheetHeader(title: AppLocalizer.format("favorite.pin_stop", defaultValue: "Épingler un arrêt %@", op.mapLabel), onClose: onClose)
             FavoritePickerSearchField(
-                placeholder: "Chercher un arrêt \(op.mapLabel)",
+                placeholder: AppLocalizer.format("search.stop_operator", defaultValue: "Chercher un arrêt %@", op.mapLabel),
                 text: $searchQuery
             )
             .padding(.horizontal, 20)

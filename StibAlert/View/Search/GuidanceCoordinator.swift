@@ -18,7 +18,7 @@ final class GuidanceCoordinator: ObservableObject {
         guard let activeAlternative else { return "" }
         let total = activeAlternative.steps.count
         guard total > 0 else { return "" }
-        return "Étape \(min(currentStepIndex + 1, total)) sur \(total)"
+        return AppLocalizer.format("guidance.step_of", defaultValue: "Étape %lld sur %lld", min(currentStepIndex + 1, total), total)
     }
 
     var currentStep: TransportRouteStepDTO? {

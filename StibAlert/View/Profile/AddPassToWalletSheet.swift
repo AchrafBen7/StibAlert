@@ -51,7 +51,7 @@ enum WalletPresentationError: LocalizedError {
     case cannotPresent
     var errorDescription: String? {
         switch self {
-        case .cannotPresent: return "Apple Wallet n'est pas disponible sur cet appareil."
+        case .cannotPresent: return AppLocalizer.string("wallet.unavailable", defaultValue: "Apple Wallet n'est pas disponible sur cet appareil.")
         }
     }
 }

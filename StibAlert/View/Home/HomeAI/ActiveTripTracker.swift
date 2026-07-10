@@ -150,8 +150,8 @@ final class ActiveTripTracker: ObservableObject {
         let mins = option.totalDurationMinutes
         let dest = option.destinationName
         if let firstLine {
-            return "Itinéraire vers \(dest) démarré. Environ \(mins) minutes. Prends la ligne \(firstLine)."
+            return AppLocalizer.format("trip.started_with_line", defaultValue: "Itinéraire vers %@ démarré. Environ %lld minutes. Prends la ligne %@.", dest, mins, firstLine)
         }
-        return "Itinéraire vers \(dest) démarré. Environ \(mins) minutes."
+        return AppLocalizer.format("trip.started", defaultValue: "Itinéraire vers %@ démarré. Environ %lld minutes.", dest, mins)
     }
 }

@@ -586,9 +586,9 @@ struct FavoritesView: View {
     private var favoritesEmptyState: some View {
         EmptyStateView(
             iconSystemName: "star.slash",
-            title: "Pas encore de favoris",
-            body: "Ajoute tes arrêts depuis la carte pour les retrouver ici.",
-            cta: .init(label: "Ajouter un arrêt") { showAddSheet = true }
+            title: AppLocalizer.string("favorites.empty_title", defaultValue: "Pas encore de favoris"),
+            body: AppLocalizer.string("favorites.empty_body", defaultValue: "Ajoute tes arrêts depuis la carte pour les retrouver ici."),
+            cta: .init(label: AppLocalizer.string("favorites.add_stop", defaultValue: "Ajouter un arrêt")) { showAddSheet = true }
         )
         .padding(.horizontal, 20)
         .padding(.top, 40)
@@ -1169,7 +1169,7 @@ private struct FavoriteStopDetailView: View {
                         lineColor: fallbackLine.color,
                         lineTextColor: fallbackLine.textColor,
                         title: label,
-                        subtitle: "Aucun passage fiable immédiat. Je continue de surveiller cet arrêt.",
+                        subtitle: AppLocalizer.string("favorites.no_reliable_passage", defaultValue: "Aucun passage fiable immédiat. Je continue de surveiller cet arrêt."),
                         nextPassage: "--",
                         score: Int((transportStop.confidence * 100).rounded()),
                         barColor: statusBarColor(for: transportStop.severity),

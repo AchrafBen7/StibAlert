@@ -318,11 +318,13 @@ private struct OnboardingLinesStep: View {
     }
 
     private static func modeLabel(for line: String) -> String {
-        guard let number = Int(line.filter(\.isNumber)) else { return "Tram" }
-        if (1...6).contains(number) { return "Métro" }
-        if number >= 12 && number < 20 { return "Bus" }
-        if number >= 90 { return "Tram" }
-        return number >= 50 ? "Bus" : "Tram"
+        let tram = AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        let bus = AppLocalizer.string("mode.bus", defaultValue: "Bus")
+        guard let number = Int(line.filter(\.isNumber)) else { return tram }
+        if (1...6).contains(number) { return AppLocalizer.string("mode.metro", defaultValue: "Métro") }
+        if number >= 12 && number < 20 { return bus }
+        if number >= 90 { return tram }
+        return number >= 50 ? bus : tram
     }
 
     private static let sncbCandidates: [OnboardingLineCandidate] = [

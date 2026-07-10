@@ -16,7 +16,7 @@ enum AvatarService {
             case .invalidImage: return "Image invalide."
             case .invalidURL:   return "URL backend invalide."
             case .http(_, let m): return m
-            case .decode:       return "Réponse serveur inattendue."
+            case .decode:       return AppLocalizer.string("error.unexpected_response", defaultValue: "Réponse serveur inattendue.")
             }
         }
     }

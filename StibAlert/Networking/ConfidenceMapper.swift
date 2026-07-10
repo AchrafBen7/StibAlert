@@ -8,9 +8,9 @@ enum UnifiedConfidence: String, Codable {
 
     var displayLabel: String {
         switch self {
-        case .high: return "Élevée"
-        case .medium: return "Moyenne"
-        case .low: return "Basse"
+        case .high: return AppLocalizer.string("level.high", defaultValue: "Élevée")
+        case .medium: return AppLocalizer.string("level.medium", defaultValue: "Moyenne")
+        case .low: return AppLocalizer.string("level.low", defaultValue: "Basse")
         }
     }
 

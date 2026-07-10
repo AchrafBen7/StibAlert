@@ -177,9 +177,9 @@ struct ArretDetailPage: View {
 
     private var stopSubline: String {
         if let stopId = effectiveStop.stopId {
-            return "ARRÊT · \(stopId)"
+            return AppLocalizer.format("stop.eyebrow_id", defaultValue: "ARRÊT · %@", stopId)
         }
-        return "ARRÊT"
+        return AppLocalizer.string("stop.eyebrow", defaultValue: "ARRÊT")
     }
 
     private var servedLines: [String] {
@@ -1511,7 +1511,7 @@ private struct StopIncidentDetailSheet: View {
 
     private var bodyText: String {
         if let description = incident.localizedDescription, !description.isEmpty { return description }
-        return "Information active sur cet arrêt."
+        return AppLocalizer.string("stop.active_info", defaultValue: "Information active sur cet arrêt.")
     }
 
     private var dateText: String? {

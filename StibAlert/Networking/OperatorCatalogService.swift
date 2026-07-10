@@ -18,10 +18,10 @@ struct OperatorLine: Decodable, Identifiable, Hashable {
 
     var modeLabel: String {
         switch mode {
-        case "tram": return "Tram"
-        case "metro": return "Métro"
-        case "trolleybus": return "Trolleybus"
-        default: return "Bus"
+        case "tram": return AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        case "metro": return AppLocalizer.string("mode.metro", defaultValue: "Métro")
+        case "trolleybus": return AppLocalizer.string("mode.trolleybus", defaultValue: "Trolleybus")
+        default: return AppLocalizer.string("mode.bus", defaultValue: "Bus")
         }
     }
 }

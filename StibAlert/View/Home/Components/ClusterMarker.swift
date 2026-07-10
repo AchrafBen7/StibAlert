@@ -89,7 +89,12 @@ struct ClusterMarker: View {
     private var accessibilityLabel: String {
         let confidenceLabel = cluster.confidence.displayLabel
         let officialPrefix = cluster.isOfficial ? "Alerte STIB officielle" : "Alerte communauté"
-        return "\(officialPrefix) — \(cluster.typeProbleme) ligne \(cluster.ligne), \(cluster.reportCount) rapports, confiance \(confidenceLabel.lowercased())"
+        // VoiceOver : `typeProbleme` est une valeur canonique du backend, on la lit telle quelle.
+        return AppLocalizer.format("a11y.cluster_summary",
+                                   defaultValue: "%@ — %@ ligne %@, %@, confiance %@",
+                                   officialPrefix, cluster.typeProbleme, cluster.ligne,
+                                   AppLocalizer.format("plural.reports", defaultValue: "%lld rapports", cluster.reportCount),
+                                   confidenceLabel.lowercased())
     }
 }
 

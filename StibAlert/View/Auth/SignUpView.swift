@@ -137,7 +137,7 @@ struct SignUpView: View {
 
     private var formSection: some View {
         VStack(spacing: 14) {
-            AuthField(label: "PRÉNOM", icon: "person", text: $nom, isSecure: false)
+            AuthField(label: AppLocalizer.string("field.first_name_caps", defaultValue: "PRÉNOM"), icon: "person", text: $nom, isSecure: false)
                 .focused($focusedField, equals: .nom)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -238,7 +238,7 @@ struct SignUpView: View {
 
     private var passwordCriteria: some View {
         VStack(alignment: .leading, spacing: 4) {
-            criterionRow(label: "8 caractères minimum", satisfied: hasMinLength, required: true)
+            criterionRow(label: AppLocalizer.string("password.min_length", defaultValue: "8 caractères minimum"), satisfied: hasMinLength, required: true)
             criterionRow(label: "Une majuscule", satisfied: hasUppercase, required: false)
             criterionRow(label: "Un chiffre", satisfied: hasDigit, required: false)
         }

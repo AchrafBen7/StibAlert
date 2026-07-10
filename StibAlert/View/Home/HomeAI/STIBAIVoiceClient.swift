@@ -19,7 +19,7 @@ enum STIBAIVoiceClient {
             switch self {
             case .invalidURL: return "URL assistant vocal invalide."
             case .http(_, let msg): return msg
-            case .decode(let msg): return "Réponse invalide: \(msg)"
+            case .decode(let msg): return AppLocalizer.format("error.invalid_response", defaultValue: "Réponse invalide : %@", msg)
             }
         }
     }

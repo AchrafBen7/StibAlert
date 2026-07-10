@@ -109,8 +109,8 @@ struct ReportSharePromptSheet: View {
 
             // Petite stat-card de réassurance (effet "tu n'es pas seul")
             HStack(spacing: 12) {
-                statBadge(icon: "person.3.fill", value: "Communauté", subtitle: "alertée live")
-                statBadge(icon: "bell.badge.fill", value: "Push", subtitle: "envoyés auto")
+                statBadge(icon: "person.3.fill", value: AppLocalizer.string("source.community", defaultValue: "Communauté"), subtitle: AppLocalizer.string("share.alerted_live", defaultValue: "alertée live"))
+                statBadge(icon: "bell.badge.fill", value: "Push", subtitle: AppLocalizer.string("share.sent_auto", defaultValue: "envoyés auto"))
             }
             .padding(.horizontal, 4)
 

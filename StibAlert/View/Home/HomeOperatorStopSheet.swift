@@ -435,7 +435,7 @@ struct HomeOperatorStopSheet: View {
     private func delayLabel(_ minutes: Int) -> String {
         switch minutes {
         case ..<0: return "\(minutes) min"
-        case 0:    return "à l'heure"
+        case 0:    return AppLocalizer.string("departure.on_time", defaultValue: "à l'heure")
         default:   return "+\(minutes) min"
         }
     }

@@ -31,7 +31,7 @@ struct MapLegendOverlay: View {
 
                 legendSubheader("AUTRES")
                 iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)
-                iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: "Évènements", isOn: $showEventImpacts)
+                iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: AppLocalizer.string("scope.events", defaultValue: "Événements"), isOn: $showEventImpacts)
 
                 // S4 — Preset rapide "Vue épurée" : cache Villo + événements
                 // + véhicules pour ne garder que STIB + SNCB + perturbations.

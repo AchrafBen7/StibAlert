@@ -297,7 +297,7 @@ struct ClusterDetailSheet: View {
 
     private func expiryText(expiresAt: Date) -> String {
         let minutes = max(0, Int(expiresAt.timeIntervalSinceNow / 60))
-        if minutes <= 0 { return "Expire bientôt" }
+        if minutes <= 0 { return AppLocalizer.string("cluster.expires_soon", defaultValue: "Expire bientôt") }
         if minutes < 60 { return "Expire dans \(minutes) min" }
         let hours = minutes / 60
         let mins = minutes % 60

@@ -24,7 +24,7 @@ struct FeatureTourView: View {
             symbol: "map.fill",
             symbolTint: DS.Color.info,
             eyebrow: "1 SUR 2 · CARTE",
-            title: "Ta carte du réseau",
+            title: AppLocalizer.string("tour.your_network_map", defaultValue: "Ta carte du réseau"),
             description: "Tu vois en direct les arrêts proches, les vrais signalements de la communauté et les perturbations live des 4 opérateurs (STIB, SNCB, De Lijn, TEC).",
             bullets: [
                 ("dot.radiowaves.left.and.right", "Perturbations live mises à jour toutes les minutes"),
@@ -204,7 +204,7 @@ struct FeatureTourView: View {
 
     private var nextButtonLabel: String {
         if pageIndex == pages.count - 1 { return "C'est parti !" }
-        if pageIndex == 0 { return "Voir Signaler et Voix" }
+        if pageIndex == 0 { return AppLocalizer.string("tour.see_report_and_voice", defaultValue: "Voir Signaler et Voix") }
         return "Suivant"
     }
 

@@ -49,7 +49,7 @@ struct SncbGareDirectory: View {
             } else {
                 let results = filteredStations
                 VStack(alignment: .leading, spacing: 10) {
-                    sectionHeader(icon: "magnifyingglass", title: "Résultats", count: results.count, expanded: true)
+                    sectionHeader(icon: "magnifyingglass", title: AppLocalizer.string("search.results", defaultValue: "Résultats"), count: results.count, expanded: true)
                     if results.isEmpty {
                         Text("Aucune gare trouvée")
                             .font(DS.Font.bodySmall)
@@ -281,9 +281,9 @@ struct SncbGareDirectory: View {
 
     private func proximityLabel(_ index: Int) -> String {
         switch index {
-        case 0: return "GARE LA PLUS PROCHE"
-        case 1: return "2E GARE PROCHE"
-        default: return "3E GARE PROCHE"
+        case 0: return AppLocalizer.string("station.nearest", defaultValue: "GARE LA PLUS PROCHE")
+        case 1: return AppLocalizer.string("station.second_nearest", defaultValue: "2E GARE PROCHE")
+        default: return AppLocalizer.string("station.third_nearest", defaultValue: "3E GARE PROCHE")
         }
     }
 }

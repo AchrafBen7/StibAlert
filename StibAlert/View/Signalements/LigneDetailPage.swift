@@ -172,7 +172,7 @@ final class LigneDetailViewModel: ObservableObject {
     }
 
     var summaryDetails: String {
-        guard let activeLine else { return "Chargement des données de ligne…" }
+        guard let activeLine else { return AppLocalizer.string("line.loading_data", defaultValue: "Chargement des données de ligne…") }
         let departures = activeLine.nextDepartures.prefix(3).map {
             let minutes = $0.minutes <= 0
                 ? AppLocalizer.string("departure.imminent", defaultValue: "Imminent")

@@ -115,11 +115,11 @@ struct NetworkIssueCarouselCard: View {
         let value = item.keyword.lowercased()
         switch value {
         case _ where value.contains("interrompu") || value.contains("accident"):
-            return "Impact fort"
+            return AppLocalizer.string("severity.strong_impact", defaultValue: "Impact fort")
         case _ where value.contains("travaux") || value.contains("dévi"):
-            return "À anticiper"
+            return AppLocalizer.string("severity.anticipate", defaultValue: "À anticiper")
         default:
-            return "À surveiller"
+            return AppLocalizer.string("severity.watch", defaultValue: "À surveiller")
         }
     }
 

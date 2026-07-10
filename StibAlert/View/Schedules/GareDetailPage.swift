@@ -526,7 +526,7 @@ struct GareDetailPage: View {
         } else if signalements.isEmpty {
             emptyStateCard(
                 icon: "person.2.fill",
-                title: "Pas de signalement communauté",
+                title: AppLocalizer.string("station.no_community_report", defaultValue: "Pas de signalement communauté"),
                 detail: "Aucun usager n'a signalé d'incident actif sur cette gare."
             )
         } else {
@@ -548,7 +548,7 @@ struct GareDetailPage: View {
                 if trains.isEmpty && gareDisr.isEmpty {
                     emptyStateCard(
                         icon: "checkmark.seal.fill",
-                        title: "Aucune perturbation à cette gare",
+                        title: AppLocalizer.string("station.no_disruption", defaultValue: "Aucune perturbation à cette gare"),
                         detail: "Pas de retard ni de suppression annoncés au départ de \(station.displayName)."
                     )
                 }
@@ -799,7 +799,7 @@ struct GareDetailPage: View {
     private var hasActiveTrafficIssue: Bool { !signalements.isEmpty || officialCount > 0 }
 
     private func bannerSubtitle(isOK: Bool) -> String {
-        if isOK { return "Aucune perturbation à cette gare." }
+        if isOK { return AppLocalizer.string("station.no_disruption_dot", defaultValue: "Aucune perturbation à cette gare.") }
         var parts: [String] = []
         if !signalements.isEmpty { parts.append("communauté") }
         if officialCount > 0 { parts.append("SNCB") }

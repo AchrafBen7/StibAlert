@@ -13902,6 +13902,308 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Contacteer ons" } }
       }
     },
+    "plural.blocked_votes" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld bloqué·e" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld bloqué·e·s" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld geblokkeerd" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld geblokkeerd" } }
+            }
+          }
+        }
+      }
+    },
+    "mode.trolleybus" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Trolleybus" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Trolleybus" } }
+      }
+    },
+    "network.constrained" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connexion limitée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Beperkte verbinding" } }
+      }
+    },
+    "network.offline" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Hors ligne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Offline" } }
+      }
+    },
+    "error.unexpected_response" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réponse serveur inattendue." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Onverwacht serverantwoord." } }
+      }
+    },
+    "error.invalid_response" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réponse invalide : %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Ongeldig antwoord: %@" } }
+      }
+    },
+    "severity.strong_impact" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impact fort" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Grote impact" } }
+      }
+    },
+    "severity.anticipate" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "À anticiper" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Te anticiperen" } }
+      }
+    },
+    "severity.watch" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "À surveiller" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "In de gaten houden" } }
+      }
+    },
+    "departure.on_time" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "à l'heure" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "op tijd" } }
+      }
+    },
+    "station.nearest" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "GARE LA PLUS PROCHE" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "DICHTSTBIJZIJND STATION" } }
+      }
+    },
+    "station.second_nearest" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "2E GARE PROCHE" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "2E STATION IN DE BUURT" } }
+      }
+    },
+    "station.third_nearest" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "3E GARE PROCHE" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "3E STATION IN DE BUURT" } }
+      }
+    },
+    "search.results" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Résultats" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Resultaten" } }
+      }
+    },
+    "auth.targeted_alerts" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Alertes ciblées" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gerichte meldingen" } }
+      }
+    },
+    "auth.targeted_alerts_desc" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Notifié uniquement sur vos lignes, pas de bruit en plus." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Alleen meldingen over jouw lijnen, geen extra ruis." } }
+      }
+    },
+    "auth.community_desc" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalements terrain confirmés en temps réel par les voyageurs." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen ter plaatse, in realtime bevestigd door reizigers." } }
+      }
+    },
+    "field.first_name_caps" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "PRÉNOM" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "VOORNAAM" } }
+      }
+    },
+    "password.min_length" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "8 caractères minimum" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Minimaal 8 tekens" } }
+      }
+    },
+    "favorite.pin_station" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Épingler une gare" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een station vastmaken" } }
+      }
+    },
+    "favorite.pin_stop" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Épingler un arrêt %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een %@-halte vastmaken" } }
+      }
+    },
+    "search.stop_operator" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Chercher un arrêt %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een %@-halte zoeken" } }
+      }
+    },
+    "favorites.empty_title" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Pas encore de favoris" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nog geen favorieten" } }
+      }
+    },
+    "favorites.empty_body" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ajoute tes arrêts depuis la carte pour les retrouver ici." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Voeg je haltes toe vanaf de kaart om ze hier terug te vinden." } }
+      }
+    },
+    "favorites.add_stop" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ajouter un arrêt" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een halte toevoegen" } }
+      }
+    },
+    "favorites.no_reliable_passage" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun passage fiable immédiat. Je continue de surveiller cet arrêt." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen betrouwbare doorkomst op dit moment. Ik blijf deze halte volgen." } }
+      }
+    },
+    "stop.eyebrow" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "ARRÊT" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "HALTE" } }
+      }
+    },
+    "stop.eyebrow_id" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "ARRÊT · %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "HALTE · %@" } }
+      }
+    },
+    "stop.active_info" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Information active sur cet arrêt." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Actieve informatie over deze halte." } }
+      }
+    },
+    "stop.of_operator" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Arrêt %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@-halte" } }
+      }
+    },
+    "cluster.expires_soon" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Expire bientôt" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Verloopt binnenkort" } }
+      }
+    },
+    "lines.none_specific" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune ligne précise" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen specifieke lijn" } }
+      }
+    },
+    "vote.its_resolved" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "C'est résolu" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Het is opgelost" } }
+      }
+    },
+    "tour.your_network_map" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ta carte du réseau" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Jouw netwerkkaart" } }
+      }
+    },
+    "tour.see_report_and_voice" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Voir Signaler et Voix" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Melden en Stem bekijken" } }
+      }
+    },
+    "wallet.unavailable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Wallet n'est pas disponible sur cet appareil." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Apple Wallet is niet beschikbaar op dit toestel." } }
+      }
+    },
+    "feed.all_quiet" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tout est calme" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Alles is rustig" } }
+      }
+    },
+    "station.no_community_report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Pas de signalement communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen communitymelding" } }
+      }
+    },
+    "station.no_disruption" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune perturbation à cette gare" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen storing in dit station" } }
+      }
+    },
+    "station.no_disruption_dot" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune perturbation à cette gare." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen storing in dit station." } }
+      }
+    },
+    "guidance.step_of" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Étape %lld sur %lld" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Stap %lld van %lld" } }
+      }
+    },
+    "line.loading_data" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Chargement des données de ligne…" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lijngegevens laden…" } }
+      }
+    },
+    "share.alerted_live" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "alertée live" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "live gewaarschuwd" } }
+      }
+    },
+    "share.sent_auto" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "envoyés auto" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "automatisch verzonden" } }
+      }
+    },
+    "a11y.cluster_summary" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ ligne %@, %@, confiance %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@ — %@ lijn %@, %@, vertrouwen %@" } }
+      }
+    },
+    "siri.next_at_platform" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le prochain%@ est à quai." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "De volgende%@ staat aan het perron." } }
+      }
+    },
+    "trip.started" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Itinéraire vers %@ démarré. Environ %lld minutes." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Route naar %@ gestart. Ongeveer %lld minuten." } }
+      }
+    },
+    "trip.started_with_line" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Itinéraire vers %@ démarré. Environ %lld minutes. Prends la ligne %@." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Route naar %@ gestart. Ongeveer %lld minuten. Neem lijn %@." } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

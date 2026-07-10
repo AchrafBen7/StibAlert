@@ -681,7 +681,7 @@ struct OperatorDisruptionsList: View {
 
     private var zoneHeaderTitle: String {
         if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "RECHERCHE SUR TOUT LE RÉSEAU"
+            return AppLocalizer.string("zone.search_all", defaultValue: "RECHERCHE SUR TOUT LE RÉSEAU")
         }
         return userCoordinate == nil ? "ZONE PRIORITAIRE" : "PLUS PROCHE DE TOI"
     }

@@ -297,7 +297,7 @@ struct LineHealthIntent: AppIntent {
             let nextText: String = {
                 guard let next = nextDeparture else { return "" }
                 let dest = next.destination.map { " vers \($0)" } ?? ""
-                if next.minutes == 0 { return " Le prochain\(dest) est à quai." }
+                if next.minutes == 0 { return " " + AppLocalizer.format("siri.next_at_platform", defaultValue: "Le prochain%@ est à quai.", dest) }
                 // Siri : le pluriel vient de la traduction, pas d'un « s » concaténé.
                 let passage = AppLocalizer.format("plural.next_passage_minutes",
                                                   defaultValue: "Prochain passage dans %lld minutes", next.minutes)

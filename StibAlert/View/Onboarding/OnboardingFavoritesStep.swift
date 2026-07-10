@@ -460,7 +460,7 @@ struct OnboardingFavoritesStep: View {
                 ForEach(stops) { stop in
                     selectableRow(
                         title: stop.name,
-                        subtitle: "Arrêt \(op.mapLabel)",
+                        subtitle: AppLocalizer.format("stop.of_operator", defaultValue: "Arrêt %@", op.mapLabel),
                         operatorColor: op.brandColor,
                         operatorAsset: op.assetName,
                         isSelected: operatorFavorites.contains(stop.id),

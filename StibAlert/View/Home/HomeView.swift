@@ -2915,7 +2915,7 @@ struct HomeView: View {
     }
 
     private func relativeTimeString(from date: Date?) -> String {
-        guard let date else { return "À l'instant" }
+        guard let date else { return AppLocalizer.string("time.just_now", defaultValue: "à l’instant") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: .now)
@@ -3955,7 +3955,7 @@ private struct HomeAlternativeDetailsSheet: View {
         let trimmed = alternative.lines
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard !trimmed.isEmpty else { return "Aucune ligne précise" }
+        guard !trimmed.isEmpty else { return AppLocalizer.string("lines.none_specific", defaultValue: "Aucune ligne précise") }
         return trimmed.joined(separator: " • ")
     }
 

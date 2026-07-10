@@ -81,7 +81,7 @@ struct SignalementMiniCard: View {
                     metaPill(icon: "checkmark.seal.fill", text: confirmationsSummary)
                 }
                 if stillBlockedCount > 0 {
-                    metaPill(icon: "person.2.fill", text: "\(stillBlockedCount) bloqué·e")
+                    metaPill(icon: "person.2.fill", text: AppLocalizer.format("plural.blocked_votes", defaultValue: "%lld bloqué·e·s", stillBlockedCount))
                 }
             }
             .padding(.top, 12)
@@ -126,14 +126,14 @@ struct SignalementMiniCard: View {
 
             HStack(spacing: 10) {
                 actionButton(
-                    label: "Toujours bloqué",
+                    label: AppLocalizer.string("vote.still_blocked", defaultValue: "Toujours bloqué"),
                     icon: "exclamationmark.circle.fill",
                     tint: DS.Color.statusMinor,
                     isActive: userAction == "stillBlocked",
                     action: triggerStillBlocked
                 )
                 actionButton(
-                    label: "C'est résolu",
+                    label: AppLocalizer.string("vote.its_resolved", defaultValue: "C'est résolu"),
                     icon: "checkmark.circle.fill",
                     tint: DS.Color.statusOK,
                     isActive: userAction == "resolved",
