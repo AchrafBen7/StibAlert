@@ -8,6 +8,9 @@ struct HomeSearchHeaderOverlay: View {
     let suggestions: [MKMapItem]
     let isRouting: Bool
     let hasUserCoordinate: Bool
+    /// Position de l'utilisateur : sert à afficher la distance à droite de chaque
+    /// suggestion (« 1,2 km »), le repère « Google Maps » qui manquait.
+    var userCoordinate: CLLocationCoordinate2D? = nil
     let favoriteLineCount: Int
     let totalActiveSignalementsCount: Int
     let isFavoritesFilterActive: Bool
@@ -67,6 +70,7 @@ struct HomeSearchHeaderOverlay: View {
                     SearchSuggestionsDropdown(
                         suggestions: suggestions,
                         isRouting: isRouting,
+                        userCoordinate: userCoordinate,
                         onSelect: onSelectSuggestion
                     )
                     .padding(.horizontal, 18)
@@ -241,86 +245,106 @@ private struct HomeEditorialActionChip: View {
     }
 }
 
+/// Autocomplétion de la barre de recherche, façon Google Maps / Waze.
+///
+/// L'ancienne version était « anti-Google Maps » : un en-tête « DESTINATIONS » en
+/// monospace, TROIS lignes par résultat (nom + adresse + un tag « ADRESSE »/« LIEU »
+/// en majuscules colorées), et une icône « sparkles » orange dans un carré. Trop
+/// de choses pour un simple « où vas-tu ? ».
+///
+/// Ici : pas d'en-tête, deux lignes (nom + adresse), une icône monochrome choisie
+/// selon la catégorie du lieu, et — le repère qui manquait — la DISTANCE à droite.
 private struct SearchSuggestionsDropdown: View {
     let suggestions: [MKMapItem]
     let isRouting: Bool
+    var userCoordinate: CLLocationCoordinate2D? = nil
     let onSelect: (MKMapItem) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header discret : juste un petit label, sans la grosse ligne
-            // pleine qui donnait un aspect « carré lourd » derrière les
-            // résultats. La liste respire davantage.
-            Text("DESTINATIONS")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .tracking(2)
-                .foregroundStyle(DS.Color.inkMute.opacity(0.8))
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 6)
-
             ForEach(suggestions, id: \.self) { item in
                 Button {
                     onSelect(item)
                 } label: {
-                    HStack(alignment: .top, spacing: 12) {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(DS.Color.paper2)
-                            .frame(width: 34, height: 34)
-                            .overlay(
-                                Image(systemName: symbol(for: item))
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(DS.Color.primary)
-                            )
+                    HStack(spacing: 12) {
+                        Image(systemName: symbol(for: item))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(DS.Color.inkMute)
+                            .frame(width: 38, height: 38)
+                            .background(DS.Color.paper2)
+                            .clipShape(Circle())
 
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(item.name ?? "Lieu")
-                                .font(.system(size: 15, weight: .bold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name ?? AppLocalizer.string("Lieu", defaultValue: "Lieu"))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(DS.Color.ink)
+                                .lineLimit(1)
                             Text(primaryLocationLine(for: item))
-                                .font(DS.Font.caption)
+                                .font(.system(size: 13))
                                 .foregroundStyle(DS.Color.inkMute)
                                 .lineLimit(1)
-                            Text(categoryLabel(for: item))
-                                .font(DS.Font.monoSmall.weight(.bold))
-                                .tracking(1.4)
-                                .foregroundStyle(DS.Color.community)
                         }
 
-                        Spacer()
+                        Spacer(minLength: 8)
 
                         if isRouting {
                             ProgressView()
                                 .tint(DS.Color.ink)
-                                .scaleEffect(0.85)
+                                .scaleEffect(0.8)
+                        } else if let distance = distanceText(for: item) {
+                            Text(distance)
+                                .font(.system(size: 12, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(DS.Color.inkMute)
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 13)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
                 if item != suggestions.last {
                     Divider()
-                        .overlay(DS.Color.ink.opacity(0.08))
-                        .padding(.leading, 60)
+                        .overlay(DS.Color.ink.opacity(0.07))
+                        .padding(.leading, 64)
                 }
             }
         }
+        .padding(.vertical, 4)
         .background(DS.Color.paper)
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
                 .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-        .shadow(DS.Shadow.raised)
+        .shadow(DS.Shadow.floating)
     }
 
+    private func distanceText(for item: MKMapItem) -> String? {
+        guard let userCoordinate, let location = item.placemark.location else { return nil }
+        let meters = CLLocation(latitude: userCoordinate.latitude, longitude: userCoordinate.longitude)
+            .distance(from: location)
+        return meters.distanceLabel
+    }
+
+    /// Icône monochrome selon la catégorie du POI (comme la liste de Google Maps),
+    /// sinon un simple repère pour une adresse.
     private func symbol(for item: MKMapItem) -> String {
-        if item.pointOfInterestCategory != nil {
-            return "sparkles"
+        switch item.pointOfInterestCategory {
+        case .some(.restaurant), .some(.cafe), .some(.bakery): return "fork.knife"
+        case .some(.store), .some(.foodMarket): return "bag"
+        case .some(.hospital), .some(.pharmacy): return "cross.case"
+        case .some(.school), .some(.university), .some(.library): return "graduationcap"
+        case .some(.park), .some(.nationalPark): return "tree"
+        case .some(.museum), .some(.theater): return "building.columns"
+        case .some(.hotel): return "bed.double"
+        case .some(.airport): return "airplane"
+        case .some(.publicTransport): return "tram.fill"
+        case .some(.stadium), .some(.fitnessCenter): return "sportscourt"
+        case .some: return "mappin.circle"
+        case .none: return "mappin"
         }
-        return "mappin"
     }
 
     private func primaryLocationLine(for item: MKMapItem) -> String {
@@ -334,12 +358,5 @@ private struct SearchSuggestionsDropdown: View {
             return value
         }
         return pieces.isEmpty ? (placemark.title ?? "") : pieces.joined(separator: ", ")
-    }
-
-    private func categoryLabel(for item: MKMapItem) -> String {
-        if item.pointOfInterestCategory != nil {
-            return "LIEU"
-        }
-        return "ADRESSE"
     }
 }

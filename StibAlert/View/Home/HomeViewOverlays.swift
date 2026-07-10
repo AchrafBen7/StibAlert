@@ -96,6 +96,7 @@ extension HomeView {
                         suggestions: searchSuggestions,
                         isRouting: isRouting,
                         hasUserCoordinate: locationManager.userCoordinate != nil,
+                        userCoordinate: locationManager.userCoordinate,
                         favoriteLineCount: favoriteLineCount,
                         totalActiveSignalementsCount: totalActiveSignalementsCount,
                         isFavoritesFilterActive: activeMapFilter == .favorites,
