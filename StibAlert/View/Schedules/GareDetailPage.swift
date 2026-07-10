@@ -804,7 +804,8 @@ struct GareDetailPage: View {
         if !signalements.isEmpty { parts.append("communauté") }
         if officialCount > 0 { parts.append("SNCB") }
         let total = signalements.count + officialCount
-        return "\(total) info\(total > 1 ? "s" : "") · \(parts.joined(separator: " + "))"
+        let infos = AppLocalizer.format("plural.infos", defaultValue: "%lld infos", total)
+        return "\(infos) · \(parts.joined(separator: " + "))"
     }
 
     // MARK: Real-time (iRail)

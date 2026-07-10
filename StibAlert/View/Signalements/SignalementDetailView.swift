@@ -104,7 +104,7 @@ struct SignalementDetailView: View {
             items.append(
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 12),
-                    label: "\(confirmations) voyageur\(confirmations > 1 ? "s" : "") confirment",
+                    label: AppLocalizer.format("plural.travelers_confirm", defaultValue: "%lld voyageurs confirment", confirmations),
                     body: nil,
                     source: .community
                 )
@@ -116,7 +116,8 @@ struct SignalementDetailView: View {
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 6),
                     label: "Toujours bloqué sur le terrain",
-                    body: "\(stillBlocked) retour\(stillBlocked > 1 ? "s" : "") signalent que l'incident continue.",
+                    body: AppLocalizer.format("plural.reports_still_blocked",
+                                              defaultValue: "%lld retours signalent que l'incident continue.", stillBlocked),
                     source: .community
                 )
             )
@@ -125,7 +126,8 @@ struct SignalementDetailView: View {
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 6),
                     label: "Reprise partielle signalée",
-                    body: "\(resolvedCount) retour\(resolvedCount > 1 ? "s" : "") indiquent une amélioration.",
+                    body: AppLocalizer.format("plural.reports_improvement",
+                                              defaultValue: "%lld retours indiquent une amélioration.", resolvedCount),
                     source: .system
                 )
             )

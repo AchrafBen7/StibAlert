@@ -151,7 +151,9 @@ struct SncbGareDirectory: View {
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
-                    Text(count > 0 ? "\(count) perturbation\(count > 1 ? "s" : "") · \(subtitle)" : subtitle)
+                    Text(count > 0
+                         ? "\(AppLocalizer.format("plural.disruptions", defaultValue: "%lld perturbations", count)) · \(subtitle)"
+                         : subtitle)
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(count > 0 ? DS.Color.statusMajor : DS.Color.inkMute)
                         .lineLimit(1)

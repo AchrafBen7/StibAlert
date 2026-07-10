@@ -12851,6 +12851,226 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen betrouwbaar volgend vertrek voor deze richting." } }
       }
     },
+    "plural.lines" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld ligne" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld lignes" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld lijn" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld lijnen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.dispatches" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld dépêche" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld dépêches" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld bericht" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld berichten" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.reports" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld rapport" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld rapports" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.confirmations_blocked" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmation « toujours bloqué »" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmations « toujours bloqué »" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld bevestiging « nog steeds geblokkeerd »" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld bevestigingen « nog steeds geblokkeerd »" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.travelers_confirm" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld voyageur confirme" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld voyageurs confirment" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld reiziger bevestigt" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld reizigers bevestigen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.reports_still_blocked" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour signale que l'incident continue." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld retours signalent que l'incident continue." } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding geeft aan dat het incident aanhoudt." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen geven aan dat het incident aanhoudt." } }
+            }
+          }
+        }
+      }
+    },
+    "plural.reports_improvement" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour indique une amélioration." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld retours indiquent une amélioration." } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding wijst op verbetering." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen wijzen op verbetering." } }
+            }
+          }
+        }
+      }
+    },
+    "plural.infos" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld info" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld infos" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.disruptions" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld perturbation" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld perturbations" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld storing" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld storingen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.official_disruptions" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld perturbation officielle" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld perturbations officielles" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld officiële storing" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld officiële storingen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.pending_sync" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld signalement en attente de sync" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld signalements en attente de sync" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding wacht op synchronisatie" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen wachten op synchronisatie" } }
+            }
+          }
+        }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

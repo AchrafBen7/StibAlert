@@ -141,7 +141,7 @@ struct ReportsFeedView: View {
             Text("·")
                 .font(DS.Font.eyebrow)
                 .foregroundStyle(DS.Color.inkMute)
-            Text("\(count) ligne\(count > 1 ? "s" : "")")
+            Text(AppLocalizer.format("plural.lines", defaultValue: "%lld lignes", count))
                 .font(DS.Font.eyebrow)
                 .tracking(1.4)
                 .foregroundStyle(DS.Color.inkMute)

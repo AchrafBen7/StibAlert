@@ -1117,7 +1117,8 @@ private struct OperatorLineIssue: Identifiable {
     let disruptions: [OperatorDisruption]
 
     var previewText: String {
-        disruptions.first?.header.nonEmpty ?? "\(disruptions.count) perturbation\(disruptions.count > 1 ? "s" : "") officielle\(disruptions.count > 1 ? "s" : "")"
+        disruptions.first?.header.nonEmpty
+            ?? AppLocalizer.format("plural.official_disruptions", defaultValue: "%lld perturbations officielles", disruptions.count)
     }
 }
 
@@ -1156,7 +1157,7 @@ private struct OperatorLineDisruptionDetail: View {
                         .lineLimit(2)
                     Text(issue.disruptions.isEmpty
                          ? "\(op.mapLabel) · \(issue.line.modeLabel)"
-                         : "\(issue.disruptions.count) perturbation\(issue.disruptions.count > 1 ? "s" : "") officielle\(issue.disruptions.count > 1 ? "s" : "") · \(op.mapLabel)")
+                         : "\(AppLocalizer.format("plural.official_disruptions", defaultValue: "%lld perturbations officielles", issue.disruptions.count)) · \(op.mapLabel)")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }

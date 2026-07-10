@@ -30,7 +30,7 @@ struct ReportsCarousel: View {
 
             Spacer()
 
-            Text("\(items.count) dépêche\(items.count > 1 ? "s" : "")")
+            Text(AppLocalizer.format("plural.dispatches", defaultValue: "%lld dépêches", items.count))
                 .font(DS.Font.monoSmall.weight(.semibold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)

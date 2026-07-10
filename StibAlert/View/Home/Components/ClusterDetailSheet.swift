@@ -75,7 +75,7 @@ struct ClusterDetailSheet: View {
                 } else {
                     confidenceBadge(cluster.confidence)
                 }
-                Text("\(cluster.reportCount) rapport\(cluster.reportCount > 1 ? "s" : "")")
+                Text(AppLocalizer.format("plural.reports", defaultValue: "%lld rapports", cluster.reportCount))
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
@@ -116,7 +116,9 @@ struct ClusterDetailSheet: View {
                     bulletPoint("Première alerte il y a \(mins) min")
                 }
                 if cluster.stillBlockedConfirmationCount > 0 {
-                    bulletPoint("\(cluster.stillBlockedConfirmationCount) confirmation\(cluster.stillBlockedConfirmationCount > 1 ? "s" : "") « toujours bloqué »")
+                    bulletPoint(AppLocalizer.format("plural.confirmations_blocked",
+                                                    defaultValue: "%lld confirmations « toujours bloqué »",
+                                                    cluster.stillBlockedConfirmationCount))
                 }
             }
         }

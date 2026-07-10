@@ -68,11 +68,8 @@ struct OfflineIndicator: View {
     }
 
     private var pendingReportsLabel: String {
-        AppLocalizer.format(
-            "%lld signalement%@ en attente de sync",
-            defaultValue: "%lld signalement%@ en attente de sync",
-            pendingReports,
-            pendingReports > 1 ? "s" : ""
-        )
+        AppLocalizer.format("plural.pending_sync",
+                            defaultValue: "%lld signalements en attente de sync",
+                            pendingReports)
     }
 }
