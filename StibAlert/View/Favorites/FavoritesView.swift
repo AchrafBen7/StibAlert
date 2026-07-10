@@ -1207,7 +1207,7 @@ private struct FavoriteStopDetailView: View {
                 lineCode: lineCode,
                 lineColor: chip.color,
                 lineTextColor: chip.textColor,
-                title: incident.type ?? TransportViewAdapters.localizedSeverityLabel(severity: incident.severity, fallback: nil),
+                title: incident.localizedType ?? TransportViewAdapters.localizedSeverityLabel(severity: incident.severity, fallback: nil),
                 body: incident.description ?? "Aucun détail terrain disponible.",
                 background: incidentBackground(for: incident.severity),
                 dotColor: incidentDotColor(for: incident.severity),

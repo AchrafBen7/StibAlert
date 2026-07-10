@@ -997,7 +997,7 @@ struct LigneDetailPage: View {
                 .background(DS.Color.statusMinor.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(incident.type ?? "Information STIB")
+                Text(incident.localizedType ?? "Information STIB")
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 if let description = incident.description, !description.isEmpty {

@@ -33,7 +33,7 @@ enum TransportViewAdapters {
 
         let incidentSummary: String
         if let first = overview.activeIncidents.first {
-            incidentSummary = first.description ?? first.type ?? AppLocalizer.string("home.disruptions_detected", defaultValue: "Perturbations détectées")
+            incidentSummary = first.localizedDescription ?? first.localizedType ?? AppLocalizer.string("home.disruptions_detected", defaultValue: "Perturbations détectées")
         } else {
             incidentSummary = AppLocalizer.string("home.network_ok", defaultValue: "Le réseau autour de vous semble exploitable.")
         }
@@ -55,9 +55,9 @@ enum TransportViewAdapters {
             TransportRecentIncidentItem(
                 id: incident.id,
                 line: incident.line ?? "?",
-                title: incident.type ?? localizedSeverityLabel(severity: incident.severity, fallback: nil),
+                title: incident.localizedType ?? localizedSeverityLabel(severity: incident.severity, fallback: nil),
                 time: incident.date.map { formatter.localizedString(for: $0, relativeTo: .now) } ?? AppLocalizer.string("time.just_now", defaultValue: "à l’instant"),
-                details: incident.description ?? AppLocalizer.string("no_details", defaultValue: "Aucun détail disponible.")
+                details: incident.localizedDescription ?? AppLocalizer.string("no_details", defaultValue: "Aucun détail disponible.")
             )
         }
     }

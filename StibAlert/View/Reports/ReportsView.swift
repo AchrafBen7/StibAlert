@@ -618,6 +618,10 @@ struct ReportsView: View {
                 id: "community-\(report.id)",
                 type: report.canonicalTypeProbleme,
                 description: report.description,
+                // Signalement communautaire : texte saisi par un usager, donc
+                // monolingue. `localizedDescription` retombera sur `description`.
+                typeI18n: nil,
+                descriptionI18n: nil,
                 severity: "minor",
                 confidence: nil,
                 legacyConfidence: nil,
@@ -990,7 +994,7 @@ struct ReportsView: View {
                     id: "official-transport-\(incident.id)",
                     type: .official,
                     title: primaryLine.map { "Ligne \($0) · \(incident.type ?? "Information STIB")" } ?? (incident.type ?? "Information STIB"),
-                    body: incident.description,
+                    body: incident.localizedDescription,
                     timeLabel: relativeTimeLabel(from: incident.date),
                     lines: lines,
                     location: incident.stop?.name,
@@ -1768,8 +1772,10 @@ struct ReportsView: View {
                 guard matchesSelectedMode(lines: lines) else { return nil }
                 return NetworkIssueCarouselItem(
                     id: "official-\(incident.id)",
-                    keyword: issueKeyword(from: incident.type ?? incident.description ?? summary.localizedShortText),
-                    detail: incident.description ?? summary.localizedShortText,
+                    // `issueKeyword` matche des mots FRANÇAIS (« travaux », « dévi »…) : on lui
+                    // donne le texte FR, jamais la version traduite, sinon plus rien ne matche.
+                    keyword: issueKeyword(from: incident.typeI18n?.fr ?? incident.type ?? incident.description ?? summary.localizedShortText),
+                    detail: incident.localizedDescription ?? summary.localizedShortText,
                     lines: lines,
                     location: incident.stop?.name,
                     sourceLabel: "Officiel STIB",

@@ -672,6 +672,11 @@ struct TransportIncidentDTO: Codable, Identifiable, Equatable {
     let id: String
     let type: String?
     let description: String?
+    /// Le backend renvoie désormais les DEUX langues en plus des champs plats.
+    /// Optionnels : les réponses encore en cache (TTL 2 min) et les anciennes
+    /// versions du serveur ne les portent pas.
+    let typeI18n: TransportLabelDTO?
+    let descriptionI18n: TransportLabelDTO?
     let severity: String?
     let confidence: Double?
     let legacyConfidence: String?
@@ -680,6 +685,14 @@ struct TransportIncidentDTO: Codable, Identifiable, Equatable {
     let stop: TransportIncidentStopDTO?
     let date: Date?
     let community: SignalementCommunityDTO?
+
+    /// Titre dans la langue de l'app, avec repli sur le champ plat historique.
+    var localizedType: String? { typeI18n?.localized ?? type }
+
+    /// Description dans la langue de l'app, avec repli sur le champ plat historique.
+    /// Les signalements communautaires n'ont pas de version bilingue (texte saisi
+    /// par un usager) : le repli les couvre naturellement.
+    var localizedDescription: String? { descriptionI18n?.localized ?? description }
 }
 
 struct TransportDepartureDTO: Codable, Identifiable, Equatable {

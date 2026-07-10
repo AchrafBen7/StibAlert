@@ -1505,12 +1505,12 @@ private struct StopIncidentDetailSheet: View {
     let onOpenLine: (String) -> Void
 
     private var title: String {
-        if let type = incident.type, !type.isEmpty { return type }
+        if let type = incident.localizedType, !type.isEmpty { return type }
         return "Perturbation"
     }
 
     private var bodyText: String {
-        if let description = incident.description, !description.isEmpty { return description }
+        if let description = incident.localizedDescription, !description.isEmpty { return description }
         return "Information active sur cet arrêt."
     }
 

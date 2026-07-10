@@ -412,7 +412,7 @@ struct HomeView: View {
                 return RouteOfficialSignalPoint(
                     id: incident.id,
                     coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                    title: incident.type ?? "Alerte STIB",
+                    title: incident.localizedType ?? "Alerte STIB",
                     severity: incident.severity,
                     stop: summary
                 )
@@ -867,8 +867,8 @@ struct HomeView: View {
                 TravellerInfo(
                     priority: nil,
                     type: incident.type,
-                    title: incident.type ?? "Perturbation",
-                    description: incident.description,
+                    title: incident.localizedType ?? "Perturbation",
+                    description: incident.localizedDescription,
                     lines: incident.line.map { [$0] },
                     points: incident.stop?.id.map { [$0] }
                 )
