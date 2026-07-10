@@ -2061,6 +2061,23 @@
         }
       }
     },
+    "Alerte": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alerte"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storing"
+          }
+        }
+      }
+    },
     "Alerte communauté": {
       "localizations": {
         "en": {
@@ -5421,6 +5438,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gegevens in cache · Tik om opnieuw te proberen"
+          }
+        }
+      }
+    },
+    "Données jamais partagées ni vendues": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données jamais partagées ni vendues"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gegevens nooit gedeeld of verkocht"
           }
         }
       }
@@ -11471,6 +11505,23 @@
         }
       }
     },
+    "Seulement avant ton trajet, pas à 2h du matin": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seulement avant ton trajet, pas à 2h du matin"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alleen voor je rit, niet om 2 uur 's nachts"
+          }
+        }
+      }
+    },
     "Si certaines informations ne remontent pas, tu peux compléter le formulaire manuellement.": {
       "comment": "A description below the text indicating that manual completion is possible.",
       "extractionState": "stale",
@@ -11748,6 +11799,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Als onjuist gemarkeerd"
+          }
+        }
+      }
+    },
+    "Silence complet si ta ligne tourne normalement": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silence complet si ta ligne tourne normalement"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volledige stilte als je lijn normaal rijdt"
           }
         }
       }
@@ -12465,6 +12533,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alles loopt vlot bij jou"
+          }
+        }
+      }
+    },
+    "Tout roule": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout roule"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles rijdt"
           }
         }
       }
@@ -22152,6 +22237,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "dan %lld min"
+          }
+        }
+      }
+    },
+    "push.scenario.alert": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incident à Ixelles · ligne %@ perturbée dès 8h40. Envisage un départ avant 8h25."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incident in Elsene · lijn %@ verstoord vanaf 8u40. Overweeg een vertrek voor 8u25."
+          }
+        }
+      }
+    },
+    "push.scenario.delay": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ heeft 8 min vertraging. Volgend vertrek vanaf je halte over 11 min."
+          }
+        }
+      }
+    },
+    "push.scenario.ok": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ · 8h07 · Trafic normal ce matin. Prochain départ dans 4 min."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ · 8u07 · Normaal verkeer vanochtend. Volgend vertrek over 4 min."
           }
         }
       }

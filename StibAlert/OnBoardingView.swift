@@ -648,39 +648,55 @@ private struct OnboardingPushStep: View {
         let body: String
     }
 
+    /// `tabLabel` et `body` sont des `String` affichées via `Text(variable)`, qui ne se
+    /// localise jamais. Elles restaient donc en français dans l'app en néerlandais —
+    /// juste sous un titre traduit, ce qui est pire que pas de traduction du tout.
     private var scenarios: [NotifScenario] {
         [
             NotifScenario(
                 id: 0,
                 tabIcon: "exclamationmark.triangle.fill",
-                tabLabel: "Alerte",
+                tabLabel: AppLocalizer.string("Alerte", defaultValue: "Alerte"),
                 badgeColor: Color(hex: "#FF6B3D"),
-                body: "Incident à Ixelles · ligne \(primaryLineLabel) perturbée dès 8h40. Envisage un départ avant 8h25."
+                body: AppLocalizer.format("push.scenario.alert",
+                                          defaultValue: "Incident à Ixelles · ligne %@ perturbée dès 8h40. Envisage un départ avant 8h25.",
+                                          primaryLineLabel)
             ),
             NotifScenario(
                 id: 1,
                 tabIcon: "checkmark.circle.fill",
-                tabLabel: "Tout roule",
+                tabLabel: AppLocalizer.string("Tout roule", defaultValue: "Tout roule"),
                 badgeColor: Color(hex: "#73F0D2"),
-                body: "Ligne \(primaryLineLabel) · 8h07 · Trafic normal ce matin. Prochain départ dans 4 min."
+                body: AppLocalizer.format("push.scenario.ok",
+                                          defaultValue: "Ligne %@ · 8h07 · Trafic normal ce matin. Prochain départ dans 4 min.",
+                                          primaryLineLabel)
             ),
             NotifScenario(
                 id: 2,
                 tabIcon: "clock.badge.fill",
-                tabLabel: "Retard",
+                tabLabel: AppLocalizer.string("Retard", defaultValue: "Retard"),
                 badgeColor: Color(hex: "#B5CFF8"),
-                body: "Ligne \(primaryLineLabel) retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min."
+                body: AppLocalizer.format("push.scenario.delay",
+                                          defaultValue: "Ligne %@ retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min.",
+                                          primaryLineLabel)
             ),
         ]
     }
 
     // MARK: Trust signals
 
-    private let trustSignals: [(icon: String, text: String)] = [
-        ("clock.badge.checkmark.fill", "Seulement avant ton trajet, pas à 2h du matin"),
-        ("bell.slash.fill",            "Silence complet si ta ligne tourne normalement"),
-        ("lock.shield.fill",           "Données jamais partagées ni vendues"),
-    ]
+    /// `var` calculée, pas `let` : un `let` contenant `AppLocalizer` fige la langue au
+    /// premier accès, et changer de langue dans Profil ne rafraîchirait plus rien.
+    private var trustSignals: [(icon: String, text: String)] {
+        [
+            ("clock.badge.checkmark.fill", AppLocalizer.string("Seulement avant ton trajet, pas à 2h du matin",
+                                                               defaultValue: "Seulement avant ton trajet, pas à 2h du matin")),
+            ("bell.slash.fill",            AppLocalizer.string("Silence complet si ta ligne tourne normalement",
+                                                               defaultValue: "Silence complet si ta ligne tourne normalement")),
+            ("lock.shield.fill",           AppLocalizer.string("Données jamais partagées ni vendues",
+                                                               defaultValue: "Données jamais partagées ni vendues")),
+        ]
+    }
 
     // MARK: Layout
 
@@ -693,8 +709,23 @@ private struct OnboardingPushStep: View {
                     trustSignalsCard
                 }
                 .padding(.horizontal, 22)
-                .padding(.top, 56)
-                .padding(.bottom, 150)
+                .padding(.top, 44)
+                // 150 pt ici étaient un reliquat d'une version où le CTA flottait en
+                // ZStack. Dans ce VStack, il occupe déjà sa place : le padding ne
+                // faisait que pousser la carte « Pourquoi l'activer » hors de l'écran.
+                .padding(.bottom, 12)
+            }
+            // Le dégradé vivait DANS `ctaArea`, donc sous le ScrollView dans le VStack :
+            // il fondait le fond sur le fond, et ne servait à rien. En overlay, il fond
+            // le contenu qui défile — la carte tranchée devient un indice « ça continue ».
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [DS.Color.background.opacity(0), DS.Color.background],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 28)
+                .allowsHitTesting(false)
             }
 
             ctaArea
@@ -826,8 +857,12 @@ private struct OnboardingPushStep: View {
                     HStack(spacing: 5) {
                         Image(systemName: scenario.tabIcon)
                             .font(.system(size: 10, weight: .semibold))
+                        // Le néerlandais est plus long : « Waarschuwing » passait à la
+                        // ligne au milieu du mot. Une pastille ne se lit que d'un trait.
                         Text(scenario.tabLabel)
                             .font(DS.Font.bodySmall.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                     .foregroundStyle(selectedScenario == scenario.id ? DS.Color.primaryForeground : DS.Color.inkMute)
                     .padding(.horizontal, 10)
@@ -899,24 +934,15 @@ private struct OnboardingPushStep: View {
     // MARK: CTA
 
     private var ctaArea: some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                colors: [DS.Color.background.opacity(0), DS.Color.background],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 32)
-            .allowsHitTesting(false)
-
-            VStack(spacing: 10) {
-                authorizeButton
-                dialogHint
-                laterButton
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
-            .background(DS.Color.background)
+        VStack(spacing: 10) {
+            authorizeButton
+            dialogHint
+            laterButton
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 24)
+        .background(DS.Color.background)
     }
 
     private var authorizeButton: some View {
@@ -961,8 +987,9 @@ private struct OnboardingPushStep: View {
             Image(systemName: "hand.tap.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(DS.Color.inkMute)
+            // Pas de monospace : elle est réservée aux données temps réel.
             Text("Une fenêtre iOS va s'ouvrir pour confirmer")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.caption)
                 .foregroundStyle(DS.Color.inkMute)
         }
         .frame(maxWidth: .infinity)
