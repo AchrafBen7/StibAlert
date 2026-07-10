@@ -3689,9 +3689,9 @@ struct HomeView: View {
     @ViewBuilder
     private var pageOverlay: some View {
         ZStack {
-            Color(hex: (nav.currentPage == .signalements || nav.currentPage == .reports || nav.currentPage == .schedules || nav.currentPage == .favorites || nav.currentPage == .profile) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
+            Color(hex: (nav.currentPage == .reports || nav.currentPage == .schedules || nav.currentPage == .favorites || nav.currentPage == .profile) ? "#1B1B1B" : "#0B111E").ignoresSafeArea()
 
-            if nav.currentPage != .signalements && nav.currentPage != .reports && nav.currentPage != .schedules && nav.currentPage != .favorites && nav.currentPage != .profile {
+            if nav.currentPage != .reports && nav.currentPage != .schedules && nav.currentPage != .favorites && nav.currentPage != .profile {
                 VStack {
                     HStack {
                         Button {
@@ -3722,8 +3722,6 @@ struct HomeView: View {
             }
 
             switch nav.currentPage {
-            case .signalements:
-                SignalementsView()
             case .reports:
                 ReportsView()
             case .schedules:
@@ -3790,8 +3788,8 @@ private struct WazeMenuPanel: View {
 
                 item("mappin.and.ellipse",   "Carte & trafic en direct")  { onNavigate(.home);         onClose() }
                 item("exclamationmark.circle","Signaler un arrêt")         { onReport() }
-                item("clock.arrow.circlepath","Lignes")                    { onNavigate(.signalements); onClose() }
-                item("bubble.left.and.exclamationmark.bubble.right", "Reports") { onNavigate(.reports); onClose() }
+                item("clock.arrow.circlepath","Lignes")                    { onNavigate(.schedules);    onClose() }
+                item("bubble.left.and.exclamationmark.bubble.right", "Alertes") { onNavigate(.reports); onClose() }
                 item("heart",                "Mes favoris")                { onNavigate(.favorites);    onClose() }
                 item("gearshape",            "Paramètres")                 { onNavigate(.profile);      onClose() }
                 item("questionmark.circle",  "Besoin d'aide ?")            { onNavigate(.profile);      onClose() }

@@ -46,7 +46,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch page {
         case .home: return .home
         case .schedules: return .schedules
-        case .signalements, .reports: return .live
+        case .reports: return .live
         case .favorites: return .favorites
         case .profile: return .profile
         }
