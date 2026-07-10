@@ -22,20 +22,19 @@ struct GuestTabPlaceholder: View {
                     .padding(.bottom, 24)
                 }
             }
-            // Les deux boutons étaient dans le flux du ScrollView : « Se connecter »
-            // finissait DERRIÈRE la barre d'onglets flottante (70 pt + zone sûre) et
-            // n'était atteignable qu'en scrollant. Ajouter du padding sous eux les
-            // enfonçait davantage — on les épingle au-dessus de la barre.
-            VStack {
-                Spacer()
+            // Historique de ce bloc :
+            // 1. Les boutons vivaient dans le ScrollView → « Se connecter » finissait
+            //    derrière la barre d'onglets flottante (70 pt + zone sûre).
+            // 2. Les épingler dans un ZStack les rendait visibles, mais ils
+            //    RECOUVRAIENT la dernière carte d'avantage.
+            // `safeAreaInset` fait les deux : il épingle le bloc ET réserve la place
+            // correspondante dans le ScrollView, sans calcul de hauteur à la main.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 actions
                     .padding(.horizontal, 20)
+                    .padding(.top, 12)
                     .padding(.bottom, 108)
-                    .background(
-                        DS.Color.paper
-                            .ignoresSafeArea(edges: .bottom)
-                            .opacity(0.96)
-                    )
+                    .background(DS.Color.paper.ignoresSafeArea(edges: .bottom))
             }
         }
         .modifier(PaperGrainBackground())
