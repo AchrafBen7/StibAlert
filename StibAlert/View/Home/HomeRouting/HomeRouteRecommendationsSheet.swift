@@ -823,6 +823,14 @@ private struct RouteShapeThumbnail: View {
 private struct InlineRouteDetails: View {
     let option: HomeRouteOption
 
+    /// Opérateur d'un segment. Uniquement pour les segments transport (pas la marche).
+    /// Un segment transport sans opérateur explicite est supposé STIB — l'app est
+    /// bruxelloise, centrée MIVB ; De Lijn / TEC / SNCB arrivent taggés par le backend.
+    private func operatorFor(_ item: InlineRouteStepItem) -> TransitOperator? {
+        guard item.lineCode != nil else { return nil }
+        return item.lineDescriptor?.operatorType ?? .stib
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle()
@@ -870,11 +878,28 @@ private struct InlineRouteDetails: View {
                                 .foregroundStyle(DS.Color.ink)
                                 .lineLimit(1)
                         }
-                        Text(item.meta)
-                            .font(DS.Font.monoSmall)
-                            .tracking(1.2)
-                            .foregroundStyle(DS.Color.inkMute)
-                            .lineLimit(1)
+                        // Opérateur + faits sur la même ligne. La pastille colorée
+                        // (« STIB », « De Lijn », « TEC », « SNCB ») rend l'opérateur
+                        // explicite d'un coup d'œil — au-delà de la couleur du badge de
+                        // ligne, qui ne suffit pas à distinguer les réseaux.
+                        HStack(spacing: 6) {
+                            if let op = operatorFor(item) {
+                                Text(op.mapLabel)
+                                    .font(.system(size: 9, weight: .black))
+                                    .tracking(0.3)
+                                    .foregroundStyle(op.brandTextColor)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(op.brandColor)
+                                    .clipShape(Capsule())
+                                    .accessibilityLabel(op.accessibilityLabel)
+                            }
+                            Text(item.meta)
+                                .font(DS.Font.monoSmall)
+                                .tracking(1.2)
+                                .foregroundStyle(DS.Color.inkMute)
+                                .lineLimit(1)
+                        }
                     }
                     Spacer(minLength: 0)
                 }

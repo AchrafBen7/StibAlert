@@ -3433,10 +3433,21 @@ struct HomeView: View {
             .route
     }
 
+    /// Route mise en avant à l'ouverture : la PLUS RAPIDE en transport (puis vélo).
+    ///
+    /// Avant, on prenait `options.first(transit)` — le 1ᵉʳ élément dans l'ordre du
+    /// BACKEND. Quand le backend range sa route « fiable » en tête (ex. elle évite une
+    /// ligne perturbée) mais qu'elle est plus lente, on recommandait 42 min alors que
+    /// le sélecteur de mode et la liste, triés par durée, affichaient 28 min juste en
+    /// dessous : on mettait en avant la plus lente sans l'expliquer. Toutes les options
+    /// proposées évitent déjà la perturbation (cf. bannière « recalculé ») ; parmi
+    /// elles, la plus rapide doit gagner — cohérent avec le sélecteur de mode.
     private func preferredRouteOption(in options: [HomeRouteOption]) -> HomeRouteOption? {
-        options.first(where: { $0.primaryModeKey == "transit" })
-            ?? options.first(where: { $0.primaryModeKey == "bike" })
-            ?? options.first
+        let fastest: (String) -> HomeRouteOption? = { mode in
+            options.filter { $0.primaryModeKey == mode }
+                .min { $0.totalDurationMinutes < $1.totalDurationMinutes }
+        }
+        return fastest("transit") ?? fastest("bike") ?? options.first
     }
 
     private func calculateRouteOptions(
