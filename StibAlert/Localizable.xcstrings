@@ -12636,14 +12636,42 @@
     },
     "community.recent_confirmations" : {
       "localizations" : {
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmation(s) terrain récentes" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld recente bevestiging(en) ter plaatse" } }
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmation terrain récente" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmations terrain récentes" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld recente bevestiging ter plaatse" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld recente bevestigingen ter plaatse" } }
+            }
+          }
+        }
       }
     },
     "community.improvement_reports" : {
       "localizations" : {
-        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour(s) indiquent une amélioration" } },
-        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding(en) wijzen op verbetering" } }
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour indique une amélioration" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld retours indiquent une amélioration" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding wijst op verbetering" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen wijzen op verbetering" } }
+            }
+          }
+        }
       }
     },
     "zone.filter_tec" : {
@@ -13069,6 +13097,138 @@
             }
           }
         }
+      }
+    },
+    "plural.continue_with_lines" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Continuer avec %lld ligne" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Continuer avec %lld lignes" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Doorgaan met %lld lijn" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Doorgaan met %lld lijnen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.confirmed_by_people" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Confirmé par %lld personne dans la communauté." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Confirmé par %lld personnes dans la communauté." } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Bevestigd door %lld persoon in de community." } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Bevestigd door %lld personen in de community." } }
+            }
+          }
+        }
+      }
+    },
+    "plural.next_passage_minutes" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Prochain passage dans %lld minute" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Prochain passage dans %lld minutes" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Volgende doorkomst over %lld minuut" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Volgende doorkomst over %lld minuten" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.minutes" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld minute" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld minutes" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld minuut" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld minuten" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.field_confirmations" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmation terrain" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld confirmations terrain" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld bevestiging ter plaatse" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld bevestigingen ter plaatse" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.reports_toward_resolution" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld retour vers la résolution" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld retours vers la résolution" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld melding richting oplossing" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld meldingen richting oplossing" } }
+            }
+          }
+        }
+      }
+    },
+    "onboarding.pick_one_line" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisis au moins une ligne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kies minstens één lijn" } }
+      }
+    },
+    "confidence.pct_confidence" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% de confiance" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% vertrouwen" } }
       }
     },
     "confidence.fresh" : {

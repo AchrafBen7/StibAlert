@@ -177,7 +177,9 @@ private struct OnboardingLinesStep: View {
             onContinue(sortedSelectedLines)
         } label: {
             HStack(spacing: 10) {
-                Text(canContinue ? "Continuer avec \(selectedLines.count) ligne\(selectedLines.count > 1 ? "s" : "")" : "Choisis au moins une ligne")
+                Text(canContinue
+                     ? AppLocalizer.format("plural.continue_with_lines", defaultValue: "Continuer avec %lld lignes", selectedLines.count)
+                     : AppLocalizer.string("onboarding.pick_one_line", defaultValue: "Choisis au moins une ligne"))
                 Image(systemName: "arrow.right")
             }
             .font(DesignSystem.Typography.bodyStrong)

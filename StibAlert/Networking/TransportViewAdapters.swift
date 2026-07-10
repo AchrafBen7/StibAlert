@@ -198,13 +198,13 @@ enum TransportViewAdapters {
 
         if confirmations > 0 || stillBlocked > 0 {
             return AppLocalizer.format("community.recent_confirmations",
-                                       defaultValue: "%lld confirmation(s) terrain récentes",
+                                       defaultValue: "%lld confirmations terrain récentes",
                                        confirmations + stillBlocked)
         }
 
         if resolved > 0 {
             return AppLocalizer.format("community.improvement_reports",
-                                       defaultValue: "%lld retour(s) indiquent une amélioration", resolved)
+                                       defaultValue: "%lld retours indiquent une amélioration", resolved)
         }
 
         return nil

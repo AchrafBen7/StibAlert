@@ -1543,15 +1543,16 @@ private struct FavoriteStopDetailView: View {
 
     private func confidenceLabel(for confidence: Double?) -> String? {
         guard let confidence else { return nil }
-        return "\(Int((confidence * 100).rounded()))% de confiance"
+        return AppLocalizer.format("confidence.pct_confidence", defaultValue: "%lld%% de confiance",
+                                   Int((confidence * 100).rounded()))
     }
 
     private func communitySummary(from community: SignalementCommunityDTO) -> String {
         if let confirmations = community.confirmations, confirmations > 0 {
-            return "\(confirmations) confirmation(s) terrain"
+            return AppLocalizer.format("plural.field_confirmations", defaultValue: "%lld confirmations terrain", confirmations)
         }
         if let resolved = community.resolved, resolved > 0 {
-            return "\(resolved) retour(s) vers la résolution"
+            return AppLocalizer.format("plural.reports_toward_resolution", defaultValue: "%lld retours vers la résolution", resolved)
         }
         return confidenceLabel(for: community.confidence) ?? "Lecture communautaire active"
     }

@@ -166,7 +166,8 @@ struct NextPassageIntent: AppIntent {
             if first.minutes == 0 {
                 return .result(dialog: "Le \(line)\(dest) est à \(matchedStop.nom) maintenant\(source).")
             }
-            return .result(dialog: "Le \(line)\(dest) arrive à \(matchedStop.nom) dans \(first.minutes) minute\(first.minutes > 1 ? "s" : "")\(source).")
+            let minutes = AppLocalizer.format("plural.minutes", defaultValue: "%lld minutes", first.minutes)
+                return .result(dialog: "Le \(line)\(dest) arrive à \(matchedStop.nom) dans \(minutes)\(source).")
         } catch {
             return .result(dialog: "Impossible de récupérer les passages STIB pour la ligne \(line) à \(stopQuery).")
         }
@@ -297,8 +298,10 @@ struct LineHealthIntent: AppIntent {
                 guard let next = nextDeparture else { return "" }
                 let dest = next.destination.map { " vers \($0)" } ?? ""
                 if next.minutes == 0 { return " Le prochain\(dest) est à quai." }
-                let plural = next.minutes > 1 ? "s" : ""
-                return " Prochain passage dans \(next.minutes) minute\(plural)\(dest)."
+                // Siri : le pluriel vient de la traduction, pas d'un « s » concaténé.
+                let passage = AppLocalizer.format("plural.next_passage_minutes",
+                                                  defaultValue: "Prochain passage dans %lld minutes", next.minutes)
+                return " \(passage)\(dest)."
             }()
 
             let statusSentence: String

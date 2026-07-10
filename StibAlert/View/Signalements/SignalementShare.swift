@@ -35,7 +35,8 @@ enum SignalementShare {
 
         // Confiance / multi-confirmation si on a les votes
         if let positives = s.votesPositifs, positives >= 2 {
-            out += "\n✅ Confirmé par \(positives) personne\(positives > 1 ? "s" : "") dans la communauté.\n"
+            out += "\n✅ " + AppLocalizer.format("plural.confirmed_by_people",
+                                                defaultValue: "Confirmé par %lld personnes dans la communauté.", positives) + "\n"
         }
 
         // Call to action
