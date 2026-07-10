@@ -164,32 +164,6 @@ final class LigneDetailViewModel: ObservableObject {
         }
     }
 
-    var summaryTitle: String {
-        TransportViewAdapters.localizedSeverityLabel(
-            severity: activeLine?.severity,
-            fallback: activeLine?.label?.localized
-        )
-    }
-
-    var summaryDetails: String {
-        guard let activeLine else { return AppLocalizer.string("line.loading_data", defaultValue: "Chargement des données de ligne…") }
-        let departures = activeLine.nextDepartures.prefix(3).map {
-            let minutes = $0.minutes <= 0
-                ? AppLocalizer.string("departure.imminent", defaultValue: "Imminent")
-                : AppLocalizer.format("departure.minutes", defaultValue: "%lld min", $0.minutes)
-            // "scheduled" est une valeur backend : on la compare, on ne la traduit pas.
-            let suffix = $0.source == "scheduled"
-                ? AppLocalizer.string("departure.scheduled", defaultValue: "prévu")
-                : AppLocalizer.string("departure.realtime", defaultValue: "temps réel")
-            return "\(minutes) · \(suffix)"
-        }
-        if departures.isEmpty {
-            return AppLocalizer.string("departure.none_reliable",
-                                       defaultValue: "Aucun prochain départ fiable pour cette direction.")
-        }
-        return departures.joined(separator: " • ")
-    }
-
     var alternativeSummary: String? {
         activeLine?.recommendedAlternatives.first?.localizedExplanationDetails?.summary
             ?? activeLine?.recommendedAlternatives.first?.explanation
@@ -600,7 +574,16 @@ struct LigneDetailPage: View {
 
     @ViewBuilder
     private var stopsTabContent: some View {
-        summaryCard
+        // La carte « État de la direction » a été retirée : elle répétait le statut
+        // (déjà dans l'en-tête et sur l'onglet Infos trafic), la direction (déjà dans
+        // le sélecteur juste au-dessus) et un « % fiable » constant. Surtout, elle
+        // annonçait « Aucun prochain départ fiable » — lisant le temps réel — pendant
+        // que la liste d'arrêts affichait les horaires théoriques juste en dessous.
+        // Seule l'alternative d'itinéraire portait une information unique : on la garde.
+        if let alternative = viewModel.alternativeSummary, !alternative.isEmpty {
+            AdviceStrip(text: alternative)
+                .padding(.bottom, DS.Spacing.sm)
+        }
 
         DS.Rule(thick: true)
 
@@ -988,40 +971,16 @@ struct LigneDetailPage: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }
 
+    /// Le texte officiel est décomposé (cause / effet / période / conseil) au lieu
+    /// d'être affiché brut. `DisruptionCard` met en avant CE QU'IL FAUT FAIRE, qui
+    /// était jusqu'ici noyé en fin de paragraphe et tronqué à trois lignes.
     private func officialIncidentRow(_ incident: TransportIncidentDTO) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(DS.Color.statusMinor)
-                .frame(width: 28, height: 28)
-                .background(DS.Color.statusMinor.opacity(0.14))
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(incident.localizedType ?? "Information STIB")
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                if let description = incident.description, !description.isEmpty {
-                    Text(description)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(3)
-                }
-                if let stopName = incident.stop?.name {
-                    Text(stopName.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .tracking(1.0)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        let text = incident.localizedDescription ?? incident.localizedType ?? ""
+        return DisruptionCard(
+            digest: DisruptionDigest.parse(text),
+            line: incident.line,
+            stopName: incident.stop?.name
         )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }
 
     private var identifierBlock: some View {
@@ -1104,103 +1063,6 @@ struct LigneDetailPage: View {
         .buttonStyle(.plain)
     }
 
-    private var summaryCard: some View {
-        DS.PaperCard {
-            VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("ÉTAT DE LA DIRECTION")
-                            .eyebrow()
-                        Text(viewModel.summaryTitle)
-                            .font(DS.Font.displayH3)
-                            .foregroundStyle(DS.Color.ink)
-                        Text("Direction \(viewModel.selectedVariant.label) · vers \(activeDestination)")
-                            .font(DS.Font.bodySmall)
-                            .foregroundStyle(DS.Color.inkSoft)
-                            .lineLimit(1)
-                    }
-
-                    Spacer()
-
-                    DS.StatusPill(confidenceLabel, level: statusLevel)
-                }
-
-                departuresPreview
-
-                if let alternative = viewModel.alternativeSummary, !alternative.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Alternative")
-                            .sectionTitle()
-                        Text(alternative)
-                            .font(DS.Font.bodySmall)
-                            .foregroundStyle(DS.Color.inkSoft)
-                    }
-                }
-            }
-        }
-    }
-
-    private var departuresPreview: some View {
-        let departures = Array((viewModel.activeLine?.nextDepartures ?? []).prefix(3))
-
-        return VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            Text("Prochains départs")
-                .sectionTitle()
-            if departures.isEmpty {
-                Text(viewModel.summaryDetails)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                ForEach(Array(departures.enumerated()), id: \.offset) { _, departure in
-                    departureRow(departure)
-                }
-            }
-        }
-    }
-
-    private func departureRow(_ departure: TransportDepartureDTO) -> some View {
-        HStack(spacing: DS.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(departure.destination.map { "vers \($0)" } ?? "Prochain départ")
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(1)
-
-                HStack(spacing: 6) {
-                    Text(departure.source == "scheduled" ? "Horaire prévu" : "Temps réel STIB")
-                    if let time = departure.realtimeDepartureAt ?? departure.scheduledDepartureAt {
-                        Text("· \(Self.departureTimeFormatter.string(from: time))")
-                    }
-                    if let delay = departure.delayMinutes, delay > 0 {
-                        Text("+\(delay) min")
-                            .foregroundStyle(DS.Color.statusMajor)
-                    }
-                }
-                .font(DS.Font.monoSmall)
-                .foregroundStyle(DS.Color.inkMute)
-                .lineLimit(1)
-            }
-
-            Spacer(minLength: DS.Spacing.sm)
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(Self.minutesLabel(departure.minutes))
-                    .font(DS.Font.displayH3)
-                    .foregroundStyle(DS.Color.ink)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                Text(departure.source == "scheduled" ? "prévu" : "live")
-                    .font(DS.Font.monoSmall)
-                    .foregroundStyle(departure.source == "scheduled" ? DS.Color.inkMute : DS.Color.statusOK)
-            }
-        }
-        .padding(.horizontal, DS.Spacing.sm)
-        .padding(.vertical, DS.Spacing.sm)
-        .background(DS.Color.paper2.opacity(0.35))
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-    }
-
     private static let departureTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = AppLocale.current
@@ -1228,10 +1090,6 @@ struct LigneDetailPage: View {
         }
     }
 
-    private var activeDestination: String {
-        viewModel.activeLine?.line.stops.last?.name ?? viewModel.line.destination
-    }
-
     private func directionDestination(for variant: LigneDetailViewModel.DirectionVariant) -> String {
         switch variant {
         case .city:
@@ -1240,21 +1098,6 @@ struct LigneDetailPage: View {
             return viewModel.suburbLine?.line.stops.last?.name ?? "Retour"
         case .base:
             return viewModel.baseLine?.line.stops.last?.name ?? viewModel.line.destination
-        }
-    }
-
-    private var confidenceLabel: String {
-        let confidence = viewModel.activeLine?.confidence ?? 0
-        let value = Int((confidence * 100).rounded())
-        return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", value)
-    }
-
-    private var statusLevel: DS.StatusLevel {
-        switch viewModel.activeLine?.severity {
-        case "critical": return .critical
-        case "major": return .major
-        case "minor": return .minor
-        default: return .ok
         }
     }
 

@@ -14204,6 +14204,12 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Route naar %@ gestart. Ongeveer %lld minuten. Neem lijn %@." } }
       }
     },
+    "disruption.network_info" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Info réseau" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Netwerkinfo" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },
