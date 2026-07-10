@@ -2,8 +2,16 @@ import SwiftUI
 
 // MARK: - Entry point
 
+/// Onboarding en 3 écrans : lignes → routine → notifications.
+///
+/// Un 4ᵉ écran (« Choisis tes arrêts favoris ») ouvrait autrefois le parcours. Il a
+/// été retiré : il exigeait la localisation dès la première seconde, et sans elle il
+/// affichait « Aucun arrêt STIB à proximité » — un mensonge, puisque la vraie raison
+/// était qu'on ignorait où se trouvait l'usager. Les arrêts favoris s'ajoutent depuis
+/// l'onglet Favoris, quand l'usager sait déjà à quoi ils servent. La permission de
+/// localisation est demandée par `HomeLocationManager` à l'ouverture de la carte.
 struct OnboardingView: View {
-    @State private var step: OnboardingStep = .favorites
+    @State private var step: OnboardingStep = .lines
     @State private var savedLines: [String] = []
     var onFinish: () -> Void = {}
 
@@ -11,12 +19,6 @@ struct OnboardingView: View {
         ZStack {
             DS.Color.background.ignoresSafeArea()
             switch step {
-            case .favorites:
-                OnboardingFavoritesStep(
-                    onContinue: { step = .lines },
-                    onSkip: { step = .lines }
-                )
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
             case .lines:
                 OnboardingLinesStep(
                     onContinue: { lines in
@@ -43,7 +45,7 @@ struct OnboardingView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.88), value: step)
     }
 
-    private enum OnboardingStep { case favorites, lines, routine, push }
+    private enum OnboardingStep { case lines, routine, push }
 }
 
 // MARK: - Step 1 — Lignes
@@ -358,7 +360,7 @@ private struct OnboardingLinesHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text("STIBALERT")
+                Text("ÉTAPE 1 / 3")
                     .font(DS.Font.mono)
                     .tracking(2.4)
                     .foregroundStyle(DS.Color.inkMute)

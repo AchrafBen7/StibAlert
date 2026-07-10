@@ -569,8 +569,18 @@ struct ArretDetailPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// La STIB publie souvent la même perturbation une fois par direction. Deux lignes
+    /// au texte identique n'apprennent rien à personne : on les fusionne.
+    private var uniqueDisruptions: [TransportIncidentDTO] {
+        var seen = Set<String>()
+        return disruptions.filter { incident in
+            let text = incident.localizedDescription ?? incident.localizedType ?? ""
+            return seen.insert("\(incident.line ?? "")|\(text)").inserted
+        }
+    }
+
     private var disruptionBanner: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 11))
@@ -579,24 +589,11 @@ struct ArretDetailPage: View {
             }
             .foregroundStyle(DS.Color.statusMajor)
 
-            ForEach(disruptions.prefix(3)) { disruption in
+            ForEach(uniqueDisruptions.prefix(3)) { disruption in
                 Button {
                     selectedDisruption = disruption
                 } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        if let line = disruption.line, !line.isEmpty {
-                            LineBadge(line: line, size: .sm)
-                        }
-                        Text(disruption.description ?? disruption.type ?? "Perturbation en cours")
-                            .font(DS.Font.bodySmall)
-                            .foregroundStyle(DS.Color.ink)
-                            .lineLimit(2)
-                        Spacer(minLength: 8)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(DS.Color.inkMute)
-                    }
-                    .contentShape(Rectangle())
+                    disruptionRow(disruption)
                 }
                 .buttonStyle(.plain)
             }
@@ -611,6 +608,43 @@ struct ArretDetailPage: View {
                 .frame(width: 2)
         }
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+
+    /// Une perturbation en une ligne : l'EFFET en clair, la cause et la période en
+    /// second plan. La version précédente affichait le paragraphe officiel tronqué à
+    /// deux lignes (« Travaux. Du 19/1 à fin 2026, bus 53 dévié entre EMILE DELVA et
+    /// LEOPOLD I. Info: sti… ») — illisible, et surtout lu depuis `description`, le
+    /// champ FRANÇAIS : l'app en néerlandais affichait du français.
+    private func disruptionRow(_ incident: TransportIncidentDTO) -> some View {
+        let digest = DisruptionDigest.parse(incident.localizedDescription ?? incident.localizedType ?? "")
+        let context = [digest.cause, digest.period].compactMap { $0 }.joined(separator: " · ")
+        return HStack(alignment: .top, spacing: 10) {
+            if let line = incident.line, !line.isEmpty {
+                LineBadge(line: line, size: .sm)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(digest.effect.isEmpty
+                     ? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
+                     : digest.effect)
+                    .font(DS.Font.bodySmall.weight(.semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                if !context.isEmpty {
+                    Text(context)
+                        .font(DS.Font.caption)
+                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 2)
+        }
+        .contentShape(Rectangle())
     }
 
     private var communityReportsSection: some View {
@@ -799,7 +833,8 @@ struct ArretDetailPage: View {
             if !servedLines.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        filterChip(label: "Tout", active: selectedLineFilter == nil) {
+                        filterChip(label: AppLocalizer.string("stop.filter.all", defaultValue: "Tout"),
+                                   active: selectedLineFilter == nil) {
                             selectedLineFilter = nil
                         }
                         ForEach(servedLines, id: \.self) { line in
@@ -888,7 +923,11 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 if let next {
-                    let source = next.source == "scheduled" ? "prévu" : "temps réel"
+                    // `source` est une String : sans AppLocalizer, elle traversait la
+                    // localisation intacte → « temps réel tot 17 min » en néerlandais.
+                    let source = next.source == "scheduled"
+                        ? AppLocalizer.string("prévu", defaultValue: "prévu")
+                        : AppLocalizer.string("temps réel", defaultValue: "temps réel")
                     Text("\(source) à \(formatPassageMinutes(next.minutes))")
                         .font(DS.Font.monoSmall)
                         .foregroundStyle(DS.Color.inkMute)
@@ -1504,10 +1543,8 @@ private struct StopIncidentDetailSheet: View {
     let stopName: String
     let onOpenLine: (String) -> Void
 
-    private var title: String {
-        if let type = incident.localizedType, !type.isEmpty { return type }
-        return "Perturbation"
-    }
+    /// Le texte officiel, décomposé : la feuille montre le résultat, pas le paragraphe.
+    private var digest: DisruptionDigest { DisruptionDigest.parse(bodyText) }
 
     private var bodyText: String {
         if let description = incident.localizedDescription, !description.isEmpty { return description }
@@ -1522,49 +1559,16 @@ private struct StopIncidentDetailSheet: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
-    private var severityColor: Color {
-        switch incident.severity?.lowercased() {
-        case "major", "high", "critical":
-            return DS.Color.statusMajor
-        case "minor", "medium", "warning":
-            return DS.Color.statusMinor
-        case "ok", "low":
-            return DS.Color.statusOK
-        default:
-            return DS.Color.primary
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 12) {
-                if let line = incident.line, !line.isEmpty {
-                    LineBadge(line: line, size: .lg)
-                } else {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(DS.Color.primaryForeground)
-                        .frame(width: 44, height: 44)
-                        .background(severityColor)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(DS.Font.displayH3)
-                        .foregroundStyle(DS.Color.ink)
-                    Text(stopName)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-
-                Spacer()
-            }
-
-            Text(bodyText)
-                .font(DS.Font.body)
+            // L'arrêt est le contexte de la feuille : on le nomme une fois, en tête.
+            // La carte ne le répète donc pas (`stopName: nil`).
+            Text(stopName)
+                .font(DS.Font.displayH3)
                 .foregroundStyle(DS.Color.ink)
                 .fixedSize(horizontal: false, vertical: true)
+
+            DisruptionCard(digest: digest, line: incident.line, stopName: nil)
 
             HStack(spacing: 8) {
                 metaPill(icon: "checkmark.seal.fill", text: incident.sourceLabel)

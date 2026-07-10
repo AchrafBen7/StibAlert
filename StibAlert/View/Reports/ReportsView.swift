@@ -222,7 +222,8 @@ struct ReportsView: View {
             return EditorialFeedItem(
                 id: "report-\(report.id)",
                 type: feedType(for: report),
-                title: "Ligne \(report.ligne) · \(report.displayTypeProbleme)",
+                title: AppLocalizer.format("Ligne %@ · %@", defaultValue: "Ligne %@ · %@",
+                                          report.ligne, report.displayTypeProbleme),
                 body: report.description,
                 timeLabel: relativeTimeLabel(from: report.dateSignalement),
                 lines: [report.ligne],
@@ -644,6 +645,7 @@ struct ReportsView: View {
         let haystack = [
             item.title,
             item.body ?? "",
+            item.searchText ?? "",
             item.location ?? "",
             item.lines.joined(separator: " ")
         ].joined(separator: " ")
@@ -990,11 +992,20 @@ struct ReportsView: View {
             .map { incident in
                 let primaryLine = incident.line?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let lines = primaryLine.map { [$0] } ?? []
+                // L'ancien titre « Ligne 50 · Travaux » répétait trois fois la même chose :
+                // la carte affiche déjà le badge de ligne et le bandeau « OFFICIEL ».
+                // On donne le titre à l'EFFET (« bus 50 dévié »), et le corps au CONSEIL.
+                let digest = DisruptionDigest.parse(incident.localizedDescription ?? incident.localizedType ?? "")
+                // Une perturbation sans texte exploitable garde un titre : mieux vaut
+                // « Info réseau » qu'une carte au titre vide.
+                let title = digest.effect.isEmpty
+                    ? (incident.localizedType ?? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau"))
+                    : digest.effect
                 return EditorialFeedItem(
                     id: "official-transport-\(incident.id)",
                     type: .official,
-                    title: primaryLine.map { "Ligne \($0) · \(incident.type ?? "Information STIB")" } ?? (incident.type ?? "Information STIB"),
-                    body: incident.localizedDescription,
+                    title: title,
+                    body: digest.advice ?? digest.period,
                     timeLabel: relativeTimeLabel(from: incident.date),
                     lines: lines,
                     location: incident.stop?.name,
@@ -1003,7 +1014,12 @@ struct ReportsView: View {
                     attendance: nil,
                     venueCapacity: nil,
                     report: nil,
-                    event: nil
+                    event: nil,
+                    searchText: [
+                        digest.raw,
+                        incident.descriptionI18n?.fr ?? incident.description ?? "",
+                        incident.typeI18n?.fr ?? incident.type ?? "",
+                    ].joined(separator: " ")
                 )
             }
 
@@ -1014,13 +1030,16 @@ struct ReportsView: View {
         }
 
         let bullets = summary.localizedBullets.isEmpty ? [summary.localizedShortText] : summary.localizedBullets
+        let networkInfo = AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
         let summaryItems = bullets.prefix(4).enumerated().map { index, bullet in
             EditorialFeedItem(
                 id: "official-summary-\(index)",
                 type: .official,
-                title: summary.affectedLines.first.map { "Ligne \($0) · Information STIB" } ?? "Information STIB",
+                title: summary.affectedLines.first
+                    .map { AppLocalizer.format("Ligne %@ · %@", defaultValue: "Ligne %@ · %@", $0, networkInfo) }
+                    ?? networkInfo,
                 body: bullet,
-                timeLabel: "source officielle",
+                timeLabel: AppLocalizer.string("reports.official_source", defaultValue: "source officielle"),
                 lines: summary.affectedLines,
                 location: summary.affectedStops.first,
                 upvotes: nil,
@@ -1578,7 +1597,7 @@ struct ReportsView: View {
         // Bonus secondaire mots-clés (pour les events officiels au texte libre
         // sans typeProbleme exploitable). Volontairement plus faible que la
         // sévérité structurée.
-        let text = "\(item.title) \(item.body ?? "")".lowercased()
+        let text = "\(item.title) \(item.body ?? "") \(item.searchText ?? "")".lowercased()
         if text.contains("interrompu") || text.contains("bloqué") || text.contains("agress") {
             score += 4
         }
@@ -1775,7 +1794,9 @@ struct ReportsView: View {
                     // `issueKeyword` matche des mots FRANÇAIS (« travaux », « dévi »…) : on lui
                     // donne le texte FR, jamais la version traduite, sinon plus rien ne matche.
                     keyword: issueKeyword(from: incident.typeI18n?.fr ?? incident.type ?? incident.description ?? summary.localizedShortText),
-                    detail: incident.localizedDescription ?? summary.localizedShortText,
+                    // Le carrousel n'a la place que de trois lignes : l'effet, pas le paragraphe.
+                    detail: incident.localizedDescription.map { DisruptionDigest.parse($0).effect }
+                        ?? summary.localizedShortText,
                     lines: lines,
                     location: incident.stop?.name,
                     sourceLabel: "Officiel STIB",

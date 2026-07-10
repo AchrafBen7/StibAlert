@@ -41,10 +41,15 @@ struct DisruptionDigest: Equatable {
 
 extension DisruptionDigest {
 
-    // Un point qui TERMINE une phrase est précédé d'une lettre. Un point interne à
-    // un nombre (« 16.30u ») est précédé d'un chiffre. Cette seule règle sépare
-    // « Travaux.21/5/25 » (pas d'espace après le point) sans casser les heures.
-    private static let sentenceSplit = try! NSRegularExpression(pattern: "(?<=[^0-9])\\.")
+    // Un point termine une phrase s'il est précédé d'une lettre (« Travaux.21/5/25 »,
+    // sans espace après le point) OU s'il est suivi d'une espace (« Interruption
+    // tram 10. 9/5/26… », où le point suit un chiffre).
+    //
+    // Les deux conditions sont nécessaires : la première seule laissait « tram 10. »
+    // collé à la période qui suit ; la seconde seule raterait les points sans espace.
+    // Un point interne à un nombre (« 16.30u ») n'a ni lettre avant ni espace après,
+    // donc il survit aux deux.
+    private static let sentenceSplit = try! NSRegularExpression(pattern: "(?<=[^0-9])\\.|\\.(?=\\s)")
 
     /// Jetons temporels : dates, heures, années. Les noms de mois sont traités à part
     /// car « à fin août » ne contient aucun chiffre.
@@ -70,9 +75,19 @@ extension DisruptionDigest {
         "van", "tot", "op", "na", "voor", "eind", "midden", "begin", "vanaf", "en",
     ]
 
+    /// Pied de page « Info: stib.brussels » (idem en NL). Ce n'est pas un conseil, et
+    /// le point du nom de domaine faisait croire à une fin de phrase : l'effet avalait
+    /// « Info: stib » et le conseil devenait « brussels. ». On le coupe avant d'analyser.
+    private static let footer = try! NSRegularExpression(
+        pattern: "\\s*(?:meer\\s+info|plus\\s+d.infos?|infos?)\\s*:.*$",
+        options: [.caseInsensitive]
+    )
+
     /// Analyse un texte brut. Ne jette jamais : au pire, tout part dans `effect`.
     static func parse(_ raw: String) -> DisruptionDigest {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutFooter = footer.stringByReplacingMatches(
+            in: raw, range: NSRange(location: 0, length: (raw as NSString).length), withTemplate: "")
+        let trimmed = withoutFooter.trimmingCharacters(in: .whitespacesAndNewlines)
         // La STIB colle souvent la virgule au mot suivant (« 2027,halte niet bediend »).
         // On rétablit l'espace avant tout découpage en mots.
         let normalized = trimmed

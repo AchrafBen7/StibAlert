@@ -95,6 +95,15 @@ struct EditorialFeedItem: Identifiable {
     let venueCapacity: Int?
     let report: SignalementDTO?
     let event: TransportEventImpactDTO?
+    /// Texte jamais affiché, réservé à la recherche et au score de gravité.
+    ///
+    /// Les cartes officielles ne montrent plus que l'effet (« bus 50 dévié ») : la
+    /// cause et la période sortent du titre. Sans ce champ, chercher « travaux » ne
+    /// trouverait plus rien. On y met le texte officiel COMPLET dans la langue de
+    /// l'app **et** sa version française, car `severityBonus` compare des mots
+    /// français (« travaux », « dévi », « interrompu ») : les deux usages sont des
+    /// recherches de sous-chaîne, la concaténation les sert tous les deux.
+    var searchText: String? = nil
 }
 
 struct EditorialLineGroup: Identifiable {
