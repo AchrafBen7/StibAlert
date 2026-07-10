@@ -16,12 +16,26 @@ struct GuestTabPlaceholder: View {
                     VStack(spacing: 24) {
                         heroCard
                         featureStrip
-                        actions
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 24)
-                    .padding(.bottom, 96)
+                    .padding(.bottom, 24)
                 }
+            }
+            // Les deux boutons étaient dans le flux du ScrollView : « Se connecter »
+            // finissait DERRIÈRE la barre d'onglets flottante (70 pt + zone sûre) et
+            // n'était atteignable qu'en scrollant. Ajouter du padding sous eux les
+            // enfonçait davantage — on les épingle au-dessus de la barre.
+            VStack {
+                Spacer()
+                actions
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 108)
+                    .background(
+                        DS.Color.paper
+                            .ignoresSafeArea(edges: .bottom)
+                            .opacity(0.96)
+                    )
             }
         }
         .modifier(PaperGrainBackground())
@@ -86,13 +100,19 @@ struct GuestTabPlaceholder: View {
 
     private func placeholderStat(label: String, value: String) -> some View {
         VStack(spacing: 4) {
+            // « Centralisées » → « Gecentraliseerd » : la traduction néerlandaise
+            // débordait de la carte. On rétrécit plutôt que de rogner.
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .monospaced))
                 .foregroundStyle(DS.Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .tracking(1.2)
                 .foregroundStyle(DS.Color.inkMute)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
     }
