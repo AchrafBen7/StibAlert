@@ -435,7 +435,8 @@ extension SignalementDTO {
         guard let freshness = effectiveFreshnessMinutes else { return nil }
         let confirmations = community?.confirmations ?? 0
         guard confirmations > 0 else { return nil }
-        return "Confirmé \(confirmations)× en \(freshnessWindowLabel(minutes: freshness))"
+        return AppLocalizer.format("confirmations.summary", defaultValue: "Confirmé %lld× en %@",
+                                   confirmations, freshnessWindowLabel(minutes: freshness))
     }
 
     var confidenceLabel: String? {
@@ -532,7 +533,8 @@ extension SignalementDTO {
             return AppLocalizer.string("confidence.explain.low",
                                        defaultValue: "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé.")
         default:
-            return "Basée sur la proximité GPS observée au moment du signalement."
+            return AppLocalizer.string("confidence.explain.default",
+                                       defaultValue: "Basée sur la proximité GPS observée au moment du signalement.")
         }
     }
 
@@ -547,11 +549,11 @@ extension SignalementDTO {
     var sourceLabel: String {
         switch source?.lowercased() {
         case let raw? where raw.contains("official") || raw.contains("stib"):
-            return "Source STIB"
+            return AppLocalizer.string("source.stib", defaultValue: "Source STIB")
         case let raw? where raw.contains("mixed"):
-            return "STIB + communauté"
+            return AppLocalizer.string("source.mixed_label", defaultValue: "STIB + communauté")
         default:
-            return "Communauté"
+            return AppLocalizer.string("source.community", defaultValue: "Communauté")
         }
     }
 
@@ -597,7 +599,8 @@ extension TransportIncidentDTO {
             return AppLocalizer.string("confidence.explain.low",
                                        defaultValue: "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé.")
         default:
-            return "Basée sur les indices réseau et la proximité GPS disponibles."
+            return AppLocalizer.string("confidence.explain.network",
+                                       defaultValue: "Basée sur les indices réseau et la proximité GPS disponibles.")
         }
     }
 }

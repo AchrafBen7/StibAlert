@@ -614,11 +614,13 @@ struct QuickReportSheetView: View {
     private var emptyTargetMessage: String {
         switch selectedOperator {
         case .stib:
-            return "Aucun arrêt détecté à proximité."
+            return AppLocalizer.string("report.no_stop_nearby", defaultValue: "Aucun arrêt détecté à proximité.")
         case .sncb:
-            return "Aucune gare SNCB détectée à proximité."
+            return AppLocalizer.string("report.no_station_nearby", defaultValue: "Aucune gare SNCB détectée à proximité.")
         case .delijn, .tec:
-            return "\(selectedOperator.shortName) n’est pas encore connecté aux arrêts proches."
+            return AppLocalizer.format("report.operator_not_connected",
+                                       defaultValue: "%@ n’est pas encore connecté aux arrêts proches.",
+                                       selectedOperator.shortName)
         }
     }
 
@@ -1105,15 +1107,16 @@ struct QuickReportSheetView: View {
 
     private var descriptionHelperText: String {
         if trimmedDescription.isEmpty {
-            return "Optionnel — décrire en 1 ligne rapporte +5 pts à ton score"
+            return AppLocalizer.string("report.description.optional",
+                                       defaultValue: "Optionnel — décrire en 1 ligne rapporte +5 pts à ton score")
         }
         let remaining = Self.recommendedDescriptionLength - trimmedDescription.count
         if remaining > 0 {
-            return remaining == 1
-                ? "Encore 1 caractère pour aider vraiment"
-                : "Encore \(remaining) caractères pour aider vraiment"
+            // Pluriel porté par la traduction, pas par un test `== 1`.
+            return AppLocalizer.format("plural.chars_remaining",
+                                       defaultValue: "Encore %lld caractères pour aider vraiment", remaining)
         }
-        return "Merci, ton retour aide tout le monde"
+        return AppLocalizer.string("report.description.thanks", defaultValue: "Merci, ton retour aide tout le monde")
     }
 
     private var descriptionHelperColor: Color {

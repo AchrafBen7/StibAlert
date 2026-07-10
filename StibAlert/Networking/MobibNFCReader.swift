@@ -127,15 +127,15 @@ extension MobibNFCReader: NFCTagReaderSessionDelegate {
     static func friendlyMessage(for error: Error) -> String {
         let raw = error.localizedDescription.lowercased()
         if raw.contains("timeout") || raw.contains("session") {
-            return "Aucune carte détectée. Approche la MoBIB de la partie haute de l'iPhone."
+            return AppLocalizer.string("nfc.no_card", defaultValue: "Aucune carte détectée. Approche la MoBIB de la partie haute de l'iPhone.")
         }
         if raw.contains("invalide") || raw.contains("invalid") || raw.contains("valide") {
-            return "Impossible de lire cette carte. Glisse-la doucement autour du haut de l'iPhone, ou complète manuellement ci-dessous."
+            return AppLocalizer.string("nfc.unreadable", defaultValue: "Impossible de lire cette carte. Glisse-la doucement autour du haut de l'iPhone, ou complète manuellement ci-dessous.")
         }
         if raw.contains("annul") || raw.contains("cancel") {
-            return "Lecture annulée."
+            return AppLocalizer.string("nfc.cancelled", defaultValue: "Lecture annulée.")
         }
-        return "La lecture n'a pas pu se faire. Réessaie ou complète manuellement."
+        return AppLocalizer.string("nfc.failed", defaultValue: "La lecture n'a pas pu se faire. Réessaie ou complète manuellement.")
     }
 
     nonisolated func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {

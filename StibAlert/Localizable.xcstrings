@@ -13397,6 +13397,289 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officieel MIVB" } }
       }
     },
+    "plural.bikes" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld vélo" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld vélos" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld fiets" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld fietsen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.stands" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld place" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld places" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld plaats" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld plaatsen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.chars_remaining" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Encore %lld caractère pour aider vraiment" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Encore %lld caractères pour aider vraiment" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "Nog %lld teken om echt te helpen" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "Nog %lld tekens om echt te helpen" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.villo_nearby" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld Villo! à proximité" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld Villo! à proximité" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld Villo! in de buurt" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld Villo! in de buurt" } }
+            }
+          }
+        }
+      }
+    },
+    "confidence.explain.network" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur les indices réseau et la proximité GPS disponibles." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op netwerkindicaties en de beschikbare gps-nabijheid." } }
+      }
+    },
+    "source.stib" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Source STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB-bron" } }
+      }
+    },
+    "source.mixed_label" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "STIB + communauté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB + community" } }
+      }
+    },
+    "villo.open" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Ouverte" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Open" } }
+      }
+    },
+    "villo.closed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fermée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gesloten" } }
+      }
+    },
+    "villo.availability" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ • %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@ • %@" } }
+      }
+    },
+    "villo.station_closed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Station fermée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Station gesloten" } }
+      }
+    },
+    "villo.no_bikes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun vélo disponible" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen fiets beschikbaar" } }
+      }
+    },
+    "villo.no_stands" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Plus de places libres" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen vrije plaatsen meer" } }
+      }
+    },
+    "villo.few_bikes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Peu de vélos disponibles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Weinig fietsen beschikbaar" } }
+      }
+    },
+    "villo.available" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Station bien disponible" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Station ruim beschikbaar" } }
+      }
+    },
+    "nfc.no_card" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune carte détectée. Approche la MoBIB de la partie haute de l'iPhone." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen kaart gedetecteerd. Houd de MoBIB tegen de bovenkant van de iPhone." } }
+      }
+    },
+    "nfc.unreadable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Impossible de lire cette carte. Glisse-la doucement autour du haut de l'iPhone, ou complète manuellement ci-dessous." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Deze kaart kan niet gelezen worden. Beweeg ze traag langs de bovenkant van de iPhone, of vul hieronder handmatig in." } }
+      }
+    },
+    "nfc.cancelled" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Lecture annulée." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lezen geannuleerd." } }
+      }
+    },
+    "nfc.failed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "La lecture n'a pas pu se faire. Réessaie ou complète manuellement." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Het lezen is niet gelukt. Probeer opnieuw of vul handmatig in." } }
+      }
+    },
+    "wallet.not_configured" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Wallet n'est pas encore activé. Réessayez plus tard." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Apple Wallet is nog niet geactiveerd. Probeer het later opnieuw." } }
+      }
+    },
+    "wallet.auth_missing" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Connecte-toi pour ajouter ta carte à Wallet." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Log in om je kaart aan Wallet toe te voegen." } }
+      }
+    },
+    "wallet.download_failed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Téléchargement du pass impossible : %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Pass downloaden mislukt: %@" } }
+      }
+    },
+    "wallet.invalid_response" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réponse serveur invalide pour le pass Wallet." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Ongeldig serverantwoord voor de Wallet-pass." } }
+      }
+    },
+    "report.no_stop_nearby" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun arrêt détecté à proximité." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen halte in de buurt gedetecteerd." } }
+      }
+    },
+    "report.no_station_nearby" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune gare SNCB détectée à proximité." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen NMBS-station in de buurt gedetecteerd." } }
+      }
+    },
+    "report.operator_not_connected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ n’est pas encore connecté aux arrêts proches." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@ is nog niet verbonden met de nabijgelegen haltes." } }
+      }
+    },
+    "report.description.optional" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Optionnel — décrire en 1 ligne rapporte +5 pts à ton score" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Optioneel — één regel uitleg levert +5 punten op" } }
+      }
+    },
+    "report.description.thanks" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Merci, ton retour aide tout le monde" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bedankt, jouw melding helpt iedereen" } }
+      }
+    },
+    "fact.capacity" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Capacité" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Capaciteit" } }
+      }
+    },
+    "fact.payment" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Paiement" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Betaling" } }
+      }
+    },
+    "fact.number" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Numéro" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nummer" } }
+      }
+    },
+    "fact.card_yes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "CB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kaart" } }
+      }
+    },
+    "fact.card_no" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Sans CB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Zonder kaart" } }
+      }
+    },
+    "Places" : {
+      "localizations" : {
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Plaatsen" } }
+      }
+    },
+    "villo.available_one" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "disponible" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "beschikbaar" } }
+      }
+    },
+    "villo.available_other" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "disponibles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "beschikbaar" } }
+      }
+    },
+    "villo.free_one" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "libre" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "vrij" } }
+      }
+    },
+    "villo.free_other" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "libres" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "vrij" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

@@ -30,14 +30,16 @@ struct VilloStation: Decodable, Identifiable, Equatable {
 
     var statusLabel: String {
         switch status.uppercased() {
-        case "OPEN": return "Ouverte"
-        case "CLOSED": return "Fermée"
+        case "OPEN": return AppLocalizer.string("villo.open", defaultValue: "Ouverte")
+        case "CLOSED": return AppLocalizer.string("villo.closed", defaultValue: "Fermée")
         default: return status.capitalized
         }
     }
 
     var availabilityLabel: String {
-        "\(availableBikes) vélos • \(availableBikeStands) places"
+        AppLocalizer.format("villo.availability", defaultValue: "%@ • %@",
+                            AppLocalizer.format("plural.bikes", defaultValue: "%lld vélos", availableBikes),
+                            AppLocalizer.format("plural.stands", defaultValue: "%lld places", availableBikeStands))
     }
 
     var isOperational: Bool {
@@ -45,11 +47,11 @@ struct VilloStation: Decodable, Identifiable, Equatable {
     }
 
     var occupancyStateLabel: String {
-        if !isOperational { return "Station fermée" }
-        if availableBikes == 0 { return "Aucun vélo disponible" }
-        if availableBikeStands == 0 { return "Plus de places libres" }
-        if availableBikes <= 3 { return "Peu de vélos disponibles" }
-        return "Station bien disponible"
+        if !isOperational { return AppLocalizer.string("villo.station_closed", defaultValue: "Station fermée") }
+        if availableBikes == 0 { return AppLocalizer.string("villo.no_bikes", defaultValue: "Aucun vélo disponible") }
+        if availableBikeStands == 0 { return AppLocalizer.string("villo.no_stands", defaultValue: "Plus de places libres") }
+        if availableBikes <= 3 { return AppLocalizer.string("villo.few_bikes", defaultValue: "Peu de vélos disponibles") }
+        return AppLocalizer.string("villo.available", defaultValue: "Station bien disponible")
     }
 
     enum CodingKeys: String, CodingKey {

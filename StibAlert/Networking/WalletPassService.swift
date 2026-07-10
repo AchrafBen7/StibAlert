@@ -9,13 +9,13 @@ enum WalletPassError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured:
-            return "Apple Wallet n'est pas encore activé. Réessayez plus tard."
+            return AppLocalizer.string("wallet.not_configured", defaultValue: "Apple Wallet n'est pas encore activé. Réessayez plus tard.")
         case .authMissing:
-            return "Connecte-toi pour ajouter ta carte à Wallet."
+            return AppLocalizer.string("wallet.auth_missing", defaultValue: "Connecte-toi pour ajouter ta carte à Wallet.")
         case .downloadFailed(let detail):
-            return "Téléchargement du pass impossible : \(detail)"
+            return AppLocalizer.format("wallet.download_failed", defaultValue: "Téléchargement du pass impossible : %@", detail)
         case .invalidResponse:
-            return "Réponse serveur invalide pour le pass Wallet."
+            return AppLocalizer.string("wallet.invalid_response", defaultValue: "Réponse serveur invalide pour le pass Wallet.")
         }
     }
 }

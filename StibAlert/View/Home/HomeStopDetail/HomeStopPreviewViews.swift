@@ -101,13 +101,19 @@ struct HomeVilloStationSheet: View {
                         title: "Vélos",
                         value: "\(station.availableBikes)",
                         accent: DS.Color.villo,
-                        subtitle: station.availableBikes == 1 ? "disponible" : "disponibles"
+                        // Le nombre est affiché à part (gros chiffre) : une plural variation exigerait
+                        // un %lld dans la chaîne. Deux clés, choisies ici.
+                        subtitle: station.availableBikes == 1
+                            ? AppLocalizer.string("villo.available_one", defaultValue: "disponible")
+                            : AppLocalizer.string("villo.available_other", defaultValue: "disponibles")
                     )
                     villoMetricCard(
                         title: "Places",
                         value: "\(station.availableBikeStands)",
                         accent: DS.Color.accent,
-                        subtitle: station.availableBikeStands == 1 ? "libre" : "libres"
+                        subtitle: station.availableBikeStands == 1
+                            ? AppLocalizer.string("villo.free_one", defaultValue: "libre")
+                            : AppLocalizer.string("villo.free_other", defaultValue: "libres")
                     )
                 }
 
@@ -235,9 +241,13 @@ struct HomeVilloStationSheet: View {
                 .foregroundStyle(DS.Color.inkMute)
 
             HStack(spacing: 10) {
-                factPill(icon: "dock.rectangle", label: "Capacité", value: "\(station.bikeStands)")
-                factPill(icon: station.banking ? "creditcard.fill" : "xmark.circle", label: "Paiement", value: station.banking ? "CB" : "Sans CB")
-                factPill(icon: "number.square", label: "Numéro", value: "\(station.number)")
+                factPill(icon: "dock.rectangle", label: AppLocalizer.string("fact.capacity", defaultValue: "Capacité"), value: "\(station.bikeStands)")
+                factPill(icon: station.banking ? "creditcard.fill" : "xmark.circle",
+                         label: AppLocalizer.string("fact.payment", defaultValue: "Paiement"),
+                         value: station.banking
+                            ? AppLocalizer.string("fact.card_yes", defaultValue: "CB")
+                            : AppLocalizer.string("fact.card_no", defaultValue: "Sans CB"))
+                factPill(icon: "number.square", label: AppLocalizer.string("fact.number", defaultValue: "Numéro"), value: "\(station.number)")
             }
         }
         .padding(16)
@@ -264,7 +274,9 @@ struct HomeVilloStationSheet: View {
         openURL(url)
     }
 
-    private func villoMetricCard(title: String, value: String, accent: Color, subtitle: String) -> some View {
+    /// `title` en LocalizedStringKey (littéraux). `subtitle` reste un String : il est
+    /// construit par une variation de pluriel selon le nombre.
+    private func villoMetricCard(title: LocalizedStringKey, value: String, accent: Color, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title)
                 .font(DS.Font.monoSmall.weight(.bold))
@@ -415,8 +427,10 @@ private struct HomeStopPreviewCard: View {
     private var villoSummary: String? {
         guard !nearbyVilloStations.isEmpty else { return nil }
         let bikes = nearbyVilloStations.reduce(0) { $0 + $1.station.availableBikes }
-        let label = nearbyVilloStations.count == 1 ? "1 Villo! à proximité" : "\(nearbyVilloStations.count) Villo! à proximité"
-        return "\(label) · \(bikes) vélos"
+        let label = AppLocalizer.format("plural.villo_nearby",
+                                        defaultValue: "%lld Villo! à proximité", nearbyVilloStations.count)
+        let bikesLabel = AppLocalizer.format("plural.bikes", defaultValue: "%lld vélos", bikes)
+        return "\(label) · \(bikesLabel)"
     }
 
     private static func normalizedLineNumber(_ value: String) -> String {
