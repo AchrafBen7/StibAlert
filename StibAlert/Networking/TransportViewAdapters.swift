@@ -112,19 +112,8 @@ enum TransportViewAdapters {
         return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", percent)
     }
 
-    // ⚠️ Seuils dupliqués avec `SignalementsView.confidenceLabel` / `confidenceText`
-    // (85/65 là-bas, 90/75 ici) : les deux écrans peuvent donc qualifier la MÊME
-    // confiance différemment. À unifier — cf. « une seule vérité par écran ».
     static func confidenceText(from confidence: Double) -> String {
-        let percent = Int((confidence * 100).rounded())
-        switch confidence {
-        case 0.9...:
-            return AppLocalizer.format("confidence.pct.very_sure", defaultValue: "%lld%% • très sûr", percent)
-        case 0.75...:
-            return AppLocalizer.format("confidence.pct.quite_sure", defaultValue: "%lld%% • assez sûr", percent)
-        default:
-            return AppLocalizer.format("confidence.pct.weak", defaultValue: "%lld%% • faible confirmation", percent)
-        }
+        RouteConfidence.percentLabel(confidence)
     }
 
     static func localizedSeverityLabel(severity: String?, fallback: String?) -> String {
@@ -221,16 +210,8 @@ enum TransportViewAdapters {
         return nil
     }
 
-    // 4ᵉ copie des mêmes libellés de confiance (cf. `confidenceText` plus haut).
     private static func trustLabel(for confidence: Double) -> String {
-        switch confidence {
-        case 0.9...:
-            return AppLocalizer.string("confidence.very_sure", defaultValue: "Très sûr")
-        case 0.75...:
-            return AppLocalizer.string("confidence.quite_sure", defaultValue: "Assez sûr")
-        default:
-            return AppLocalizer.string("confidence.weak", defaultValue: "Faible confirmation")
-        }
+        RouteConfidence.level(confidence).label
     }
 }
 

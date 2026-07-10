@@ -478,11 +478,7 @@ extension SignalementDTO {
     /// Libellé AFFICHÉ de la confiance décroissante — traduit dans la langue de
     /// l'app (`AppLocalizer`), sinon il resterait figé en français.
     var liveConfidenceLabel: String {
-        switch liveConfidence {
-        case 0.7...: return AppLocalizer.string("confidence.fresh", defaultValue: "Fraîche")
-        case 0.35..<0.7: return AppLocalizer.string("confidence.moderate", defaultValue: "Modérée")
-        default: return AppLocalizer.string("confidence.low", defaultValue: "Faible")
-        }
+        ReportFreshness.level(liveConfidence).label
     }
 
     /// Half-life in minutes per problem type. Tuned to the typical resolution

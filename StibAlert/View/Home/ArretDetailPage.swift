@@ -741,11 +741,10 @@ struct ArretDetailPage: View {
     }
 
     private func confidenceDotColor(for signalement: SignalementDTO) -> Color {
-        switch signalement.liveConfidence {
-        case 0.7...: return DS.Color.statusOK
-        case 0.35..<0.7: return DS.Color.statusMinor
-        default: return DS.Color.inkMute.opacity(0.5)
-        }
+        let level = ReportFreshness.level(signalement.liveConfidence)
+        // Cette pastille était plus discrète que l'échelle commune quand la
+        // confiance est faible — on conserve l'atténuation.
+        return level == .low ? level.tint.opacity(0.5) : level.tint
     }
 
     private var segmentedTabs: some View {

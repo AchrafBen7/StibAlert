@@ -198,21 +198,9 @@ struct SignalementMiniCard: View {
         .clipShape(Capsule())
     }
 
-    private var confidenceTint: Color {
-        switch signalement.liveConfidence {
-        case 0.7...: return DS.Color.statusOK
-        case 0.35..<0.7: return DS.Color.statusMinor
-        default: return DS.Color.inkMute
-        }
-    }
+    private var confidenceTint: Color { ReportFreshness.level(signalement.liveConfidence).tint }
 
-    private var confidenceIcon: String {
-        switch signalement.liveConfidence {
-        case 0.7...: return "checkmark.seal.fill"
-        case 0.35..<0.7: return "hourglass"
-        default: return "questionmark.circle"
-        }
-    }
+    private var confidenceIcon: String { ReportFreshness.level(signalement.liveConfidence).icon }
 
     private func actionButton(
         label: String,
