@@ -502,9 +502,6 @@ private struct RouteOptionCard: View {
                             .font(.system(size: 24, weight: .black))
                             .tracking(-0.7)
                             .foregroundStyle(DS.Color.ink)
-                        if let comparisonText {
-                            comparisonTag(comparisonText, prominent: true)
-                        }
                         Spacer(minLength: 8)
                         Button(action: { onToggleExpanded?() }) {
                             Image(systemName: isExpandedCard ? "chevron.up" : "chevron.down")
@@ -515,10 +512,20 @@ private struct RouteOptionCard: View {
                         .buttonStyle(.plain)
                     }
 
-                    Text(arrivalSubtitleText)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(1)
+                    // Arrivée + raison sur une ligne dédiée : à côté du « 27 min » en
+                    // gros, le tag « Het snelste traject » était tronqué (« … TRA… »).
+                    // Ici il a toute la largeur ; l'arrivée garde la priorité.
+                    HStack(spacing: 8) {
+                        Text(arrivalSubtitleText)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                        if let comparisonText {
+                            comparisonTag(comparisonText, prominent: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
 
                     if !option.legChips.isEmpty {
                         RouteLinesStrip(chips: option.legChips)
@@ -596,12 +603,15 @@ private struct RouteOptionCard: View {
         }
     }
 
+    // Casse normale, sans-serif : un tag « Het snelste traject » se lit comme un
+    // label, pas comme un code en capitales monospace. La mono reste réservée au
+    // temps réel (minutes d'attente), pas à une étiquette de comparaison.
     private func comparisonTag(_ text: String, prominent: Bool) -> some View {
-        Text(text.uppercased(with: AppLocale.current))
-            .font(DS.Font.monoSmall.weight(.bold))
-            .tracking(prominent ? 0.6 : 0.4)
+        Text(text)
+            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(prominent ? DS.Color.primary : DS.Color.inkMute)
             .lineLimit(1)
+            .minimumScaleFactor(0.85)
             .modifier(ComparisonTagBackground(prominent: prominent))
     }
 }
@@ -684,40 +694,41 @@ private struct RouteNextDepartureLine: View {
     }
 }
 
+/// Onglet de mode, façon Google Maps : icône, un temps, le nom du mode — centré,
+/// sans-serif. L'ancienne version empilait un badge « ⚡ SNEL » (qui se posait sur
+/// la cellule la plus rapide et se battait avec le reste) au-dessus d'un libellé en
+/// monospace majuscule serré : trois traitements typographiques pour un simple
+/// bouton, d'où l'effet « technique et compressé ». Le « plus rapide » se lit
+/// maintenant sur la carte d'itinéraire, pas dans le sélecteur.
 private struct RouteModeSummaryTile: View {
     let summary: RouteModeSummary
     let isHighlighted: Bool
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if summary.isFastest {
-                Text("⚡ \(L10n.Routing.fastest.uppercased(with: AppLocale.current))")
-                    .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                    .tracking(1)
-                    .foregroundStyle(isHighlighted ? DS.Color.ink : DS.Color.paper)
-                    .padding(.horizontal, 5)
-                    .frame(height: 16)
-                    .background(isHighlighted ? DS.Color.paper : DS.Color.ink)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            } else {
-                Spacer().frame(height: 16)
-            }
-            HStack(spacing: 6) {
-                Image(systemName: summary.modeKey == "bike" ? "bicycle" : summary.modeKey == "walk" ? "figure.walk" : "tram.fill")
-                    .font(.system(size: 10, weight: .medium))
-                Text(summary.title.uppercased())
-            }
-            .font(DS.Font.monoSmall.weight(.bold))
-            .tracking(1.2)
-            .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.inkMute)
-            Text(summary.durationText)
-                .font(.system(size: 14, weight: .black))
-                .tracking(-0.4)
-                .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.ink)
+    private var icon: String {
+        switch summary.modeKey {
+        case "bike": return "bicycle"
+        case "walk": return "figure.walk"
+        default: return "tram.fill"
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+    }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.inkMute)
+            Text(summary.durationText)
+                .font(.system(size: 16, weight: .heavy))
+                .tracking(-0.3)
+                .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.ink)
+            Text(summary.title)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(isHighlighted ? DS.Color.paper.opacity(0.85) : DS.Color.inkMute)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
         .background(isHighlighted ? DS.Color.ink : DS.Color.paper)
     }
 }

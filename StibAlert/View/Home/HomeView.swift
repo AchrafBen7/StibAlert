@@ -1133,6 +1133,29 @@ struct HomeView: View {
             target.name = destination.label ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
             Task { await buildRoute(to: target) }
         }
+        // `stibalert://route?...` postait cette notification que PERSONNE n'écoutait :
+        // le deep link d'itinéraire (partage d'un trajet, widget, futur push) ne
+        // faisait rien. On la consomme ici et on lance le calcul.
+        .onReceive(NotificationCenter.default.publisher(for: .routeDeepLink)) { note in
+            guard let info = note.userInfo,
+                  let toLat = info["toLat"] as? Double,
+                  let toLng = info["toLng"] as? Double else { return }
+            let destination = MKMapItem(placemark: MKPlacemark(
+                coordinate: CLLocationCoordinate2D(latitude: toLat, longitude: toLng)))
+            destination.name = (info["toName"] as? String)
+                ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
+            nav.currentPage = .home
+
+            if let fromLat = info["fromLat"] as? Double, let fromLng = info["fromLng"] as? Double {
+                let origin = MKMapItem(placemark: MKPlacemark(
+                    coordinate: CLLocationCoordinate2D(latitude: fromLat, longitude: fromLng)))
+                let originName = (info["fromName"] as? String) ?? L10n.Routing.currentPosition
+                origin.name = info["fromName"] as? String
+                Task { await buildRoute(from: origin, to: destination, originName: originName) }
+            } else {
+                Task { await buildRoute(to: destination) }
+            }
+        }
         .sheet(item: $selectedEventImpact) { event in
             HomeEventImpactSheet(
                 event: event,

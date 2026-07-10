@@ -434,9 +434,24 @@ struct HomeRouteOption: Identifiable {
     var comparisonTag: String? {
         guard let backendAlternative else { return nil }
         if let reason = backendAlternative.localizedReasons?.first, !reason.isEmpty {
-            return reason
+            // Le backend renvoie parfois une PHRASE (« Het snelste traject blijft te
+            // prefereren… ») là où on attend un label de chip (« Snelste »,
+            // « Minder overstappen »). Une phrase se tronque en « … blijft te… » et
+            // n'apprend rien : au-delà de 24 caractères, on considère que ce n'est pas
+            // un tag. La carte reste alors nue — sa durée en gros suffit.
+            return reason.count <= 24 ? reason : nil
         }
-        return backendAlternative.label.isEmpty ? nil : backendAlternative.label
+        // On ignore les libellés génériques du backend (« Alternative 1 »,
+        // « Alternatief 2 », « Route 3 ») : c'est de la numérotation technique, pas
+        // une raison de choisir cet itinéraire. Sans vraie raison, la carte n'affiche
+        // aucun tag — la durée en gros parle d'elle-même, comme sur Google Maps.
+        let label = backendAlternative.label.trimmingCharacters(in: .whitespaces)
+        let lower = label.lowercased()
+        let generic = ["alternative", "alternatief", "route ", "itinéraire ", "itinerary"]
+        if label.isEmpty || generic.contains(where: { lower.hasPrefix($0) }) {
+            return nil
+        }
+        return label
     }
 
     var inlineSteps: [InlineRouteStepItem] {
@@ -835,21 +850,10 @@ struct HomeRouteOption: Identifiable {
             parts.append(distance.distanceLabel.uppercased())
         }
         parts.append("\(max(1, step.durationMinutes)) min".uppercased())
-        if let realtimeDepartureAt = step.realtimeDepartureAt {
-            let departure = timeFormatter.string(from: realtimeDepartureAt)
-            if let realtimeArrivalAt = step.realtimeArrivalAt {
-                parts.append("\(departure)→\(timeFormatter.string(from: realtimeArrivalAt))")
-            } else {
-                parts.append(L10n.Routing.departingAt(departure))
-            }
-        } else if let scheduledDepartureAt = step.scheduledDepartureAt {
-            let departure = timeFormatter.string(from: scheduledDepartureAt)
-            if let scheduledArrivalAt = step.scheduledArrivalAt {
-                parts.append("\(departure)→\(timeFormatter.string(from: scheduledArrivalAt))")
-            } else {
-                parts.append(L10n.Routing.scheduledAt(departure))
-            }
-        }
+        // Les horaires départ→arrivée vivent déjà sur la ligne `timingDetail` juste
+        // au-dessus (« Realtime 17:52 → 18:04 »). Les répéter ici produisait
+        // « 6 haltes · 12 MIN · 17:52→18:04 » : le même créneau deux fois. On ne
+        // garde en meta que le nombre d'arrêts et la durée.
         return parts.joined(separator: " · ")
     }
 
