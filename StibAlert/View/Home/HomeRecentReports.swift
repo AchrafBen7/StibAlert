@@ -128,8 +128,11 @@ struct RecentReportCard: View {
         guard let community = effectiveCommunity else { return nil }
         let confirmations = community.confirmations ?? 0
         guard confirmations > 0, let freshness = community.freshnessMinutes else { return nil }
-        let window = freshness < 60 ? "\(freshness) min" : "\(freshness / 60) h"
-        return "Confirmé \(confirmations)× en \(window)"
+        let window = freshness < 60
+            ? AppLocalizer.format("window.minutes", defaultValue: "%lld min", freshness)
+            : AppLocalizer.format("window.hours", defaultValue: "%lld h", freshness / 60)
+        return AppLocalizer.format("confirmations.summary",
+                                   defaultValue: "Confirmé %lld× en %@", confirmations, window)
     }
 
     var body: some View {
@@ -249,16 +252,22 @@ struct RecentReportCard: View {
             .clipShape(Capsule())
     }
 
+    /// Mêmes clés que `SignalementDTO.confidenceExplanation` : une seule traduction
+    /// pour un même texte, quel que soit l'écran qui l'affiche.
     private var confidenceExplanation: String {
-        switch item.confidence?.lowercased() {
+        switch item.confidence?.lowercased() {   // "haute"/"moyenne" = valeurs backend
         case let value? where value.contains("haute"):
-            return "Basée sur une position GPS très proche de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.high",
+                                       defaultValue: "Basée sur une position GPS très proche de l'arrêt signalé.")
         case let value? where value.contains("moyenne"):
-            return "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt."
+            return AppLocalizer.string("confidence.explain.medium",
+                                       defaultValue: "Basée sur une position GPS cohérente, mais moins précise autour de l'arrêt.")
         case let value? where value.contains("basse"):
-            return "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé."
+            return AppLocalizer.string("confidence.explain.low",
+                                       defaultValue: "Basée sur une position GPS absente ou trop éloignée de l'arrêt signalé.")
         default:
-            return "Basée sur la proximité GPS observée au moment du signalement."
+            return AppLocalizer.string("confidence.explain.default",
+                                       defaultValue: "Basée sur la proximité GPS observée au moment du signalement.")
         }
     }
 

@@ -13237,6 +13237,166 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bestemming te bevestigen" } }
       }
     },
+    "plural.hours" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld heure" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld heures" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld uur" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld uur" } }
+            }
+          }
+        }
+      }
+    },
+    "plural.transfers" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld correspondance" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld correspondances" } }
+            }
+          }
+        },
+        "nl" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld overstap" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld overstappen" } }
+            }
+          }
+        }
+      }
+    },
+    "confidence.explain.default" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basée sur la proximité GPS observée au moment du signalement." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gebaseerd op de gps-nabijheid op het moment van de melding." } }
+      }
+    },
+    "a11y.in_time" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dans %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Over %@" } }
+      }
+    },
+    "a11y.in_time_and" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dans %@ et %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Over %@ en %@" } }
+      }
+    },
+    "a11y.direct_no_transfer" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Direct, pas de correspondances" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Rechtstreeks, geen overstappen" } }
+      }
+    },
+    "a11y.loading" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Chargement en cours" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bezig met laden" } }
+      }
+    },
+    "a11y.departures_error" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Erreur de chargement des passages" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Fout bij het laden van de doorkomsten" } }
+      }
+    },
+    "a11y.lines_list" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Lignes : %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lijnen: %@" } }
+      }
+    },
+    "a11y.route_summary" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@, %@. %@. Durée : %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@, %@. %@. Duur: %@" } }
+      }
+    },
+    "crowding.light" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Affluence légère" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Lichte drukte" } }
+      }
+    },
+    "network.stib" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réseau STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "MIVB-netwerk" } }
+      }
+    },
+    "timeline.still_blocked" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Toujours bloqué sur le terrain" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nog steeds geblokkeerd ter plaatse" } }
+      }
+    },
+    "timeline.partial_recovery" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Reprise partielle signalée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gedeeltelijk herstel gemeld" } }
+      }
+    },
+    "timeline.official_update" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mise à jour officielle" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officiële update" } }
+      }
+    },
+    "timeline.realtime_update" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mise à jour temps réel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Realtime update" } }
+      }
+    },
+    "timeline.reported_by_stib" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signalé par STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gemeld door MIVB" } }
+      }
+    },
+    "timeline.first_report" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Premier signalement" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Eerste melding" } }
+      }
+    },
+    "timeline.stib_still_active" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le flux STIB maintient l'incident comme actif." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "De MIVB-feed houdt het incident als actief." } }
+      }
+    },
+    "vote.still_blocked" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Toujours bloqué" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nog steeds geblokkeerd" } }
+      }
+    },
+    "vote.resolved" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "C'est rentré dans l'ordre" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Het is weer in orde" } }
+      }
+    },
+    "source.official_stib" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Officiel STIB" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Officieel MIVB" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

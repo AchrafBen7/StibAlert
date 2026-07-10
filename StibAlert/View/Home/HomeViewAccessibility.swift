@@ -11,20 +11,23 @@ func formatDurationForA11y(_ minutes: Int) -> String {
     } else {
         let hours = minutes / 60
         let mins = minutes % 60
-        let hourStr = "\(hours) heure\(hours == 1 ? "" : "s")"
+        // Texte lu par VoiceOver : le pluriel vient de la traduction, jamais d'un
+        // « s » concaténé (le néerlandais ne forme pas ses pluriels ainsi).
+        let hourStr = AppLocalizer.format("plural.hours", defaultValue: "%lld heures", hours)
         if mins == 0 {
-            return "Dans \(hourStr)"
+            return AppLocalizer.format("a11y.in_time", defaultValue: "Dans %@", hourStr)
         }
-        return "Dans \(hourStr) et \(mins) minute\(mins == 1 ? "" : "s")"
+        let minStr = AppLocalizer.format("plural.minutes", defaultValue: "%lld minutes", mins)
+        return AppLocalizer.format("a11y.in_time_and", defaultValue: "Dans %@ et %@", hourStr, minStr)
     }
 }
 
 /// Helper to format transfers/correspondances for screen readers
 func formatTransfersForA11y(_ count: Int) -> String {
     if count == 0 {
-        return "Direct, pas de correspondances"
+        return AppLocalizer.string("a11y.direct_no_transfer", defaultValue: "Direct, pas de correspondances")
     }
-    return "\(count) correspondance\(count == 1 ? "" : "s")"
+    return AppLocalizer.format("plural.transfers", defaultValue: "%lld correspondances", count)
 }
 
 // MARK: - Stop Card Accessibility Helpers
@@ -40,18 +43,18 @@ struct StopCardAccessibilityLabel: View {
     private var lineInfo: String {
         lines.isEmpty
             ? "Aucune ligne disponible"
-            : "Lignes: \(lines.joined(separator: ", "))"
+            : AppLocalizer.format("a11y.lines_list", defaultValue: "Lignes : %@", lines.joined(separator: ", "))
     }
 
     private var departureInfo: String {
         if isLoading {
-            return "Chargement en cours"
+            return AppLocalizer.string("a11y.loading", defaultValue: "Chargement en cours")
         } else if hasError {
-            return "Erreur de chargement des passages"
+            return AppLocalizer.string("a11y.departures_error", defaultValue: "Erreur de chargement des passages")
         } else if let nextDeparture {
             return nextDeparture
         } else {
-            return "Aucun passage prévu pour le moment"
+            return AppLocalizer.string("stopdetail.no_departures", defaultValue: "Aucun passage prévu pour le moment")
         }
     }
 
@@ -84,7 +87,9 @@ func formatRouteForA11y(
     reliabilityText: String
 ) -> String {
     let duration = formatDurationForA11y(durationMinutes)
-    return "\(transitSummary), \(walkingSummary). \(reliabilityText). Durée: \(duration)"
+    return AppLocalizer.format("a11y.route_summary",
+                               defaultValue: "%@, %@. %@. Durée : %@",
+                               transitSummary, walkingSummary, reliabilityText, duration)
 }
 
 // MARK: - Error Message View

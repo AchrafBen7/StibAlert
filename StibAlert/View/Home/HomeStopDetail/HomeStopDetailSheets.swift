@@ -143,7 +143,8 @@ struct HomeEventImpactSheet: View {
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    /// `title` en LocalizedStringKey : les 3 appelants passent des littéraux.
+    private func sectionCard<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(DS.Font.monoSmall.weight(.bold))
@@ -162,7 +163,9 @@ struct HomeEventImpactSheet: View {
         }
     }
 
-    private func stopRow(title: String, subtitle: String, interactive: Bool = true) -> some View {
+    /// `title` = nom d'arrêt (donnée dynamique, jamais traduite). `subtitle` reçoit
+    /// des littéraux → LocalizedStringKey.
+    private func stopRow(title: String, subtitle: LocalizedStringKey, interactive: Bool = true) -> some View {
         HStack(spacing: 12) {
             Circle()
                 .fill(DS.Color.paper2)
@@ -223,11 +226,11 @@ struct HomeEventImpactSheet: View {
     private func impactLabel(_ value: String) -> String {
         switch value.lowercased() {
         case "high":
-            return "Affluence forte"
+            return AppLocalizer.string("crowding.high", defaultValue: "Affluence forte")
         case "moderate":
-            return "Affluence probable"
+            return AppLocalizer.string("crowding.moderate", defaultValue: "Affluence probable")
         default:
-            return "Affluence légère"
+            return AppLocalizer.string("crowding.light", defaultValue: "Affluence légère")
         }
     }
 

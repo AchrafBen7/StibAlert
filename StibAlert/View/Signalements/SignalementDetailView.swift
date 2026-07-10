@@ -55,7 +55,9 @@ struct SignalementDetailView: View {
     }
 
     private var sourceEyebrow: String {
-        isOfficial ? "Officiel STIB" : "Communauté"
+        isOfficial
+            ? AppLocalizer.string("source.official_stib", defaultValue: "Officiel STIB")
+            : AppLocalizer.string("source.community", defaultValue: "Communauté")
     }
 
     private var sourceAccent: Color {
@@ -66,7 +68,7 @@ struct SignalementDetailView: View {
         if case .populated(let arret) = latest.arretId {
             return arret.nom
         }
-        return "Réseau STIB"
+        return AppLocalizer.string("network.stib", defaultValue: "Réseau STIB")
     }
 
     private var score: Int {
@@ -94,7 +96,9 @@ struct SignalementDetailView: View {
         var items: [ReportTimelineItem] = [
             ReportTimelineItem(
                 time: latest.freshnessLabel,
-                label: isOfficial ? "Signalé par STIB" : "Premier signalement",
+                label: isOfficial
+                    ? AppLocalizer.string("timeline.reported_by_stib", defaultValue: "Signalé par STIB")
+                    : AppLocalizer.string("timeline.first_report", defaultValue: "Premier signalement"),
                 body: latest.description,
                 source: isOfficial ? .official : .community
             )
@@ -115,7 +119,7 @@ struct SignalementDetailView: View {
             items.append(
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 6),
-                    label: "Toujours bloqué sur le terrain",
+                    label: AppLocalizer.string("timeline.still_blocked", defaultValue: "Toujours bloqué sur le terrain"),
                     body: AppLocalizer.format("plural.reports_still_blocked",
                                               defaultValue: "%lld retours signalent que l'incident continue.", stillBlocked),
                     source: .community
@@ -125,7 +129,7 @@ struct SignalementDetailView: View {
             items.append(
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 6),
-                    label: "Reprise partielle signalée",
+                    label: AppLocalizer.string("timeline.partial_recovery", defaultValue: "Reprise partielle signalée"),
                     body: AppLocalizer.format("plural.reports_improvement",
                                               defaultValue: "%lld retours indiquent une amélioration.", resolvedCount),
                     source: .system
@@ -135,8 +139,8 @@ struct SignalementDetailView: View {
             items.append(
                 ReportTimelineItem(
                     time: freshnessStepLabel(offset: 8),
-                    label: "Mise à jour officielle",
-                    body: "Le flux STIB maintient l'incident comme actif.",
+                    label: AppLocalizer.string("timeline.official_update", defaultValue: "Mise à jour officielle"),
+                    body: AppLocalizer.string("timeline.stib_still_active", defaultValue: "Le flux STIB maintient l'incident comme actif."),
                     source: .official
                 )
             )
@@ -144,8 +148,8 @@ struct SignalementDetailView: View {
 
         items.append(
             ReportTimelineItem(
-                time: "à l'instant",
-                label: "Mise à jour temps réel",
+                time: AppLocalizer.string("time.just_now", defaultValue: "à l’instant"),
+                label: AppLocalizer.string("timeline.realtime_update", defaultValue: "Mise à jour temps réel"),
                 body: nil,
                 source: .system
             )
@@ -304,7 +308,7 @@ struct SignalementDetailView: View {
 
             HStack(spacing: 8) {
                 voteButton(
-                    label: "Toujours bloqué",
+                    label: AppLocalizer.string("vote.still_blocked", defaultValue: "Toujours bloqué"),
                     icon: "mappin.and.ellipse",
                     active: voteState == .up,
                     activeBg: DS.Color.statusOK,
@@ -314,7 +318,7 @@ struct SignalementDetailView: View {
                 }
 
                 voteButton(
-                    label: "C'est rentré dans l'ordre",
+                    label: AppLocalizer.string("vote.resolved", defaultValue: "C'est rentré dans l'ordre"),
                     icon: "checkmark.seal.fill",
                     active: voteState == .down,
                     activeBg: DS.Color.ink,
