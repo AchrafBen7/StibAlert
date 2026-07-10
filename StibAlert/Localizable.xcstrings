@@ -10078,6 +10078,23 @@
         }
       }
     },
+    "Push 15 min avant ton départ (si perturbation)": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push 15 min avant ton départ (si perturbation)"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push 15 min voor je vertrek (bij storing)"
+          }
+        }
+      }
+    },
     "Push principal": {
       "extractionState": "stale",
       "localizations": {
@@ -10364,6 +10381,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aanbeveling"
+          }
+        }
+      }
+    },
+    "Recommandation Plan B personnalisée": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recommandation Plan B personnalisée"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persoonlijk plan B-advies"
           }
         }
       }
@@ -13035,6 +13069,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "Verdict"
+          }
+        }
+      }
+    },
+    "Verdict auto à l'ouverture de l'app": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verdict auto à l'ouverture de l'app"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch oordeel bij het openen van de app"
           }
         }
       }
@@ -30919,6 +30970,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "STAP 1 / 3"
+          }
+        }
+      }
+    },
+    "ÉTAPE 2 / 3": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÉTAPE 2 / 3"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STAP 2 / 3"
           }
         }
       }

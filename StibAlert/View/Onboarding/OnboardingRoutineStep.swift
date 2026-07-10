@@ -38,34 +38,30 @@ struct OnboardingRoutineStep: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    header
-                    departureCard
-                    homeCard
-                    valueExplainer
-                }
-                .padding(.horizontal, 22)
-                .padding(.top, 56)
-                .padding(.bottom, 180)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                departureCard
+                homeCard
+                valueExplainer
             }
-
+            .padding(.horizontal, 22)
+            .padding(.top, 44)
+            .padding(.bottom, 24)
+        }
+        // `safeAreaInset` RÉSERVE la hauteur du bloc de boutons : le contenu peut
+        // défiler jusqu'au bout au lieu de passer dessous. Un ZStack + un dégradé
+        // (l'ancienne version) laissait la dernière puce transparaître derrière le
+        // bouton — on croyait à un chevauchement, c'en était un.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 continueButton
                 skipButton
             }
             .padding(.horizontal, 22)
-            .padding(.top, 22)
-            .padding(.bottom, 34)
-            .background(
-                LinearGradient(
-                    colors: [DS.Color.background.opacity(0), DS.Color.background, DS.Color.background],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea(edges: .bottom)
-            )
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+            .background(DS.Color.background)
         }
         .background(DS.Color.background)
         .onTapGesture {
@@ -76,7 +72,7 @@ struct OnboardingRoutineStep: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("ÉTAPE 2 SUR 3")
+                Text("ÉTAPE 2 / 3")
                     .font(DS.Font.monoSmall)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
@@ -124,9 +120,30 @@ struct OnboardingRoutineStep: View {
             .datePickerStyle(.wheel)
             .labelsHidden()
             .frame(maxWidth: .infinity)
-            .frame(height: 140)
+            // La roue native mesure ~180 pt. Forcée à 140 SANS `clipped()`, elle
+            // débordait : ses rangées grises se superposaient au libellé au-dessus et
+            // au toggle en dessous. 150 pt laissent cinq rangées lisibles, et le clip
+            // garde la carte « point de départ » au-dessus du bouton.
+            .frame(height: 150)
+            .clipped()
+            // Le clip tranchait les rangées du haut et du bas en plein milieu. Le
+            // masque les fait disparaître en fondu : la coupe devient voulue.
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.18),
+                        .init(color: .black, location: 0.82),
+                        .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
             .opacity(skipDeparture ? 0.3 : 1)
             .disabled(skipDeparture)
+
+            DS.Rule()
 
             Toggle(isOn: $skipDeparture) {
                 Text("Horaire variable — pas de brief programmé")
@@ -172,8 +189,9 @@ struct OnboardingRoutineStep: View {
                     .stroke(homeFieldFocus ? DS.Color.primary : DS.Color.border, lineWidth: homeFieldFocus ? 1.5 : 1)
             )
 
+            // Pas de monospace : elle est réservée aux données temps réel.
             Text("Tu pourras associer un vrai arrêt STIB plus tard dans Profil.")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.caption)
                 .foregroundStyle(DS.Color.inkMute)
         }
         .padding(18)
@@ -213,7 +231,9 @@ struct OnboardingRoutineStep: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func bullet(_ text: String) -> some View {
+    /// `LocalizedStringKey`, pas `String` : `Text(uneStringVariable)` ne se localise
+    /// jamais. Les trois puces restaient donc en français dans l'app en néerlandais.
+    private func bullet(_ text: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "checkmark")
                 .font(.system(size: 11, weight: .black))
