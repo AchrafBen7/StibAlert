@@ -1139,7 +1139,7 @@ struct HomeView: View {
                 onOpenLine: { line in
                     selectedEventImpact = nil
                     nav.pendingLineFocus = line
-                    nav.currentPage = .signalements
+                    nav.currentPage = .schedules
                 },
                 onOpenStop: { stopId in
                     selectedEventImpact = nil
@@ -1654,7 +1654,7 @@ struct HomeView: View {
     private func openLineFromStop(_ line: String) {
         clearStopSelection()
         nav.pendingLineFocus = line
-        nav.currentPage = .signalements
+        nav.currentPage = .schedules
     }
 
     @MainActor

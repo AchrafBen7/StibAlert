@@ -177,9 +177,14 @@ struct AppRoot: View {
             switch link {
             case .home:
                 nav.currentPage = .home
-            case .line:
-                nav.currentPage = .signalements
-            case .signalements, .signalementDetail:
+            case .line(let number):
+                // Le numéro était ignoré : `stibalert://line/8` ouvrait la liste,
+                // jamais la ligne 8. On arme le focus, l'onglet Lignes la pousse.
+                nav.pendingLineFocus = number
+                nav.currentPage = .schedules
+            case .signalements:
+                nav.currentPage = .schedules
+            case .signalementDetail:
                 nav.currentPage = .reports
             case .favorites:
                 nav.currentPage = .favorites

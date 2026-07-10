@@ -15,9 +15,13 @@ struct SchedulesView: View {
     @State private var selectedOperator: TransitOperator = .stib
     @State private var selectedGare: SNCBStation?
     @StateObject private var locationManager = HomeLocationManager()
+    /// Pile de navigation pilotable : permet d'ouvrir une ligne PAR PROGRAMME
+    /// (depuis la carte, les favoris, un signalement) via `nav.pendingLineFocus`.
+    /// C'est le rôle que tenait l'ancien écran `SignalementsView`.
+    @State private var linePath: [String] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $linePath) {
             VStack(spacing: 0) {
                 header
                 TransitOperatorRow(
@@ -47,6 +51,19 @@ struct SchedulesView: View {
             // StibAlertDesignSystem.swift. Forcer light cassait l'expérience
             // dark mode iOS (transitions jarrantes entre tabs).
         }
+        // « Ouvrir cette ligne » depuis la carte, les favoris ou un signalement.
+        .onAppear { consumePendingLineFocus() }
+        .onChange(of: nav.pendingLineFocus) { _, _ in consumePendingLineFocus() }
+    }
+
+    /// Pousse la fiche de la ligne demandée, puis désarme le focus pour ne pas
+    /// la ré-ouvrir au prochain affichage de l'onglet.
+    @MainActor
+    private func consumePendingLineFocus() {
+        guard let line = nav.pendingLineFocus?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !line.isEmpty else { return }
+        nav.pendingLineFocus = nil
+        if linePath.last != line { linePath.append(line) }
     }
 
     // MARK: - Header

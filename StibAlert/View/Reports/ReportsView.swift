@@ -2772,7 +2772,7 @@ private struct EventImpactDetailSheet: View {
                 ForEach(event.impactedLines, id: \.self) { line in
                     Button {
                         nav.pendingLineFocus = line
-                        nav.currentPage = .signalements
+                        nav.currentPage = .schedules
                         dismiss()
                     } label: {
                         LineBadge(line: line, size: .lg)

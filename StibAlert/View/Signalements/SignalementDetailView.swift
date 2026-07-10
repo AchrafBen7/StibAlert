@@ -593,13 +593,15 @@ struct SignalementDetailView: View {
 
     private func openLine() {
         nav.pendingLineFocus = latest.ligne
-        nav.currentPage = .signalements
+        nav.currentPage = .schedules
         onDismiss()
     }
 
     private func openNewReport() {
         nav.currentPage = .home
-        nav.pendingLineFocus = latest.ligne
+        // Ne PAS armer `pendingLineFocus` ici : plus personne ne le lit pour le flux
+        // de signalement (il n'alimentait que l'ancien écran). Le laisser armé
+        // ouvrirait cette ligne au prochain passage sur l'onglet Lignes.
         onDismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             nav.showReportSheet = true

@@ -174,11 +174,18 @@ final class LigneDetailViewModel: ObservableObject {
     var summaryDetails: String {
         guard let activeLine else { return "Chargement des données de ligne…" }
         let departures = activeLine.nextDepartures.prefix(3).map {
-            let minutes = $0.minutes <= 0 ? "Imminent" : "\($0.minutes) min"
-            return "\(minutes)\($0.source == "scheduled" ? " · prévu" : " · temps réel")"
+            let minutes = $0.minutes <= 0
+                ? AppLocalizer.string("departure.imminent", defaultValue: "Imminent")
+                : AppLocalizer.format("departure.minutes", defaultValue: "%lld min", $0.minutes)
+            // "scheduled" est une valeur backend : on la compare, on ne la traduit pas.
+            let suffix = $0.source == "scheduled"
+                ? AppLocalizer.string("departure.scheduled", defaultValue: "prévu")
+                : AppLocalizer.string("departure.realtime", defaultValue: "temps réel")
+            return "\(minutes) · \(suffix)"
         }
         if departures.isEmpty {
-            return "Aucun prochain départ fiable pour cette direction."
+            return AppLocalizer.string("departure.none_reliable",
+                                       defaultValue: "Aucun prochain départ fiable pour cette direction.")
         }
         return departures.joined(separator: " • ")
     }

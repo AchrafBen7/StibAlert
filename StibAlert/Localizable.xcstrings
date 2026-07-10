@@ -12821,6 +12821,36 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen details beschikbaar." } }
       }
     },
+    "departure.imminent" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Imminent" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Nu meteen" } }
+      }
+    },
+    "departure.minutes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld min" } }
+      }
+    },
+    "departure.scheduled" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "prévu" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "gepland" } }
+      }
+    },
+    "departure.realtime" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "temps réel" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "realtime" } }
+      }
+    },
+    "departure.none_reliable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun prochain départ fiable pour cette direction." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen betrouwbaar volgend vertrek voor deze richting." } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

@@ -846,7 +846,7 @@ struct FavoritesView: View {
                 ForEach(followedLineDisplays) { line in
                     Button {
                         nav.pendingLineFocus = line.code
-                        nav.currentPage = .reports
+                        nav.currentPage = .schedules
                     } label: {
                         FavoriteFollowedLineCard(line: line)
                     }
