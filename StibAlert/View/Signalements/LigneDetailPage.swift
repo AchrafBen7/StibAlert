@@ -167,7 +167,7 @@ final class LigneDetailViewModel: ObservableObject {
     var summaryTitle: String {
         TransportViewAdapters.localizedSeverityLabel(
             severity: activeLine?.severity,
-            fallback: activeLine?.label?.fr
+            fallback: activeLine?.label?.localized
         )
     }
 

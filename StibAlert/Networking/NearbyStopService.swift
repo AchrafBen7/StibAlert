@@ -525,7 +525,7 @@ enum NearbyStopService {
             NearbyIssueLine(
                 number: normalizedLineId(ligne.lineid),
                 color: normalizedColor(from: ligne.couleur),
-                direction: ligne.destination?.fr ?? ligne.lineid,
+                direction: ligne.destination?.localized ?? ligne.lineid,
                 crowding: .low,
                 reliability: 80,
                 lineTextColor: isLight(hex: ligne.couleur) ? .black : .white

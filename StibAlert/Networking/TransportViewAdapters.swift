@@ -20,7 +20,7 @@ enum TransportViewAdapters {
     static func homeDecisionData(from overview: TransportOverviewDTO) -> TransportHomeDecisionData {
         let severityLabel = localizedSeverityLabel(
             severity: overview.severity,
-            fallback: overview.label?.fr
+            fallback: overview.label?.localized
         )
 
         let departures = overview.nextDepartures.prefix(2).map {

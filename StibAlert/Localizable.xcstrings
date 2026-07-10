@@ -13231,6 +13231,12 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% vertrouwen" } }
       }
     },
+    "destination.to_confirm" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Destination à confirmer" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bestemming te bevestigen" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

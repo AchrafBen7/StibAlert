@@ -51,9 +51,15 @@ private enum StopDetailCatalogStore {
             }
             guard servesStop else { return nil }
 
-            let destination = [route.destinationFr, route.destinationNl]
+            // La langue de l'app d'abord, l'autre en repli : ce catalogue statique
+            // prenait systématiquement le français.
+            let ordered = AppLocale.languageCode == "nl"
+                ? [route.destinationNl, route.destinationFr]
+                : [route.destinationFr, route.destinationNl]
+            let destination = ordered
                 .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first(where: { !$0.isEmpty }) ?? "Destination à confirmer"
+                .first(where: { !$0.isEmpty })
+                ?? AppLocalizer.string("destination.to_confirm", defaultValue: "Destination à confirmer")
 
             return GroupedStopPassage(line: normalizedLine, destination: destination, departures: [])
         }
@@ -165,7 +171,7 @@ struct ArretDetailPage: View {
     private var severityLabel: String {
         TransportViewAdapters.localizedSeverityLabel(
             severity: stopDetail?.severity,
-            fallback: stopDetail?.label?.fr ?? "Service normal"
+            fallback: stopDetail?.label?.localized ?? "Service normal"
         )
     }
 

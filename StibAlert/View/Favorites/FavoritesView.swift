@@ -540,7 +540,7 @@ struct FavoritesView: View {
     private func favoriteDetail(from stopDetail: TransportStopDTO) -> FavoriDetailDTO {
         let stop = stopDetail.stop
         let primaryLine = stop.lines.first ?? stopDetail.nextDepartures.first?.line
-        let status = stopDetail.label?.fr ?? stopDetail.severity
+        let status = stopDetail.label?.localized ?? stopDetail.severity
         let nextPassage = stopDetail.nextDepartures.map(\.minutes).min()
 
         return FavoriDetailDTO(
@@ -1021,7 +1021,7 @@ struct FavoritesView: View {
                 directionLabel: readableDirectionLabel(
                     primary: state.nom,
                     secondary: state.nomRetour,
-                    destination: state.destination?.fr
+                    destination: state.destination?.localized
                 ) ?? existing?.directionLabel,
                 color: color(from: state.couleur, fallbackLine: code),
                 textColor: TransitLinePalette.foreground(for: code)
@@ -1158,7 +1158,7 @@ private struct FavoriteStopDetailView: View {
             let fallbackLine = item.detailLines.first ?? FavoriteLineChip(code: item.code, color: item.codeColor, textColor: item.codeTextColor)
             let label = TransportViewAdapters.localizedSeverityLabel(
                 severity: transportStop.severity,
-                fallback: transportStop.label?.fr
+                fallback: transportStop.label?.localized
             )
 
             let departures = transportStop.nextDepartures.prefix(2)
@@ -1919,7 +1919,7 @@ private struct FavoriteStopDecisionCard: View {
 
                 Spacer()
 
-                Text(TransportViewAdapters.localizedSeverityLabel(severity: stop.severity, fallback: stop.label?.fr))
+                Text(TransportViewAdapters.localizedSeverityLabel(severity: stop.severity, fallback: stop.label?.localized))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(DS.Color.ink)
                     .tracking(1)
