@@ -215,7 +215,7 @@ struct SignalementsView: View {
 
     private var disruptedSection: some View {
         LignesSection(
-            title: "Perturbations",
+            title: AppLocalizer.string("Perturbations"),
             icon: "exclamationmark.triangle.fill",
             iconColor: DS.Color.statusMajor,
             count: disruptedLines.count
@@ -331,8 +331,13 @@ struct SignalementsView: View {
                 status: status,
                 reportsCount: reportsCount,
                 filter: filter,
+                // ⚠️ En pratique le backend renvoie la même confiance pour toutes les
+                // lignes : la liste affiche « 84 % » sur chacune des 14 rangées. Ce
+                // chiffre n'informe personne — candidat à suppression (« une seule
+                // vérité par écran »), pas seulement à traduction.
                 confidenceText: items.compactMap { $0.community?.confidence }.max().map {
-                    "\(Int(($0 * 100).rounded()))% fiable"
+                    AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable",
+                                        Int(($0 * 100).rounded()))
                 }
             )
         }
@@ -492,7 +497,11 @@ private struct LignesSection<Content: View>: View {
 
                 Spacer()
 
-                Text("\(count) LIGNE\(count > 1 ? "S" : "")")
+                // Le « S » collé au mot traduit donnait « 14 LIJNS » en néerlandais.
+                // Le pluriel doit venir de la traduction, jamais d'une concaténation.
+                Text(count > 1
+                     ? AppLocalizer.format("lines.count.many", defaultValue: "%lld LIGNES", count)
+                     : AppLocalizer.format("lines.count.one", defaultValue: "%lld LIGNE", count))
                     .font(DS.Font.monoSmall)
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.inkMute)
@@ -552,9 +561,13 @@ private struct LignesModeTabButton: View {
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
                         Text("\(total)")
                             .font(.system(size: 17, weight: .bold, design: .monospaced))
-                        Text("LIGNES")
+                        // « LIJNEN » (NL) est plus long que « LIGNES » et se coupait
+                        // en « LIJ-NEN » dans la carte étroite.
+                        Text(AppLocalizer.string("lines.label", defaultValue: "LIGNES"))
                             .font(DS.Font.monoSmall)
                             .tracking(0.8)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                             .foregroundStyle(active ? DS.Color.paper.opacity(0.62) : DS.Color.inkMute)
                     }
 
@@ -1198,7 +1211,7 @@ private struct LineOverviewView: View {
                             reportsCount: reportsCount,
                             confidenceText: response.signalements.compactMap { $0.community?.confidence }.max().map {
                                 let value = Int(($0 * 100).rounded())
-                                return "\(value)% fiable"
+                                return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", value)
                             },
                             fallbackColor: line.lineColor,
                             fallbackTextColor: line.lineTextColor

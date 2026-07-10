@@ -359,9 +359,10 @@ struct LigneDetailPage: View {
     /// Top-level mode: timeline of stops, or the new infos-trafic overview
     /// (status icon + 3 sub-tabs for community / official / social).
     enum DetailTab: Hashable { case stops, traffic }
-    /// Filters inside the Infos trafic tab. "Social" is a placeholder until
-    /// we wire a Twitter/X search; today it shows a "bientôt" empty state.
-    enum TrafficSubtab: Hashable { case live, upcoming, social }
+    /// Filtres de l'onglet Infos trafic. L'ancien sous-onglet « Twitter / X »
+    /// a été retiré : c'était une source technique promue en onglet, qui
+    /// n'affichait qu'un état vide « bientôt ».
+    enum TrafficSubtab: Hashable { case live, upcoming }
 
     @StateObject private var viewModel: LigneDetailViewModel
     @Environment(\.dismiss) private var dismiss
@@ -658,8 +659,6 @@ struct LigneDetailPage: View {
             communityIncidentsList
         case .upcoming:
             officialIncidentsList
-        case .social:
-            socialPlaceholder
         }
     }
 
@@ -707,7 +706,6 @@ struct LigneDetailPage: View {
         HStack(spacing: 4) {
             trafficSubtabChip(.live, label: AppLocalizer.string("En cours"), count: liveCount)
             trafficSubtabChip(.upcoming, label: AppLocalizer.string("Officiel"), count: officialCount)
-            trafficSubtabChip(.social, label: AppLocalizer.string("Twitter / X"), count: 0)
         }
         .padding(4)
         .background(DS.Color.paper2.opacity(0.55))
@@ -923,14 +921,6 @@ struct LigneDetailPage: View {
                 .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-    }
-
-    private var socialPlaceholder: some View {
-        emptyStateCard(
-            icon: "bubble.left.and.text.bubble.right.fill",
-            title: "Réseaux sociaux",
-            detail: "Aucune mention récente à afficher pour cette ligne."
-        )
     }
 
     private func emptyStateCard(icon: String, title: String, detail: String) -> some View {
@@ -1249,7 +1239,7 @@ struct LigneDetailPage: View {
     private var confidenceLabel: String {
         let confidence = viewModel.activeLine?.confidence ?? 0
         let value = Int((confidence * 100).rounded())
-        return "\(value)% fiable"
+        return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", value)
     }
 
     private var statusLevel: DS.StatusLevel {

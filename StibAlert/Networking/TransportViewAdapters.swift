@@ -28,18 +28,18 @@ enum TransportViewAdapters {
         }
 
         let departureSummary = departures.isEmpty
-            ? "Aucun prochain passage fiable pour le moment"
+            ? AppLocalizer.string("home.no_reliable_departure", defaultValue: "Aucun prochain passage fiable pour le moment")
             : departures.joined(separator: " • ")
 
         let incidentSummary: String
         if let first = overview.activeIncidents.first {
-            incidentSummary = first.description ?? first.type ?? "Perturbations détectées"
+            incidentSummary = first.description ?? first.type ?? AppLocalizer.string("home.disruptions_detected", defaultValue: "Perturbations détectées")
         } else {
-            incidentSummary = "Le réseau autour de vous semble exploitable."
+            incidentSummary = AppLocalizer.string("home.network_ok", defaultValue: "Le réseau autour de vous semble exploitable.")
         }
 
         return TransportHomeDecisionData(
-            title: "Puis-je partir maintenant ?",
+            title: AppLocalizer.string("home.can_i_leave", defaultValue: "Puis-je partir maintenant ?"),
             subtitle: incidentSummary,
             severityLabel: severityLabel,
             confidenceLabel: confidenceText(from: overview.confidence),
@@ -56,8 +56,8 @@ enum TransportViewAdapters {
                 id: incident.id,
                 line: incident.line ?? "?",
                 title: incident.type ?? localizedSeverityLabel(severity: incident.severity, fallback: nil),
-                time: incident.date.map { formatter.localizedString(for: $0, relativeTo: .now) } ?? "À l'instant",
-                details: incident.description ?? "Aucun détail disponible."
+                time: incident.date.map { formatter.localizedString(for: $0, relativeTo: .now) } ?? AppLocalizer.string("time.just_now", defaultValue: "à l’instant"),
+                details: incident.description ?? AppLocalizer.string("no_details", defaultValue: "Aucun détail disponible.")
             )
         }
     }
@@ -80,7 +80,8 @@ enum TransportViewAdapters {
                 for: alternative,
                 from: recommendation.activeIncidents
             )
-            let confidenceText = "\(Int((alternative.confidence * 100).rounded()))% fiable"
+            let confidenceText = AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable",
+                                                     Int((alternative.confidence * 100).rounded()))
             let trustLabel = trustLabel(for: alternative.confidence)
             let reason = alternative.explanationDetails?.summary ?? alternative.reasons?.first ?? alternative.explanation
             let categoryTitles = alternative.explanationDetails?.categories.map(\.title) ?? []
@@ -108,7 +109,7 @@ enum TransportViewAdapters {
 
     static func reliabilityText(from recommendation: TransportRecommendationDTO) -> String {
         let percent = Int((recommendation.confidence * 100).rounded())
-        return "\(percent)% fiable"
+        return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", percent)
     }
 
     // ⚠️ Seuils dupliqués avec `SignalementsView.confidenceLabel` / `confidenceText`

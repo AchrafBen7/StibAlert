@@ -12767,6 +12767,60 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meldingen" } }
       }
     },
+    "lines.count.one" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld LIGNE" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld LIJN" } }
+      }
+    },
+    "lines.count.many" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld LIGNES" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld LIJNEN" } }
+      }
+    },
+    "lines.label" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "LIGNES" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "LIJNEN" } }
+      }
+    },
+    "confidence.pct_reliable" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% fiable" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld%% betrouwbaar" } }
+      }
+    },
+    "home.no_reliable_departure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun prochain passage fiable pour le moment" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Momenteel geen betrouwbare volgende doorkomst" } }
+      }
+    },
+    "home.disruptions_detected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Perturbations détectées" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Storingen vastgesteld" } }
+      }
+    },
+    "home.network_ok" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Le réseau autour de vous semble exploitable." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Het netwerk om je heen lijkt bruikbaar." } }
+      }
+    },
+    "home.can_i_leave" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Puis-je partir maintenant ?" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kan ik nu vertrekken?" } }
+      }
+    },
+    "no_details" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucun détail disponible." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Geen details beschikbaar." } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

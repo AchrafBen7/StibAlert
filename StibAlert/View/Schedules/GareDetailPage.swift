@@ -14,7 +14,9 @@ import SwiftUI
 /// fullScreenCover (it draws its own back button + hides the nav bar).
 struct GareDetailPage: View {
     enum DetailTab: Hashable { case schedule, traffic }
-    enum TrafficSubtab: Hashable { case live, official, social }
+    /// L'ancien sous-onglet « Twitter / X » a été retiré : une source technique
+    /// promue en onglet, qui n'affichait qu'un état vide.
+    enum TrafficSubtab: Hashable { case live, official }
 
     let station: SNCBStation
     var onReport: (SNCBStation) -> Void = { _ in }
@@ -442,7 +444,6 @@ struct GareDetailPage: View {
         switch selectedTrafficSubtab {
         case .live:     communityList
         case .official: officialList
-        case .social:   socialPlaceholder
         }
 
         reportButton
@@ -481,7 +482,6 @@ struct GareDetailPage: View {
         HStack(spacing: 4) {
             subtabChip(.live, label: "En cours", count: signalements.count)
             subtabChip(.official, label: "Officiel", count: officialCount)
-            subtabChip(.social, label: "Twitter / X", count: 0)
         }
         .padding(4)
         .background(DS.Color.paper2.opacity(0.55))
@@ -714,14 +714,6 @@ struct GareDetailPage: View {
                 .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-    }
-
-    private var socialPlaceholder: some View {
-        emptyStateCard(
-            icon: "bubble.left.and.text.bubble.right.fill",
-            title: "Réseaux sociaux",
-            detail: "Aucune mention récente à afficher pour cette gare."
-        )
     }
 
     private func communityRow(_ signalement: SignalementDTO) -> some View {
