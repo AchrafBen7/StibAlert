@@ -813,7 +813,7 @@ struct ProfileView: View {
     private func activityTitle(for item: ContributionItem) -> String {
         let role = item.roleLabel
         if let ligne = item.ligne, !ligne.isEmpty {
-            return "\(role) · Ligne \(ligne)"
+            return AppLocalizer.format("activity.role_line", defaultValue: "%@ · Ligne %@", role, ligne)
         }
         return role
     }
@@ -1922,10 +1922,10 @@ private struct AccountSettingsView: View {
         ) {
             avatarSection
 
-            ProfileSettingsSection(title: "Infos personnelles") {
-                AccountTextRow(icon: "person", text: $firstName, placeholder: "Prénom")
+            ProfileSettingsSection(title: AppLocalizer.string("profile.personal_info", defaultValue: "Infos personnelles")) {
+                AccountTextRow(icon: "person", text: $firstName, placeholder: AppLocalizer.string("field.first_name", defaultValue: "Prénom"))
                 ProfileSettingsDivider()
-                AccountTextRow(icon: "person.crop.circle", text: $lastName, placeholder: "Nom")
+                AccountTextRow(icon: "person.crop.circle", text: $lastName, placeholder: AppLocalizer.string("field.last_name", defaultValue: "Nom"))
             }
 
             ProfileSettingsSection(title: "Connexion") {
@@ -1938,8 +1938,8 @@ private struct AccountSettingsView: View {
 
             ProfileSettingsSection(title: "Routine quotidienne") {
                 ToggleRow(
-                    title: "Activer le mode trajet quotidien",
-                    subtitle: "Prépare le trajet domicile-travail et les alertes utiles",
+                    title: AppLocalizer.string("commute.enable_title", defaultValue: "Activer le mode trajet quotidien"),
+                    subtitle: AppLocalizer.string("commute.enable_subtitle", defaultValue: "Prépare le trajet domicile-travail et les alertes utiles"),
                     isOn: $commuteEnabled
                 )
                 ProfileSettingsDivider()
@@ -2570,12 +2570,28 @@ private struct SupportItem: Identifiable {
 }
 
 private enum SupportMockData {
-    static let items: [SupportItem] = [
-        .init(url: URL(string: "mailto:support@blayse.app?subject=Aide%20Blayse"), title: "Centre d’aide", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: false),
-        .init(url: URL(string: "mailto:support@blayse.app?subject=Bug%20Blayse"), title: "Signaler un bug", subtitle: "Un souci technique ?\nOn est là pour vous écouter.", highlighted: false),
-        .init(url: URL(string: "mailto:support@blayse.app"), title: "Communauté", subtitle: "Faites partie du changement.", highlighted: false),
-        .init(url: URL(string: "mailto:support@blayse.app?subject=Contact%20Blayse"), title: "Nous contacter", subtitle: "Trouvez rapidement une\nsolution ici.", highlighted: true)
-    ]
+    /// `var` calculé et non `let` : un `static let` n'est évalué QU'UNE FOIS et
+    /// figerait la langue du premier accès. Recalculé à chaque lecture, il suit
+    /// la bascule FR/NL du Profil.
+    static var items: [SupportItem] {
+        let helpSubtitle = AppLocalizer.string("support.find_solution", defaultValue: "Trouvez rapidement une\nsolution ici.")
+        return [
+            .init(url: URL(string: "mailto:support@blayse.app?subject=Aide%20Blayse"),
+                  title: AppLocalizer.string("support.help_center", defaultValue: "Centre d’aide"),
+                  subtitle: helpSubtitle, highlighted: false),
+            .init(url: URL(string: "mailto:support@blayse.app?subject=Bug%20Blayse"),
+                  title: AppLocalizer.string("support.report_bug", defaultValue: "Signaler un bug"),
+                  subtitle: AppLocalizer.string("support.bug_subtitle", defaultValue: "Un souci technique ?\nOn est là pour vous écouter."),
+                  highlighted: false),
+            .init(url: URL(string: "mailto:support@blayse.app"),
+                  title: AppLocalizer.string("source.community", defaultValue: "Communauté"),
+                  subtitle: AppLocalizer.string("support.community_subtitle", defaultValue: "Faites partie du changement."),
+                  highlighted: false),
+            .init(url: URL(string: "mailto:support@blayse.app?subject=Contact%20Blayse"),
+                  title: AppLocalizer.string("support.contact_us", defaultValue: "Nous contacter"),
+                  subtitle: helpSubtitle, highlighted: true)
+        ]
+    }
 }
 
 private struct PressEventsModifier: ViewModifier {

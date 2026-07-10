@@ -5,10 +5,10 @@ enum ReportSegment: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .all: return "Tout"
-        case .official: return "Officiel"
-        case .community: return "Communauté"
-        case .events: return "Événements"
+        case .all: return AppLocalizer.string("scope.all", defaultValue: "Tout")
+        case .official: return AppLocalizer.string("source.official", defaultValue: "Officiel")
+        case .community: return AppLocalizer.string("source.community", defaultValue: "Communauté")
+        case .events: return AppLocalizer.string("scope.events", defaultValue: "Événements")
         }
     }
     var iconSystemName: String? {
@@ -32,11 +32,11 @@ enum ReportTransportMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all: return "Tous modes"
-        case .metro: return "Métro"
-        case .tram: return "Tram"
-        case .bus: return "Bus"
-        case .sncb: return "SNCB"
+        case .all: return AppLocalizer.string("mode.all", defaultValue: "Tous modes")
+        case .metro: return AppLocalizer.string("mode.metro", defaultValue: "Métro")
+        case .tram: return AppLocalizer.string("mode.tram", defaultValue: "Tram")
+        case .bus: return AppLocalizer.string("mode.bus", defaultValue: "Bus")
+        case .sncb: return "SNCB"   // i18n:ignore — nom d'opérateur
         }
     }
 
@@ -58,9 +58,9 @@ enum ReportSortMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .recent: return "Plus récents"
-        case .urgent: return "Plus urgents"
-        case .personal: return "Mes lignes"
+        case .recent: return AppLocalizer.string("sort.recent", defaultValue: "Plus récents")
+        case .urgent: return AppLocalizer.string("sort.urgent", defaultValue: "Plus urgents")
+        case .personal: return AppLocalizer.string("sort.personal", defaultValue: "Mes lignes")
         }
     }
 }

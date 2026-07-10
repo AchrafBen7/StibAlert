@@ -40,10 +40,11 @@ struct ContributionItem: Decodable, Identifiable {
 
     var roleLabel: String {
         switch role {
-        case "first_reporter": return "1er à signaler"
-        case "confirmer": return "Confirmation"
-        case "resolver": return "Résolu"
-        case "still_blocked_voter": return "Toujours bloqué"
+        // Les `case` sont des valeurs backend : on compare, on ne traduit pas.
+        case "first_reporter": return AppLocalizer.string("role.first_reporter", defaultValue: "1er à signaler")
+        case "confirmer": return AppLocalizer.string("role.confirmer", defaultValue: "Confirmation")
+        case "resolver": return AppLocalizer.string("role.resolver", defaultValue: "Résolu")
+        case "still_blocked_voter": return AppLocalizer.string("vote.still_blocked", defaultValue: "Toujours bloqué")
         default: return role
         }
     }

@@ -50,12 +50,14 @@ struct OfflineMapFallback: View {
     }
 
     private var ageLabel: String {
-        guard let age = snapshotAge else { return "Dernière vue connue" }
+        guard let age = snapshotAge else {
+            return AppLocalizer.string("offline.last_known_view", defaultValue: "Dernière vue connue")
+        }
         let mins = max(1, Int(age / 60))
-        if mins < 60 { return "Capturée il y a \(mins) min" }
+        if mins < 60 { return AppLocalizer.format("offline.captured_min", defaultValue: "Capturée il y a %lld min", mins) }
         let hours = mins / 60
-        if hours < 24 { return "Capturée il y a \(hours)h" }
-        return "Capturée il y a \(hours / 24)j"
+        if hours < 24 { return AppLocalizer.format("offline.captured_hour", defaultValue: "Capturée il y a %lldh", hours) }
+        return AppLocalizer.format("offline.captured_day", defaultValue: "Capturée il y a %lldj", hours / 24)
     }
 
     private func reloadIfNeeded() {

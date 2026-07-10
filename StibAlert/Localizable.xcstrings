@@ -13680,6 +13680,228 @@
         "nl" : { "stringUnit" : { "state" : "translated", "value" : "vrij" } }
       }
     },
+    "scope.all" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tout" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Alles" } }
+      }
+    },
+    "scope.events" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Événements" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Evenementen" } }
+      }
+    },
+    "mode.all" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Tous modes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Alle modi" } }
+      }
+    },
+    "sort.recent" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Plus récents" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meest recent" } }
+      }
+    },
+    "sort.urgent" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Plus urgents" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Meest dringend" } }
+      }
+    },
+    "sort.personal" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mes lignes" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Mijn lijnen" } }
+      }
+    },
+    "level.high" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Élevée" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Hoog" } }
+      }
+    },
+    "level.medium" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Moyenne" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Gemiddeld" } }
+      }
+    },
+    "level.low" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Basse" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Laag" } }
+      }
+    },
+    "status.confirmed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Confirmé" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bevestigd" } }
+      }
+    },
+    "status.likely" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Probable" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Waarschijnlijk" } }
+      }
+    },
+    "role.first_reporter" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "1er à signaler" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Eerste melder" } }
+      }
+    },
+    "role.confirmer" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Confirmation" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bevestiging" } }
+      }
+    },
+    "role.resolver" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Résolu" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Opgelost" } }
+      }
+    },
+    "offline.last_known_view" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Dernière vue connue" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Laatst bekende weergave" } }
+      }
+    },
+    "offline.captured_min" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Capturée il y a %lld min" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld min geleden vastgelegd" } }
+      }
+    },
+    "offline.captured_hour" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Capturée il y a %lldh" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld u geleden vastgelegd" } }
+      }
+    },
+    "offline.captured_day" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Capturée il y a %lldj" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%lld d geleden vastgelegd" } }
+      }
+    },
+    "activity.role_line" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "%@ · Ligne %@" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "%@ · Lijn %@" } }
+      }
+    },
+    "profile.personal_info" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Infos personnelles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Persoonlijke gegevens" } }
+      }
+    },
+    "field.first_name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Prénom" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Voornaam" } }
+      }
+    },
+    "field.last_name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nom" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Naam" } }
+      }
+    },
+    "commute.enable_title" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Activer le mode trajet quotidien" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Dagelijkse-rittenmodus inschakelen" } }
+      }
+    },
+    "commute.enable_subtitle" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Prépare le trajet domicile-travail et les alertes utiles" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Bereidt je woon-werkverkeer en nuttige meldingen voor" } }
+      }
+    },
+    "guidance.off_route_title" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Hors itinéraire détecté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Buiten de route" } }
+      }
+    },
+    "guidance.off_route_message" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Je recalcule une route plus cohérente avec ta position actuelle." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Ik herbereken een route die beter past bij je huidige positie." } }
+      }
+    },
+    "guidance.route_adjusted" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Itinéraire ajusté" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Route aangepast" } }
+      }
+    },
+    "search.pick_home" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisis ton domicile" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kies je thuisadres" } }
+      }
+    },
+    "search.pick_work" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisis ton lieu de travail" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Kies je werkadres" } }
+      }
+    },
+    "search.where_to" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Où voulez-vous aller ?" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Waar ga je heen?" } }
+      }
+    },
+    "place.brussels_region" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Région de Bruxelles-Capitale" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Brussels Hoofdstedelijk Gewest" } }
+      }
+    },
+    "support.help_center" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Centre d’aide" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Helpcentrum" } }
+      }
+    },
+    "support.find_solution" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Trouvez rapidement une\nsolution ici." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Vind hier snel een\noplossing." } }
+      }
+    },
+    "support.report_bug" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Signaler un bug" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een bug melden" } }
+      }
+    },
+    "support.bug_subtitle" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Un souci technique ?\nOn est là pour vous écouter." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Een technisch probleem?\nWe luisteren naar je." } }
+      }
+    },
+    "support.community_subtitle" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Faites partie du changement." } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Maak deel uit van de verandering." } }
+      }
+    },
+    "support.contact_us" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Nous contacter" } },
+        "nl" : { "stringUnit" : { "state" : "translated", "value" : "Contacteer ons" } }
+      }
+    },
     "confidence.fresh" : {
       "localizations" : {
         "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fraîche" } },

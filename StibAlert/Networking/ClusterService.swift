@@ -90,9 +90,9 @@ enum ClusterConfidence: String, Codable {
 
     var displayLabel: String {
         switch self {
-        case .high: return "Élevée"
-        case .medium: return "Moyenne"
-        case .low: return "Basse"
+        case .high: return AppLocalizer.string("level.high", defaultValue: "Élevée")
+        case .medium: return AppLocalizer.string("level.medium", defaultValue: "Moyenne")
+        case .low: return AppLocalizer.string("level.low", defaultValue: "Basse")
         }
     }
 }
@@ -130,9 +130,9 @@ struct ClusterDTO: Codable, Identifiable, Hashable {
     /// Libellé FR du statut de confiance unifié.
     var confidenceStatusLabel: String? {
         switch confidenceStatus {
-        case "confirmed": return "Confirmé"
-        case "likely": return "Probable"
-        case "unverified": return "À vérifier"
+        case "confirmed": return AppLocalizer.string("status.confirmed", defaultValue: "Confirmé")
+        case "likely": return AppLocalizer.string("status.likely", defaultValue: "Probable")
+        case "unverified": return AppLocalizer.string("keyword.to_check", defaultValue: "À vérifier")
         default: return nil
         }
     }

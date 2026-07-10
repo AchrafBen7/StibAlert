@@ -125,8 +125,8 @@ struct SearchView: View {
             VStack(spacing: 14) {
                 if guidanceSession.isRerouting {
                     SearchOffRouteStatusCard(
-                        title: "Hors itinéraire détecté",
-                        message: "Je recalcule une route plus cohérente avec ta position actuelle.",
+                        title: AppLocalizer.string("guidance.off_route_title", defaultValue: "Hors itinéraire détecté"),
+                        message: AppLocalizer.string("guidance.off_route_message", defaultValue: "Je recalcule une route plus cohérente avec ta position actuelle."),
                         tone: .rerouting
                     )
                     .padding(.horizontal, DesignSystem.Spacing.md)
@@ -134,7 +134,7 @@ struct SearchView: View {
                 } else if let rerouteNotice = guidanceSession.guidance.rerouteNotice,
                           guidanceSession.guidance.isGuiding {
                     SearchOffRouteStatusCard(
-                        title: "Itinéraire ajusté",
+                        title: AppLocalizer.string("guidance.route_adjusted", defaultValue: "Itinéraire ajusté"),
                         message: rerouteNotice,
                         tone: .updated
                     )
@@ -277,9 +277,9 @@ struct SearchView: View {
 
     private var destinationSheetTitle: String {
         switch quickAccess.pendingSaveSlot {
-        case .home: return "Choisis ton domicile"
-        case .work: return "Choisis ton lieu de travail"
-        case .none: return "Où voulez-vous aller ?"
+        case .home: return AppLocalizer.string("search.pick_home", defaultValue: "Choisis ton domicile")
+        case .work: return AppLocalizer.string("search.pick_work", defaultValue: "Choisis ton lieu de travail")
+        case .none: return AppLocalizer.string("search.where_to", defaultValue: "Où voulez-vous aller ?")
         }
     }
 

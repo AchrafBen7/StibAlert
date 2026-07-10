@@ -6,7 +6,7 @@ final class SearchViewState: ObservableObject {
     @Published var origin = SearchPlace(
         id: "brussels-center",
         name: "Bruxelles",
-        subtitle: "Région de Bruxelles-Capitale",
+        subtitle: AppLocalizer.string("place.brussels_region", defaultValue: "Région de Bruxelles-Capitale"),
         coordinate: .init(latitude: 50.8503, longitude: 4.3517)
     )
     @Published var destination: SearchPlace?
