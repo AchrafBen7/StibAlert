@@ -330,14 +330,20 @@ struct TransitPassSettingsView: View {
                             value: Text(verbatim: serial)
                         )
                     }
-                    ProfileSettingsDivider()
-                    insightRow(
-                        icon: scan.lastValidations.isEmpty ? "clock.arrow.circlepath" : "checkmark.circle.fill",
-                        label: AppLocalizer.string("transit_pass.insight.validations", defaultValue: "Dernières validations"),
-                        value: scan.lastValidations.isEmpty
-                            ? Text(AppLocalizer.string("transit_pass.insight.none", defaultValue: "Aucune sur la puce"))
-                            : Text(verbatim: scan.lastValidations.prefix(2).joined(separator: " · "))
-                    )
+                    // Les validations ne s'affichent QUE si la puce en contient
+                    // vraiment. Avant, la ligne apparaissait toujours pour annoncer
+                    // « Aucune sur la puce » : elle faisait la publicité d'une
+                    // fonction qui, en pratique, ne remonte rien (le fichier
+                    // d'événements est vide sur les cartes testées). Une fonction
+                    // qui ne marche pas ne doit pas occuper une ligne d'écran.
+                    if !scan.lastValidations.isEmpty {
+                        ProfileSettingsDivider()
+                        insightRow(
+                            icon: "checkmark.circle.fill",
+                            label: AppLocalizer.string("transit_pass.insight.validations", defaultValue: "Dernières validations"),
+                            value: Text(verbatim: scan.lastValidations.prefix(2).joined(separator: " · "))
+                        )
+                    }
                 }
                 .padding(16)
             }
