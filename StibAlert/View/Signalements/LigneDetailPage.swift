@@ -831,8 +831,18 @@ struct LigneDetailPage: View {
                 // incidents CONCRETS sont listés juste en dessous, ce résumé vague
                 // (« Réseau perturbé sur 14 ») ne fait que répéter la carte
                 // d'incident. On garde les incidents, on supprime le doublon.
-                ForEach(incidents) { incident in
-                    officialIncidentRow(incident)
+                // La STIB publie un communiqué PAR CONSEIL, pas par perturbation :
+                // « tram 92 interrompu, prends le T-bus vers SCHAERBEEK » et « tram 92
+                // interrompu, T-bus vers PARC » sont UNE interruption avec DEUX
+                // alternatives. Une carte chacun, ça se lit comme un copié-collé.
+                ForEach(GroupedDisruption.group(incidents)) { group in
+                    DisruptionCard(
+                        digest: group.digest,
+                        line: group.line,
+                        stopName: group.stopNames.first,
+                        alternatives: group.alternatives,
+                        sourceCount: group.sourceCount
+                    )
                 }
                 // Global advisory appended as a clearly-labelled context
                 // card — not counted in the badge, kept visually distinct
@@ -945,15 +955,6 @@ struct LigneDetailPage: View {
     /// Le texte officiel est décomposé (cause / effet / période / conseil) au lieu
     /// d'être affiché brut. `DisruptionCard` met en avant CE QU'IL FAUT FAIRE, qui
     /// était jusqu'ici noyé en fin de paragraphe et tronqué à trois lignes.
-    private func officialIncidentRow(_ incident: TransportIncidentDTO) -> some View {
-        let text = incident.localizedDescription ?? incident.localizedType ?? ""
-        return DisruptionCard(
-            digest: DisruptionDigest.parse(text),
-            line: incident.line,
-            stopName: incident.stop?.name
-        )
-    }
-
     private var identifierBlock: some View {
         HStack(alignment: .center, spacing: DS.Spacing.lg) {
             LineBadge(

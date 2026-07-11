@@ -32333,6 +32333,62 @@
           }
         }
       }
+    },
+    "disruption.merged_sources": {
+      "localizations": {
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "d'après %lld communiqué"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "d'après %lld communiqués"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "volgens %lld bericht"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "volgens %lld berichten"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ALTERNATIVES": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALTERNATIVES"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ALTERNATIEVEN"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

@@ -23,15 +23,32 @@ struct DisruptionCard: View {
     /// Arrêt concerné, si la STIB le précise.
     var stopName: String?
 
+    /// Quand plusieurs communiqués décrivent LA MÊME perturbation, ils n'apportent
+    /// chacun qu'un conseil différent (« à Abbaye, prends le 96 » / « à Legrand,
+    /// marche 5 min »). On les fusionne en une carte, et leurs conseils deviennent
+    /// cette liste — au lieu de N cartes qui se répètent presque mot pour mot.
+    /// Vide ⇒ la carte retombe sur `digest.advice`, son comportement d'origine.
+    var alternatives: [String] = []
+
+    /// Nombre de communiqués fusionnés. > 1 affiche « d'après N communiqués » : on
+    /// ne cache pas qu'on a réécrit la source, on l'assume.
+    var sourceCount: Int = 1
+
+    private var adviceList: [String] {
+        if !alternatives.isEmpty { return alternatives }
+        if let advice = digest.advice, !advice.isEmpty { return [advice] }
+        return []
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             causeHeader
             effectTitle
             factsRow
-            if let advice = digest.advice, !advice.isEmpty {
+            if !adviceList.isEmpty {
                 DS.Rule()
                     .padding(.vertical, 12)
-                adviceBlock(advice)
+                adviceSection
             }
         }
         .padding(14)
@@ -126,7 +143,31 @@ struct DisruptionCard: View {
 
     // MARK: - Conseil : la seule ligne actionnable
 
-    private func adviceBlock(_ advice: String) -> some View { AdviceStrip(text: advice) }
+    @ViewBuilder
+    private var adviceSection: some View {
+        if adviceList.count > 1 {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("ALTERNATIVES")
+                        .font(DS.Font.labelSmall.weight(.heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(DS.Color.inkMute)
+                    Text(AppLocalizer.format(
+                        "disruption.merged_sources",
+                        defaultValue: "d'après %lld communiqués",
+                        sourceCount
+                    ))
+                    .font(DS.Font.labelSmall)
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.7))
+                }
+                ForEach(adviceList, id: \.self) { advice in
+                    AdviceStrip(text: advice)
+                }
+            }
+        } else if let only = adviceList.first {
+            AdviceStrip(text: only)
+        }
+    }
 
     // MARK: - Habillage par famille
 
