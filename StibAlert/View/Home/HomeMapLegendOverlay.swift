@@ -94,40 +94,47 @@ struct MapLegendOverlay: View {
         .buttonStyle(.plain)
     }
 
+    /// Vrai quand seuls les calques essentiels tournent. L'ancienne version ne
+    /// regardait que Villo + événements et laissait De Lijn / TEC allumés : la
+    /// « vue épurée » ne l'était pas vraiment.
+    private var isCleanView: Bool {
+        !showVilloStations && !showEventImpacts && !showDelijnStops && !showTecStops
+    }
+
+    /// La carte s'ouvre désormais épurée. Ce raccourci sert donc surtout à
+    /// **tout rallumer** d'un coup — et à revenir au calme sans décocher 4 cases.
     private var cleanViewPresetRow: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            // Toggle binaire : si déjà épuré, on remet tout. Sinon on épure.
-            let isCurrentlyClean = !showVilloStations && !showEventImpacts
+            let turnOn = isCleanView
             withAnimation(.easeOut(duration: 0.2)) {
-                if isCurrentlyClean {
-                    showVilloStations = true
-                    showEventImpacts = true
-                } else {
-                    showVilloStations = false
-                    showEventImpacts = false
-                }
+                showVilloStations = turnOn
+                showEventImpacts = turnOn
+                showDelijnStops = turnOn
+                showTecStops = turnOn
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "sparkles")
+                Image(systemName: isCleanView ? "square.stack.3d.up.fill" : "sparkles")
                     .font(.system(size: 14, weight: .heavy))
                     .foregroundStyle(DS.Color.aiForeground)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(DS.Color.ai))
                     .overlay(Circle().stroke(DS.Color.paper.opacity(0.5), lineWidth: 1))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Vue épurée")
+                    Text(isCleanView ? "Tout afficher" : "Vue épurée")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
-                    Text("Cache Villo + événements")
+                    Text(isCleanView
+                         ? "Villo, événements, De Lijn, TEC"
+                         : "Ne garder que STIB, SNCB et les alertes")
                         .font(.system(size: 11))
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 Spacer()
-                Image(systemName: (!showVilloStations && !showEventImpacts) ? "checkmark.circle.fill" : "arrow.right.circle")
+                Image(systemName: isCleanView ? "arrow.right.circle" : "sparkles")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle((!showVilloStations && !showEventImpacts) ? DS.Color.statusOK : DS.Color.ink.opacity(0.4))
+                    .foregroundStyle(DS.Color.ink.opacity(0.4))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)

@@ -19,6 +19,10 @@ struct StibAlertApp: App {
 
     init() {
         ErrorReporting.setUp()
+        // Carte calme par défaut. Doit tourner AVANT que la Home ne lise ses
+        // @AppStorage : sinon les installations existantes gardent les 4 calques
+        // secondaires allumés et ne voient jamais le nouveau défaut.
+        MapLayerDefaults.applyCalmDefaultIfNeeded()
         Analytics.start()
         Analytics.track(.appOpened)
         UIWindow.appearance().overrideUserInterfaceStyle = .light

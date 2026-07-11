@@ -771,6 +771,16 @@ struct ReportsView: View {
                             .padding(.top, DS.Spacing.lg)
                     }
 
+                    // « En ce moment » AVANT la grille : on ouvre Alertes pour savoir
+                    // si le réseau va bien, pas pour scanner 40 pastilles une par une.
+                    // La grille reste juste en dessous — elle devient le détail, plus
+                    // la porte d'entrée.
+                    if selectedOperator == .stib && selectedScope != .events {
+                        ReportsNetworkSummary(incidents: incidentsForLineGrid)
+                            .padding(.horizontal, DS.Spacing.xl)
+                            .padding(.top, DS.Spacing.lg)
+                    }
+
                     if selectedOperator == .sncb {
                         // SNCB has stations, not numbered lines — mirror the
                         // Horaires drill-down (province → gares); a tap opens

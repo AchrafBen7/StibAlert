@@ -99,8 +99,8 @@ struct HomeView: View {
     // true à chaque mount de HomeView → user qui décochait Villo se
     // retrouvait avec Villo affiché à la prochaine session. Désormais
     // mémorisé entre les launches.
-    @AppStorage(AppStorageKeys.mapLayerShowVilloStations) private var showVilloStations = true
-    @AppStorage(AppStorageKeys.mapLayerShowEventImpacts) private var showEventImpacts = true
+    @AppStorage(AppStorageKeys.mapLayerShowVilloStations) private var showVilloStations = false
+    @AppStorage(AppStorageKeys.mapLayerShowEventImpacts) private var showEventImpacts = false
     @AppStorage(AppStorageKeys.mapLayerShowStibStops) private var showStibStops = true
     @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
@@ -127,8 +127,8 @@ struct HomeView: View {
     @State private var operatorStopsTask: Task<Void, Never>? = nil
     @State private var lastOperatorStopsCoordinate: CLLocationCoordinate2D? = nil
     @State private var selectedOperatorStop: OperatorMapStop? = nil
-    @AppStorage(AppStorageKeys.mapLayerShowDelijnStops) private var showDelijnStops = true
-    @AppStorage(AppStorageKeys.mapLayerShowTecStops) private var showTecStops = true
+    @AppStorage(AppStorageKeys.mapLayerShowDelijnStops) private var showDelijnStops = false
+    @AppStorage(AppStorageKeys.mapLayerShowTecStops) private var showTecStops = false
     @AppStorage(AppStorageKeys.commuteNudgeDismissed) var commuteNudgeDismissed = false
     @State private var interactionMode: InteractionMode = .map
 

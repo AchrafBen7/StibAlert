@@ -19,15 +19,28 @@ enum AppStorageKeys {
     /// (ou la routine activée), on ne le ré-affiche plus.
     static let commuteNudgeDismissed = "commuteNudgeDismissed"
 
-    // Calques de la carte — préférences persistantes pour que l'utilisateur
-    // n'ait pas à re-décocher Villo/SNCB à chaque ouverture de l'app. Default
-    // true (tous visibles) pour ne pas dérouter au 1er lancement.
+    // Calques de la carte — préférences persistantes.
+    //
+    // Le défaut n'est PLUS « tout allumé ». L'ancien commentaire disait « tous
+    // visibles pour ne pas dérouter au 1er lancement » : c'était l'inverse. Six
+    // calques simultanés (dont Villo et ses ~350 stations) saturent la carte, et
+    // l'utilisateur ne sait plus ce qu'il regarde.
+    //
+    // Par défaut on répond à UNE question : « qu'est-ce qui roule autour de moi,
+    // et est-ce que ça va ? » → arrêts STIB + gares SNCB + alertes. Villo, les
+    // événements, De Lijn et TEC restent à un tap, dans le panneau Calques.
     static let mapLayerShowStibStops = "mapLayerShowStibStops"
     static let mapLayerShowSncbStations = "mapLayerShowSncbStations"
     static let mapLayerShowVilloStations = "mapLayerShowVilloStations"
     static let mapLayerShowEventImpacts = "mapLayerShowEventImpacts"
     static let mapLayerShowDelijnStops = "mapLayerShowDelijnStops"
     static let mapLayerShowTecStops = "mapLayerShowTecStops"
+
+    /// Migration unique. `@AppStorage` n'applique sa valeur par défaut que si la
+    /// clé est **absente** : les installations existantes ont déjà `true` écrit en
+    /// dur pour les 4 calques secondaires. Sans cette migration, elles gardent la
+    /// carte saturée et le nouveau défaut ne se voit jamais.
+    static let mapLayersCalmDefaultApplied = "mapLayersCalmDefaultApplied.v1"
 
     // RGPD / Privacy consent
     static let hasAcceptedPrivacyConsent = "hasAcceptedPrivacyConsent"
@@ -38,6 +51,29 @@ enum AppStorageKeys {
 
 enum PrivacyConsent {
     static let currentVersion = "v1-2026-05"
+}
+
+enum MapLayerDefaults {
+    /// Calques à la demande : ils ajoutent des marqueurs sans répondre à la
+    /// question principale (« ça roule autour de moi ? »). Villo pèse le plus
+    /// lourd — ~350 stations rien qu'à Bruxelles.
+    static let secondary = [
+        AppStorageKeys.mapLayerShowVilloStations,
+        AppStorageKeys.mapLayerShowEventImpacts,
+        AppStorageKeys.mapLayerShowDelijnStops,
+        AppStorageKeys.mapLayerShowTecStops,
+    ]
+
+    /// Éteint les calques secondaires **une seule fois**, pour les installations
+    /// antérieures à ce changement (elles ont déjà `true` écrit en dur, que le
+    /// nouveau défaut de `@AppStorage` ne peut pas atteindre). Une fois la
+    /// migration passée, le choix de l'utilisateur redevient roi : jamais réécrasé.
+    static func applyCalmDefaultIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: AppStorageKeys.mapLayersCalmDefaultApplied) else { return }
+        secondary.forEach { defaults.set(false, forKey: $0) }
+        defaults.set(true, forKey: AppStorageKeys.mapLayersCalmDefaultApplied)
+    }
 }
 
 struct OnboardingPreferences: Equatable {

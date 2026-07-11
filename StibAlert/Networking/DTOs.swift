@@ -689,6 +689,17 @@ struct TransportIncidentDTO: Codable, Identifiable, Equatable {
     let date: Date?
     let community: SignalementCommunityDTO?
 
+    /// Un signalement d'usager, pas un communiqué officiel.
+    ///
+    /// Deux formes coexistent : celle où le backend attache les métadonnées de vote
+    /// (`community != nil`), et celle que `ReportsView` synthétise depuis les
+    /// signalements bruts — qui pose `source = "community"` mais laisse `community`
+    /// à nil. Ne tester que l'un des deux compte faux.
+    var isCommunitySourced: Bool {
+        if community != nil { return true }
+        return source?.lowercased().contains("commun") ?? false
+    }
+
     /// Titre dans la langue de l'app, avec repli sur le champ plat historique.
     var localizedType: String? { typeI18n?.localized ?? type }
 

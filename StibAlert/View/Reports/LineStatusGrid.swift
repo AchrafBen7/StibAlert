@@ -151,34 +151,73 @@ struct LineStatusGrid: View {
 
 /// Badge representation of the worst incident currently affecting a line.
 /// Priority controls which icon wins when a line has multiple incidents.
-private struct LineIncidentBadge {
+/// Partagé (plus `private`) avec `ReportsNetworkSummary` : la synthèse « En ce
+/// moment » compte les incidents avec CETTE classification, pour qu'un incident
+/// compté 🔨 dans la synthèse porte bien un badge 🔨 dans la grille juste en
+/// dessous. Dupliquer la règle, c'est se garantir deux vérités sur un écran.
+struct LineIncidentBadge {
     let icon: String
     let color: Color
     let priority: Int
+    /// Le service est-il réellement coupé ? (≠ « il y a un communiqué sur cette ligne »)
+    let isBlocking: Bool
 
+    /// Le service est cassé : tram interrompu, courses annulées, ligne supprimée.
+    /// C'est ça qui ruine un trajet — le reste se contourne.
+    private static let interrupted = [
+        "interrompu", "interruption", "annulation", "annulé", "supprimé", "supprimée",
+        "onderbroken", "onderbreking", "geannuleerd", "afgeschaft",
+    ]
+    private static let works = ["travaux", "chantier", "works", "construction", "werken", "werkzaamheden"]
+    private static let delays = ["retard", "ralenti", "delay", "vertraging", "vertraagd"]
+
+    /// ⚠️ Le backend met le COMMUNIQUÉ ENTIER dans `type` (« Travaux. Du 27/4/26 à
+    /// fin avril 2027, bus 50 dévié… ») et met `severity: "major"` sur **tout**,
+    /// y compris des travaux planifiés jusqu'en 2027. Vérifié sur les 22 incidents
+    /// de /api/transport/overview : 22/22 en `major`.
+    ///
+    /// L'ancienne version testait `severity` en PREMIER : la branche major gagnait
+    /// donc toujours, la branche « travaux » n'était jamais atteinte, et ~toutes les
+    /// lignes du réseau se retrouvaient badgées rouge. Un écran où tout est en alarme
+    /// n'informe plus : il affole.
+    ///
+    /// La vraie gravité est dans le TEXTE. On le lit d'abord, et `severity` ne sert
+    /// plus que de repli quand le texte ne dit rien.
     init(severity: String, type: String) {
         let sev = severity.lowercased()
-        let lowerType = type.lowercased()
+        let text = type.lowercased()
 
-        if sev.contains("critical") || sev.contains("major") || lowerType.contains("interrupt") {
+        func mentions(_ needles: [String]) -> Bool { needles.contains { text.contains($0) } }
+
+        if mentions(Self.interrupted) {
             self.icon = "exclamationmark.triangle.fill"
             self.color = DS.Color.statusMajor
             self.priority = 100
-        } else if lowerType.contains("travaux") || lowerType.contains("works") || lowerType.contains("construction") {
+            self.isBlocking = true
+        } else if mentions(Self.works) {
             // hammer.fill au lieu de cone.fill : le cône de chantier était
             // méconnaissable en 18px (ressemblait à un "cuberdon" orange). Le
             // marteau reste net à petite taille et lit "travaux" sans ambiguïté.
             self.icon = "hammer.fill"
             self.color = DS.Color.statusMinor
             self.priority = 70
-        } else if sev.contains("minor") || lowerType.contains("retard") || lowerType.contains("delay") {
+            self.isBlocking = false
+        } else if mentions(Self.delays) {
             self.icon = "clock.fill"
             self.color = DS.Color.statusMinor
             self.priority = 50
+            self.isBlocking = false
+        } else if sev.contains("critical") || sev.contains("major") {
+            // Repli : le texte ne dit rien d'exploitable, on fait confiance au champ.
+            self.icon = "exclamationmark.triangle.fill"
+            self.color = DS.Color.statusMajor
+            self.priority = 90
+            self.isBlocking = true
         } else {
             self.icon = "info.fill"
             self.color = DS.Color.community
             self.priority = 20
+            self.isBlocking = false
         }
     }
 }
