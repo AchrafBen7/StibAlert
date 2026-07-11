@@ -109,7 +109,7 @@ private struct WelcomePage: View {
 
     private let tiles: [Tile] = [
         .init(n: "01", icon: "mappin.and.ellipse", title: "Carte vivante", desc: "Tous les arrêts STIB, lignes, Villo! et événements en un coup d'œil.", accent: DS.Color.primary),
-        .init(n: "02", icon: "bell.fill", title: AppLocalizer.string("auth.targeted_alerts", defaultValue: "Alertes ciblées"), desc: AppLocalizer.string("auth.targeted_alerts_desc", defaultValue: "Notifié uniquement sur vos lignes, pas de bruit en plus."), accent: DS.Color.statusMajor),
+        .init(n: "02", icon: "bell.fill", title: AppLocalizer.string("auth.targeted_alerts", defaultValue: "Alertes ciblées"), desc: AppLocalizer.string("auth.targeted_alerts_desc", defaultValue: "Notifié uniquement sur tes lignes, pas de bruit en plus."), accent: DS.Color.statusMajor),
         .init(n: "03", icon: "person.2.fill", title: AppLocalizer.string("source.community", defaultValue: "Communauté"), desc: AppLocalizer.string("auth.community_desc", defaultValue: "Signalements terrain confirmés en temps réel par les voyageurs."), accent: DS.Color.community),
         .init(n: "04", icon: "bicycle", title: "Multimodal", desc: "Combine STIB, Villo! et marche, le plus rapide selon le trafic réel.", accent: DS.Color.villo)
     ]

@@ -11,7 +11,7 @@ enum ReportContentScope: String, CaseIterable, Identifiable {
         switch self {
         case .reports: return AppLocalizer.string("En cours")
         case .official: return AppLocalizer.string("Officiel")
-        case .events: return AppLocalizer.string("Events")
+        case .events: return AppLocalizer.string("scope.events", defaultValue: "Événements")
         }
     }
 
@@ -19,7 +19,7 @@ enum ReportContentScope: String, CaseIterable, Identifiable {
         switch self {
         case .reports: return AppLocalizer.string("En cours")
         case .official: return AppLocalizer.string("Officiel")
-        case .events: return AppLocalizer.string("Events")
+        case .events: return AppLocalizer.string("scope.events", defaultValue: "Événements")
         }
     }
 

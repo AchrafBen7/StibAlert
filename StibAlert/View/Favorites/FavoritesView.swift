@@ -297,7 +297,7 @@ struct FavoritesView: View {
             Text(AppLocalizer.string("favorites.empty.no_station", defaultValue: "Aucune gare en favori"))
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
-            Text("Ouvrez une gare (Horaires ou Infos trafic) et appuyez sur ★ pour l'épingler ici.")
+            Text("Ouvre une gare (Lignes ou Alertes) et appuie sur ★ pour l'épingler ici.")
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
@@ -317,7 +317,7 @@ struct FavoritesView: View {
                 Spacer().frame(height: 50)
                 Image(systemName: "star").font(.system(size: 26)).foregroundStyle(DS.Color.inkMute)
                 Text(AppLocalizer.format("favorites.empty.no_op_stop", defaultValue: "Aucun arrêt %@ en favori", op.mapLabel)).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
-                Text("Appuyez sur + pour épingler un arrêt \(op.mapLabel) proche.")
+                Text("Appuie sur + pour épingler un arrêt \(op.mapLabel) proche.")
                     .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute).multilineTextAlignment(.center)
                 Spacer()
             }
@@ -831,7 +831,9 @@ struct FavoritesView: View {
             HStack {
                 FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.followed_lines", defaultValue: "Lignes suivies"))
                 Spacer()
-                Text("\(followedLines.count) lignes")
+                // `Text("\(n) lignes")` : interpolation directe → ni pluriel
+                // (« 1 lignes »), ni traduction (Text(variable) ne se localise jamais).
+                Text(AppLocalizer.format("plural.lines", defaultValue: "%lld lignes", followedLines.count))
                     .font(.system(size: 10))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -1813,7 +1815,9 @@ private struct LiveStatusCard: View {
             }
 
             HStack {
-                Label("Fiabilité du Service", systemImage: "chart.line.uptrend.xyaxis")
+                // « Fiabilité du Service » laissait croire qu'on note la STIB.
+                // On note la fiabilité de NOS données (temps réel vs théorique).
+                Label("Fiabilité des données", systemImage: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.ink)
 

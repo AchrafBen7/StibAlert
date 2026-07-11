@@ -34,7 +34,7 @@ enum TypeProblemeIntentEnum: String, AppEnum {
 struct SignalerArretIntent: AppIntent {
     static let title: LocalizedStringResource = "Signaler un problème STIB"
     static let description = IntentDescription(
-        "Créez un signalement vocalement. L'app n'a pas besoin d'être ouverte.",
+        "Crée un signalement à la voix. L'app n'a pas besoin d'être ouverte.",
         categoryName: "Transport"
     )
     static let openAppWhenRun = false
@@ -57,7 +57,7 @@ struct SignalerArretIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let token = KeychainHelper.readToken() else {
             return .result(dialog: IntentDialog(
-                "Vous devez être connecté à Blayse pour signaler. Ouvrez l'app et connectez-vous."
+                "Tu dois être connecté à Blayse pour signaler. Ouvre l'app et connecte-toi."
             ))
         }
 
@@ -97,14 +97,14 @@ struct SignalerArretIntent: AppIntent {
                     "Signalement \(typeProbleme.rawValue.lowercased()) créé pour \(arret)\(ligne). Merci !"
                 ))
             case 401:
-                return .result(dialog: "Session expirée. Ouvrez Blayse pour vous reconnecter.")
+                return .result(dialog: "Session expirée. Ouvre Blayse pour te reconnecter.")
             case 404:
-                return .result(dialog: "L'arrêt \(nomArret) est introuvable. Vérifiez l'orthographe.")
+                return .result(dialog: "L'arrêt \(nomArret) est introuvable. Vérifie l'orthographe.")
             default:
-                return .result(dialog: "Erreur lors de la création du signalement. Réessayez.")
+                return .result(dialog: "Erreur lors de la création du signalement. Réessaie.")
             }
         } catch {
-            return .result(dialog: "Problème de connexion. Vérifiez votre réseau.")
+            return .result(dialog: "Problème de connexion. Vérifie ton réseau.")
         }
     }
 }

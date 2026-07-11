@@ -2324,7 +2324,7 @@ private struct PrivacySettingsView: View {
 
             ProfileSettingsSection(title: "Tes droits") {
                 PrivacyActionRow(
-                    title: "Supprimer votre compte",
+                    title: "Supprimer ton compte",
                     description: "Efface définitivement le compte et les données associées.",
                     actionLabel: "Supprimer",
                     danger: true,
@@ -2332,13 +2332,13 @@ private struct PrivacySettingsView: View {
                 )
             }
         }
-        .alert("Supprimer votre compte", isPresented: $showDeleteAlert) {
+        .alert("Supprimer ton compte", isPresented: $showDeleteAlert) {
             Button("Annuler", role: .cancel) {}
             Button("Supprimer", role: .destructive) {
                 Task { try? await session.supprimerCompte() }
             }
         } message: {
-            Text("Cette action est irréversible. Votre compte et toutes vos données seront définitivement supprimés.")
+            Text("Cette action est irréversible. Ton compte et toutes tes données seront définitivement supprimés.")
         }
     }
 }
@@ -2581,7 +2581,7 @@ private enum SupportMockData {
                   subtitle: helpSubtitle, highlighted: false),
             .init(url: URL(string: "mailto:support@blayse.app?subject=Bug%20Blayse"),
                   title: AppLocalizer.string("support.report_bug", defaultValue: "Signaler un bug"),
-                  subtitle: AppLocalizer.string("support.bug_subtitle", defaultValue: "Un souci technique ?\nOn est là pour vous écouter."),
+                  subtitle: AppLocalizer.string("support.bug_subtitle", defaultValue: "Un souci technique ?\nOn est là pour t'écouter."),
                   highlighted: false),
             .init(url: URL(string: "mailto:support@blayse.app"),
                   title: AppLocalizer.string("source.community", defaultValue: "Communauté"),

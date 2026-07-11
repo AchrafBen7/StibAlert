@@ -2724,7 +2724,7 @@ struct HomeView: View {
     private func relativeTimeString(from date: Date?) -> String {
         guard let date else { return AppLocalizer.string("time.just_now", defaultValue: "à l’instant") }
         let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
+        formatter.unitsStyle = .abbreviated  // .short donne « 1 m. » en FR ; .abbreviated donne « 1 min »
         return formatter.localizedString(for: date, relativeTo: .now)
     }
 

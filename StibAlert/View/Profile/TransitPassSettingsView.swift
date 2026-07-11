@@ -54,10 +54,15 @@ struct TransitPassSettingsView: View {
                         sectionGroup(title: AppLocalizer.string("transit_pass.section.actions", defaultValue: "Actions")) {
                             TransitActionRow(
                                 icon: nfcReader.isScanning ? "dot.radiowaves.left.and.right" : "wave.3.right.circle.fill",
-                                label: nfcReader.isScanning ? AppLocalizer.string("transit_pass.action.scanning", defaultValue: "Lecture NFC en cours") : AppLocalizer.string("transit_pass.action.scan", defaultValue: "Scanner en NFC"),
+                                label: nfcReader.isScanning ? AppLocalizer.string("transit_pass.action.scanning", defaultValue: "Lecture NFC en cours") : AppLocalizer.string("transit_pass.action.scan", defaultValue: "Associer ma carte"),
                                 value: previewPass.lastScannedAt.map(relativeDateText),
                                 action: { nfcReader.beginScan() }
                             )
+                            // « Scanner en NFC » + « Données lues sur la puce » sonnaient
+                            // officiels : on croit pouvoir consulter son solde, valider ou
+                            // recharger. La puce ne donne que ce qui y est gravé — jamais
+                            // le solde, jamais une validation. Le dire ici, pas après coup.
+                            limitsNotice
                             ProfileSettingsDivider()
                             if PKPassLibrary.isPassLibraryAvailable() {
                                 TransitActionRow(
@@ -554,6 +559,29 @@ struct TransitPassSettingsView: View {
                 .stroke(accent.opacity(0.35), lineWidth: DS.Stroke.thick)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
+    }
+
+    /// Dire ce que la puce ne donne PAS. Sans ça, « Scanner en NFC » laisse croire
+    /// à une intégration officielle : consulter son solde, valider, recharger.
+    /// Aucun de ces trois n'est possible — la puce ne contient que ce qui y est
+    /// gravé (numéro, réseau, contrats chargés), et une validation ne peut se
+    /// faire que sur un valideur STIB.
+    private var limitsNotice: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+                .padding(.top, 1)
+            Text(AppLocalizer.string(
+                "transit_pass.limits",
+                defaultValue: "Blayse lit ce qui est gravé sur la puce (numéro, réseau, contrats chargés). Il ne peut ni afficher ton solde, ni valider un trajet, ni recharger ta carte — passe par l'app STIB pour ça."
+            ))
+            .font(DS.Font.caption)
+            .foregroundStyle(DS.Color.inkMute)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private func formField<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {

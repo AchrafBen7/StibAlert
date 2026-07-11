@@ -14,11 +14,11 @@ enum APIError: Error, LocalizedError {
         case .network(let e): return Self.networkMessage(for: e)
         case .decoding:
             return AppLocalizer.string("error.decoding",
-                                       defaultValue: "La réponse du serveur est temporairement incompatible. Réessayez dans quelques secondes.")
+                                       defaultValue: "La réponse du serveur est temporairement incompatible. Réessaie dans quelques secondes.")
         // `msg` vient du backend : il arrive déjà dans une langue, on ne le traduit pas.
         case .server(let status, let msg): return msg ?? Self.serverMessage(for: status)
         case .unauthorized:
-            return AppLocalizer.string("error.unauthorized", defaultValue: "Session expirée, reconnectez-vous.")
+            return AppLocalizer.string("error.unauthorized", defaultValue: "Session expirée, reconnecte-toi.")
         case .backendDisabled:
             return AppLocalizer.string("error.backend_disabled", defaultValue: "Fonctionnalités en ligne désactivées.")
         }
@@ -26,7 +26,7 @@ enum APIError: Error, LocalizedError {
 
     private static func networkMessage(for error: Error) -> String {
         let unstable = AppLocalizer.string("error.network.unstable",
-                                           defaultValue: "Connexion instable. Vérifiez votre réseau puis réessayez.")
+                                           defaultValue: "Connexion instable. Vérifie ton réseau puis réessaie.")
         let nsError = error as NSError
         guard nsError.domain == NSURLErrorDomain else { return unstable }
 
@@ -36,10 +36,10 @@ enum APIError: Error, LocalizedError {
                                        defaultValue: "Aucune connexion internet. Les données affichées peuvent être anciennes.")
         case NSURLErrorTimedOut:
             return AppLocalizer.string("error.network.timeout",
-                                       defaultValue: "Le serveur met trop de temps à répondre. Réessayez dans quelques secondes.")
+                                       defaultValue: "Le serveur met trop de temps à répondre. Réessaie dans quelques secondes.")
         case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed:
             return AppLocalizer.string("error.service_unavailable",
-                                       defaultValue: "Service momentanément indisponible. Réessayez un peu plus tard.")
+                                       defaultValue: "Service momentanément indisponible. Réessaie un peu plus tard.")
         default:
             return unstable
         }
@@ -49,10 +49,10 @@ enum APIError: Error, LocalizedError {
         switch status {
         case 400..<500:
             return AppLocalizer.string("error.bad_request",
-                                       defaultValue: "La demande n’a pas pu être traitée. Réessayez ou modifiez votre recherche.")
+                                       defaultValue: "La demande n’a pas pu être traitée. Réessaie ou modifie ta recherche.")
         case 500..<600:
             return AppLocalizer.string("error.service_unavailable",
-                                       defaultValue: "Service momentanément indisponible. Réessayez un peu plus tard.")
+                                       defaultValue: "Service momentanément indisponible. Réessaie un peu plus tard.")
         default:
             return AppLocalizer.string("error.server_temporary", defaultValue: "Erreur serveur temporaire.")
         }

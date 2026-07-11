@@ -82,7 +82,7 @@ struct SearchInputOverlay: View {
                     .foregroundStyle(AppTheme.Palette.textSecondary)
                 ZStack(alignment: .leading) {
                     if query.isEmpty {
-                        Text("Où voulez-vous aller ?")
+                        Text("Où veux-tu aller ?")
                             .font(AppTheme.Fonts.body)
                             .foregroundStyle(AppTheme.Palette.textMuted)
                     }

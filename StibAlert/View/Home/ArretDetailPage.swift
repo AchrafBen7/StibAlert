@@ -198,6 +198,19 @@ struct ArretDetailPage: View {
         }
     }
 
+    /// L'ancien badge affichait « PRÉVU » dès qu'**un seul** départ de la liste
+    /// était théorique (`.contains { $0.source == "scheduled" }`) : un arrêt avec
+    /// 5 passages en direct et 1 horaire théorique passait tout l'écran en
+    /// « PRÉVU ». D'où l'impression de lire un horaire papier alors que les
+    /// données étaient en direct.
+    ///
+    /// La question honnête n'est pas « reste-t-il du théorique ? » mais « ai-je
+    /// au moins une donnée en direct ? ». Et « HORAIRE » dit sans ambiguïté que
+    /// rien n'est en direct — là où « PRÉVU » restait louche.
+    private var hasAnyLiveDeparture: Bool {
+        groupedPassages.flatMap(\.departures).contains { $0.source != "scheduled" && $0.source != nil }
+    }
+
     private var groupedPassages: [GroupedStopPassage] {
         guard let stopDetail else { return [] }
         let allowedLines = Set(servedLines.map(Self.normalizedLineNumber).filter { !$0.isEmpty })
@@ -884,9 +897,9 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
                 if !groupedPassages.isEmpty {
-                    Text(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? "PRÉVU" : "TEMPS RÉEL")
+                    Text(hasAnyLiveDeparture ? "TEMPS RÉEL" : "HORAIRE")
                         .font(DS.Font.labelSmall)
-                        .foregroundStyle(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? DS.Color.statusMinor : DS.Color.statusOK)
+                        .foregroundStyle(hasAnyLiveDeparture ? DS.Color.statusOK : DS.Color.statusMinor)
                 }
             }
 
@@ -1580,7 +1593,7 @@ private struct StopIncidentDetailSheet: View {
         guard let date = incident.date else { return nil }
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = AppLocale.current
-        formatter.unitsStyle = .short
+        formatter.unitsStyle = .abbreviated  // .short donne « 1 m. » en FR ; .abbreviated donne « 1 min »
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 

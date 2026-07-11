@@ -207,6 +207,6 @@ struct LocationFloatingButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Recentrer la carte")
-        .accessibilityHint("Replace la carte sur votre position")
+        .accessibilityHint("Replace la carte sur ta position")
     }
 }

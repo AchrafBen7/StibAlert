@@ -80,7 +80,7 @@ struct SignUpView: View {
             (
                 Text("Le réseau, ")
                     .foregroundColor(DS.Color.ink)
-                + Text("à vous")
+                + Text("à toi")
                     .font(.system(size: 36, weight: .bold, design: .serif))
                     .italic()
                     .foregroundColor(DS.Color.primary)
@@ -90,7 +90,7 @@ struct SignUpView: View {
             .font(.system(size: 36, weight: .bold))
             .tracking(-1.2)
 
-            Text("Quelques secondes pour personnaliser vos alertes et synchroniser vos favoris.")
+            Text("Quelques secondes pour personnaliser tes alertes et synchroniser tes favoris.")
                 .font(.system(size: 13.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
@@ -294,7 +294,7 @@ struct SignUpView: View {
 
     private var termsBlock: some View {
         VStack(spacing: 8) {
-            Text("En créant un compte vous acceptez nos conditions et notre politique de confidentialité.")
+            Text("En créant un compte, tu acceptes nos conditions et notre politique de confidentialité.")
                 .font(.system(size: 11))
                 .foregroundColor(DS.Color.inkMute)
                 .multilineTextAlignment(.center)

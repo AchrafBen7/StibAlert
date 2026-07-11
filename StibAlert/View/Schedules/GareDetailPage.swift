@@ -238,7 +238,7 @@ struct GareDetailPage: View {
                 icon: "calendar.badge.exclamationmark",
                 title: isViewingToday ? "Plus de départ aujourd'hui" : "Aucun départ ce jour",
                 detail: isViewingToday
-                    ? "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisissez un autre jour ci-dessus."
+                    ? "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisis un autre jour ci-dessus."
                     : "Pas de train au départ de cette gare pour \(selectedDay.label.lowercased())."
             )
         } else {

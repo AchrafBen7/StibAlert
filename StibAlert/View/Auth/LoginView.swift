@@ -37,7 +37,7 @@ struct LoginView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             (
-                Text("Reprenez votre ")
+                Text("Reprends ton ")
                     .foregroundColor(DS.Color.ink)
                 + Text("trajet")
                     .font(.system(size: 36, weight: .bold, design: .serif))
@@ -49,7 +49,7 @@ struct LoginView: View {
             .font(.system(size: 36, weight: .bold))
             .tracking(-1.2)
 
-            Text("Vos lignes favorites, alertes et trajets, reconnectés en un instant.")
+            Text("Tes lignes favorites, alertes et trajets, reconnectés en un instant.")
                 .font(.system(size: 13.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)

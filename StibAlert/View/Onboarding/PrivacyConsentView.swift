@@ -15,7 +15,7 @@ struct PrivacyConsentView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    Text("Avant de continuer, voici comment Blayse traite vos données.")
+                    Text("Avant de continuer, voici comment Blayse traite tes données.")
                         .font(DS.Font.body)
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.bottom, 8)
@@ -29,19 +29,19 @@ struct PrivacyConsentView: View {
                     sectionView(
                         icon: "envelope.circle.fill",
                         title: "Compte e-mail",
-                        description: "Vous pouvez utiliser Blayse anonymement. Avec un compte, vous accédez aux favoris et au scoring de confiance plus élevé."
+                        description: "Tu peux utiliser Blayse anonymement. Avec un compte, tu accèdes aux favoris et à un score de confiance plus élevé."
                     )
 
                     sectionView(
                         icon: "shield.lefthalf.filled",
                         title: "Anti-spam",
-                        description: "Votre IP et identifiant d'appareil sont hashés (SHA256) pour éviter les abus. Jamais stockés en clair."
+                        description: "Ton IP et ton identifiant d'appareil sont hashés (SHA256) pour éviter les abus. Jamais stockés en clair."
                     )
 
                     sectionView(
                         icon: "trash.circle.fill",
                         title: "Rétention",
-                        description: "Les signalements sont supprimés après 30 jours. Votre compte est conservé tant que vous le souhaitez."
+                        description: "Les signalements sont supprimés après 30 jours. Ton compte est conservé tant que tu le souhaites."
                     )
 
                     sectionView(
@@ -118,7 +118,7 @@ struct PrivacyConsentView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isAccepting)
-                .accessibilityHint("Confirme votre consentement et lance l'application")
+                .accessibilityHint("Confirme ton consentement et lance l'application")
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
                 .background(
@@ -142,7 +142,7 @@ struct PrivacyConsentView: View {
                 .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.primary)
-            Text("Vos données, vos règles")
+            Text("Tes données, tes règles")
                 .font(DS.Font.displayH1)
                 .foregroundStyle(DS.Color.ink)
         }
@@ -206,10 +206,10 @@ struct PrivacyPolicySheet: View {
                     - Cloudinary (UE)
                     """)
 
-                    sectionText(title: "4. Vos droits (RGPD)", body: """
+                    sectionText(title: "4. Tes droits (RGPD)", body: """
                     Vous pouvez à tout moment :
                     - Exporter vos données depuis Profil → Confidentialité
-                    - Supprimer votre compte (anonymisation immédiate des signalements)
+                    - Supprimer ton compte (anonymisation immédiate des signalements)
                     - Rectifier vos informations
                     - Désactiver les statistiques anonymes
 

@@ -177,19 +177,19 @@ enum GuestAuthReason {
     /// GuestTabPlaceholder) : en LocalizedStringKey, les littéraux se traduisent.
     var title: LocalizedStringKey {
         switch self {
-        case .favorites: return "Sauvegardez vos lignes"
+        case .favorites: return "Sauvegarde tes lignes"
         case .report:    return "Signalez un problème"
-        case .profile:   return "Votre profil"
+        case .profile:   return "Ton profil"
         case .confirm:   return "Confirmez ce signalement"
         }
     }
 
     var subtitle: LocalizedStringKey {
         switch self {
-        case .favorites: return "Créez un compte pour sauvegarder vos lignes favorites et recevoir des alertes personnalisées."
-        case .report:    return "Connectez-vous pour signaler un problème et aider la communauté STIB en temps réel."
-        case .profile:   return "Connectez-vous pour accéder à votre historique et vos contributions."
-        case .confirm:   return "Connectez-vous pour confirmer ou résoudre des signalements communautaires."
+        case .favorites: return "Crée un compte pour sauvegarder tes lignes favorites et recevoir des alertes personnalisées."
+        case .report:    return "Connecte-toi pour signaler un problème et aider la communauté en temps réel."
+        case .profile:   return "Connecte-toi pour accéder à ton historique et tes contributions."
+        case .confirm:   return "Connecte-toi pour confirmer ou résoudre des signalements communautaires."
         }
     }
 }

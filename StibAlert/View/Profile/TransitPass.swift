@@ -21,7 +21,7 @@ struct TransitPass: Codable, Equatable {
 
     var maskedCardNumber: String {
         let digits = cardNumber.filter(\.isNumber)
-        guard !digits.isEmpty else { return AppLocalizer.string("transit_pass.card.add_number", defaultValue: "Ajoutez votre numéro") }
+        guard !digits.isEmpty else { return AppLocalizer.string("transit_pass.card.add_number", defaultValue: "Ajoute ton numéro") }
         if digits.count <= 4 { return digits }
 
         let suffix = String(digits.suffix(4))
@@ -124,7 +124,7 @@ enum MobibScanState: Equatable {
     var title: String {
         switch self {
         case .idle:
-            return AppLocalizer.string("transit_pass.scan.idle.title", defaultValue: "Scannez ici")
+            return AppLocalizer.string("transit_pass.scan.idle.title", defaultValue: "Scanne ta MoBIB")
         case .scanning:
             return AppLocalizer.string("transit_pass.scan.scanning.title", defaultValue: "Lecture en cours")
         case .detected:
@@ -139,13 +139,13 @@ enum MobibScanState: Equatable {
     var message: String {
         switch self {
         case .idle:
-            return AppLocalizer.string("transit_pass.scan.idle.msg", defaultValue: "Approchez votre carte MoBIB de la partie haute de l'iPhone pour l'associer au profil.")
+            return AppLocalizer.string("transit_pass.scan.idle.msg", defaultValue: "Approche ta carte MoBIB du haut de l'iPhone pour l'associer à ton profil.")
         case .scanning:
             return AppLocalizer.string("transit_pass.scan.scanning.msg", defaultValue: "Gardez la carte immobile 1 à 2 secondes. Si rien ne se passe, déplacez-la légèrement.")
         case .detected(let payload):
             return AppLocalizer.format("transit_pass.scan.detected.msg", defaultValue: "Tag %@ détecté %@.", payload.tagType, Self.relativeText(from: payload.scannedAt))
         case .partial:
-            return AppLocalizer.string("transit_pass.scan.partial.msg", defaultValue: "Le tag a été lu, mais certaines informations restent incomplètes. Complétez manuellement si besoin.")
+            return AppLocalizer.string("transit_pass.scan.partial.msg", defaultValue: "Le tag a été lu, mais certaines informations restent incomplètes. Complète manuellement si besoin.")
         case .error(let message):
             return message
         }

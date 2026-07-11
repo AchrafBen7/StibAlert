@@ -40,7 +40,7 @@ struct QuickReportSheetView: View {
     @State private var confirmingExistingId: String? = nil
     @State private var showConfetti: Bool = false
     /// Set once a report is successfully published online — drives the
-    /// "avertir vos proches" share prompt before the sheet closes.
+    /// "avertir tes proches" share prompt before the sheet closes.
     @State private var createdSignalement: SignalementDTO? = nil
     @State private var lastSubmitHadDescription: Bool = false
     @State private var nearbyStops: [NearbyStop] = []
@@ -659,7 +659,10 @@ struct QuickReportSheetView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.Color.inkMute)
-                TextField("Filtrer parmi \(stop.issueLines.count) lignes…", text: $lineSearchQuery)
+                TextField(
+                    AppLocalizer.format("report.filter_lines", defaultValue: "Filtrer parmi %lld lignes…", stop.issueLines.count),
+                    text: $lineSearchQuery
+                )
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                 if !lineSearchQuery.isEmpty {

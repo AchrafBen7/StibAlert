@@ -35,7 +35,7 @@ enum TransportViewAdapters {
         if let first = overview.activeIncidents.first {
             incidentSummary = first.localizedDescription ?? first.localizedType ?? AppLocalizer.string("home.disruptions_detected", defaultValue: "Perturbations détectées")
         } else {
-            incidentSummary = AppLocalizer.string("home.network_ok", defaultValue: "Le réseau autour de vous semble exploitable.")
+            incidentSummary = AppLocalizer.string("home.network_ok", defaultValue: "Le réseau autour de toi semble exploitable.")
         }
 
         return TransportHomeDecisionData(
@@ -49,7 +49,7 @@ enum TransportViewAdapters {
 
     static func recentIncidents(from incidents: [TransportIncidentDTO]) -> [TransportRecentIncidentItem] {
         let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
+        formatter.unitsStyle = .abbreviated  // .short donne « 1 m. » en FR ; .abbreviated donne « 1 min »
 
         return incidents.prefix(8).map { incident in
             TransportRecentIncidentItem(

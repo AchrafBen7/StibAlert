@@ -154,7 +154,7 @@ enum L10n {
         static var more: String { AppLocalizer.string("routing.more", defaultValue: "Plus") }
         static var addresses: String { AppLocalizer.string("routing.addresses", defaultValue: "Adresses") }
         static var departureAddress: String { AppLocalizer.string("routing.departure_address", defaultValue: "Adresse de départ") }
-        static var currentPosition: String { AppLocalizer.string("routing.current_position", defaultValue: "Votre position") }
+        static var currentPosition: String { AppLocalizer.string("routing.current_position", defaultValue: "Ta position") }
         static var noItineraryTitle: String { AppLocalizer.string("routing.empty.title", defaultValue: "Aucun itinéraire calculé") }
         static var noItineraryBody: String {
             AppLocalizer.string(
@@ -205,7 +205,7 @@ enum L10n {
         static var seeItineraries: String { AppLocalizer.string("routing.see_itineraries", defaultValue: "Voir les itinéraires") }
         static var useCurrentPosition: String { AppLocalizer.string("routing.use_current_position", defaultValue: "Utiliser ma position") }
         static var locationAccessDenied: String { AppLocalizer.string("routing.location_access_denied", defaultValue: "L'accès à la localisation est refusé.") }
-        static var useCurrentPositionHint: String { AppLocalizer.string("routing.use_current_position_hint", defaultValue: "Utilisez votre position actuelle comme départ.") }
+        static var useCurrentPositionHint: String { AppLocalizer.string("routing.use_current_position_hint", defaultValue: "Utilise ta position actuelle comme départ.") }
         static var searchDeparture: String { AppLocalizer.string("routing.search_departure", defaultValue: "Rechercher un départ") }
         static var searchDestination: String { AppLocalizer.string("routing.search_destination", defaultValue: "Rechercher une destination") }
         static var suggestions: String { AppLocalizer.string("routing.suggestions", defaultValue: "Suggestions") }
@@ -365,7 +365,7 @@ enum L10n {
     }
 
     enum Schedules {
-        static var title: String { AppLocalizer.string("schedules.title", defaultValue: "Horaires") }
+        static var title: String { AppLocalizer.string("schedules.title", defaultValue: "Lignes") }
         static var searchPlaceholder: String { AppLocalizer.string("schedules.search_placeholder", defaultValue: "Chercher une ligne") }
         static var searchStationPlaceholder: String { AppLocalizer.string("schedules.search_station_placeholder", defaultValue: "Chercher une gare") }
         /// De Lijn expose des horaires par ARRÊT (pas par ligne) → placeholder dédié.
