@@ -663,12 +663,6 @@ struct LigneDetailPage: View {
         viewModel.lineSignalements.count + mergedOfficialIncidents.count
     }
 
-    /// Résumé STIB propre à CETTE ligne (≠ résumé réseau global).
-    private var hasLineLevelSummary: Bool {
-        guard let summary = viewModel.activeLine?.perturbationSummary else { return false }
-        return summary.shortText.isEmpty == false || summary.longText.isEmpty == false
-    }
-
     private var hasActiveTrafficIssue: Bool {
         // Bandeau rouge "Perturbations en cours" + ⚠️ sur l'onglet UNIQUEMENT
         // pour un VRAI problème ouvrable : un signalement communauté ou un
@@ -698,42 +692,6 @@ struct LigneDetailPage: View {
         case .upcoming:
             officialIncidentsList
         }
-    }
-
-    /// Top status banner inside the Infos trafic tab: a big colored disc
-    /// with either a green checkmark ("Trafic normal") or a warning icon
-    /// ("Perturbations en cours").
-    private var trafficStatusBanner: some View {
-        let isOK = !hasActiveTrafficIssue
-        return HStack(spacing: 14) {
-            Image(systemName: isOK ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                .font(.system(size: 22, weight: .black))
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
-                .background(Circle().fill(isOK ? DS.Color.statusOK : DS.Color.statusMajor))
-                .shadow(color: (isOK ? DS.Color.statusOK : DS.Color.statusMajor).opacity(0.35), radius: 8, y: 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(isOK ? "Trafic normal" : "Perturbations en cours")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(isOK
-                     ? "Aucun signalement actif sur cette ligne."
-                     : (activeInfoCount > 0
-                        ? "\(activeInfoCount) infos · communauté + STIB"
-                        : "Info trafic STIB sur cette ligne"))
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     /// Three-chip segmented control for the Infos trafic sub-filters.
@@ -922,40 +880,6 @@ struct LigneDetailPage: View {
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
                 .stroke(DS.Color.info.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
-    }
-
-    private func perturbationSummaryRow(_ summary: TransportPerturbationSummaryDTO) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(DS.Color.statusMinor)
-                .frame(width: 28, height: 28)
-                .background(DS.Color.statusMinor.opacity(0.14))
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 4) {
-                Text(summary.localizedTitle.isEmpty ? AppLocalizer.string("Perturbation officielle") : summary.localizedTitle)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                Text(summary.localizedShortText.isEmpty ? summary.localizedLongText : summary.localizedShortText)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(4)
-                if let label = summary.sourceLabel, !label.isEmpty {
-                    Text(label.uppercased())
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(1.0)
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }

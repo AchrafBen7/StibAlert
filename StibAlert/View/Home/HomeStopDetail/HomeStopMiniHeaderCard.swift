@@ -18,12 +18,6 @@ struct HomeStopMiniHeaderCard: View {
     let onShowDetail: () -> Void
     let onRefresh: () -> Void
 
-    private var selectedLineLiveVehicleCount: Int {
-        guard let selectedLine else { return liveVehicleCount }
-        let selectedLineKey = normalize(selectedLine)
-        return liveVehicles.filter { normalize($0.line ?? "") == selectedLineKey }.count
-    }
-
     /// Nombre de passages TEMPS RÉEL de la ligne sélectionnée À CET ARRÊT.
     ///
     /// L'ancien badge « N live » comptait les VÉHICULES de la ligne suivis sur la
