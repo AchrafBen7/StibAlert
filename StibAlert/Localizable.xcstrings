@@ -2438,7 +2438,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Niet langsgekomen"
+            "value": "Ik was er niet"
           }
         }
       }
@@ -32450,6 +32450,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "Werk"
+          }
+        }
+      }
+    },
+    "report.action.passing_anyway": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ça passe quand même"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rijdt toch"
+          }
+        }
+      }
+    },
+    "alert.passing_anyway_count": {
+      "localizations": {
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld personne dit que ça passe quand même"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld personnes disent que ça passe quand même"
+                }
+              }
+            }
+          }
+        },
+        "nl": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld persoon zegt dat het toch rijdt"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld personen zeggen dat het toch rijdt"
+                }
+              }
+            }
           }
         }
       }

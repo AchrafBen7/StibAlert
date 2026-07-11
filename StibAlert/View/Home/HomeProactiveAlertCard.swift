@@ -6,6 +6,8 @@ struct HomeProactiveAlertCard: View {
     let onOpenDetails: () -> Void
     let onStillBlocked: () async -> Void
     let onResolved: () async -> Void
+    /// Renseignement de terrain sur un communiqué OFFICIEL — pas un vote.
+    let onPassingAnyway: () async -> Void
     /// L'utilisateur n'est pas passé par là → on ne le force pas à voter
     /// « bloqué / résolu » sur un arrêt qu'il n'a pas vu. Ferme la carte ET
     /// empêche cette alerte de revenir le harceler.
@@ -13,6 +15,7 @@ struct HomeProactiveAlertCard: View {
 
     @State private var isSubmittingBlocked = false
     @State private var isSubmittingResolved = false
+    @State private var isSubmittingPassing = false
     // I2 — auto-collapse 3 s sans interaction + swipe-down to dismiss.
     @State private var isCollapsed = false
     @State private var dragOffset: CGFloat = 0
@@ -150,6 +153,16 @@ struct HomeProactiveAlertCard: View {
                 .accessibilityLabel("Fermer l'alerte")
             }
 
+            // La question posée dépend de QUI l'affirme.
+            //
+            // Sur un communiqué OFFICIEL, « Résolu ? » n'a aucun sens : personne ne
+            // peut résoudre des travaux planifiés jusqu'au 30 août. Et le serveur
+            // refuse désormais ce vote (403). La bonne question devient : « est-ce que
+            // ça te bloque VRAIMENT ? » — le terrain contre l'officiel. C'est ce que
+            // Blayse peut apporter et que l'opérateur ne fera jamais.
+            //
+            // Sur un signalement COMMUNAUTAIRE, le vote garde tout son sens : la
+            // communauté tranche ce que la communauté a affirmé.
             HStack(spacing: 8) {
                 actionButton(
                     title: AppLocalizer.string("report.action.still_blocked", defaultValue: "Toujours bloqué"),
@@ -165,19 +178,53 @@ struct HomeProactiveAlertCard: View {
                     isSubmittingBlocked = false
                 }
 
-                actionButton(
-                    title: AppLocalizer.string("report.action.resolved", defaultValue: "Résolu"),
-                    icon: "checkmark.circle.fill",
-                    isLoading: isSubmittingResolved,
-                    foreground: DS.Color.ink,
-                    background: DS.Color.success.opacity(0.16),
-                    border: DS.Color.success.opacity(0.42)
-                ) {
-                    guard !isSubmittingResolved else { return }
-                    isSubmittingResolved = true
-                    await onResolved()
-                    isSubmittingResolved = false
+                if cluster.isOfficial {
+                    actionButton(
+                        title: AppLocalizer.string("report.action.passing_anyway", defaultValue: "Ça passe quand même"),
+                        icon: "arrow.forward.circle.fill",
+                        isLoading: isSubmittingPassing,
+                        foreground: DS.Color.ink,
+                        background: DS.Color.success.opacity(0.16),
+                        border: DS.Color.success.opacity(0.42)
+                    ) {
+                        guard !isSubmittingPassing else { return }
+                        isSubmittingPassing = true
+                        await onPassingAnyway()
+                        isSubmittingPassing = false
+                    }
+                } else {
+                    actionButton(
+                        title: AppLocalizer.string("report.action.resolved", defaultValue: "Résolu"),
+                        icon: "checkmark.circle.fill",
+                        isLoading: isSubmittingResolved,
+                        foreground: DS.Color.ink,
+                        background: DS.Color.success.opacity(0.16),
+                        border: DS.Color.success.opacity(0.42)
+                    ) {
+                        guard !isSubmittingResolved else { return }
+                        isSubmittingResolved = true
+                        await onResolved()
+                        isSubmittingResolved = false
+                    }
                 }
+            }
+
+            // Le renseignement du terrain, affiché À CÔTÉ du communiqué officiel.
+            // Il ne le contredit pas, il le complète.
+            if cluster.isOfficial, let passing = cluster.passingAnywayCount, passing > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(AppLocalizer.format(
+                        "alert.passing_anyway_count",
+                        defaultValue: "%lld personnes disent que ça passe quand même",
+                        passing
+                    ))
+                    .font(DS.Font.caption)
+                    .monospacedDigit()
+                }
+                .foregroundStyle(DS.Color.success)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // Échappatoire honnête : si on n'est pas passé par l'arrêt, on ne

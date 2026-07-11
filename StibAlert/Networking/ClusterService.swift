@@ -29,6 +29,16 @@ enum ClusterService {
         )
     }
 
+    /// « Ça passe quand même » — renseignement de terrain sur un communiqué officiel.
+    /// N'altère PAS le statut du cluster côté serveur (contrairement à `confirmResolved`,
+    /// que le serveur refuse désormais avec un 403 sur les clusters officiels).
+    static func reportPassingAnyway(_ clusterIndex: Int) async throws -> ClusterConfirmResponse {
+        try await APIClient.shared.request(
+            "/api/clusters/\(clusterIndex)/passing-anyway",
+            method: .POST
+        )
+    }
+
     static func confirmResolved(_ clusterIndex: Int) async throws -> ClusterConfirmResponse {
         try await APIClient.shared.request(
             "/api/clusters/\(clusterIndex)/resolve",
@@ -104,6 +114,10 @@ struct ClusterListResponse: Decodable {
 }
 
 struct ClusterDTO: Codable, Identifiable, Hashable {
+    /// Combien de personnes disent que ça passe malgré le communiqué officiel.
+    /// Optionnel : les réponses en cache et les anciennes versions du serveur ne le portent pas.
+    let passingAnywayCount: Int?
+
     let clusterIndex: Int
     let ligne: String
     let arretId: String

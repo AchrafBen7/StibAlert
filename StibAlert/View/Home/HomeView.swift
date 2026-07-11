@@ -2441,6 +2441,23 @@ struct HomeView: View {
         "\(cluster.ligne.uppercased())|\(cluster.arretId ?? "")|\(cluster.typeProbleme)"
     }
 
+    /// « Ça passe quand même » — sur un communiqué OFFICIEL uniquement.
+    ///
+    /// Ce n'est pas un vote : le serveur n'altère ni le statut du cluster, ni sa date
+    /// d'expiration. Il incrémente un compteur affiché À CÔTÉ de l'officiel. On ferme
+    /// la carte, mais on ne l'ajoute PAS aux alertes masquées : si la STIB met son
+    /// communiqué à jour, l'utilisateur doit pouvoir le revoir.
+    @MainActor
+    func reportProactiveAlertPassingAnyway(_ cluster: ClusterDTO) async {
+        do {
+            _ = try await ClusterService.reportPassingAnyway(cluster.clusterIndex)
+            AppHaptics.success()
+        } catch {
+            ErrorReporting.capture(error, tag: "cluster.passing_anyway")
+        }
+        closeProactiveAlert()
+    }
+
     @MainActor
     func dismissProactiveAlertNotConcerned(_ cluster: ClusterDTO) {
         // Aucun vote envoyé (on n'a pas observé l'arrêt) — on masque + on retient

@@ -272,6 +272,9 @@ extension HomeView {
                 onResolved: {
                     await confirmProactiveAlertResolved(cluster)
                 },
+                onPassingAnyway: {
+                    await reportProactiveAlertPassingAnyway(cluster)
+                },
                 onNotConcerned: {
                     dismissProactiveAlertNotConcerned(cluster)
                 }
