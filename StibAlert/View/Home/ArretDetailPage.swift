@@ -125,6 +125,7 @@ struct ArretDetailPage: View {
     @State private var isFavorite = false
     @State private var isUpdatingFavorite = false
     @State private var selectedDisruption: TransportIncidentDTO?
+    @State private var showAllDisruptions = false
 
     // Onglet Horaires — théoriques GTFS chargés à la demande.
     @State private var scheduleData: StibStopSchedule?
@@ -579,35 +580,64 @@ struct ArretDetailPage: View {
         }
     }
 
+    /// Bandeau des perturbations — volontairement DISCRET.
+    ///
+    /// Avant : un grand aplat rouge (statusMajor) avec 3 perturbations sur deux
+    /// lignes chacune + leur période → près de la moitié de l'écran, et un effet
+    /// « alarme » disproportionné pour des travaux planifiés. Ici : fond neutre, une
+    /// seule ligne par perturbation, 2 visibles et le reste derrière « Voir tout ».
+    /// L'information reste à un tap ; elle n'agresse plus.
     private var disruptionBanner: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let visible = showAllDisruptions ? uniqueDisruptions : Array(uniqueDisruptions.prefix(2))
+        return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMinor)
                 Text("Perturbation · cet arrêt")
                     .font(DS.Font.eyebrow)
+                    .foregroundStyle(DS.Color.inkMute)
+                Spacer(minLength: 0)
             }
-            .foregroundStyle(DS.Color.statusMajor)
+            .padding(.bottom, 6)
 
-            ForEach(uniqueDisruptions.prefix(3)) { disruption in
+            ForEach(Array(visible.enumerated()), id: \.element.id) { index, disruption in
                 Button {
                     selectedDisruption = disruption
                 } label: {
                     disruptionRow(disruption)
                 }
                 .buttonStyle(.plain)
+
+                if index < visible.count - 1 {
+                    DS.Rule()
+                }
+            }
+
+            if !showAllDisruptions, uniqueDisruptions.count > visible.count {
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { showAllDisruptions = true }
+                } label: {
+                    Text(AppLocalizer.format("disruption.see_all",
+                                             defaultValue: "Voir tout (%lld)",
+                                             uniqueDisruptions.count))
+                        .font(DS.Font.caption.weight(.semibold))
+                        .foregroundStyle(DS.Color.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 8)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Color.statusMajor.opacity(0.08))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(DS.Color.statusMajor)
-                .frame(width: 2)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+        .background(DS.Color.paper2.opacity(0.55))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
     }
 
     /// Une perturbation en une ligne : l'EFFET en clair, la cause et la période en
@@ -615,35 +645,30 @@ struct ArretDetailPage: View {
     /// deux lignes (« Travaux. Du 19/1 à fin 2026, bus 53 dévié entre EMILE DELVA et
     /// LEOPOLD I. Info: sti… ») — illisible, et surtout lu depuis `description`, le
     /// champ FRANÇAIS : l'app en néerlandais affichait du français.
+    /// Une perturbation sur UNE seule ligne : badge + effet, rien d'autre. La cause,
+    /// la période et le conseil vivent dans la feuille de détail (au tap). Les
+    /// afficher ici aussi doublait la hauteur de chaque entrée pour rien.
     private func disruptionRow(_ incident: TransportIncidentDTO) -> some View {
         let digest = DisruptionDigest.parse(incident.localizedDescription ?? incident.localizedType ?? "")
-        let context = [digest.cause, digest.period].compactMap { $0 }.joined(separator: " · ")
-        return HStack(alignment: .top, spacing: 10) {
+        return HStack(spacing: 10) {
             if let line = incident.line, !line.isEmpty {
                 LineBadge(line: line, size: .sm)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(digest.effect.isEmpty
-                     ? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
-                     : digest.effect)
-                    .font(DS.Font.bodySmall.weight(.semibold))
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+            Text(digest.effect.isEmpty
+                 ? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
+                 : digest.effect)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.ink)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-                if !context.isEmpty {
-                    Text(context)
-                        .font(DS.Font.caption)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(1)
-                }
-            }
             Spacer(minLength: 8)
+
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(DS.Color.inkMute)
-                .padding(.top, 2)
         }
+        .padding(.vertical, 7)
         .contentShape(Rectangle())
     }
 
