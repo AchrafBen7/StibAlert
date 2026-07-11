@@ -358,7 +358,46 @@ struct LigneDetailPage: View {
     @State private var selectedStopForDetail: LigneDetailViewModel.StopSnapshot?
     @State private var selectedTab: DetailTab
     @State private var selectedTrafficSubtab: TrafficSubtab = .live
+    @State private var favoriteInFlight = false
     @Namespace private var tabUnderlineNamespace
+
+    /// La ligne est-elle dans les favoris de l'utilisateur ? Même source que la
+    /// section « lignes suivies » de l'onglet Favoris (`favoriteLines` du profil).
+    private var isLineFavorite: Bool {
+        guard let fav = session.currentUser?.favoriteLines else { return viewModel.isFollowed }
+        return fav.contains { $0.caseInsensitiveCompare(viewModel.line.line) == .orderedSame }
+    }
+
+    /// Ajoute / retire la ligne des favoris — et la fait donc apparaître dans
+    /// l'onglet Favoris. Avant, le bouton « Suivre » ne faisait qu'un toggle LOCAL
+    /// (`isFollowed`) sans rien persister : la ligne « suivie » n'apparaissait nulle
+    /// part. On câble désormais le même `favoriteLines` que le reste de l'app.
+    private func toggleLineFavorite() async {
+        let lineNumber = viewModel.line.line
+        guard let user = session.currentUser else {
+            // Invité : pas de favoris serveur → retour visuel local en attendant un compte.
+            viewModel.isFollowed.toggle()
+            return
+        }
+        guard !favoriteInFlight else { return }
+        favoriteInFlight = true
+        defer { favoriteInFlight = false }
+
+        let current = Set(user.favoriteLines ?? [])
+        let alreadyFav = current.contains { $0.caseInsensitiveCompare(lineNumber) == .orderedSame }
+        let updatedLines = (alreadyFav
+            ? current.filter { $0.caseInsensitiveCompare(lineNumber) != .orderedSame }
+            : current.union([lineNumber]))
+            .sorted { $0.compare($1, options: .numeric) == .orderedAscending }
+
+        do {
+            let updated = try await UtilisateurService.mettreAJourProfil(userId: user.id, favoriteLines: updatedLines)
+            session.applyCurrentUserUpdate(updated)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } catch {
+            // Silencieux : un favori qui échoue ne doit pas casser la page.
+        }
+    }
 
     private let onBackOverride: (() -> Void)?
     /// Incidents officiels que la grille Verkeersinfo a utilisés pour BADGER
@@ -439,25 +478,27 @@ struct LigneDetailPage: View {
                 refreshButton
 
                 Button {
-                    viewModel.isFollowed.toggle()
+                    Task { await toggleLineFavorite() }
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: viewModel.isFollowed ? "star.fill" : "star")
+                        Image(systemName: isLineFavorite ? "star.fill" : "star")
                             .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(isLineFavorite ? DS.Color.primary : DS.Color.ink)
                         Text("Suivre")
                             .font(DS.Font.bodySmall.weight(.semibold))
+                            .foregroundStyle(DS.Color.ink)
                     }
-                    .foregroundStyle(DS.Color.ink)
                     .padding(.horizontal, DS.Spacing.md)
                     .frame(height: 36)
-                    .background(DS.Color.paper)
+                    .background(isLineFavorite ? DS.Color.primary.opacity(0.10) : DS.Color.paper)
                     .overlay(
                         Capsule()
-                            .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+                            .stroke(isLineFavorite ? DS.Color.primary.opacity(0.4) : DS.Color.ink.opacity(0.16), lineWidth: 1)
                     )
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .disabled(favoriteInFlight)
             }
 
         }
