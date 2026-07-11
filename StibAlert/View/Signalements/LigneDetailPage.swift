@@ -309,8 +309,14 @@ final class LigneDetailViewModel: ObservableObject {
             || $0.stop?.name?.normalizedStopKey == stop.name.normalizedStopKey
         }
 
-        let disruption = incidents.first?.description
-            ?? incidents.first?.type
+        // Texte de perturbation sur la timeline : version LOCALISÉE (NL quand l'app
+        // est en NL — avant on lisait `.description`, le champ plat FRANÇAIS, d'où du
+        // français dans une app en néerlandais) et DÉCOMPOSÉE via DisruptionDigest
+        // pour n'afficher que l'EFFET (« tram 4 dévié ») au lieu du paragraphe brut
+        // tronqué (« Interruption trams 4 10: Tram 4 STALLE (P) à… »).
+        let disruption = incidents.first.map {
+            DisruptionDigest.parse($0.localizedDescription ?? $0.localizedType ?? "").effect
+        }
 
         let waits = catalog?.nextPassages ?? catalog?.nextPassageMinutes.map { [$0] } ?? []
 
