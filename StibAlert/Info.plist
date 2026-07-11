@@ -16,13 +16,13 @@
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>StibAlert utilise votre position pour afficher les arrêts proches et calculer votre itinéraire en temps réel.</string>
+	<string>Blayse utilise ta position pour afficher les arrêts proches et calculer ton itinéraire en temps réel.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
 	<key>NFCReaderUsageDescription</key>
-	<string>StibAlert utilise le NFC pour associer votre carte MoBIB à votre profil et retrouver votre abonnement plus facilement.</string>
+	<string>Blayse lit la puce de ta carte MoBIB pour l'associer à ton profil. Blayse ne peut ni afficher ton solde, ni valider un trajet, ni recharger ta carte.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<!-- Calypso "1TIC.ICA" AID — used by MoBIB / STIB-MIVB Brussels -->
