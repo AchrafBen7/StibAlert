@@ -640,8 +640,9 @@ struct LigneDetailPage: View {
 
     @ViewBuilder
     private var trafficTabContent: some View {
-        trafficStatusBanner
-
+        // Bandeau « Perturbations en cours · N infos » retiré : il répétait ce que
+        // disent déjà l'onglet Verkeersinfo (⚠️) et les sous-onglets Lopend/Officieel
+        // juste en dessous. Une seule vérité par écran.
         trafficSubtabSwitcher
 
         switch selectedTrafficSubtab {
@@ -793,7 +794,6 @@ struct LigneDetailPage: View {
     private var officialIncidentsList: some View {
         let incidents = mergedOfficialIncidents
         let lineSummary = viewModel.activeLine?.perturbationSummary
-        let hasLineSummary = (lineSummary?.shortText.isEmpty == false) || (lineSummary?.longText.isEmpty == false)
         let globalSummary = viewModel.matchingGlobalSummary
 
         if incidents.isEmpty {
@@ -822,10 +822,10 @@ struct LigneDetailPage: View {
             }
         } else {
             VStack(spacing: 8) {
-                // Line-level perturbation summary first (highest specificity).
-                if let lineSummary, hasLineSummary {
-                    perturbationSummaryRow(lineSummary)
-                }
+                // Résumé de ligne (perturbationSummaryRow) retiré : quand des
+                // incidents CONCRETS sont listés juste en dessous, ce résumé vague
+                // (« Réseau perturbé sur 14 ») ne fait que répéter la carte
+                // d'incident. On garde les incidents, on supprime le doublon.
                 ForEach(incidents) { incident in
                     officialIncidentRow(incident)
                 }
