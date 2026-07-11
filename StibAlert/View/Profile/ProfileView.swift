@@ -272,7 +272,9 @@ struct ProfileView: View {
                             // P2 : on affiche l'état EFFECTIF (backend ET
                             // autorisé par iOS) — sinon le user voit
                             // "Activées" alors qu'iOS bloque tout
-                            profileRow(icon: "bell", label: "Notifications", value: effectiveNotificationsEnabled ? "Activées" : "Désactivées") {
+                            profileRow(icon: "bell", label: "Notifications", value: effectiveNotificationsEnabled
+                                ? AppLocalizer.string("settings.enabled", defaultValue: "Activées")
+                                : AppLocalizer.string("settings.disabled", defaultValue: "Désactivées")) {
                                 selectedSubpage = .notifications
                             }
                             profileDivider

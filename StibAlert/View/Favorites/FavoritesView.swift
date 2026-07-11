@@ -869,7 +869,9 @@ struct FavoritesView: View {
                     favoriteInfoRow(
                         icon: "bell.fill",
                         title: AppLocalizer.string("favorites.alerts.notifications", defaultValue: "Notifications favorites"),
-                        subtitle: (session.currentUser?.notifications ?? false) ? "Activées" : "Désactivées",
+                        subtitle: (session.currentUser?.notifications ?? false)
+                            ? AppLocalizer.string("settings.enabled", defaultValue: "Activées")
+                            : AppLocalizer.string("settings.disabled", defaultValue: "Désactivées"),
                         active: session.currentUser?.notifications ?? false
                     )
                 }
@@ -940,11 +942,11 @@ struct FavoritesView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(routine.homeLabel)
+                    Text(Self.localizedRoutineLabel(routine.homeLabel))
                     Image(systemName: "arrow.right")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DS.Color.inkMute)
-                    Text(routine.workLabel)
+                    Text(Self.localizedRoutineLabel(routine.workLabel))
                 }
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
@@ -1140,6 +1142,25 @@ struct FavoritesView: View {
                 lastProblemType: stop.lastProblemType,
                 lastConfidence: stop.lastConfidence
             )
+        }
+    }
+
+    /// « Domicile » / « Travail » ne sont pas des libellés d'UI : ce sont les valeurs
+    /// PAR DÉFAUT du profil, écrites en base au moment où la routine est créée. Un
+    /// compte créé en français garde donc « Domicile » même quand l'app passe en
+    /// néerlandais — et la carte affichait « Domicile → Travail » en pleine app NL.
+    ///
+    /// On ne peut pas réécrire la base (l'utilisateur a pu personnaliser son libellé).
+    /// On traduit donc uniquement les DEUX valeurs par défaut connues, à l'affichage.
+    /// Un libellé personnalisé (« Chez mamy ») passe intact.
+    static func localizedRoutineLabel(_ raw: String) -> String {
+        switch raw.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "domicile", "thuis":
+            return AppLocalizer.string("routine.home_default", defaultValue: "Domicile")
+        case "travail", "werk":
+            return AppLocalizer.string("routine.work_default", defaultValue: "Travail")
+        default:
+            return raw
         }
     }
 }

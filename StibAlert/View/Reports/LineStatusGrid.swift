@@ -151,16 +151,10 @@ struct LineStatusGrid: View {
 
 /// Badge representation of the worst incident currently affecting a line.
 /// Priority controls which icon wins when a line has multiple incidents.
-/// Partagé (plus `private`) avec `ReportsNetworkSummary` : la synthèse « En ce
-/// moment » compte les incidents avec CETTE classification, pour qu'un incident
-/// compté 🔨 dans la synthèse porte bien un badge 🔨 dans la grille juste en
-/// dessous. Dupliquer la règle, c'est se garantir deux vérités sur un écran.
 struct LineIncidentBadge {
     let icon: String
     let color: Color
     let priority: Int
-    /// Le service est-il réellement coupé ? (≠ « il y a un communiqué sur cette ligne »)
-    let isBlocking: Bool
 
     /// Le service est cassé : tram interrompu, courses annulées, ligne supprimée.
     /// C'est ça qui ruine un trajet — le reste se contourne.
@@ -193,7 +187,6 @@ struct LineIncidentBadge {
             self.icon = "exclamationmark.triangle.fill"
             self.color = DS.Color.statusMajor
             self.priority = 100
-            self.isBlocking = true
         } else if mentions(Self.works) {
             // hammer.fill au lieu de cone.fill : le cône de chantier était
             // méconnaissable en 18px (ressemblait à un "cuberdon" orange). Le
@@ -201,23 +194,19 @@ struct LineIncidentBadge {
             self.icon = "hammer.fill"
             self.color = DS.Color.statusMinor
             self.priority = 70
-            self.isBlocking = false
         } else if mentions(Self.delays) {
             self.icon = "clock.fill"
             self.color = DS.Color.statusMinor
             self.priority = 50
-            self.isBlocking = false
         } else if sev.contains("critical") || sev.contains("major") {
             // Repli : le texte ne dit rien d'exploitable, on fait confiance au champ.
             self.icon = "exclamationmark.triangle.fill"
             self.color = DS.Color.statusMajor
             self.priority = 90
-            self.isBlocking = true
         } else {
             self.icon = "info.fill"
             self.color = DS.Color.community
             self.priority = 20
-            self.isBlocking = false
         }
     }
 }
