@@ -24,6 +24,17 @@ struct HomeStopMiniHeaderCard: View {
         return liveVehicles.filter { normalize($0.line ?? "") == selectedLineKey }.count
     }
 
+    /// Nombre de passages TEMPS RÉEL de la ligne sélectionnée À CET ARRÊT.
+    ///
+    /// L'ancien badge « N live » comptait les VÉHICULES de la ligne suivis sur la
+    /// carte (flux positions), pas les arrivées à cet arrêt (flux WaitingTimes) —
+    /// deux sources STIB distinctes. D'où « 3 live » affiché à côté de « Aucun
+    /// passage prévu » : 3 bus de la ligne roulaient ailleurs, aucun n'était annoncé
+    /// ici. On compte désormais les arrivées réelles à l'arrêt : une seule vérité.
+    private var selectedLineLiveDepartureCount: Int {
+        lineDepartures.filter { $0.source != "scheduled" && $0.source != nil }.count
+    }
+
     private var displayedLines: [String] {
         // De-duplicate while preserving order; the API sometimes ships the
         // same line under both metro and tram catalogs.
@@ -75,7 +86,9 @@ struct HomeStopMiniHeaderCard: View {
                                 .font(.system(size: 9, weight: .bold))
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
-                            if selectedLine != nil {
+                            // Uniquement s'il y a de vraies arrivées temps réel ici :
+                            // le badge ne peut donc plus contredire « Aucun passage prévu ».
+                            if selectedLineLiveDepartureCount > 0 {
                                 liveCountBadge
                             }
                         }
@@ -275,9 +288,9 @@ struct HomeStopMiniHeaderCard: View {
     private var liveCountBadge: some View {
         HStack(spacing: 3) {
             Circle()
-                .fill(selectedLineLiveVehicleCount > 0 ? DS.Color.statusOK : DS.Color.statusMinor)
+                .fill(DS.Color.statusOK)
                 .frame(width: 5, height: 5)
-            Text("\(selectedLineLiveVehicleCount) live")
+            Text("\(selectedLineLiveDepartureCount) live")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundStyle(DS.Color.inkMute)
         }
