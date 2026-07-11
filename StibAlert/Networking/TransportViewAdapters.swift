@@ -74,39 +74,6 @@ enum TransportViewAdapters {
         return best.explanation
     }
 
-    static func routeAlternatives(from recommendation: TransportRecommendationDTO) -> [SearchRouteAlternative] {
-        recommendation.recommendedAlternatives.prefix(4).map { alternative in
-            let matchingIncidents = incidents(
-                for: alternative,
-                from: recommendation.activeIncidents
-            )
-            let confidenceText = AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable",
-                                                     Int((alternative.confidence * 100).rounded()))
-            let trustLabel = trustLabel(for: alternative.confidence)
-            let reason = alternative.explanationDetails?.summary ?? alternative.reasons?.first ?? alternative.explanation
-            let categoryTitles = alternative.explanationDetails?.categories.map(\.title) ?? []
-            let sourceSummary = sourceSummary(
-                for: alternative,
-                recommendation: recommendation,
-                matchingIncidents: matchingIncidents
-            )
-            let communitySummary = communitySummary(from: matchingIncidents)
-            return SearchRouteAlternative(
-                title: alternative.label,
-                eta: alternative.totalDurationMinutes,
-                lineSummary: lineSummary(for: alternative),
-                reason: reason,
-                confidenceText: confidenceText,
-                trustLabel: trustLabel,
-                severityLabel: localizedSeverityLabel(severity: alternative.severity, fallback: nil),
-                sourceSummary: sourceSummary,
-                communitySummary: communitySummary,
-                categoryTitles: Array(categoryTitles.prefix(2)),
-                steps: alternative.steps ?? []
-            )
-        }
-    }
-
     static func reliabilityText(from recommendation: TransportRecommendationDTO) -> String {
         let percent = Int((recommendation.confidence * 100).rounded())
         return AppLocalizer.format("confidence.pct_reliable", defaultValue: "%lld%% fiable", percent)
