@@ -835,7 +835,11 @@ struct ReportsView: View {
                         }
                     }
             }
-                .padding(.bottom, 140)
+                // Le « + » flotte à 104 pt du bas et mesure 48 pt : son sommet est donc
+                // à 152 pt. Réserver 140 pt laissait la dernière rangée de la grille
+                // DERRIÈRE le bouton, définitivement masquée même une fois scrollé à
+                // fond. 168 pt la dégagent.
+                .padding(.bottom, 168)
             }
             .refreshable {
                 await loadData(force: true)
@@ -1242,23 +1246,24 @@ struct ReportsView: View {
         }
     }
 
+    /// Aligné sur le bouton « + » de la Home : 48 pt, sans contour noir. Celui-ci était
+    /// resté à 54 pt AVEC un liseré noir de 1,5 pt sur l'orange — deux boutons qui font
+    /// la même chose, dans deux styles, et celui-ci criait plus fort que le contenu.
+    /// L'ombre flottante suffit à le détacher du fond.
     private var editorialFAB: some View {
         Button {
             nav.showReportSheet = true
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .heavy))
-            .foregroundStyle(DS.Color.primaryForeground)
-            .frame(width: 54, height: 54)
-            .background(DS.Color.primary)
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.md)
-                    .stroke(DS.Color.ink, lineWidth: 1.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-            .shadow(DS.Shadow.floating)
+                .font(.system(size: 17, weight: .heavy))
+                .foregroundStyle(DS.Color.primaryForeground)
+                .frame(width: 48, height: 48)
+                .background(DS.Color.primary)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .shadow(DS.Shadow.floating)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(L10n.StopDetail.report)
     }
 
     private func errorBanner(_ message: String) -> some View {
