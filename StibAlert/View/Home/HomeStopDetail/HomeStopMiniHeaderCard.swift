@@ -238,7 +238,7 @@ struct HomeStopMiniHeaderCard: View {
                     .foregroundStyle(DS.Color.inkMute)
             }
             Text(minutesText(for: departure.minutes))
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
         }
         .padding(.horizontal, 7)
@@ -291,7 +291,7 @@ struct HomeStopMiniHeaderCard: View {
                 .fill(DS.Color.statusOK)
                 .frame(width: 5, height: 5)
             Text("\(selectedLineLiveDepartureCount) live")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(DS.Color.inkMute)
         }
         .padding(.horizontal, 6)

@@ -11,7 +11,7 @@ struct OfflineIndicator: View {
                 Image(systemName: "wifi.slash")
                     .font(.system(size: 13, weight: .semibold))
                 Text(offlineLabel)
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.primaryForeground)
             .padding(.horizontal, 12)
@@ -24,7 +24,7 @@ struct OfflineIndicator: View {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 13, weight: .semibold))
                 Text(AppLocalizer.string("Connexion limitée"))
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 12)
@@ -40,7 +40,7 @@ struct OfflineIndicator: View {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                 Text(pendingReportsLabel)
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
             }
             .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 12)

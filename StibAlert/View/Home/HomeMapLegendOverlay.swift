@@ -58,7 +58,7 @@ struct MapLegendOverlay: View {
             Image(systemName: "slider.horizontal.3")
                 .font(.system(size: 14, weight: .bold))
         }
-        .font(DS.Font.mono.weight(.bold))
+        .font(DS.Font.label.weight(.bold))
         .tracking(2)
         .foregroundStyle(DS.Color.paper)
         .padding(.horizontal, 12)
@@ -71,7 +71,7 @@ struct MapLegendOverlay: View {
             Text(title)
             Spacer()
         }
-        .font(DS.Font.mono.weight(.bold))
+        .font(DS.Font.label.weight(.bold))
         .tracking(2)
         .foregroundStyle(DS.Color.inkMute)
         .padding(.horizontal, 12)

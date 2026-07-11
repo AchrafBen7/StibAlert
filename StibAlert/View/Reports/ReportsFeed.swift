@@ -71,7 +71,7 @@ struct ReportsFeedView: View {
                             ProgressView()
                                 .scaleEffect(0.85)
                             Text("Chargement…")
-                                .font(DS.Font.monoSmall.weight(.bold))
+                                .font(DS.Font.labelSmall.weight(.bold))
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
@@ -79,7 +79,7 @@ struct ReportsFeedView: View {
                         .padding(.vertical, 14)
                     } else if hasReachedEnd && feedItems.count > 6 {
                         Text("FIN DU FEED")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .tracking(1.5)
                             .foregroundStyle(DS.Color.inkMute.opacity(0.6))
                             .frame(maxWidth: .infinity)

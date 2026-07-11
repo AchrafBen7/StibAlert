@@ -140,7 +140,7 @@ struct ActivationView: View {
     private var codeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("CODE À 4 CHIFFRES")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(DS.Color.inkMute)
                 .tracking(1.4)
 
@@ -148,7 +148,7 @@ struct ActivationView: View {
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .focused($codeFocused)
-                .font(.system(size: 32, weight: .bold, design: .monospaced))
+                .font(.system(size: 32, weight: .bold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(DS.Color.ink)
                 .frame(height: 86)
@@ -212,7 +212,7 @@ struct ActivationView: View {
     private var resendButton: some View {
         Button(action: resend) {
             Text(resendLabel)
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .tracking(1.2)
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity)

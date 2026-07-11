@@ -31,7 +31,7 @@ struct ReportsCarousel: View {
             Spacer()
 
             Text(AppLocalizer.format("plural.dispatches", defaultValue: "%lld dépêches", items.count))
-                .font(DS.Font.monoSmall.weight(.semibold))
+                .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -159,14 +159,14 @@ struct NetworkIssueCarouselCard: View {
                         .shadow(color: item.tint.opacity(0.7), radius: 9)
 
                     Text("AUTOUR DE TOI")
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(2.0)
                         .foregroundStyle(.white.opacity(0.88))
 
                     Spacer()
 
                     Text("STIB-MIVB")
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(2.0)
                         .foregroundStyle(.white.opacity(0.9))
                 }
@@ -185,7 +185,7 @@ struct NetworkIssueCarouselCard: View {
                             .minimumScaleFactor(0.72)
 
                         Text("\(activeIndex + 1)/\(max(itemCount, 1))")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundStyle(.white.opacity(0.68))
                     }
 
@@ -206,7 +206,7 @@ struct NetworkIssueCarouselCard: View {
                             }
                             if item.lines.count > 4 {
                                 Text("+\(item.lines.count - 4)")
-                                    .font(DS.Font.monoSmall.weight(.bold))
+                                    .font(DS.Font.labelSmall.weight(.bold))
                                     .foregroundStyle(.white.opacity(0.78))
                             }
                         }
@@ -219,7 +219,7 @@ struct NetworkIssueCarouselCard: View {
                             Text(location)
                                 .lineLimit(1)
                         }
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(.white.opacity(0.82))
                     }
 
@@ -256,7 +256,7 @@ private struct ReportsGlassBadge: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .bold))
             Text(title)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(0.9)
         }
         .foregroundStyle(.white)

@@ -34,10 +34,10 @@ struct OfflineMapFallback: View {
                 .font(.system(size: 14, weight: .heavy))
             VStack(alignment: .leading, spacing: 2) {
                 Text("CARTE HORS-LIGNE")
-                    .font(DS.Font.monoSmall.weight(.heavy))
+                    .font(DS.Font.labelSmall.weight(.heavy))
                     .tracking(2)
                 Text(ageLabel)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
             }
             Spacer()
         }

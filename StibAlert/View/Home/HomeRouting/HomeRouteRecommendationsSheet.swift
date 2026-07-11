@@ -394,11 +394,11 @@ struct RouteRecommendationsSheet: View {
     private var optionsHeader: some View {
         HStack(alignment: .center) {
             Text(L10n.Routing.otherItineraries.uppercased(with: AppLocale.current))
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.ink)
             Text(String(format: "%02d", max(others.count, 0)))
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .foregroundStyle(DS.Color.inkMute)
             Rectangle()
                 .fill(DS.Color.ink.opacity(0.12))
@@ -746,7 +746,7 @@ private struct RouteLineMiniBadge: View {
 
     var body: some View {
         Text(descriptor.code)
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .foregroundStyle(descriptor.foregroundColor)
             .frame(minWidth: 30, minHeight: 30)
             .padding(.horizontal, 3)
@@ -895,7 +895,7 @@ private struct InlineRouteDetails: View {
                                     .accessibilityLabel(op.accessibilityLabel)
                             }
                             Text(item.meta)
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
                                 .lineLimit(1)

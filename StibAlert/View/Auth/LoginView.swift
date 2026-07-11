@@ -134,7 +134,7 @@ struct LoginView: View {
                 Spacer()
                 Button(action: openPasswordReset) {
                     Text("Mot de passe oublié ?")
-                        .font(DS.Font.mono.weight(.bold))
+                        .font(DS.Font.label.weight(.bold))
                         .foregroundColor(DS.Color.ink)
                         .underline()
                         .tracking(1)
@@ -220,7 +220,7 @@ struct LoginView: View {
                 onClose()
             } label: {
                 Text("CONTINUER EN TANT QU’INVITÉ →")
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1.5)
             }
@@ -307,7 +307,7 @@ struct AuthModeSwitch: View {
     private func modeButton(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .tracking(1.2)
                 .foregroundColor(active ? DS.Color.paper : DS.Color.inkMute)
                 .frame(maxWidth: .infinity, minHeight: 36)
@@ -321,7 +321,7 @@ struct AuthDivider: View {
         HStack(spacing: DS.Spacing.md) {
             DS.Rule().frame(maxWidth: .infinity)
             Text("OU AVEC VOTRE EMAIL")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
             DS.Rule().frame(maxWidth: .infinity)
@@ -341,7 +341,7 @@ struct AuthField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             Text(label)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
                 .padding(.horizontal, DS.Spacing.xxs)

@@ -104,7 +104,7 @@ struct HomeSncbStationSheet: View {
     private func departureRow(_ dep: SNCBDeparture) -> some View {
         HStack(spacing: 12) {
             Text(dep.time)
-                .font(DS.Font.monoLarge)
+                .font(DS.Font.labelLarge)
                 .foregroundStyle(DS.Color.ink)
                 .frame(width: 52, alignment: .leading)
 

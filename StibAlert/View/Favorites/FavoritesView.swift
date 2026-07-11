@@ -789,17 +789,17 @@ struct FavoritesView: View {
                         .lineLimit(1)
                     Spacer()
                     Text(item.nextPassage)
-                        .font(DS.Font.monoLarge.weight(.bold))
+                        .font(DS.Font.labelLarge.weight(.bold))
                         .foregroundStyle(DS.Color.ink)
                 }
 
                 HStack(spacing: 8) {
                     Text(item.activityLabel)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11))
                         .foregroundStyle(DS.Color.inkMute)
                     Spacer()
                     Text(item.lastUpdatedLabel)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(size: 11))
                         .foregroundStyle(DS.Color.inkMute)
                 }
             }
@@ -820,7 +820,7 @@ struct FavoritesView: View {
                 .fill(item.cockpitAccent)
                 .frame(width: 8, height: 8)
             Text(item.problemLabel.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(1)
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -832,7 +832,7 @@ struct FavoritesView: View {
                 FavoriteSectionHeading(text: AppLocalizer.string("favorites.section.followed_lines", defaultValue: "Lignes suivies"))
                 Spacer()
                 Text("\(followedLines.count) lignes")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 10))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -908,7 +908,7 @@ struct FavoritesView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Text(subtitle)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
             }
             Spacer()
@@ -948,7 +948,7 @@ struct FavoritesView: View {
                 .foregroundStyle(DS.Color.ink)
 
                 Text("Départ \(routine.departureTime) · trajet quotidien")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -1358,7 +1358,7 @@ private struct FavoriteStopDetailView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Arrêt favori")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.3)
                     .foregroundStyle(DS.Color.inkMute)
                 Text(item.title)
@@ -1396,7 +1396,7 @@ private struct FavoriteStopDetailView: View {
                         .fill(item.cockpitAccent)
                         .frame(width: 8, height: 8)
                     Text(item.problemLabel.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold))
                         .tracking(1)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -1416,7 +1416,7 @@ private struct FavoriteStopDetailView: View {
             }
 
             Text(item.lastUpdatedLabel)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 11))
                 .foregroundStyle(DS.Color.inkMute)
                 .padding(.top, 12)
         }
@@ -1560,7 +1560,7 @@ private struct FavoriteStopDetailView: View {
     private func detailStat(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(1.1)
                 .foregroundStyle(DS.Color.inkMute)
             Text(value)
@@ -1602,7 +1602,7 @@ private struct FavoriteStopDetailView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.ink)
             }
@@ -1802,12 +1802,12 @@ private struct LiveStatusCard: View {
 
                 VStack(alignment: .trailing, spacing: 8) {
                     Text("Prochain passage")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(DS.Color.inkMute)
                         .tracking(1)
 
                     Text(status.nextPassage)
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                 }
             }
@@ -1821,11 +1821,11 @@ private struct LiveStatusCard: View {
 
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("Score")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(DS.Color.inkMute)
                         .tracking(1)
                     Text("\(status.score)%")
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(scoreColor)
                 }
             }
@@ -1849,7 +1849,7 @@ private struct LiveStatusCard: View {
                 Spacer()
                 Text("100%")
             }
-            .font(.system(size: 11, design: .monospaced))
+            .font(.system(size: 11))
             .foregroundStyle(DS.Color.inkMute)
             .padding(.top, 4)
         }
@@ -1920,7 +1920,7 @@ private struct FavoriteStopDecisionCard: View {
                 Spacer()
 
                 Text(TransportViewAdapters.localizedSeverityLabel(severity: stop.severity, fallback: stop.label?.localized))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                     .tracking(1)
                     .padding(.horizontal, 10)
@@ -1937,7 +1937,7 @@ private struct FavoriteStopDecisionCard: View {
 
                 if let firstHighlight = alternative.localizedExplanationDetails?.highlights.first {
                     Text(firstHighlight)
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.Color.primary)
                 }
             } else if let incident = stop.activeIncidents.first?.description {
@@ -1983,7 +1983,7 @@ private struct FavoriteTransportIncidentCard: View {
 
                     if let confidenceText = incident.confidenceText {
                         Text(confidenceText)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DS.Color.inkMute)
                     }
                 }
@@ -2260,7 +2260,7 @@ private struct FavoriteFollowedLineCard: View {
             LineBadge(line: line.code, size: .sm, fill: line.color, foreground: line.textColor)
             if let subtitle = line.subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(DS.Color.inkMute)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -2300,7 +2300,7 @@ private struct FavoriteSectionHeading: View {
                     .foregroundStyle(DS.Color.ink)
             }
             Text(text.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(1.4)
                 .foregroundStyle(DS.Color.ink)
         }
@@ -2582,7 +2582,7 @@ private struct AddFavoriteSheet: View {
                 }
 
                 Text("\(stop.distanceMeters) m")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
 

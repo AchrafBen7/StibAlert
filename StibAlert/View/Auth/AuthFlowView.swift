@@ -136,12 +136,12 @@ private struct WelcomePage: View {
         VStack(spacing: 0) {
             HStack {
                 Text("BRUXELLES · STIB-MIVB · 2026")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1)
                 Spacer()
                 Text("ED. \(formattedDate())")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1.5)
             }
@@ -166,7 +166,7 @@ private struct WelcomePage: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("№ 001 · ÉDITION MATIN")
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .foregroundColor(DS.Color.primary)
                 .tracking(2)
                 .padding(.bottom, 12)
@@ -193,7 +193,7 @@ private struct WelcomePage: View {
                 HStack(spacing: 8) {
                     PulsingDot(color: DS.Color.statusMajor)
                     Text("LIVE · MAINTENANT SUR LE RÉSEAU")
-                        .font(DS.Font.mono.weight(.bold))
+                        .font(DS.Font.label.weight(.bold))
                         .foregroundColor(DS.Color.ink)
                         .tracking(1.5)
                     Spacer()
@@ -216,7 +216,7 @@ private struct WelcomePage: View {
                             .foregroundColor(DS.Color.ink)
                             .lineLimit(1)
                         Text("il y a \(2 + tickIndex) min · confirmé par \(12 + tickIndex * 3) voyageurs")
-                            .font(DS.Font.mono)
+                            .font(DS.Font.label)
                             .foregroundColor(DS.Color.inkMute)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -241,12 +241,12 @@ private struct WelcomePage: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text("CE QUE VOUS OBTENEZ")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.ink)
                     .tracking(1)
                 Spacer()
                 Text("04 · PAGES")
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1)
             }
@@ -283,7 +283,7 @@ private struct WelcomePage: View {
 
             HStack(alignment: .top, spacing: 14) {
                 Text(tile.n)
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .padding(.top, 4)
 
@@ -333,7 +333,7 @@ private struct WelcomePage: View {
                 .foregroundColor(DS.Color.ink)
                 .lineSpacing(2)
             Text("— MANIFESTE STIBALERT")
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1.5)
         }
@@ -381,7 +381,7 @@ private struct WelcomePage: View {
 
             Button(action: onSkip) {
                 Text("CONTINUER SANS COMPTE →")
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1.5)
                     .padding(.top, 12)

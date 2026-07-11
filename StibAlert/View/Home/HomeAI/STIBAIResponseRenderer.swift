@@ -13,7 +13,7 @@ struct STIBAIResponseRenderer: View {
                 switch block.kind {
                 case .heading(let title):
                     Text(title.cleanedAIHeading.uppercased())
-                        .font(DS.Font.mono.weight(.bold))
+                        .font(DS.Font.label.weight(.bold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.ink)
                         .padding(.top, block.isFirst ? 0 : 8)

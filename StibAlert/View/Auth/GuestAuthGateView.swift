@@ -95,7 +95,7 @@ struct GuestAuthGateView: View {
                 if let onDismiss {
                     Button(action: onDismiss) {
                         Text("CONTINUER EN TANT QU’INVITÉ")
-                            .font(DS.Font.mono.weight(.bold))
+                            .font(DS.Font.label.weight(.bold))
                             .foregroundStyle(DS.Color.inkMute)
                             .tracking(1.3)
                     }

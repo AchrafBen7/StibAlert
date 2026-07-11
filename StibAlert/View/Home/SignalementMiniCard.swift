@@ -41,7 +41,7 @@ struct SignalementMiniCard: View {
                         .foregroundStyle(DS.Color.ink)
                     if let arretName {
                         Text(arretName)
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .tracking(1.0)
                             .textCase(.uppercase)
                             .foregroundStyle(DS.Color.inkMute)

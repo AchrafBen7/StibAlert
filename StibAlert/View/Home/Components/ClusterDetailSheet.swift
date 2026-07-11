@@ -102,7 +102,7 @@ struct ClusterDetailSheet: View {
     private func confidenceExplanation(for cluster: ClusterDetailDTO) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("POURQUOI CETTE CONFIANCE")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.5)
                 .foregroundStyle(DS.Color.inkMute)
             VStack(alignment: .leading, spacing: 4) {
@@ -154,7 +154,7 @@ struct ClusterDetailSheet: View {
         }
         let pct = cluster.confidenceScore.map { " · \(Int(($0 * 100).rounded()))%" } ?? ""
         return Text("\(label)\(pct)")
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .tracking(0.8)
             .foregroundStyle(color)
             .padding(.horizontal, 8)
@@ -172,7 +172,7 @@ struct ClusterDetailSheet: View {
         case .low: color = Color(hex: "#9CA3AF")
         }
         return Text("Confiance: \(confidence.displayLabel.lowercased())")
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .tracking(0.8)
             .foregroundStyle(color)
             .padding(.horizontal, 8)
@@ -220,7 +220,7 @@ struct ClusterDetailSheet: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(DS.Color.inkMute)
                             Text(expiryText(expiresAt: expiresAt))
-                                .font(DS.Font.monoSmall.weight(.bold))
+                                .font(DS.Font.labelSmall.weight(.bold))
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                         .padding(.top, 8)
@@ -251,7 +251,7 @@ struct ClusterDetailSheet: View {
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 3) {
                 Text("EN BREF")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .tracking(1.5)
                     .foregroundStyle(DS.Color.primary)
                 Text(summary)
@@ -284,7 +284,7 @@ struct ClusterDetailSheet: View {
                     .lineLimit(3)
                 if let timestamp = report.timestamp {
                     Text(timestamp, style: .relative)
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
             }

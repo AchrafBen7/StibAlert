@@ -23,7 +23,7 @@ struct CommuteSetupNudgeCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("TON TRAJET QUOTIDIEN")
-                        .font(.system(size: 9.5, weight: .black, design: .monospaced))
+                        .font(.system(size: 9.5, weight: .black))
                         .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
                     Text("Configure-le pour un brief avant ton départ")

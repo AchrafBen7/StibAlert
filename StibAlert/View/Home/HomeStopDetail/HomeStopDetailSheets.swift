@@ -93,7 +93,7 @@ struct HomeEventImpactSheet: View {
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("ÉVÉNEMENT BRUXELLES")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.8)
                 .foregroundStyle(DS.Color.inkMute)
 
@@ -111,7 +111,7 @@ struct HomeEventImpactSheet: View {
                         Image(systemName: "calendar")
                             .font(.system(size: 12, weight: .semibold))
                         Text(eventDateLabel)
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .tracking(1.1)
                     }
                     .foregroundStyle(DS.Color.inkMute)
@@ -147,7 +147,7 @@ struct HomeEventImpactSheet: View {
     private func sectionCard<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)
                 .padding(.horizontal, 4)
@@ -182,7 +182,7 @@ struct HomeEventImpactSheet: View {
                     .foregroundStyle(DS.Color.ink)
 
                 Text(subtitle)
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
                     .tracking(1.1)
             }
@@ -200,7 +200,7 @@ struct HomeEventImpactSheet: View {
 
     private func badge(_ title: String, tint: Color) -> some View {
         Text(title)
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 10)
             .frame(height: 30)

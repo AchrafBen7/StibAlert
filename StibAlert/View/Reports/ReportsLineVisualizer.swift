@@ -137,7 +137,7 @@ struct EditorialLineVisualizer: View {
 
             if wp.isLabeled {
                 Text(wp.name.uppercased())
-                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .font(.system(size: 7, weight: .bold))
                     .tracking(0.4)
                     .foregroundStyle(wp.isDisrupted ? DS.Color.statusMajor : DS.Color.inkMute)
                     .lineLimit(1)
@@ -198,31 +198,31 @@ struct EditorialLineVisualizer: View {
         VStack {
             HStack {
                 Text("◤ LIVE")
-                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 8, weight: .semibold))
                     .tracking(1.6)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("L\(line) ◥")
-                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 8, weight: .semibold))
                     .tracking(1.6)
                     .foregroundStyle(color)
             }
             Spacer()
             HStack {
                 Text("◣ \(hasRealStops ? stops.count : 7) ARRÊTS")
-                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 8, weight: .semibold))
                     .tracking(1.6)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 if let disruptedStopName, !disruptedStopName.isEmpty {
                     Text("\(disruptedStopName.uppercased()) ◢")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 8, weight: .semibold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.statusMajor)
                         .lineLimit(1)
                 } else {
                     Text("ZONE PERTURBÉE ◢")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 8, weight: .semibold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.inkMute)
                         .lineLimit(1)

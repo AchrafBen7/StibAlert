@@ -900,7 +900,7 @@ struct LigneDetailPage: View {
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
                 Text("AVIS RÉSEAU STIB")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9, weight: .bold))
                     .tracking(1.2)
                     .foregroundStyle(DS.Color.info)
                 Text(summary.localizedTitle.isEmpty ? AppLocalizer.string("Réseau sous surveillance") : summary.localizedTitle)
@@ -944,7 +944,7 @@ struct LigneDetailPage: View {
                     .lineLimit(4)
                 if let label = summary.sourceLabel, !label.isEmpty {
                     Text(label.uppercased())
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold))
                         .tracking(1.0)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -994,7 +994,7 @@ struct LigneDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                 if case .populated(let arret) = signalement.arretId {
                     Text(arret.nom.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold))
                         .tracking(1.0)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -1005,7 +1005,7 @@ struct LigneDetailPage: View {
             Spacer(minLength: 0)
             if let confirmations = signalement.community?.confirmations, confirmations > 0 {
                 Text("\(confirmations)×")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(DS.Color.community)
             }
         }
@@ -1051,7 +1051,7 @@ struct LigneDetailPage: View {
                     .lineLimit(2)
 
                 Text(viewModel.routeSubtitle)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(1.0)
                     .foregroundStyle(viewModel.orderedStops.contains(where: { $0.disruption != nil }) ? DS.Color.statusMajor : DS.Color.inkMute)
             }
@@ -1345,7 +1345,7 @@ private struct LigneTimelineRow: View {
 
                         if isTerminus {
                             Text("Terminus")
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
@@ -1385,21 +1385,21 @@ private struct LigneTimelineRow: View {
                 if !stop.waits.isEmpty {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(stop.waits[0]) min")
-                            .font(DS.Font.monoLarge)
+                            .font(DS.Font.labelLarge)
                             .foregroundStyle(DS.Color.ink)
                         if stop.vehiclePresent {
                             // A live vehicle of this direction is here right now.
                             Text("À L'ARRÊT")
-                                .font(.system(size: 9, weight: .black, design: .monospaced))
+                                .font(.system(size: 9, weight: .black))
                                 .tracking(0.8)
                                 .foregroundStyle(DS.Color.statusOK)
                         } else if let delay = stop.delayMinutes, delay > 2 {
                             Text("+\(delay) min")
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.statusMajor)
                         } else if stop.waitsSource == "scheduled" {
                             Text("théorique")
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                         // Second upcoming passage shown as an absolute "puis N
@@ -1407,13 +1407,13 @@ private struct LigneTimelineRow: View {
                         // and confused the real next-passage time.
                         if stop.waits.count > 1 {
                             Text("puis \(stop.waits[1]) min")
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                     }
                 } else {
                     Text("--")
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .foregroundStyle(DS.Color.inkMute)
                 }
             }

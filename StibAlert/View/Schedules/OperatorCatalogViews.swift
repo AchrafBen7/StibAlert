@@ -144,7 +144,7 @@ struct OperatorLineDirectory: View {
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("\(visibleLineCount) / \(lines.count)")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -189,7 +189,7 @@ struct OperatorLineDirectory: View {
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .lineLimit(1)
                 Text("\(zone.count)")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(active ? DS.Color.paper.opacity(0.72) : DS.Color.inkMute)
             }
             .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
@@ -218,7 +218,7 @@ struct OperatorLineDirectory: View {
                     .font(DS.Font.eyebrow).tracking(2).foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("\(group.lines.count)")
-                    .font(DS.Font.monoSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
+                    .font(DS.Font.labelSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
             }
             VStack(spacing: 0) {
                 ForEach(group.lines) { lineRow($0) }
@@ -252,7 +252,7 @@ struct OperatorLineDirectory: View {
                 Spacer(minLength: 0)
                 if selectedZone == OperatorLineZone.allKey || !searchQuery.isEmpty {
                     Text(line.zoneLabel(for: op))
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold))
                         .tracking(0.7)
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.horizontal, 7)
@@ -368,7 +368,7 @@ struct OperatorStopDirectory: View {
                             ProgressView().scaleEffect(0.7)
                         } else {
                             Text("\(displayStops.count)")
-                                .font(DS.Font.monoSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
+                                .font(DS.Font.labelSmall.weight(.bold)).foregroundStyle(DS.Color.inkMute)
                         }
                     }
                     VStack(spacing: 0) {
@@ -601,7 +601,7 @@ struct OperatorDisruptionsList: View {
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("\(disruptions.count) dépêches")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -663,7 +663,7 @@ struct OperatorDisruptionsList: View {
                         .foregroundStyle(DS.Color.inkMute)
                     Spacer()
                     Text("\(filteredIssues.count) / \(lineIssues.count)")
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(DS.Color.inkMute)
                 }
 
@@ -703,7 +703,7 @@ struct OperatorDisruptionsList: View {
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .lineLimit(1)
                 Text("\(zone.count)")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(active ? DS.Color.paper.opacity(0.72) : DS.Color.inkMute)
             }
             .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
@@ -797,7 +797,7 @@ struct OperatorDisruptionsList: View {
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("\(group.issues.count)")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -1158,7 +1158,7 @@ private struct OperatorLineDisruptionDetail: View {
                     Text(issue.disruptions.isEmpty
                          ? "\(op.mapLabel) · \(issue.line.modeLabel)"
                          : "\(AppLocalizer.format("plural.official_disruptions", defaultValue: "%lld perturbations officielles", issue.disruptions.count)) · \(op.mapLabel)")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 Spacer(minLength: 0)
@@ -1202,7 +1202,7 @@ private struct OperatorLineDisruptionDetail: View {
                             .foregroundStyle(DS.Color.inkMute)
                         Spacer()
                         Text("\(issue.disruptions.count)")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundStyle(DS.Color.inkMute)
                     }
 

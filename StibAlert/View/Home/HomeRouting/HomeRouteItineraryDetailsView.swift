@@ -55,7 +55,7 @@ struct RouteItineraryDetailsView: View {
             Spacer()
 
             Text(L10n.Routing.detailedItinerary.uppercased(with: AppLocale.current))
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.ink)
 
@@ -99,7 +99,7 @@ struct RouteItineraryDetailsView: View {
     private var itinerarySummaryCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(L10n.Routing.recommendedTrip.uppercased(with: AppLocale.current))
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.inkMute)
 
@@ -109,7 +109,7 @@ struct RouteItineraryDetailsView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(DS.Color.ink)
                     Text(L10n.Routing.to.uppercased(with: AppLocale.current))
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(1.6)
                         .foregroundStyle(DS.Color.inkMute)
                     Text(option.destinationName)
@@ -124,7 +124,7 @@ struct RouteItineraryDetailsView: View {
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                     Text(option.timingHeadlineText.uppercased())
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(1.4)
                         .foregroundStyle(DS.Color.inkMute)
                     if let timingSecondaryText = option.timingSecondaryText {
@@ -153,7 +153,7 @@ struct RouteItineraryDetailsView: View {
 
     private func detailPill(_ text: String, tint: Color = DS.Color.paper2, foreground: Color = DS.Color.ink) -> some View {
         Text(text.uppercased())
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .tracking(1)
             .foregroundStyle(foreground)
             .padding(.horizontal, 8)
@@ -171,7 +171,7 @@ private struct RouteTimelineRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(segment.timeText)
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(width: 54, alignment: .leading)
                 .padding(.top, 2)
@@ -216,7 +216,7 @@ private struct RouteTimelineRow: View {
 
                     if let stopCountText = segment.stopCountText {
                         Text(stopCountText)
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .foregroundStyle(DS.Color.inkMute)
                     }
                 }
@@ -230,7 +230,7 @@ private struct RouteTimelineRow: View {
                         Image(systemName: "clock")
                             .font(.system(size: 12, weight: .semibold))
                         Text(durationBadge)
-                            .font(DS.Font.mono.weight(.bold))
+                            .font(DS.Font.label.weight(.bold))
                     }
                     .foregroundStyle(DS.Color.ink)
                     .padding(.horizontal, 12)
@@ -261,7 +261,7 @@ private struct RouteInstructionCard: View {
 
                 if let lineBadge = card.lineBadge {
                     Text(lineBadge.code)
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(lineBadge.foregroundColor)
                         .padding(.horizontal, 5)
                         .frame(height: 17)
@@ -273,7 +273,7 @@ private struct RouteInstructionCard: View {
             }
 
             Text(card.subtitle)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(DS.Color.community)
 
             if let serviceInfo = card.serviceInfo {
@@ -298,7 +298,7 @@ private struct RouteTransitServiceCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text(info.lineCode)
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .foregroundStyle(TransitLinePalette.foreground(for: info.lineCode))
                 .frame(width: 29, height: 28)
                 .background(TransitLinePalette.fill(for: info.lineCode))
@@ -306,7 +306,7 @@ private struct RouteTransitServiceCard: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(info.statusTitle)
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.statusMajor)
                 Text(info.detail)
                     .font(.system(size: 12))

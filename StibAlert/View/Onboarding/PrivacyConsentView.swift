@@ -56,7 +56,7 @@ struct PrivacyConsentView: View {
                                 .font(DS.Font.bodyBold)
                                 .foregroundStyle(DS.Color.ink)
                             Text("Aucune donnée personnelle identifiable. Modifiable dans Profil → Confidentialité.")
-                                .font(DS.Font.monoSmall)
+                                .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                     }
@@ -139,7 +139,7 @@ struct PrivacyConsentView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("CONFIDENTIALITÉ")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.primary)
             Text("Vos données, vos règles")
@@ -180,7 +180,7 @@ struct PrivacyPolicySheet: View {
                         .foregroundStyle(DS.Color.ink)
 
                     Text("Dernière mise à jour : 12 mai 2026 · Version \(PrivacyConsent.currentVersion)")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
 
                     sectionText(title: "1. Données collectées", body: """

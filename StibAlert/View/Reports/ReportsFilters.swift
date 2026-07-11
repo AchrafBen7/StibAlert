@@ -26,7 +26,7 @@ struct ReportsFilterDock: View {
             HStack {
                 Spacer()
                 Text("\(String(format: "%02d", totalCount)) dépêches")
-                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .font(DS.Font.labelSmall.weight(.semibold))
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -79,7 +79,7 @@ struct ReportsFilterDock: View {
             onSelectLine("Tout")
         } label: {
             Text("TOUT")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.2)
                 .foregroundStyle(isActive ? DS.Color.paper : DS.Color.ink)
                 .frame(width: 44, height: 34)
@@ -145,7 +145,7 @@ struct ReportsFilterDock: View {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .bold))
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11, weight: .semibold))
                     .tracking(0.6)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
@@ -186,13 +186,13 @@ struct ReportsFilterDock: View {
                     Image(systemName: "line.3.horizontal.decrease")
                         .font(.system(size: 10, weight: .bold))
                     Text("Toutes lignes")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(0.6)
                         .lineLimit(1)
                 } else {
                     LineBadge(line: selectedLine, size: .sm)
                     Text("L \(selectedLine)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(0.6)
                         .lineLimit(1)
                 }
@@ -225,7 +225,7 @@ private struct EditorialSegmentChip: View {
                 Text(label)
                     .font(.system(size: 12, weight: .semibold))
                 Text("\(count)")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(active ? DS.Color.paper.opacity(0.7) : DS.Color.inkMute)
             }
             .padding(.horizontal, 12)

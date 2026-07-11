@@ -143,7 +143,7 @@ struct SncbGareDirectory: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let proximityLabel {
                         Text(proximityLabel)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.system(size: 9, weight: .bold))
                             .tracking(1.2)
                             .foregroundStyle(Color(hex: "#0055A4"))
                     }
@@ -226,7 +226,7 @@ struct SncbGareDirectory: View {
                 .foregroundStyle(DS.Color.inkMute)
             Spacer()
             Text("\(count)")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(DS.Color.inkMute)
             Image(systemName: "chevron.down")
                 .font(.system(size: 11, weight: .bold))

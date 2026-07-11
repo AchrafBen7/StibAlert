@@ -51,7 +51,7 @@ struct STIBAIView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: "Blayse AI")
-                    .font(DS.Font.monoLarge)
+                    .font(DS.Font.labelLarge)
                     .tracking(2.2)
                     .foregroundStyle(DS.Color.ink)
                 Text(locationLabel)
@@ -253,7 +253,7 @@ struct STIBAIView: View {
             .padding(.horizontal, 16)
 
             Text("Réponses basées sur les données disponibles dans l’app.")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .tracking(1.2)
                 .foregroundStyle(DS.Color.inkMute)
                 .padding(.bottom, 8)

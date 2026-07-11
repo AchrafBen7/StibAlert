@@ -159,7 +159,7 @@ struct FeatureTourView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(page.eyebrow)
-                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                    .font(.system(size: 11, weight: .heavy))
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
                 Text(page.title)

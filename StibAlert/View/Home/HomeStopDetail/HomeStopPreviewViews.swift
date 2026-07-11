@@ -138,7 +138,7 @@ struct HomeVilloStationSheet: View {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("VILLO! · STATION \(station.number)")
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
 
@@ -157,7 +157,7 @@ struct HomeVilloStationSheet: View {
 
                 VStack(alignment: .trailing, spacing: 10) {
                     Text(station.statusLabel)
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(1.2)
                         .foregroundStyle(station.isOperational ? statusAccent : DS.Color.paper)
                         .padding(.horizontal, 10)
@@ -203,7 +203,7 @@ struct HomeVilloStationSheet: View {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
                 }
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .tracking(1.1)
                 .foregroundStyle(DS.Color.paper)
                 .padding(.horizontal, 16)
@@ -236,7 +236,7 @@ struct HomeVilloStationSheet: View {
     private var stationFactsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("STATION")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)
 
@@ -279,7 +279,7 @@ struct HomeVilloStationSheet: View {
     private func villoMetricCard(title: LocalizedStringKey, value: String, accent: Color, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(title)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .textCase(.uppercase)
                 .tracking(1.1)
                 .foregroundStyle(DS.Color.inkMute)
@@ -319,7 +319,7 @@ struct HomeVilloStationSheet: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.1)
                     .foregroundStyle(DS.Color.inkMute)
                 Text(value)
@@ -449,7 +449,7 @@ private struct HomeStopPreviewCard: View {
                 HStack(alignment: .top, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("ARRÊT" + (effectiveStop.stopId.map { " · \($0)" } ?? ""))
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
 
@@ -513,7 +513,7 @@ private struct HomeStopPreviewCard: View {
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(DS.Color.inkMute)
                         Text("PROCHAINS PASSAGES")
-                            .font(DS.Font.mono.weight(.bold))
+                            .font(DS.Font.label.weight(.bold))
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
                     }
@@ -557,17 +557,17 @@ private struct HomeStopPreviewCard: View {
                                                 .foregroundStyle(DS.Color.ink)
                                             if let secondary = group.secondary {
                                                 Text("puis \(secondary.minutes) min")
-                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .font(DS.Font.labelSmall.weight(.bold))
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.inkMute)
                                             } else if let delay = group.primary.delayMinutes, delay > 2 {
                                                 Text("+\(delay) min")
-                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .font(DS.Font.labelSmall.weight(.bold))
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.statusMajor)
                                             } else if group.primary.source == "scheduled" {
                                                 Text("théorique")
-                                                    .font(DS.Font.monoSmall.weight(.bold))
+                                                    .font(DS.Font.labelSmall.weight(.bold))
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.inkMute)
                                             }
@@ -603,7 +603,7 @@ private struct HomeStopPreviewCard: View {
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(DS.Color.inkMute)
                             Text("AUTRES QUAIS ICI")
-                                .font(DS.Font.mono.weight(.bold))
+                                .font(DS.Font.label.weight(.bold))
                                 .tracking(2)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
@@ -626,7 +626,7 @@ private struct HomeStopPreviewCard: View {
                                                 .lineLimit(1)
                                             if let dist = distanceMeters(to: stop) {
                                                 Text("\(dist) m · ARRÊT \(stop.stopId ?? stop.id)")
-                                                    .font(DS.Font.monoSmall)
+                                                    .font(DS.Font.labelSmall)
                                                     .foregroundStyle(DS.Color.inkMute)
                                             }
                                         }
@@ -655,7 +655,7 @@ private struct HomeStopPreviewCard: View {
                         Spacer()
                         Image(systemName: "chevron.right")
                     }
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .tracking(1.8)
                     .foregroundStyle(DS.Color.primaryForeground)
                     .padding(.horizontal, 18)

@@ -85,8 +85,8 @@ enum LineBadgeSize {
 
     var font: Font {
         switch self {
-        case .sm: return DS.Font.monoSmall
-        case .lg: return DS.Font.monoLarge
+        case .sm: return DS.Font.labelSmall
+        case .lg: return DS.Font.labelLarge
         }
     }
 

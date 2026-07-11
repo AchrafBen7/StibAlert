@@ -102,12 +102,12 @@ struct GuestTabPlaceholder: View {
             // « Centralisées » → « Gecentraliseerd » : la traduction néerlandaise
             // débordait de la carte. On rétrécit plutôt que de rogner.
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 9, weight: .bold))
                 .tracking(1.2)
                 .foregroundStyle(DS.Color.inkMute)
                 .lineLimit(1)
@@ -119,7 +119,7 @@ struct GuestTabPlaceholder: View {
     private var featureStrip: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("CE QUE TU DÉBLOQUES")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(1.4)
                 .foregroundStyle(DS.Color.ink)
                 .padding(.horizontal, 4)

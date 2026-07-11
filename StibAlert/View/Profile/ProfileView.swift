@@ -387,7 +387,7 @@ struct ProfileView: View {
                         accountActionsSection
 
                         Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
                             .padding(.top, 6)
@@ -524,14 +524,14 @@ struct ProfileView: View {
                                 default:
                                     Circle().fill(DS.Color.ink)
                                     Text(profileInitial)
-                                        .font(DS.Font.monoLarge.weight(.bold))
+                                        .font(DS.Font.labelLarge.weight(.bold))
                                         .foregroundColor(DS.Color.paper)
                                 }
                             }
                         } else {
                             Circle().fill(DS.Color.ink)
                             Text(profileInitial)
-                                .font(DS.Font.monoLarge.weight(.bold))
+                                .font(DS.Font.labelLarge.weight(.bold))
                                 .foregroundColor(DS.Color.paper)
                         }
                         if isUploadingAvatar {
@@ -560,7 +560,7 @@ struct ProfileView: View {
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(DS.Color.ink)
                     Text("MEMBRE BLAYSE · \(profileLanguageLabel.uppercased())")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(1.2)
                         .foregroundColor(DS.Color.inkMute)
                     if let avatarError {
@@ -638,7 +638,7 @@ struct ProfileView: View {
             // déjà en MAJ. Les titres arrivent ici en String runtime → init
             // verbatim de Text → non localisés sans cet AppLocalizer.string().
             Text(AppLocalizer.string(title))
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2.2)
                 .textCase(.uppercase)
                 .foregroundColor(DS.Color.ink)
@@ -708,7 +708,7 @@ struct ProfileView: View {
         // Localise le label (mot) AVANT interpolation, sinon il reste en FR.
         let localizedLabel = AppLocalizer.string(label)
         return Text("\(value) \(localizedLabel)")
-            .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+            .font(.system(size: 10.5, weight: .semibold))
             .tracking(0.5)
             .foregroundStyle(DS.Color.inkMute)
     }
@@ -717,7 +717,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Activité récente")
-                    .font(.system(size: 13, weight: .black, design: .monospaced))
+                    .font(.system(size: 13, weight: .black))
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
@@ -776,7 +776,7 @@ struct ProfileView: View {
                 }
                 if let helped = item.peopleHelped, helped > 0 {
                     Text("+\(helped)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.Color.statusOK)
                 }
             }
@@ -966,10 +966,10 @@ struct ProfileView: View {
                 .font(.system(size: 12))
                 .foregroundColor(DS.Color.inkMute)
             Text(value)
-                .font(DS.Font.monoLarge.weight(.bold))
+                .font(DS.Font.labelLarge.weight(.bold))
                 .foregroundColor(DS.Color.ink)
             Text(AppLocalizer.string(label))
-                .font(DS.Font.monoSmall.weight(.semibold))
+                .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.4)
                 .textCase(.uppercase)
                 .foregroundColor(DS.Color.inkMute)
@@ -1004,7 +1004,7 @@ struct ProfileView: View {
 
                 if let value {
                     Text(AppLocalizer.string(value))
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .foregroundColor(DS.Color.inkMute)
                 }
 
@@ -1219,7 +1219,7 @@ private struct ProfileSettingsSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(DS.Font.monoSmall.weight(.semibold))
+                .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.5)
                 .foregroundColor(DS.Color.inkMute)
                 .padding(.horizontal, 4)
@@ -1319,7 +1319,7 @@ private struct ProfileSettingsChoiceRow: View {
                         .foregroundColor(DS.Color.ink)
                     if let subtitle {
                         Text(subtitle.uppercased())
-                            .font(DS.Font.mono)
+                            .font(DS.Font.label)
                             .tracking(1)
                             .foregroundColor(DS.Color.inkMute)
                     }
@@ -1368,7 +1368,7 @@ private struct ProfileSettingsActionRow: View {
                 Spacer()
                 if let value {
                     Text(value)
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .monospacedDigit()
                         .foregroundColor(DS.Color.inkMute)
                 }
@@ -1464,7 +1464,7 @@ private struct LanguageRow: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(language.code)
-                .font(DS.Font.monoLarge)
+                .font(DS.Font.labelLarge)
                 .foregroundStyle(DS.Color.ink)
                 .frame(width: 38, alignment: .leading)
 
@@ -1613,7 +1613,7 @@ private struct NotificationSettingsView: View {
                 }
 
                 Text("BLAYSE · V\(Bundle.main.shortVersion)")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(2)
                     .foregroundColor(DS.Color.inkMute)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -1994,7 +1994,7 @@ private struct AccountSettingsView: View {
             .opacity(isSaving ? 0.7 : 1)
 
             Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .tracking(2)
                 .foregroundColor(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -2010,7 +2010,7 @@ private struct AccountSettingsView: View {
                     .frame(width: 56, height: 56)
                     .overlay(
                         Text(profileInitial)
-                            .font(DS.Font.monoLarge.weight(.bold))
+                            .font(DS.Font.labelLarge.weight(.bold))
                             .foregroundStyle(DS.Color.paper)
                     )
 
@@ -2033,7 +2033,7 @@ private struct AccountSettingsView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Text(handleText)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(1.2)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -2146,7 +2146,7 @@ private struct FavoriteLinesSelector: View {
                             AppHaptics.soft()
                         } label: {
                             Text(line)
-                                .font(DS.Font.mono)
+                                .font(DS.Font.label)
                                 .foregroundStyle(isSelected ? DS.Color.ink : DS.Color.paper)
                                 .padding(.horizontal, 12)
                                 .frame(height: 34)
@@ -2220,7 +2220,7 @@ private struct FavoriteStopPickerRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
                     Text(selectedName)
                         .font(.system(size: 13.5, weight: .medium))
@@ -2407,7 +2407,7 @@ private struct PrivacyActionRow: View {
 
             Button(actionLabel) { action?() }
                 .buttonStyle(.plain)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(danger ? DS.Color.destructiveForeground : DS.Color.paper)
                 .padding(.horizontal, 12)
                 .frame(height: 24)
@@ -2499,7 +2499,7 @@ private struct SupportSettingsView: View {
                         .foregroundColor(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                     Text("Version \(Bundle.main.shortVersion) · Build \(Bundle.main.buildNumber)")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(DS.Color.inkMute)
                         .padding(.top, 4)
                 }

@@ -121,9 +121,21 @@ public extension DS {
         public static let caption: SwiftUI.Font = .system(.caption)
         public static let eyebrow: SwiftUI.Font = .system(.caption2).weight(.semibold)
         public static let sectionTitle: SwiftUI.Font = .system(.caption2).weight(.bold)
-        public static let mono: SwiftUI.Font = .system(.caption, design: .monospaced)
-        public static let monoSmall: SwiftUI.Font = .system(.caption2, design: .monospaced)
-        public static let monoLarge: SwiftUI.Font = .system(.subheadline, design: .monospaced).weight(.semibold)
+        // Anciennement `mono` / `monoSmall` / `monoLarge` : des polices MONOSPACE
+        // employées partout pour des libellés, titres, compteurs, noms d'arrêt,
+        // numéros de version… C'est ce qui donnait à l'app une allure d'outil de
+        // développeur plutôt que d'app grand public.
+        //
+        // La monospace est un SIGNAL, pas une décoration. Elle sert à aligner des
+        // chiffres qui changent (pour qu'ils ne « sautent » pas) : c'est le rôle de
+        // `.monospacedDigit()`, à poser sur les minutes temps réel. Elle n'a rien à
+        // faire sur un libellé.
+        //
+        // Ces trois tokens deviennent donc des libellés SANS-SERIF, renommés pour ne
+        // plus mentir sur ce qu'ils sont.
+        public static let label: SwiftUI.Font = .system(.caption)
+        public static let labelSmall: SwiftUI.Font = .system(.caption2)
+        public static let labelLarge: SwiftUI.Font = .system(.subheadline).weight(.semibold)
     }
 
     enum Radius {
@@ -200,7 +212,7 @@ public extension View {
     }
 
     func tabular() -> some View {
-        font(DS.Font.mono)
+        font(DS.Font.label)
             .monospacedDigit()
     }
 
@@ -289,7 +301,7 @@ public extension DS {
                     .fill(level.color)
                     .frame(width: 6, height: 6)
                 Text(label)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.0)
                     .textCase(.uppercase)
                     .foregroundColor(level.color)

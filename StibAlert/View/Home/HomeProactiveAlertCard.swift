@@ -107,7 +107,7 @@ struct HomeProactiveAlertCard: View {
                             .font(.system(size: 12, weight: .black))
                             .foregroundStyle(accent)
                         Text(verbatim: sourceLabel.uppercased())
-                            .font(DS.Font.monoSmall.weight(.heavy))
+                            .font(DS.Font.labelSmall.weight(.heavy))
                             .tracking(1.5)
                             .foregroundStyle(DS.Color.inkMute)
                     }
@@ -128,7 +128,7 @@ struct HomeProactiveAlertCard: View {
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(accent)
                             Text(verbatim: AppLocalizer.format("alert.at_stop", defaultValue: "Arrêt : %@", stop))
-                                .font(DS.Font.monoSmall.weight(.heavy))
+                                .font(DS.Font.labelSmall.weight(.heavy))
                                 .foregroundStyle(DS.Color.ink)
                                 .lineLimit(1)
                         }
@@ -199,7 +199,7 @@ struct HomeProactiveAlertCard: View {
                     Image(systemName: "map.fill")
                         .font(.system(size: 12, weight: .bold))
                     Text(verbatim: AppLocalizer.string("alert.see_on_map", defaultValue: "Voir l’alerte sur la carte"))
-                        .font(DS.Font.monoSmall.weight(.heavy))
+                        .font(DS.Font.labelSmall.weight(.heavy))
                         .tracking(1)
                     Spacer()
                     Image(systemName: "chevron.right")

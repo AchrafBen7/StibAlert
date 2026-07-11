@@ -598,7 +598,7 @@ struct EventMapMarker: View {
 
                 if let firstLine = event.impactedLines.first, !firstLine.isEmpty {
                     Text(firstLine)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(TransitLinePalette.foreground(for: firstLine))
                         .frame(minWidth: 18, minHeight: 16)
                         .padding(.horizontal, 3)

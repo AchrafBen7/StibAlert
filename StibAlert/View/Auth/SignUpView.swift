@@ -273,7 +273,7 @@ struct SignUpView: View {
                 }
             }
             Text("FORCE : \(strengthLabel.uppercased())")
-                .font(DS.Font.mono.weight(.bold))
+                .font(DS.Font.label.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
         }
@@ -327,7 +327,7 @@ struct SignUpView: View {
                 onClose()
             } label: {
                 Text("CONTINUER EN TANT QU’INVITÉ →")
-                    .font(DS.Font.mono.weight(.bold))
+                    .font(DS.Font.label.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1.5)
             }

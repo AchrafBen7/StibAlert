@@ -519,7 +519,7 @@ struct ArretDetailPage: View {
                     Image(systemName: "location.north.line")
                         .font(.system(size: 11, weight: .bold))
                     Text("Ouvrir la carte")
-                        .font(DS.Font.monoSmall.weight(.semibold))
+                        .font(DS.Font.labelSmall.weight(.semibold))
                         .textCase(.uppercase)
                         .tracking(1.2)
                 }
@@ -550,7 +550,7 @@ struct ArretDetailPage: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(stopSubline)
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .foregroundStyle(DS.Color.inkMute)
                 .textCase(.uppercase)
                 .tracking(1.0)
@@ -765,7 +765,7 @@ struct ArretDetailPage: View {
                 if showsArretName,
                    case .populated(let arret) = signalement.arretId {
                     Text(arret.nom.uppercased())
-                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9.5, weight: .bold))
                         .tracking(0.8)
                         .foregroundStyle(DS.Color.inkMute)
                         .lineLimit(1)
@@ -783,7 +783,7 @@ struct ArretDetailPage: View {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 10))
                     Text("\(confirmations)")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundStyle(DS.Color.community)
             }
@@ -819,7 +819,7 @@ struct ArretDetailPage: View {
                     selectedTab = tab
                 } label: {
                     Text(tabTitle(tab))
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .textCase(.uppercase)
                         .tracking(1.2)
                         .foregroundStyle(selectedTab == tab ? DS.Color.paper : DS.Color.inkMute)
@@ -885,7 +885,7 @@ struct ArretDetailPage: View {
                 Spacer()
                 if !groupedPassages.isEmpty {
                     Text(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? "PRÉVU" : "TEMPS RÉEL")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(groupedPassages.flatMap(\.departures).contains { $0.source == "scheduled" } ? DS.Color.statusMinor : DS.Color.statusOK)
                 }
             }
@@ -954,11 +954,11 @@ struct ArretDetailPage: View {
                         ? AppLocalizer.string("prévu", defaultValue: "prévu")
                         : AppLocalizer.string("temps réel", defaultValue: "temps réel")
                     Text("\(source) à \(formatPassageMinutes(next.minutes))")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
                     if let delay = next.delayMinutes, delay > 2 {
                         Text("retard +\(delay) min")
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .foregroundStyle(DS.Color.statusMajor)
                     }
                 }
@@ -969,7 +969,7 @@ struct ArretDetailPage: View {
                     if isFarAway {
                         // Show clock time instead of absurd minute count
                         Text(formatPassageMinutes(next.minutes))
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(DS.Color.inkMute)
                     } else {
                         Text(next.minutes == 0 ? "‹1" : "\(next.minutes)")
@@ -1083,7 +1083,7 @@ struct ArretDetailPage: View {
                     selectedScheduleDayType = dayType
                 } label: {
                     Text(scheduleDayLabel(dayType))
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .tracking(1)
                         .foregroundStyle(selectedScheduleDayType == dayType ? DS.Color.paper : DS.Color.ink)
                         .frame(maxWidth: .infinity, minHeight: 32)
@@ -1118,7 +1118,7 @@ struct ArretDetailPage: View {
                 if selectedScheduleDayType == StibScheduleService.currentDayType(),
                    let nextIndex, times.indices.contains(nextIndex) {
                     Text("Prochain · \(times[nextIndex])")
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(DS.Color.primary)
                 }
             }
@@ -1134,7 +1134,7 @@ struct ArretDetailPage: View {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
                     ForEach(Array(times.enumerated()), id: \.offset) { idx, time in
                         Text(time)
-                            .font(DS.Font.monoSmall.weight(.semibold))
+                            .font(DS.Font.labelSmall.weight(.semibold))
                             .foregroundStyle(idx == nextIndex ? DS.Color.paper : DS.Color.ink)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 5)
@@ -1317,7 +1317,7 @@ struct ArretDetailPage: View {
                 Text(station.isOperational
                      ? "\(station.availableBikes) vélos · \(station.availableBikeStands) places · \(distanceMeters) m"
                      : "Fermée · \(distanceMeters) m")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
             Spacer()
@@ -1367,7 +1367,7 @@ struct ArretDetailPage: View {
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 6, height: 6)
             Text(text)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .textCase(.uppercase)
                 .tracking(1.2)
         }
@@ -1383,7 +1383,7 @@ struct ArretDetailPage: View {
         HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 10))
             Text(text)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .textCase(.uppercase)
                 .tracking(1.2)
         }
@@ -1413,7 +1413,7 @@ struct ArretDetailPage: View {
             : DS.Color.ink
         return Button(action: action) {
             Text(label)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(foreground)
                 .padding(.horizontal, 10)
                 .frame(height: 28)
@@ -1611,7 +1611,7 @@ private struct StopIncidentDetailSheet: View {
                 } label: {
                     HStack {
                         Text("Voir la ligne \(line)")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .textCase(.uppercase)
                             .tracking(1.4)
                         Spacer()
@@ -1644,7 +1644,7 @@ private struct StopIncidentDetailSheet: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
             Text(text)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .textCase(.uppercase)
                 .tracking(1.0)
                 .lineLimit(1)

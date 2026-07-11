@@ -221,7 +221,7 @@ private struct HomeEditorialActionChip: View {
                     .textCase(.uppercase)
                 if let count {
                     Text("\(count)")
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(

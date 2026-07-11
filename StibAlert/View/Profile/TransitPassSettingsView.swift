@@ -94,7 +94,7 @@ struct TransitPassSettingsView: View {
                         formSection
 
                         Text("MOBIB · STIB-MIVB · BRUXELLES")
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .tracking(2)
                             .foregroundColor(DS.Color.inkMute)
                             .frame(maxWidth: .infinity)
@@ -498,7 +498,7 @@ struct TransitPassSettingsView: View {
                 if let fingerprint = draftPass.nfcFingerprint, !fingerprint.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(AppLocalizer.string("transit_pass.form.fingerprint", defaultValue: "Empreinte NFC"))
-                            .font(DS.Font.monoSmall.weight(.semibold))
+                            .font(DS.Font.labelSmall.weight(.semibold))
                             .foregroundStyle(DS.Color.inkMute)
 
                         Text(fingerprint)
@@ -553,7 +553,7 @@ struct TransitPassSettingsView: View {
     private func formField<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(DS.Font.monoSmall.weight(.semibold))
+                .font(DS.Font.labelSmall.weight(.semibold))
                 .foregroundStyle(DS.Color.inkMute)
 
             content()
@@ -574,7 +574,7 @@ struct TransitPassSettingsView: View {
     private func sectionGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(DS.Font.monoSmall.weight(.semibold))
+                .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.5)
                 .foregroundColor(DS.Color.inkMute)
                 .padding(.leading, 4)
@@ -810,7 +810,7 @@ private struct TransitPassCardView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("MOBIB · STIB-MIVB")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.system(size: 9, weight: .bold))
                             .tracking(1.6)
                             .foregroundStyle(Color.white.opacity(0.55))
                         Text("MoBIB")
@@ -840,7 +840,7 @@ private struct TransitPassCardView: View {
                 // Subscription label + holder name
                 VStack(alignment: .leading, spacing: 4) {
                     Text((pass.subscriptionLabel.isEmpty ? AppLocalizer.string("transit_pass.subscription_default", defaultValue: "Abonnement STIB") : pass.subscriptionLabel).uppercased())
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold))
                         .tracking(1.4)
                         // Crème chaud : l'orange d'avant serait invisible sur un
                         // fond orange — on garde un accent clair, lisible.
@@ -859,11 +859,11 @@ private struct TransitPassCardView: View {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(AppLocalizer.string("transit_pass.card.number_label", defaultValue: "NUMÉRO CARTE"))
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .font(.system(size: 8, weight: .bold))
                             .tracking(1.4)
                             .foregroundStyle(Color.white.opacity(0.45))
                         Text(serialDisplay)
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -871,11 +871,11 @@ private struct TransitPassCardView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(AppLocalizer.string("transit_pass.card.client_label", defaultValue: "CLIENT"))
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .font(.system(size: 8, weight: .bold))
                             .tracking(1.4)
                             .foregroundStyle(Color.white.opacity(0.45))
                         Text(customerNumber)
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white)
                     }
                 }
@@ -913,7 +913,7 @@ private struct ValidityBadge: View {
                 .fill(validity.color)
                 .frame(width: 6, height: 6)
             Text(validity.label)
-                .font(.system(size: 9, weight: .black, design: .monospaced))
+                .font(.system(size: 9, weight: .black))
                 .tracking(1.0)
                 .foregroundColor(.white)
         }
@@ -965,7 +965,7 @@ private struct TransitMetaCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .tracking(1.5)
                 .foregroundColor(accent ? DS.Color.paper.opacity(0.7) : DS.Color.inkMute)
             Text(value)
@@ -1003,7 +1003,7 @@ private struct TransitActionRow: View {
                 Spacer()
                 if let value {
                     Text(value)
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .foregroundColor(DS.Color.inkMute)
                 }
                 Image(systemName: "chevron.right")

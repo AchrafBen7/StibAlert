@@ -405,7 +405,7 @@ struct QuickReportSheetView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Text(stopDistanceAndLineCountText(stop))
-                    .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
             }
 
@@ -554,7 +554,7 @@ struct QuickReportSheetView: View {
                 Spacer(minLength: 8)
 
                 Text(stopDistanceAndLineCountText(stop))
-                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
                     .padding(.top, 12)
             }
@@ -829,7 +829,7 @@ struct QuickReportSheetView: View {
         } label: {
             HStack(spacing: 8) {
                 Text(train.time)
-                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .font(.system(size: 12, weight: .black))
                     .foregroundStyle(isSelected ? DS.Color.paper : DS.Color.ink)
                 if !train.line.isEmpty {
                     Text(train.line)
@@ -1098,7 +1098,7 @@ struct QuickReportSheetView: View {
                     .foregroundStyle(descriptionHelperColor)
                 Spacer()
                 Text(descriptionCharacterCountText)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
             .padding(.horizontal, 18)

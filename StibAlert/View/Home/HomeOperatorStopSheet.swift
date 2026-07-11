@@ -233,7 +233,7 @@ struct HomeOperatorStopSheet: View {
                                 .lineLimit(2)
                             if !item.description.isEmpty {
                                 Text(item.description)
-                                    .font(DS.Font.monoSmall)
+                                    .font(DS.Font.labelSmall)
                                     .foregroundStyle(DS.Color.inkMute)
                                     .lineLimit(3)
                             }
@@ -257,7 +257,7 @@ struct HomeOperatorStopSheet: View {
             Image(systemName: "clock")
                 .font(.system(size: 10, weight: .bold))
             Text("Horaires théoriques")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
         }
         .foregroundStyle(DS.Color.inkMute)
     }
@@ -317,13 +317,13 @@ struct HomeOperatorStopSheet: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 Text(report.freshnessLabel)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
             Spacer(minLength: 0)
             if let confirmations = report.community?.confirmations, confirmations > 0 {
                 Text("\(confirmations)×")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(DS.Color.community)
             }
         }
@@ -353,7 +353,7 @@ struct HomeOperatorStopSheet: View {
                     .lineLimit(1)
                 if let scheduled = p.scheduledAt {
                     Text(timeLabel(scheduled, predicted: p.predictedAt))
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(0.8)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -374,7 +374,7 @@ struct HomeOperatorStopSheet: View {
                 }
                 if let delay = p.delayMin, delay != 0 {
                     Text(delayLabel(delay))
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(delayColor(delay))
                 }
             }

@@ -350,7 +350,7 @@ struct GareDetailPage: View {
     private func hourHeader(_ hour: Int) -> some View {
         HStack {
             Text(String(format: "%02dh", hour % 24))
-                .font(.system(size: 12, weight: .black, design: .monospaced))
+                .font(.system(size: 12, weight: .black))
                 .tracking(1)
                 .foregroundStyle(DS.Color.inkMute)
             Spacer()
@@ -369,7 +369,7 @@ struct GareDetailPage: View {
         return Button { selectedDeparture = dep } label: {
             HStack(spacing: 12) {
                 Text(dep.time)
-                    .font(DS.Font.monoLarge)
+                    .font(DS.Font.labelLarge)
                     .foregroundStyle(canceled ? DS.Color.inkMute : DS.Color.ink)
                     .strikethrough(canceled, color: DS.Color.statusMajor)
                     .frame(width: 52, alignment: .leading)
@@ -393,7 +393,7 @@ struct GareDetailPage: View {
 
                 if canceled {
                     Text("SUPPRIMÉ")
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .font(.system(size: 9, weight: .black))
                         .tracking(0.6)
                         .foregroundStyle(DS.Color.statusMajor)
                 } else if delay > 0 {
@@ -408,7 +408,7 @@ struct GareDetailPage: View {
                 }
                 if isNext, !canceled, delay == 0 {
                     Text("PROCHAIN")
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .font(.system(size: 9, weight: .black))
                         .tracking(0.8)
                         .foregroundStyle(DS.Color.statusOK)
                 }
@@ -595,7 +595,7 @@ struct GareDetailPage: View {
                             .foregroundStyle(DS.Color.inkMute)
                         Spacer()
                         Text("\(all.count)")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundStyle(DS.Color.inkMute)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .bold))
@@ -634,7 +634,7 @@ struct GareDetailPage: View {
     private func perturbedTrainRow(_ t: SNCBRTDeparture) -> some View {
         HStack(spacing: 12) {
             Text(t.time)
-                .font(DS.Font.monoLarge)
+                .font(DS.Font.labelLarge)
                 .foregroundStyle(t.canceled ? DS.Color.inkMute : DS.Color.ink)
                 .strikethrough(t.canceled, color: DS.Color.statusMajor)
                 .frame(width: 52, alignment: .leading)
@@ -661,7 +661,7 @@ struct GareDetailPage: View {
             Spacer(minLength: 0)
             if t.canceled {
                 Text("SUPPRIMÉ")
-                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                    .font(.system(size: 10, weight: .black))
                     .foregroundStyle(DS.Color.statusMajor)
             } else {
                 Text("+\(t.delayMinutes) min")
@@ -741,7 +741,7 @@ struct GareDetailPage: View {
             Spacer(minLength: 0)
             if let confirmations = signalement.community?.confirmations, confirmations > 0 {
                 Text("\(confirmations)×")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(DS.Color.community)
             }
         }
@@ -760,7 +760,7 @@ struct GareDetailPage: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "plus").font(.system(size: 15, weight: .black))
-                Text("Signaler cette gare").font(DS.Font.monoLarge)
+                Text("Signaler cette gare").font(DS.Font.labelLarge)
             }
             .foregroundStyle(DS.Color.primaryForeground)
             .frame(maxWidth: .infinity)

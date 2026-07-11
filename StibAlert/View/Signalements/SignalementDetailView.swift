@@ -260,7 +260,7 @@ struct SignalementDetailView: View {
                         .fill(freshnessTierColor(latest.freshnessTier))
                         .frame(width: 6, height: 6)
                     Text(latest.freshnessLabel.uppercased())
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(0.8)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -279,7 +279,7 @@ struct SignalementDetailView: View {
                     Image(systemName: "mappin")
                         .font(.system(size: 10, weight: .semibold))
                     Text(arretName)
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                 }
                 .foregroundStyle(DS.Color.inkMute)
             }
@@ -295,7 +295,7 @@ struct SignalementDetailView: View {
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("\(confirmations) voyageurs")
-                    .font(DS.Font.mono)
+                    .font(DS.Font.label)
                     .foregroundStyle(DS.Color.ink)
             }
             .padding(.bottom, 10)
@@ -335,7 +335,7 @@ struct SignalementDetailView: View {
                     .foregroundStyle(DS.Color.ink)
                     .fontWeight(.bold)
             }
-            .font(DS.Font.monoSmall)
+            .font(DS.Font.labelSmall)
             .padding(.top, 8)
             .frame(maxWidth: .infinity)
         }
@@ -461,13 +461,13 @@ struct SignalementDetailView: View {
                             .font(DS.Font.bodyBold)
                             .foregroundStyle(DS.Color.ink)
                         Text("TIMELINE TEMPS RÉEL")
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .tracking(0.6)
                             .foregroundStyle(DS.Color.inkMute)
                     }
                     Spacer()
                     Text("→")
-                        .font(DS.Font.mono)
+                        .font(DS.Font.label)
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 .padding(.vertical, 12)
@@ -691,7 +691,7 @@ private struct SignalementTimelineRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.time.uppercased())
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(0.6)
                     .foregroundStyle(DS.Color.inkMute)
                 Text(item.label)
@@ -718,7 +718,7 @@ private struct OfficialSourceBadge: View {
             Image(systemName: "shield.fill")
                 .font(.system(size: 9, weight: .bold))
             Text("OFFICIEL")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(0.8)
         }
         .foregroundStyle(DS.Color.paper)
@@ -735,7 +735,7 @@ private struct CommunitySourceBadge: View {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 9, weight: .bold))
             Text("COMMUNAUTÉ")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(0.8)
         }
         .foregroundStyle(DS.Color.paper)

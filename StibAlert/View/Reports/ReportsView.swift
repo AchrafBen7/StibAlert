@@ -431,7 +431,7 @@ struct ReportsView: View {
                 .foregroundStyle(DS.Color.inkMute)
             Spacer()
             Text("\(count)")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(DS.Color.inkMute)
         }
     }
@@ -484,7 +484,7 @@ struct ReportsView: View {
                 Spacer(minLength: 0)
                 if let confirmations = report.community?.confirmations, confirmations > 0 {
                     Text("\(confirmations)×")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.Color.community)
                 }
             }
@@ -563,7 +563,7 @@ struct ReportsView: View {
                 Spacer(minLength: 0)
                 if let confirmations = report.community?.confirmations, confirmations > 0 {
                     Text("\(confirmations)×")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(DS.Color.community)
                 }
             }
@@ -1264,7 +1264,7 @@ struct ReportsView: View {
                 Task { await loadReports(force: true) }
             } label: {
                 Text("Réessayer")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.primary)
             }
             .buttonStyle(.plain)
@@ -2018,7 +2018,7 @@ private struct EditorialNowCard: View {
             LineBadge(line: item.line, size: .lg)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Officiel STIB")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.statusMajor)
                 Text(item.reason)
@@ -2164,13 +2164,13 @@ struct EditorialFeedCard: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(meta.accent)
                     Text(meta.label)
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(1.4)
                         .foregroundStyle(meta.accent)
                     Text("·")
                         .foregroundStyle(DS.Color.inkMute.opacity(0.6))
                     Text(item.timeLabel)
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
 
                     if let up = item.upvotes {
@@ -2179,7 +2179,7 @@ struct EditorialFeedCard: View {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 10, weight: .bold))
                             Text("\(up)")
-                                .font(DS.Font.monoSmall.weight(.bold))
+                                .font(DS.Font.labelSmall.weight(.bold))
                         }
                         .foregroundStyle(DS.Color.ink)
                     }
@@ -2210,7 +2210,7 @@ struct EditorialFeedCard: View {
                                 Text(location)
                                     .lineLimit(1)
                             }
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .foregroundStyle(DS.Color.inkMute)
                         }
                         if let url = item.url {
@@ -2233,7 +2233,7 @@ struct EditorialFeedCard: View {
                 if let affluence {
                     HStack(spacing: 8) {
                         Text("Affluence prévue")
-                            .font(DS.Font.monoSmall)
+                            .font(DS.Font.labelSmall)
                             .tracking(1.4)
                             .foregroundStyle(DS.Color.inkMute)
                         GeometryReader { geo in
@@ -2291,7 +2291,7 @@ struct EditorialFeedCard: View {
                         Image(systemName: sourceBadgeIcon)
                             .font(.system(size: 10, weight: .semibold))
                         Text(sourceBadgeTitle)
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .tracking(1.4)
                     }
                     .foregroundStyle(sourceBadgeColor)
@@ -2301,7 +2301,7 @@ struct EditorialFeedCard: View {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 10, weight: .semibold))
                             Text("CONCERNE TA LIGNE")
-                                .font(DS.Font.monoSmall.weight(.bold))
+                                .font(DS.Font.labelSmall.weight(.bold))
                                 .tracking(1.2)
                         }
                         .foregroundStyle(DS.Color.statusMajor)
@@ -2424,7 +2424,7 @@ struct EditorialFeedCard: View {
                 Spacer()
 
                 Text(reportFooterTag)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .foregroundStyle(DS.Color.inkMute.opacity(0.8))
             }
             .padding(.top, 14)
@@ -2681,7 +2681,7 @@ private struct EventImpactDetailSheet: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("LIEU")
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                 Text(venueTitle)
                     .font(DS.Font.displayH2)
@@ -2745,10 +2745,10 @@ private struct EventImpactDetailSheet: View {
                 .font(.system(size: 11))
                 .foregroundColor(DS.Color.inkMute)
             Text(value)
-                .font(DS.Font.monoLarge.weight(.bold))
+                .font(DS.Font.labelLarge.weight(.bold))
                 .foregroundColor(DS.Color.ink)
             Text(label)
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
         }
@@ -2790,7 +2790,7 @@ private struct EventImpactDetailSheet: View {
     private var linesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("LIGNES DESSERVANT LE LIEU")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
                 .padding(.horizontal, 4)
@@ -2817,7 +2817,7 @@ private struct EventImpactDetailSheet: View {
     private var nearbyStopsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("ARRÊTS À PROXIMITÉ")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
                 .padding(.horizontal, 4)
@@ -2848,7 +2848,7 @@ private struct EventImpactDetailSheet: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Text(stop.distanceMeters.map(formatDistance) ?? "—")
-                                    .font(DS.Font.monoSmall.weight(.bold))
+                                    .font(DS.Font.labelSmall.weight(.bold))
                                     .foregroundColor(DS.Color.inkMute)
                                     .monospacedDigit()
                                     .frame(width: 48, alignment: .leading)
@@ -2881,7 +2881,7 @@ private struct EventImpactDetailSheet: View {
     private var programmingSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("PROGRAMMATION")
-                .font(DS.Font.monoSmall.weight(.bold))
+                .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
                 .padding(.horizontal, 4)
@@ -2922,10 +2922,10 @@ private struct EventImpactDetailSheet: View {
         let content = HStack(spacing: 12) {
             VStack(spacing: 4) {
                 Text("\(day)")
-                    .font(DS.Font.monoLarge.weight(.bold))
+                    .font(DS.Font.labelLarge.weight(.bold))
                     .foregroundColor(DS.Color.ink)
                 Text(month)
-                    .font(DS.Font.monoSmall.weight(.bold))
+                    .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                     .tracking(1)
             }
@@ -2936,7 +2936,7 @@ private struct EventImpactDetailSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text((item.category ?? "event").uppercased())
-                        .font(DS.Font.monoSmall.weight(.bold))
+                        .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundColor(DS.Color.primaryForeground)
                         .tracking(1)
                         .padding(.horizontal, 5)
@@ -2945,17 +2945,17 @@ private struct EventImpactDetailSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 3))
                     if let startsAt = item.startsAt {
                         Text(timeLabel(for: startsAt))
-                            .font(DS.Font.mono)
+                            .font(DS.Font.label)
                             .foregroundColor(DS.Color.inkMute)
                     }
                     if item.soldOut == true {
                         Text("COMPLET")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundColor(DS.Color.destructive)
                     }
                     if item.phase == "cancelled" {
                         Text("ANNULÉ")
-                            .font(DS.Font.monoSmall.weight(.bold))
+                            .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundColor(DS.Color.inkMute)
                             .strikethrough()
                     }
@@ -3148,7 +3148,7 @@ private struct ReportsSummarySheet: View {
                                         Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                                             .font(.system(size: 11, weight: .semibold))
                                         Text(didCopy ? "Copié" : "Copier")
-                                            .font(DS.Font.monoSmall.weight(.bold))
+                                            .font(DS.Font.labelSmall.weight(.bold))
                                     }
                                     .foregroundStyle(DS.Color.ink)
                                     .padding(.horizontal, 10)
@@ -3405,7 +3405,7 @@ private struct ReportsMetaBadge: View {
 
     var body: some View {
         Text(title)
-            .font(DS.Font.monoSmall.weight(.bold))
+            .font(DS.Font.labelSmall.weight(.bold))
             .foregroundStyle(DS.Color.ink)
             .padding(.horizontal, 10)
             .frame(height: 28)
@@ -3455,17 +3455,17 @@ private struct StatusCell: View {
                     ReportsPulsingDot(color: valueColor, size: 4)
                 }
                 Text(label.uppercased())
-                    .font(DS.Font.monoSmall.weight(.semibold))
+                    .font(DS.Font.labelSmall.weight(.semibold))
                     .tracking(1.6)
                     .foregroundStyle(DS.Color.inkMute)
             }
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(valueColor)
                 if let sublabel {
                     Text(sublabel)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 10))
                         .foregroundStyle(DS.Color.inkMute)
                 }
             }
@@ -3548,7 +3548,7 @@ struct EditorialDossierCard: View {
 
             // Étiquette dossier (top right)
             Text("DOSSIER · \(String(format: "%02d", index))/\(String(format: "%02d", total))")
-                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .font(.system(size: 8, weight: .bold))
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.paper)
                 .padding(.horizontal, 8)
@@ -3574,7 +3574,7 @@ struct EditorialDossierCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
 
                     Text("\(lineKind.uppercased()) · STIB-MIVB")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 9, weight: .semibold))
                         .tracking(1.4)
                         .foregroundStyle(DS.Color.inkMute)
 
@@ -3584,7 +3584,7 @@ struct EditorialDossierCard: View {
 
                 HStack(alignment: .top, spacing: 10) {
                     Text(primaryLine)
-                        .font(.system(size: 17, weight: .heavy, design: .monospaced))
+                        .font(.system(size: 17, weight: .heavy))
                         .foregroundStyle(lineForeground)
                         .frame(width: 44, height: 44)
                         .background(lineColor)

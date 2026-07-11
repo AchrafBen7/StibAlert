@@ -41,7 +41,7 @@ struct MapClusterMarker: View {
                 .shadow(color: accent.opacity(0.28), radius: 6, x: 0, y: 3)
 
             Text("\(count)")
-                .font(.system(size: count >= 100 ? 12 : 13, weight: .bold, design: .monospaced))
+                .font(.system(size: count >= 100 ? 12 : 13, weight: .bold))
                 .foregroundStyle(.white)
         }
         .accessibilityLabel("Groupe de \(count) signalements, majoritairement \(dominantType.lowercased())")

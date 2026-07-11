@@ -73,12 +73,12 @@ struct OnboardingRoutineStep: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("ÉTAPE 2 / 3")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
                 Text("ROUTINE")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(2)
                     .foregroundStyle(DS.Color.primary)
             }
@@ -102,7 +102,7 @@ struct OnboardingRoutineStep: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Heure de départ")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(1.8)
                     .textCase(.uppercase)
                     .foregroundStyle(DS.Color.inkMute)
@@ -164,7 +164,7 @@ struct OnboardingRoutineStep: View {
     private var homeCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Ton point de départ")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .tracking(1.8)
                 .textCase(.uppercase)
                 .foregroundStyle(DS.Color.inkMute)
@@ -210,7 +210,7 @@ struct OnboardingRoutineStep: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DS.Color.primary)
                 Text("CE QUE ÇA DÉBLOQUE")
-                    .font(DS.Font.monoSmall.weight(.heavy))
+                    .font(DS.Font.labelSmall.weight(.heavy))
                     .tracking(2)
                     .foregroundStyle(DS.Color.primary)
             }
@@ -276,7 +276,7 @@ struct OnboardingRoutineStep: View {
             onSkip()
         } label: {
             Text("Passer cette étape")
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .tracking(1.4)
                 .textCase(.uppercase)
                 .foregroundStyle(DS.Color.inkMute)

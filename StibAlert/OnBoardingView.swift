@@ -205,7 +205,7 @@ private struct OnboardingLinesStep: View {
             onSkip()
         } label: {
             Text("Je découvre d'abord")
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .tracking(1.4)
                 .textCase(.uppercase)
                 .foregroundStyle(DS.Color.inkMute)
@@ -361,14 +361,14 @@ private struct OnboardingLinesHeader: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text("ÉTAPE 1 / 3")
-                    .font(DS.Font.mono)
+                    .font(DS.Font.label)
                     .tracking(2.4)
                     .foregroundStyle(DS.Color.inkMute)
 
                 Spacer()
 
                 Text("BRUXELLES")
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -399,7 +399,7 @@ private struct OnboardingSelectedLinesCard: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Réseau personnel")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(1.8)
                         .textCase(.uppercase)
                         .foregroundStyle(DS.Color.inkMute)
@@ -475,7 +475,7 @@ private struct OnboardingLinePickerCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Toutes les lignes \(operatorType.mapLabel)")
-                        .font(DS.Font.monoSmall)
+                        .font(DS.Font.labelSmall)
                         .tracking(1.8)
                         .textCase(.uppercase)
                         .foregroundStyle(DS.Color.inkMute)
@@ -535,7 +535,7 @@ private struct OnboardingLineButton: View {
                     .opacity(isDisabled ? 0.32 : 1)
 
                 Text(isSelected ? "Choisie" : candidate.subtitle)
-                    .font(DS.Font.monoSmall)
+                    .font(DS.Font.labelSmall)
                     .tracking(0.8)
                     .foregroundStyle(isSelected ? DS.Color.primary : DS.Color.inkMute)
                     .lineLimit(1)
@@ -743,7 +743,7 @@ private struct OnboardingPushStep: View {
     private var pushHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ÉTAPE 3 / 3")
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .tracking(2)
                 .foregroundStyle(DS.Color.inkMute)
 
@@ -802,14 +802,14 @@ private struct OnboardingPushStep: View {
                 )
 
             Text("BLAYSE")
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .tracking(1.6)
                 .foregroundStyle(DS.Color.inkMute)
 
             Spacer()
 
             Text("maintenant")
-                .font(DS.Font.monoSmall)
+                .font(DS.Font.labelSmall)
                 .foregroundStyle(DS.Color.inkMute)
 
             Circle()
@@ -889,7 +889,7 @@ private struct OnboardingPushStep: View {
     private var trustSignalsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Pourquoi l’activer")
-                .font(DS.Font.mono)
+                .font(DS.Font.label)
                 .tracking(1.8)
                 .textCase(.uppercase)
                 .foregroundStyle(DS.Color.inkMute)
