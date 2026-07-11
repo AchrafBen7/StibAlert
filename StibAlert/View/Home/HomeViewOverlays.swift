@@ -342,7 +342,6 @@ extension HomeView {
             refreshedAt: lastHomeRefreshAt,
             onOpenReports: openReportsFromHome,
             onOpenReportSheet: openQuickReportFromHome,
-            onOpenStibAI: openStibAIFromHome,
             onRecenter: recenterFromHome,
             onSelectTab: selectTab(_:),
             // Bannière "Gastmodus" masquée pendant la recherche pour ne pas

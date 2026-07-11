@@ -10,7 +10,6 @@ struct HomeBottomChromeOverlay: View {
     let refreshedAt: Date?
     let onOpenReports: () -> Void
     let onOpenReportSheet: () -> Void
-    let onOpenStibAI: () -> Void
     let onRecenter: () -> Void
     let onSelectTab: (AppTab) -> Void
     // Inline invité affiché au-dessus de la tab bar, mais dismissible pour
@@ -23,10 +22,9 @@ struct HomeBottomChromeOverlay: View {
     var body: some View {
         VStack(spacing: 8) {
             if shouldShowPulseBar {
-                // Blayse AI (chat texte) désactivé avant lancement — seule la
-                // colonne droite reste affichée. onOpenStibAI reste câblé pour
-                // réactiver facilement une fois la feature prête. (L'assistant
-                // vocal a été retiré du binaire pour la conformité App Store.)
+                // Colonne d'actions flottantes (recentrer + signaler). L'ancienne
+                // colonne de gauche portait l'entrée Blayse AI ; la feature a été
+                // supprimée, pas juste masquée — elle reste récupérable via git.
                 HStack(alignment: .bottom, spacing: 10) {
                     Spacer(minLength: 8)
                     VStack(spacing: 10) {

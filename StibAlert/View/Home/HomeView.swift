@@ -45,7 +45,6 @@ struct HomeView: View {
     @State private var showSearch = false
     @State var showLegend = false
     @State var showRoutePlanner = false
-    @State private var showStibAI = false
     @StateObject var tripTracker = ActiveTripTracker()
     @State var selectedSignalementPreview: SignalementDTO? = nil
     @State private var lastFetchedAt: Date? = nil
@@ -160,7 +159,6 @@ struct HomeView: View {
     /// Trip prepared from the voice flow (geocoded + planned), kept around so
     /// the "Voir la route sur la carte" button can apply it instantly without
     /// re-running MKLocalSearch + the planner.
-    @State private var pendingVoiceTrip: (destination: MKMapItem, options: [HomeRouteOption])?
 
     struct TripDestination: Identifiable, Equatable {
         let id = UUID()
@@ -822,217 +820,16 @@ struct HomeView: View {
         AppMotion.spring(reduceMotion: reduceMotion)
     }
 
-    private var stibAILocationLabel: String {
-        if let stop = selectedMapStopDetail?.stop.name ?? selectedMapStopPreview?.name {
-            return "📍 \(stop)"
-        }
-        if locationManager.userCoordinate != nil {
-            return "📍 " + AppLocalizer.string("stibai.scope.around_me", defaultValue: "autour de moi")
-        }
-        return "📍 " + AppLocalizer.string("stibai.scope.location_off", defaultValue: "localisation non active")
-    }
 
-    private var stibAIContextSnapshot: STIBAIContext {
-        let position = locationManager.userCoordinate.map(GeoPoint.init)
-        let currentStop = stibAICurrentStartStop()
-        let nearby = stibAINearbyStops(currentStopId: currentStop?.id)
-        let activeReports = remoteSignalements
-            .filter { $0.status != "resolved" }
-            .prefix(14)
-            .map { signalement in
-                CommunityReport(
-                    line: signalement.ligne,
-                    stop: arretName(for: signalement),
-                    type: signalement.displayTypeProbleme,
-                    ageMin: signalement.effectiveFreshnessMinutes
-                )
-            }
 
-        let affectedLines = Array(Set(remoteSignalements.filter { $0.status != "resolved" }.map(\.ligne))).sorted()
-        let overviewIncidents = (selectedMapStopDetail?.activeIncidents ?? transportOverview?.activeIncidents ?? [])
 
-        return STIBAIContext(
-            position: position,
-            currentStartStop: currentStop,
-            activeTrip: stibAIActiveTrip(),
-            network: NetworkState(
-                level: transportOverview?.severity ?? selectedMapStopDetail?.severity ?? "unknown",
-                headline: transportOverview?.perturbationSummary?.localizedShortText
-                    ?? selectedMapStopDetail?.perturbationSummary?.localizedShortText
-                    ?? "Données réseau chargées depuis l'app.",
-                affectedLines: affectedLines
-            ),
-            disruptedLines: affectedLines,
-            travellersInfo: overviewIncidents.prefix(10).map { incident in
-                TravellerInfo(
-                    priority: nil,
-                    type: incident.type,
-                    title: incident.localizedType ?? "Perturbation",
-                    description: incident.localizedDescription,
-                    lines: incident.line.map { [$0] },
-                    points: incident.stop?.id.map { [$0] }
-                )
-            },
-            nearbyStops: nearby,
-            followedLines: session.currentUser?.favoriteLines,
-            reports: Array(activeReports),
-            proposedDestination: selectedRouteOption?.destinationName,
-            proposedRoutes: stibAIProposedRoutes()
-        )
-    }
 
-    @MainActor
-    private func stibAIContextSnapshot(for userMessage: String) async -> STIBAIContext {
-        var context = stibAIContextSnapshot
-        guard context.proposedRoutes == nil else { return context }
 
-        // Fast path : regex client-side (gratuit, instantané).
-        var destinationText = STIBAIDestinationExtractor.extract(from: userMessage)
 
-        // Fallback : si le regex échoue ET que le message ressemble à une
-        // demande d'itinéraire, on demande au backend (Gemini) d'extraire la
-        // destination — bien plus tolérant aux phrasings exotiques. Sans
-        // cette branche, l'IA refusait avec "j'ai besoin d'une destination
-        // plus précise" sur les phrases que le regex ne capture pas.
-        if destinationText == nil, Self.looksLikeTripRequest(userMessage) {
-            destinationText = await STIBAIVoiceClient.extractDestinationOnly(text: userMessage, context: context)
-        }
 
-        guard let destinationText else { return context }
 
-        context.proposedDestination = destinationText
-        guard let destination = await resolveSTIBAIDestination(destinationText) else {
-            return context
-        }
 
-        let options = await stibAIRouteOptions(to: destination)
-        if let proposedRoutes = stibAIProposedRoutes(from: options) {
-            context.proposedDestination = destination.name ?? destinationText
-            context.proposedRoutes = proposedRoutes
-        }
-        return context
-    }
 
-    /// Heuristique pour limiter le fallback backend aux questions qui ont
-    /// l'air d'une demande de trajet. Sans ça, "y a-t-il des perturbations ?"
-    /// ferait un appel Gemini inutile à chaque message.
-    private static func looksLikeTripRequest(_ text: String) -> Bool {
-        let lower = text.lowercased()
-        let triggers = [
-            "aller", "trajet", "itinéraire", "itineraire", "route", "chemin",
-            "rendre", "arriver", "amène", "amene", "meilleur", "comment je vais",
-            "comment aller", "direction de", "se rendre", "y aller", "destination",
-            "gaan", "traject", "reis", "weg", "naar", "richting", "bestemming",
-            "hoe kom ik", "hoe ga ik", "route naar",
-        ]
-        return triggers.contains { lower.contains($0) }
-    }
-
-    private func stibAICurrentStartStop() -> NearStop? {
-        if let detail = selectedMapStopDetail {
-            return NearStop(
-                id: detail.stop.id,
-                name: detail.stop.name,
-                distance: stibAIDistance(to: detail.stop),
-                lines: detail.stop.lines,
-                mode: stibAIMode(for: detail.stop.lines)
-            )
-        }
-        if let preview = selectedMapStopPreview {
-            return NearStop(
-                id: preview.id,
-                name: preview.name,
-                distance: stibAIDistance(to: preview),
-                lines: preview.lines,
-                mode: stibAIMode(for: preview.lines)
-            )
-        }
-        return stibAINearbyStops(currentStopId: nil).first
-    }
-
-    private func stibAINearbyStops(currentStopId: String?) -> [NearStop] {
-        let coordinate = locationManager.userCoordinate ?? locationManager.displayCoordinate
-        return baseMapStops
-            .filter { summary in
-                guard let lat = summary.latitude, let lng = summary.longitude else { return false }
-                let distance = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-                    .distance(from: CLLocation(latitude: lat, longitude: lng))
-                return distance <= 1800 || summary.id == currentStopId
-            }
-            .sorted { stibAIDistance(to: $0) < stibAIDistance(to: $1) }
-            .prefix(8)
-            .map { summary in
-                NearStop(
-                    id: summary.id,
-                    name: summary.name,
-                    distance: stibAIDistance(to: summary),
-                    lines: summary.lines,
-                    mode: stibAIMode(for: summary.lines)
-                )
-            }
-    }
-
-    private func stibAIActiveTrip() -> ActiveTrip? {
-        guard let option = selectedRouteOption else { return nil }
-        let steps = option.backendAlternative?.steps ?? []
-        return ActiveTrip(
-            fromName: option.originName,
-            toName: option.destinationName,
-            lines: Array(Set(steps.compactMap(\.line))).sorted(),
-            stopIds: steps.compactMap(\.stopName)
-        )
-    }
-
-    private func stibAIProposedRoutes() -> [ProposedRoute]? {
-        let options = routeOptions.isEmpty ? selectedRouteOption.map { [$0] } ?? [] : routeOptions
-        return stibAIProposedRoutes(from: options)
-    }
-
-    private func stibAIProposedRoutes(from options: [HomeRouteOption]) -> [ProposedRoute]? {
-        guard !options.isEmpty else { return nil }
-        return options.prefix(3).map { option in
-            let backend = option.backendAlternative
-            let steps = backend?.steps?.sorted { $0.order < $1.order }.map { step in
-                RouteStep(
-                    line: step.line,
-                    fromName: step.stopName ?? step.instruction,
-                    toName: step.arrivalStopName ?? step.destination ?? option.destinationName,
-                    minutes: step.durationMinutes,
-                    disrupted: !(step.alerts ?? []).isEmpty,
-                    reason: step.alerts?.first?.description ?? step.alerts?.first?.title
-                )
-            }
-            return ProposedRoute(
-                totalMin: backend?.totalDurationMinutes ?? Int(option.durationText.filter(\.isNumber)) ?? nil,
-                walkMin: backend?.walkingMinutes,
-                transitMin: backend.map { max($0.totalDurationMinutes - $0.walkingMinutes, 0) },
-                fromStop: option.originName,
-                toStop: option.destinationName,
-                accessFromMeters: nil,
-                accessToMeters: nil,
-                steps: steps,
-                transfers: backend?.transfers,
-                hasDisruption: backend?.severity != "normal",
-                disruptionReasons: backend?.officialAlerts?.compactMap { $0.description ?? $0.title },
-                walkOnly: backend == nil && option.transitSummary.localizedCaseInsensitiveContains("pied"),
-                info: [option.transitSummary, option.walkingSummary, option.reliabilityText]
-            )
-        }
-    }
-
-    private func stibAIDistance(to summary: TransportStopSummaryDTO) -> Double {
-        guard let lat = summary.latitude, let lng = summary.longitude else { return 0 }
-        let origin = locationManager.userCoordinate ?? locationManager.displayCoordinate
-        return CLLocation(latitude: origin.latitude, longitude: origin.longitude)
-            .distance(from: CLLocation(latitude: lat, longitude: lng))
-    }
-
-    private func stibAIMode(for lines: [String]) -> String? {
-        let normalized = lines.map { $0.uppercased() }
-        if normalized.contains(where: { $0 == "1" || $0 == "2" || $0 == "5" || $0 == "6" }) { return "metro" }
-        if normalized.contains(where: { $0.hasPrefix("T") || ["3", "4", "7", "8", "9", "10", "18", "19", "25", "39", "44", "51", "55", "62", "81", "82", "92", "93", "97"].contains($0) }) { return "tram" }
-        return lines.isEmpty ? nil : "bus"
-    }
 
     // MARK: - Body
 
@@ -1088,15 +885,6 @@ struct HomeView: View {
                     let label = destination.name ?? destination.placemark.title
                     tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
                 }
-            )
-        }
-        .fullScreenCover(isPresented: $showStibAI) {
-            STIBAIView(
-                locationLabel: stibAILocationLabel,
-                contextProvider: { message in
-                    await stibAIContextSnapshot(for: message)
-                },
-                onClose: { showStibAI = false }
             )
         }
         .onReceive(locationManager.$userCoordinate) { coord in
@@ -1653,10 +1441,6 @@ struct HomeView: View {
         }
     }
 
-    @MainActor
-    func openStibAIFromHome() {
-        showStibAI = true
-    }
 
     /// Internal wrapper so the bottom-chrome extension can recenter without
     /// touching the private recenterOnUser() implementation.
@@ -3162,36 +2946,7 @@ struct HomeView: View {
         return center.distance(from: target)
     }
 
-    @MainActor
-    private func resolveSTIBAIDestination(_ text: String) async -> MKMapItem? {
-        await STIBAIDestinationResolver.resolve(text, near: locationManager.displayCoordinate)
-    }
 
-    @MainActor
-    private func stibAIRouteOptions(to destination: MKMapItem) async -> [HomeRouteOption] {
-        let source = MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
-        async let recommendationTask = fetchBackendRecommendation(source: source, destination: destination)
-        async let transitRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .transit)
-        async let walkingRoutesTask = fetchMKRoutes(source: source, destination: destination, transportType: .walking)
-
-        let recommendation = await recommendationTask
-        let transitRoutes = await transitRoutesTask
-        let walkingRoutes = await walkingRoutesTask
-        let destinationName = destination.name ?? destination.placemark.title ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
-        let fallbackOptions = buildFallbackRouteOptions(
-            transitRoutes: transitRoutes,
-            walkingRoutes: walkingRoutes,
-            originName: L10n.Routing.currentPosition,
-            destinationName: destinationName
-        )
-
-        return buildBackendFirstRouteOptions(
-            recommendation: recommendation,
-            fallbackOptions: fallbackOptions,
-            originName: L10n.Routing.currentPosition,
-            destinationName: destinationName
-        )
-    }
 
     @MainActor
     private func buildRoute(to destination: MKMapItem) async {
@@ -3572,16 +3327,6 @@ struct HomeView: View {
         return "walk"
     }
 
-    /// Geocode the destination string returned by the voice assistant (e.g.
-    /// "Flagey", "Gare Centrale") around the user's location, then hand it to
-    /// the existing `tripDestination` pipeline so the route is built + shown
-    /// on the map just like a manual search.
-    /// Voice-flow step 1 of 2: geocode the spoken destination + compute the
-    /// real route options (transit + walking), without changing any UI state.
-    /// The planned trip is stashed in `pendingVoiceTrip` so the user can
-    /// confirm it via "Voir la route sur la carte" without a second search.
-    /// Returns the proposedRoutes for the backend's 2nd AI call so Gemini can
-    /// describe the actual lines/stops instead of fabricating them.
     /// Smart Commute LITE — lance le trajet quotidien à partir de la
     /// routine sauvegardée. Résout les 2 stop IDs en coords via
     /// `TransportService.stop`, puis pipe sur `buildRoute` (existant).
@@ -3643,50 +3388,7 @@ struct HomeView: View {
         await buildRoute(from: originItem, to: destItem, originName: originName)
     }
 
-    @MainActor
-    private func prepareVoiceTrip(_ name: String) async -> [ProposedRoute]? {
-        guard let destination = await STIBAIDestinationResolver.resolve(
-            name,
-            near: locationManager.userCoordinate ?? cameraCenterCoordinate
-        ) else {
-            pendingVoiceTrip = nil
-            return nil
-        }
-        let options = await stibAIRouteOptions(to: destination)
-        guard !options.isEmpty else {
-            pendingVoiceTrip = nil
-            return nil
-        }
-        pendingVoiceTrip = (destination, options)
-        return stibAIProposedRoutes(from: options)
-    }
 
-    /// Voice-flow step 2 of 2: surface the already-planned trip on the map.
-    /// No async work — `prepareVoiceTrip` did the heavy lifting.
-    @MainActor
-    private func applyPreparedVoiceTrip() {
-        guard let trip = pendingVoiceTrip else { return }
-        pendingVoiceTrip = nil
-
-        destinationCoord = trip.destination.placemark.coordinate
-        searchSuggestions = []
-        searchQuery = trip.destination.name ?? ""
-        lastAppliedSearchName = trip.destination.name
-
-        let preferredOption = preferredRouteOption(in: trip.options)
-
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-            routeOptions = trip.options
-            routeModeSummaries = buildModeSummaries(recommendation: nil, options: trip.options)
-            selectedRouteID = preferredOption?.id
-            isRouteSheetExpanded = false
-            enterInteractionMode(.routePreview)
-        }
-
-        if let preferredOption {
-            applyRouteOption(preferredOption)
-        }
-    }
 
     private func applyRouteOption(_ option: HomeRouteOption) {
         currentRoute = option.route
