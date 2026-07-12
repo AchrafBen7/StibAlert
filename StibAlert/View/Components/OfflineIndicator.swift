@@ -56,9 +56,15 @@ struct OfflineIndicator: View {
 
     private var offlineLabel: String {
         if pendingReports > 0 {
-            return AppLocalizer.string(
+            // `.format()` applique %lld APRÈS avoir résolu la traduction —
+            // contrairement à `.string()` (utilisé ici avant), qui interpolait
+            // le compte dans le defaultValue AVANT le lookup : dès qu'une
+            // traduction catalogue existait, le compte réel disparaissait,
+            // remplacé par le texte statique du catalogue.
+            return AppLocalizer.format(
                 "offline_indicator.pending_queue",
-                defaultValue: "Hors ligne · \(pendingReports) en file"
+                defaultValue: "Hors ligne · %lld en file",
+                pendingReports
             )
         }
         return AppLocalizer.string(

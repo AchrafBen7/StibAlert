@@ -285,7 +285,7 @@ private extension GuestAuthReason {
             return [
                 .init(icon: "person.crop.circle", title: "Ton compte", subtitle: "Historique, préférences et identité centralisés"),
                 .init(icon: "creditcard", title: "Carte MoBIB", subtitle: "Associe ta carte et retrouve ses infos au même endroit"),
-                .init(icon: "rosette", title: "Karma", subtitle: "Retrouve tes reports et confirmations communautaires")
+                .init(icon: "rosette", title: "Karma", subtitle: "Retrouve tes signalements et confirmations")
             ]
         case .report:
             return [

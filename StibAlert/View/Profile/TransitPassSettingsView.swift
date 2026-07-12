@@ -45,12 +45,6 @@ struct TransitPassSettingsView: View {
 
                         scanStateBanner
 
-                        nfcInsightsSection
-
-                        if shouldShowManualCompletionHint {
-                            manualCompletionHint
-                        }
-
                         sectionGroup(title: AppLocalizer.string("transit_pass.section.actions", defaultValue: "Actions")) {
                             TransitActionRow(
                                 icon: nfcReader.isScanning ? "dot.radiowaves.left.and.right" : "wave.3.right.circle.fill",
@@ -58,10 +52,10 @@ struct TransitPassSettingsView: View {
                                 value: previewPass.lastScannedAt.map(relativeDateText),
                                 action: { nfcReader.beginScan() }
                             )
-                            // « Scanner en NFC » + « Données lues sur la puce » sonnaient
-                            // officiels : on croit pouvoir consulter son solde, valider ou
-                            // recharger. La puce ne donne que ce qui y est gravé — jamais
-                            // le solde, jamais une validation. Le dire ici, pas après coup.
+                            // « Scanner en NFC » sonne officiel : on croit pouvoir
+                            // consulter son solde, valider ou recharger. La puce ne
+                            // donne que ce qui y est gravé — jamais le solde, jamais
+                            // une validation. Le dire ici, pas après coup.
                             limitsNotice
                             ProfileSettingsDivider()
                             if PKPassLibrary.isPassLibraryAvailable() {
@@ -94,9 +88,6 @@ struct TransitPassSettingsView: View {
                                 .padding(.horizontal, 4)
                                 .transition(.opacity)
                         }
-
-                        infoSection
-                        formSection
 
                         Text("MOBIB · STIB-MIVB · BRUXELLES")
                             .font(DS.Font.labelSmall)
@@ -185,8 +176,7 @@ struct TransitPassSettingsView: View {
     /// par l'utilisateur ET on signale via walletValidationIssue ce qui
     /// manque.
     /// C3 fix : si le scan NFC a renvoyé un état "partial", on bloque aussi
-    /// la création du pass — l'utilisateur doit compléter manuellement
-    /// avant.
+    /// la création du pass — l'utilisateur doit refaire le scan avant.
     private var canAddToWallet: Bool { walletValidationIssue == nil }
 
     /// Première raison qui empêche d'ajouter le pass (ordre de priorité).
@@ -222,10 +212,12 @@ struct TransitPassSettingsView: View {
         var userMessage: String {
             switch self {
             case .walletUnavailable:  return AppLocalizer.string("transit_pass.wallet.unavailable", defaultValue: "Apple Wallet n'est pas disponible sur cet appareil.")
-            case .nfcPartial:         return AppLocalizer.string("transit_pass.wallet.nfc_partial", defaultValue: "Le scan NFC est incomplet — complète les infos manuellement.")
-            case .missingCardNumber:  return AppLocalizer.string("transit_pass.wallet.missing_number", defaultValue: "Saisis le numéro de la carte MoBIB.")
+            case .nfcPartial:         return AppLocalizer.string("transit_pass.wallet.nfc_partial", defaultValue: "Le scan NFC est incomplet — réessaie le scan.")
+            // La saisie manuelle n'existe plus : la seule façon d'obtenir le numéro,
+            // c'est le scan. Le message doit pointer vers l'action qui existe.
+            case .missingCardNumber:  return AppLocalizer.string("transit_pass.wallet.missing_number", defaultValue: "Scanne ta carte pour récupérer son numéro.")
             case .invalidCardNumber:  return AppLocalizer.string("transit_pass.wallet.invalid_number", defaultValue: "Le numéro de carte semble trop court.")
-            case .missingHolderName:  return AppLocalizer.string("transit_pass.wallet.missing_name", defaultValue: "Indique le nom du titulaire.")
+            case .missingHolderName:  return AppLocalizer.string("transit_pass.wallet.missing_name", defaultValue: "Complète ton nom dans Mon compte.")
             }
         }
     }
@@ -261,7 +253,10 @@ struct TransitPassSettingsView: View {
     }
 
     private var issuedAtLabel: String {
-        let date = previewPass.lastScannedAt ?? Date()
+        // Avant : `?? Date()` retombait sur AUJOURD'HUI quand aucune carte
+        // n'avait jamais été scannée → la cellule « ÉMISE » affichait une date
+        // inventée pour une carte qui n'existe pas.
+        guard let date = previewPass.lastScannedAt else { return "—" }
         let formatter = DateFormatter()
         formatter.locale = AppLocale.current
         formatter.dateFormat = "MM / yyyy"
@@ -276,117 +271,6 @@ struct TransitPassSettingsView: View {
             message: state.message,
             accent: Color(hex: state.accentHex)
         )
-    }
-
-    /// Ce que le scan a réellement décodé sur la puce (réseau, contrats, date de
-    /// naissance, dernières validations). N'apparaît qu'après une lecture
-    /// Calypso réussie. Lu en direct depuis `nfcReader.lastScan` (non persisté →
-    /// la date de naissance ne reste jamais en clair sur le disque).
-    @ViewBuilder
-    private var nfcInsightsSection: some View {
-        if let scan = nfcReader.lastScan, scan.aid != nil {
-            sectionGroup(title: AppLocalizer.string("transit_pass.insight.title", defaultValue: "Données lues sur la puce")) {
-                VStack(alignment: .leading, spacing: 0) {
-                    insightRow(
-                        icon: "antenna.radiowaves.left.and.right",
-                        label: AppLocalizer.string("transit_pass.insight.network", defaultValue: "Réseau"),
-                        value: Text(verbatim: scan.networkLabel ?? "MoBIB")
-                    )
-                    if let country = scan.country {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "globe.europe.africa.fill",
-                            label: AppLocalizer.string("transit_pass.insight.country", defaultValue: "Pays"),
-                            value: Text(verbatim: country)
-                        )
-                    }
-                    if let version = scan.calypsoVersion {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "cpu",
-                            label: AppLocalizer.string("transit_pass.insight.standard", defaultValue: "Standard"),
-                            value: Text(verbatim: "Calypso v\(version)")
-                        )
-                    }
-                    if let validity = scan.validityEnd {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "calendar.badge.clock",
-                            label: AppLocalizer.string("transit_pass.insight.validity", defaultValue: "Valable jusqu'au"),
-                            value: Text(verbatim: birthFormatter.string(from: validity))
-                        )
-                    }
-                    ProfileSettingsDivider()
-                    insightRow(
-                        icon: "doc.text.fill",
-                        label: AppLocalizer.string("transit_pass.insight.contracts", defaultValue: "Contrats chargés"),
-                        value: Text(verbatim: "\(scan.contractCount)")
-                    )
-                    if let birth = scan.holderBirthDate {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "person.text.rectangle",
-                            label: AppLocalizer.string("transit_pass.insight.holder", defaultValue: "Titulaire (puce)"),
-                            value: Text(verbatim: birthFormatter.string(from: birth))
-                        )
-                    }
-                    if let serial = scan.cardSerial, !serial.isEmpty {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "number",
-                            label: AppLocalizer.string("transit_pass.insight.serial", defaultValue: "N° de puce"),
-                            value: Text(verbatim: serial)
-                        )
-                    }
-                    // Les validations ne s'affichent QUE si la puce en contient
-                    // vraiment. Avant, la ligne apparaissait toujours pour annoncer
-                    // « Aucune sur la puce » : elle faisait la publicité d'une
-                    // fonction qui, en pratique, ne remonte rien (le fichier
-                    // d'événements est vide sur les cartes testées). Une fonction
-                    // qui ne marche pas ne doit pas occuper une ligne d'écran.
-                    if !scan.lastValidations.isEmpty {
-                        ProfileSettingsDivider()
-                        insightRow(
-                            icon: "checkmark.circle.fill",
-                            label: AppLocalizer.string("transit_pass.insight.validations", defaultValue: "Dernières validations"),
-                            value: Text(verbatim: scan.lastValidations.prefix(2).joined(separator: " · "))
-                        )
-                    }
-                }
-                .padding(16)
-            }
-        }
-    }
-
-    private func insightRow(icon: String, label: String, value: Text) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Color.primary)
-                .frame(width: 22)
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(DS.Color.inkSoft)
-            Spacer(minLength: 12)
-            value
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(DS.Color.ink)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.vertical, 11)
-    }
-
-    private var birthFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = AppLocale.current
-        formatter.dateFormat = "dd/MM/yyyy"
-        return formatter
-    }
-
-    private var shouldShowManualCompletionHint: Bool {
-        if case .partial = nfcReader.scanState { return true }
-        return draftPass.cardNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || draftPass.expiryDate == nil
     }
 
     private var header: some View {
@@ -424,114 +308,6 @@ struct TransitPassSettingsView: View {
                     )
             }
             .buttonStyle(ProfileRootRowPressableStyle())
-        }
-    }
-
-    private var manualCompletionHint: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Color.statusMinor)
-                .padding(.top, 2)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppLocalizer.string("transit_pass.manual.title", defaultValue: "Compléter manuellement"))
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(AppLocalizer.string("transit_pass.manual.body", defaultValue: "Si le scan ne remonte pas toutes les données, ajoute au minimum le numéro visible et la date d’expiration."))
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer()
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Color.statusMinor.opacity(0.08))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.lg)
-                .stroke(DS.Color.statusMinor.opacity(0.32), lineWidth: DS.Stroke.hairline)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-    }
-
-    private var infoSection: some View {
-        sectionGroup(title: AppLocalizer.string("transit_pass.section.association", defaultValue: "Association")) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(AppLocalizer.string("transit_pass.info.body1", defaultValue: "Le scan NFC rattache la carte physique au profil et évite les erreurs de saisie. Oriente la carte lentement autour du haut de l’iPhone."))
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(AppLocalizer.string("transit_pass.info.body2", defaultValue: "Si certaines informations ne remontent pas, tu peux compléter le formulaire manuellement."))
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var formSection: some View {
-        sectionGroup(title: AppLocalizer.string("transit_pass.section.details", defaultValue: "Détails de la carte")) {
-            VStack(spacing: 14) {
-                formField(title: AppLocalizer.string("transit_pass.form.holder", defaultValue: "Titulaire")) {
-                    TextField(AppLocalizer.string("transit_pass.form.holder_ph", defaultValue: "Nom complet"), text: binding(\.holderName))
-                        .textInputAutocapitalization(.words)
-                }
-
-                formField(title: AppLocalizer.string("transit_pass.form.subscription", defaultValue: "Abonnement")) {
-                    TextField(AppLocalizer.string("transit_pass.form.subscription_ph", defaultValue: "Ex: Abonnement annuel"), text: binding(\.subscriptionLabel))
-                        .textInputAutocapitalization(.words)
-                }
-
-                formField(title: AppLocalizer.string("transit_pass.form.number", defaultValue: "Numéro de carte")) {
-                    TextField("6396 5320 0000 0000", text: binding(\.cardNumber))
-                        .keyboardType(.numbersAndPunctuation)
-                        .textInputAutocapitalization(.never)
-                }
-
-                formField(title: AppLocalizer.string("transit_pass.form.expiry", defaultValue: "Expiration")) {
-                    DatePicker(
-                        "",
-                        selection: Binding(
-                            get: { draftPass.expiryDate ?? Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date() },
-                            set: {
-                                draftPass.expiryDate = $0
-                                save()
-                            }
-                        ),
-                        displayedComponents: .date
-                    )
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .tint(DS.Color.ink)
-                }
-
-                if let fingerprint = draftPass.nfcFingerprint, !fingerprint.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(AppLocalizer.string("transit_pass.form.fingerprint", defaultValue: "Empreinte NFC"))
-                            .font(DS.Font.labelSmall.weight(.semibold))
-                            .foregroundStyle(DS.Color.inkMute)
-
-                        Text(fingerprint)
-                            .font(DS.Font.caption)
-                            .foregroundStyle(DS.Color.inkSoft)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(DS.Color.paper2.opacity(0.45))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.lg)
-                            .stroke(DS.Color.ink.opacity(0.1), lineWidth: DS.Stroke.hairline)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-                }
-            }
-            .padding(16)
         }
     }
 
@@ -587,30 +363,15 @@ struct TransitPassSettingsView: View {
         .padding(.vertical, 10)
     }
 
-    private func formField<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(DS.Font.labelSmall.weight(.semibold))
-                .foregroundStyle(DS.Color.inkMute)
-
-            content()
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.ink)
-                .padding(.horizontal, 16)
-                .frame(height: 52)
-                .background(DS.Color.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.lg)
-                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: DS.Stroke.hairline)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
-        }
-    }
-
     @ViewBuilder
     private func sectionGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
+            // `title` arrive en String runtime → Text(title.uppercased()) tout
+            // court ne se localiserait jamais si un jour un appelant passait un
+            // littéral brut. Tous les appelants actuels pré-traduisent déjà via
+            // AppLocalizer.string(), donc ce wrap est sans risque (retombe sur
+            // la clé si elle est absente) — uniformité avec le reste du Profil.
+            Text(AppLocalizer.string(title).uppercased())
                 .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.5)
                 .foregroundColor(DS.Color.inkMute)
@@ -624,16 +385,6 @@ struct TransitPassSettingsView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         }
-    }
-
-    private func binding(_ keyPath: WritableKeyPath<TransitPass, String>) -> Binding<String> {
-        Binding(
-            get: { draftPass[keyPath: keyPath] },
-            set: {
-                draftPass[keyPath: keyPath] = $0
-                save()
-            }
-        )
     }
 
     private func save() {

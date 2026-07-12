@@ -36,6 +36,12 @@ enum Analytics {
     /// Envoie un événement. No-op si le SDK n'est pas présent.
     static func track(_ event: Event, _ parameters: [String: String] = [:]) {
         #if canImport(TelemetryDeck)
+        // L'écran de consentement promet un opt-in (« Statistiques (optionnel) »,
+        // défaut décoché) et un réglage dans Profil → Confidentialité. Avant ce
+        // garde, la clé `analyticsOptIn` n'était LUE nulle part : TelemetryDeck
+        // émettait même après refus. Un consentement qui ne contrôle rien est un
+        // mensonge — et le questionnaire App Privacy déclare cette collecte.
+        guard UserDefaults.standard.bool(forKey: AppStorageKeys.analyticsOptIn) else { return }
         TelemetryDeck.signal(event.rawValue, parameters: parameters)
         #endif
     }

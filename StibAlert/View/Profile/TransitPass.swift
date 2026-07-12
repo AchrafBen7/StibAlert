@@ -44,7 +44,7 @@ struct TransitPass: Codable, Equatable {
             if let fingerprint = nfcFingerprint, !fingerprint.isEmpty {
                 return AppLocalizer.string("transit_pass.status.linked_short", defaultValue: "Liée")
             }
-            return AppLocalizer.string("transit_pass.status.todo", defaultValue: "À compléter")
+            return AppLocalizer.string("transit_pass.status.todo", defaultValue: "À scanner")
         }
         let calendar = Calendar.current
         let now = calendar.startOfDay(for: Date())
@@ -145,7 +145,7 @@ enum MobibScanState: Equatable {
         case .detected(let payload):
             return AppLocalizer.format("transit_pass.scan.detected.msg", defaultValue: "Tag %@ détecté %@.", payload.tagType, Self.relativeText(from: payload.scannedAt))
         case .partial:
-            return AppLocalizer.string("transit_pass.scan.partial.msg", defaultValue: "Le tag a été lu, mais certaines informations restent incomplètes. Complète manuellement si besoin.")
+            return AppLocalizer.string("transit_pass.scan.partial.msg", defaultValue: "Le tag a été lu, mais certaines informations restent incomplètes. Réessaie en repositionnant la carte.")
         case .error(let message):
             return message
         }

@@ -29037,13 +29037,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scanne ta MoBIB en NFC ou complète\nmanuellement les champs ci-dessous."
+            "value": "Approche ta carte MoBIB du haut de l'iPhone pour l'associer."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan je MoBIB via NFC of vul\nde velden hieronder handmatig in."
+            "value": "Houd je MoBIB tegen de bovenkant van de iPhone om ze te koppelen."
           }
         }
       }
@@ -29829,13 +29829,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le tag a été lu, mais certaines informations restent incomplètes. Complète manuellement si besoin."
+            "value": "Le tag a été lu, mais certaines informations restent incomplètes. Réessaie en repositionnant la carte."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De tag is gelezen, maar sommige gegevens blijven onvolledig. Vul indien nodig handmatig aan."
+            "value": "De tag is gelezen, maar sommige gegevens ontbreken. Probeer opnieuw door de kaart anders te houden."
           }
         }
       }
@@ -30075,13 +30075,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "À compléter"
+            "value": "À scanner"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aan te vullen"
+            "value": "Te scannen"
           }
         }
       }
@@ -30397,13 +30397,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indique le nom du titulaire."
+            "value": "Complète ton nom dans Mon compte."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geef de naam van de houder op."
+            "value": "Vul je naam aan in Mijn account."
           }
         }
       }
@@ -30420,13 +30420,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saisis le numéro de la carte MoBIB."
+            "value": "Scanne ta carte pour récupérer son numéro."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voer het MoBIB-kaartnummer in."
+            "value": "Scan je kaart om haar nummer op te halen."
           }
         }
       }
@@ -30443,13 +30443,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le scan NFC est incomplet — complète les infos manuellement."
+            "value": "Le scan NFC est incomplet — réessaie le scan."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De NFC-scan is onvolledig — vul de gegevens handmatig aan."
+            "value": "De NFC-scan is onvolledig — probeer opnieuw te scannen."
           }
         }
       }
@@ -32713,6 +32713,237 @@
           "stringUnit": {
             "state": "translated",
             "value": "Een vraag, een idee?\nSchrijf ons."
+          }
+        }
+      }
+    },
+    "privacy.analytics.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statistiques d'usage"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebruiksstatistieken"
+          }
+        }
+      }
+    },
+    "privacy.analytics.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Événements anonymes (ouverture, itinéraire calculé) pour améliorer l'app. Hébergés en Europe, jamais liés à ton identité."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anonieme gebeurtenissen (opening, route berekend) om de app te verbeteren. Gehost in Europa, nooit aan je identiteit gekoppeld."
+          }
+        }
+      }
+    },
+    "privacy.crash.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rapports de plantage"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crashrapporten"
+          }
+        }
+      }
+    },
+    "privacy.crash.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyés automatiquement si l'app plante, pour corriger les bugs. Sans ton identité."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch verzonden als de app crasht, om bugs te verhelpen. Zonder je identiteit."
+          }
+        }
+      }
+    },
+    "privacy.location.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Localisation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locatie"
+          }
+        }
+      }
+    },
+    "privacy.location.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uniquement en temps réel pour afficher les arrêts proches et calculer ton itinéraire. Jamais stockée sur nos serveurs."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enkel in real time om nabijgelegen haltes te tonen en je route te berekenen. Nooit opgeslagen op onze servers."
+          }
+        }
+      }
+    },
+    "privacy.account.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account"
+          }
+        }
+      }
+    },
+    "privacy.account.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email, nom et préférences pour synchroniser tes favoris et alertes entre tes appareils."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail, naam en voorkeuren om je favorieten en meldingen tussen je toestellen te synchroniseren."
+          }
+        }
+      }
+    },
+    "privacy.reports.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signalements"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meldingen"
+          }
+        }
+      }
+    },
+    "privacy.reports.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contenu de tes signalements communautaires, conservé tant que ton compte existe. Tu peux supprimer ton compte à tout moment."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inhoud van je gemeenschapsmeldingen, bewaard zolang je account bestaat. Je kan je account op elk moment verwijderen."
+          }
+        }
+      }
+    },
+    "offline_indicator.offline": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous êtes hors ligne"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bent offline"
+          }
+        }
+      }
+    },
+    "offline_indicator.pending_queue": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hors ligne · %lld en file"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline · %lld in de wachtrij"
+          }
+        }
+      }
+    },
+    "Retrouve tes signalements et confirmations": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vind je meldingen en bevestigingen terug"
+          }
+        }
+      }
+    },
+    "privacy.delete_account.desc": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Efface définitivement le compte et les données associées."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wist het account en de bijbehorende gegevens definitief."
           }
         }
       }

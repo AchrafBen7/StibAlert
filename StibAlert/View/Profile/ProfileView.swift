@@ -2285,6 +2285,10 @@ private struct PrivacySettingsView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var session: AuthSession
     @State private var showDeleteAlert = false
+    // Le SEUL endroit qui contrôle réellement `Analytics.track` (voir le garde
+    // ajouté dans Networking/Analytics.swift). L'écran de consentement promet
+    // ce réglage ici — avant, rien ne le lisait.
+    @AppStorage(AppStorageKeys.analyticsOptIn) private var analyticsOptIn: Bool = false
 
     private let privacyPolicyURL = URL(string: "https://stib-alert-backend.onrender.com/privacy")!
 
@@ -2322,28 +2326,51 @@ private struct PrivacySettingsView: View {
             ProfileSettingsSection(title: "Ce que Blayse collecte") {
                 PrivacySummaryRow(
                     icon: "location.fill",
-                    title: "Localisation",
-                    detail: "Uniquement en temps réel pour afficher les arrêts proches et calculer ton itinéraire. Jamais stockée sur nos serveurs."
+                    title: AppLocalizer.string("privacy.location.title", defaultValue: "Localisation"),
+                    detail: AppLocalizer.string("privacy.location.desc", defaultValue: "Uniquement en temps réel pour afficher les arrêts proches et calculer ton itinéraire. Jamais stockée sur nos serveurs.")
                 )
                 ProfileSettingsDivider()
                 PrivacySummaryRow(
                     icon: "person.fill",
-                    title: "Compte",
-                    detail: "Email, nom et préférences pour synchroniser tes favoris et alertes entre tes appareils."
+                    title: AppLocalizer.string("privacy.account.title", defaultValue: "Compte"),
+                    detail: AppLocalizer.string("privacy.account.desc", defaultValue: "Email, nom et préférences pour synchroniser tes favoris et alertes entre tes appareils.")
                 )
                 ProfileSettingsDivider()
                 PrivacySummaryRow(
                     icon: "person.2.fill",
-                    title: "Signalements",
-                    detail: "Contenu de tes signalements communautaires, conservé tant que ton compte existe. Tu peux supprimer ton compte à tout moment."
+                    title: AppLocalizer.string("privacy.reports.title", defaultValue: "Signalements"),
+                    detail: AppLocalizer.string("privacy.reports.desc", defaultValue: "Contenu de tes signalements communautaires, conservé tant que ton compte existe. Tu peux supprimer ton compte à tout moment.")
+                )
+                ProfileSettingsDivider()
+                // Le réglage que l'écran de consentement (Onboarding) promet
+                // explicitement : « Modifiable dans Profil → Confidentialité ».
+                // Relié à `analyticsOptIn`, désormais lu par Analytics.track.
+                NotificationToggleRow(
+                    icon: "chart.bar.fill",
+                    title: AppLocalizer.string("privacy.analytics.title", defaultValue: "Statistiques d'usage"),
+                    description: AppLocalizer.string("privacy.analytics.desc", defaultValue: "Événements anonymes (ouverture, itinéraire calculé) pour améliorer l'app. Hébergés en Europe, jamais liés à ton identité."),
+                    isOn: $analyticsOptIn
+                )
+                ProfileSettingsDivider()
+                // Informative seulement : ErrorReporting.capture (voir
+                // ErrorReporting.swift) part indépendamment du consentement
+                // analytics — c'est un rapport de crash, pas une mesure d'usage.
+                PrivacySummaryRow(
+                    icon: "ant.fill",
+                    title: AppLocalizer.string("privacy.crash.title", defaultValue: "Rapports de plantage"),
+                    detail: AppLocalizer.string("privacy.crash.desc", defaultValue: "Envoyés automatiquement si l'app plante, pour corriger les bugs. Sans ton identité.")
                 )
             }
 
             ProfileSettingsSection(title: "Tes droits") {
+                // "Supprimer ton compte" et "Supprimer" reprennent tels quels
+                // les littéraux de l'alerte juste en dessous (déjà au catalogue
+                // avec NL, extraits via le mécanisme LocalizedStringKey natif) —
+                // même texte, même action, un seul et même sens à traduire.
                 PrivacyActionRow(
-                    title: "Supprimer ton compte",
-                    description: "Efface définitivement le compte et les données associées.",
-                    actionLabel: "Supprimer",
+                    title: AppLocalizer.string("Supprimer ton compte"),
+                    description: AppLocalizer.string("privacy.delete_account.desc", defaultValue: "Efface définitivement le compte et les données associées."),
+                    actionLabel: AppLocalizer.string("Supprimer"),
                     danger: true,
                     action: { showDeleteAlert = true }
                 )
@@ -2373,11 +2400,16 @@ private struct PrivacySummaryRow: View {
                 .frame(width: 22, height: 22)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                // `title`/`detail` arrivent en String runtime → Text(prop) tout
+                // court ne se localise JAMAIS (contrairement à Text("littéral")).
+                // Les appelants pré-traduisent déjà via AppLocalizer.string() ;
+                // ce wrap est sans risque s'ils passent un jour un littéral brut
+                // (AppLocalizer retombe alors sur la clé, donc rien de cassé).
+                Text(AppLocalizer.string(title))
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
 
-                Text(detail)
+                Text(AppLocalizer.string(detail))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2402,11 +2434,16 @@ private struct PrivacyActionRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                // `title`/`description`/`actionLabel` sont des String runtime :
+                // Text(prop)/Button(prop) tout court ne se localisent JAMAIS. Ce
+                // wrap est sans risque si un appelant pré-traduit déjà (retombe
+                // sur la clé) — c'est ce qui affichait « Supprimer ton compte »
+                // en toutes lettres françaises sur l'écran NL avant ce fix.
+                Text(AppLocalizer.string(title))
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(danger ? DS.Color.destructive : DS.Color.ink)
 
-                Text(description)
+                Text(AppLocalizer.string(description))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2422,7 +2459,7 @@ private struct PrivacyActionRow: View {
 
             Spacer(minLength: 12)
 
-            Button(actionLabel) { action?() }
+            Button(AppLocalizer.string(actionLabel)) { action?() }
                 .buttonStyle(.plain)
                 .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundStyle(danger ? DS.Color.destructiveForeground : DS.Color.paper)
