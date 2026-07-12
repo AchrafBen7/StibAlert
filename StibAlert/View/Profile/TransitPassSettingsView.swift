@@ -107,7 +107,10 @@ struct TransitPassSettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
-                    .padding(.bottom, 96)
+                    // La barre d'onglets flotte : 70 pt de haut + 14 pt de padding + 34 pt de safe
+                    // area = 118 pt. En réserver 96 laissait la dernière rangée DERRIÈRE
+                    // elle, définitivement — même scrollé à fond. 140 pt la dégagent.
+                    .padding(.bottom, 140)
                 }
             }
         }
@@ -403,7 +406,7 @@ struct TransitPassSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(AppLocalizer.string("transit_pass.header.eyebrow", defaultValue: "Carte de transport"))
                     .eyebrow()
-                Text(AppLocalizer.string("transit_pass.header.title", defaultValue: "Ma carte STIB"))
+                Text(AppLocalizer.string("transit_pass.header.title", defaultValue: "Ma carte MoBIB"))
                     .font(DS.Font.displayH2)
                     .foregroundStyle(DS.Color.ink)
             }

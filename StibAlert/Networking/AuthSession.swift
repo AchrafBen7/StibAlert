@@ -92,6 +92,7 @@ final class AuthSession: ObservableObject {
         state = .signedIn(auth.utilisateur)
         PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
+        await refreshFullUserAfterAuth()
     }
 
     func renvoyerCode() async throws {
@@ -109,6 +110,24 @@ final class AuthSession: ObservableObject {
         state = .signedIn(auth.utilisateur)
         PushNotificationManager.current?.loginOneSignal(userId: auth.utilisateur.id)
         await registerForPushIfNeeded(using: auth.utilisateur)
+        await refreshFullUserAfterAuth()
+    }
+
+
+    /// La réponse de `/connexion` ne renvoie PAS `favorisDetails` : elle sérialise le
+    /// document Mongo brut, où `favoris` n'est qu'une liste d'identifiants. Seul
+    /// `/me` fait le `populate` + `buildFavorisDetails`.
+    ///
+    /// Sans ce rechargement, le Profil affichait « 0 Favoris » juste après la
+    /// connexion (le compteur lit `favorisDetails`) — et ne se réparait qu'au
+    /// prochain lancement de l'app, quand `bootstrap()` appelle enfin `/me`.
+    ///
+    /// On ne fait PAS échouer la connexion si ce rafraîchissement rate : l'utilisateur
+    /// est authentifié, il verra juste des données partielles jusqu'au prochain lancement.
+    private func refreshFullUserAfterAuth() async {
+        if let full = try? await AuthService.me() {
+            state = .signedIn(full)
+        }
     }
 
     func signInWithApple(identityToken: String, fullName: String?) async throws {

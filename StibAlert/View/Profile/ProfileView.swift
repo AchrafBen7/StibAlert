@@ -393,7 +393,10 @@ struct ProfileView: View {
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
                             .padding(.top, 6)
-                            .padding(.bottom, 96)
+                            // La barre d'onglets flotte : 70 pt de haut + 14 pt de padding + 34 pt de safe
+                    // area = 118 pt. En réserver 96 laissait la dernière rangée DERRIÈRE
+                    // elle, définitivement — même scrollé à fond. 140 pt la dégagent.
+                    .padding(.bottom, 140)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 18)
@@ -1178,9 +1181,13 @@ private struct ProfileSubpageScaffold<Content: View>: View {
                         .buttonStyle(ProfileRootRowPressableStyle())
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(eyebrow)
+                            // Même piège : String → jamais traduit. « PROFIL · ASSISTANCE »
+                            // et « Support » s'affichaient en français dans l'app NL.
+                            // AppLocalizer retombe sur la clé si elle est absente : les
+                            // appelants qui pré-traduisent déjà ne cassent pas.
+                            Text(AppLocalizer.string(eyebrow))
                                 .eyebrow()
-                            Text(title)
+                            Text(AppLocalizer.string(title))
                                 .font(DS.Font.displayH2)
                                 .foregroundStyle(DS.Color.ink)
                         }
@@ -1201,7 +1208,7 @@ private struct ProfileSubpageScaffold<Content: View>: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
-                    .padding(.bottom, 96)
+                    .padding(.bottom, 140)
                 }
             }
         }
@@ -1220,7 +1227,15 @@ private struct ProfileSettingsSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
+            // `Text(title)` avec un String ne se localise JAMAIS. Les en-têtes de
+            // section (« Démarrage », « Aide & contact », « À propos ») restaient donc
+            // en FRANÇAIS dans l'app néerlandaise — alors que les LIGNES juste en
+            // dessous, elles, se traduisaient (elles passent par profileRow, qui appelle
+            // AppLocalizer). Deux composants, deux comportements, sur le même écran.
+            //
+            // On traduit AVANT de mettre en majuscules : uppercased() sur du français
+            // reste du français.
+            Text(AppLocalizer.string(title).uppercased())
                 .font(DS.Font.labelSmall.weight(.semibold))
                 .tracking(1.5)
                 .foregroundColor(DS.Color.inkMute)
@@ -1557,7 +1572,7 @@ private struct NotificationSettingsView: View {
                     NotificationToggleRow(
                         icon: "exclamationmark.triangle.fill",
                         title: AppLocalizer.string("notif.community.title", defaultValue: "Alertes communauté"),
-                        description: AppLocalizer.string("notif.community.desc", defaultValue: "Quand un cluster touche une de tes lignes favorites"),
+                        description: AppLocalizer.string("notif.community.desc", defaultValue: "Quand un signalement touche une de tes lignes favorites"),
                         payloadExample: AppLocalizer.string("notif.community.example", defaultValue: "Ligne 92 perturbée à Bailli — 3 confirmations."),
                         isOn: $communityClusterPushEnabled
                     )
@@ -2249,7 +2264,7 @@ private struct PasswordRow: View {
                 .foregroundStyle(DS.Color.ink)
                 .frame(width: 18)
 
-            Text("Mots de passe")
+            Text("Mot de passe")
                 .font(.system(size: 13.5, weight: .medium))
                 .foregroundStyle(DS.Color.ink)
 
@@ -2456,7 +2471,7 @@ private struct SupportSettingsView: View {
                             Text("Revoir la visite guidée")
                                 .font(.system(size: 13.5, weight: .semibold))
                                 .foregroundColor(DS.Color.ink)
-                            Text("3 cartes : carte, signalement, voix")
+                            Text("3 cartes : carte, signalement, favoris")
                                 .font(.system(size: 11.5))
                                 .foregroundColor(DS.Color.inkMute)
                         }
@@ -2576,22 +2591,23 @@ private enum SupportMockData {
     /// figerait la langue du premier accès. Recalculé à chaque lecture, il suit
     /// la bascule FR/NL du Profil.
     static var items: [SupportItem] {
-        let helpSubtitle = AppLocalizer.string("support.find_solution", defaultValue: "Trouvez rapidement une\nsolution ici.")
         return [
             .init(url: URL(string: "mailto:support@blayse.app?subject=Aide%20Blayse"),
                   title: AppLocalizer.string("support.help_center", defaultValue: "Centre d’aide"),
-                  subtitle: helpSubtitle, highlighted: false),
+                  subtitle: AppLocalizer.string("support.help_subtitle", defaultValue: "Les réponses aux questions\nles plus fréquentes."),
+                  highlighted: false),
             .init(url: URL(string: "mailto:support@blayse.app?subject=Bug%20Blayse"),
                   title: AppLocalizer.string("support.report_bug", defaultValue: "Signaler un bug"),
                   subtitle: AppLocalizer.string("support.bug_subtitle", defaultValue: "Un souci technique ?\nOn est là pour t'écouter."),
                   highlighted: false),
             .init(url: URL(string: "mailto:support@blayse.app"),
                   title: AppLocalizer.string("source.community", defaultValue: "Communauté"),
-                  subtitle: AppLocalizer.string("support.community_subtitle", defaultValue: "Faites partie du changement."),
+                  subtitle: AppLocalizer.string("support.community_subtitle", defaultValue: "Fais partie du changement."),
                   highlighted: false),
             .init(url: URL(string: "mailto:support@blayse.app?subject=Contact%20Blayse"),
                   title: AppLocalizer.string("support.contact_us", defaultValue: "Nous contacter"),
-                  subtitle: helpSubtitle, highlighted: true)
+                  subtitle: AppLocalizer.string("support.contact_subtitle", defaultValue: "Une question, une idée ?\nÉcris-nous."),
+                  highlighted: true)
         ]
     }
 }

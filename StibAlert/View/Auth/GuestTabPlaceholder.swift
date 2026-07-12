@@ -284,7 +284,7 @@ private extension GuestAuthReason {
         case .profile:
             return [
                 .init(icon: "person.crop.circle", title: "Ton compte", subtitle: "Historique, préférences et identité centralisés"),
-                .init(icon: "creditcard", title: "Carte STIB", subtitle: "Associe et consulte ta carte dans le même espace"),
+                .init(icon: "creditcard", title: "Carte MoBIB", subtitle: "Associe ta carte et retrouve ses infos au même endroit"),
                 .init(icon: "rosette", title: "Karma", subtitle: "Retrouve tes reports et confirmations communautaires")
             ]
         case .report:

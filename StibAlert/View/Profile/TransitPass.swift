@@ -44,7 +44,7 @@ struct TransitPass: Codable, Equatable {
             if let fingerprint = nfcFingerprint, !fingerprint.isEmpty {
                 return AppLocalizer.string("transit_pass.status.linked_short", defaultValue: "Liée")
             }
-            return AppLocalizer.string("transit_pass.status.todo", defaultValue: "A completer")
+            return AppLocalizer.string("transit_pass.status.todo", defaultValue: "À compléter")
         }
         let calendar = Calendar.current
         let now = calendar.startOfDay(for: Date())
