@@ -794,9 +794,13 @@ struct FavoritesView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text(item.activityLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(DS.Color.inkMute)
+                    // Tout est calme → « Rien à signaler » (headline) suffit :
+                    // pas de 2e ligne « Aucun signalement actif » qui répète.
+                    if !item.isAllQuiet {
+                        Text(item.activityLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
                     Spacer()
                     Text(item.lastUpdatedLabel)
                         .font(.system(size: 11))
@@ -1108,7 +1112,9 @@ struct FavoritesView: View {
             let problemLabel: String = {
                 switch severity {
                 case .normal:
-                    return AppLocalizer.string("favorites.status.none", defaultValue: "Aucun actif")
+                    // « AUCUN ACTIF » en pastille = 3e formulation du même néant
+                    // sur la carte. « OK » suffit (clé déjà traduite).
+                    return AppLocalizer.string("OK", defaultValue: "OK")
                 case .warning, .blocked:
                     switch stop.status {
                     case "Bloqué": return AppLocalizer.string("favorites.status.blocked", defaultValue: "Bloqué")
@@ -1128,7 +1134,9 @@ struct FavoritesView: View {
                 crowding: stop.crowding ?? "Faible",
                 problemLabel: problemLabel,
                 reportCount: stop.signalementCount ?? 0,
-                nextPassage: stop.nextPassageMinutes.map { "\($0) min" } ?? "--",
+                // nil → « — » (tiret typographique, pas « -- ») ; 0 → « <1 min »
+                // (« 0 min » n'est pas humain) ; sinon « N min ».
+                nextPassage: stop.nextPassageMinutes.map { $0 <= 0 ? "<1 min" : "\($0) min" } ?? "—",
                 modes: modes,
                 severity: severity,
                 detailLines: (stop.lignesDesservies ?? [primaryLine]).prefix(4).map {
@@ -1193,7 +1201,7 @@ private struct FavoriteStopDetailView: View {
                         lineTextColor: fallbackLine.textColor,
                         title: label,
                         subtitle: AppLocalizer.string("favorites.no_reliable_passage", defaultValue: "Aucun passage fiable immédiat. Je continue de surveiller cet arrêt."),
-                        nextPassage: "--",
+                        nextPassage: "—",
                         score: Int((transportStop.confidence * 100).rounded()),
                         barColor: statusBarColor(for: transportStop.severity),
                         borderColor: statusBorderColor(for: transportStop.severity)
@@ -1209,7 +1217,7 @@ private struct FavoriteStopDetailView: View {
                     lineTextColor: chip.textColor,
                     title: index == 0 ? label : "Passage suivant",
                     subtitle: departure.destination.map { "Direction \($0)" } ?? "Passage surveillé en temps réel",
-                    nextPassage: "\(departure.minutes) min",
+                    nextPassage: departure.minutes <= 0 ? "<1 min" : "\(departure.minutes) min",
                     score: Int((transportStop.confidence * 100).rounded()),
                     barColor: statusBarColor(for: transportStop.severity),
                     borderColor: statusBorderColor(for: transportStop.severity)
@@ -2096,7 +2104,8 @@ private enum FavoriteTransportFilter: CaseIterable, Identifiable {
         case .all: return AppLocalizer.string("favorites.filter.all", defaultValue: "Tous")
         case .tram: return "Tram"
         case .bus: return "Bus"
-        case .metro: return "Metro"
+        // « Metro » sans accent en FR : la clé « Métro » existe (nl « Metro »).
+        case .metro: return AppLocalizer.string("Métro", defaultValue: "Métro")
         }
     }
 
@@ -2208,6 +2217,11 @@ private struct FavoriteTransitItem: Identifiable {
     var lastProblemType: String? = nil
     var lastConfidence: String? = nil
 
+    /// Rien d'officiel ET rien de communautaire : la carte disait ce néant
+    /// TROIS fois (« AUCUN ACTIF » + « Aucun incident actif » + « Aucun
+    /// signalement actif »). Ce flag permet de le dire UNE fois.
+    var isAllQuiet: Bool { severity == .normal && reportCount == 0 }
+
     /// Honest, real-data label: how many community reports are active on the
     /// stop. Replaces the old "Affluence/Drukte" line, which was just this
     /// count relabelled as crowding (a metric STIB doesn't actually publish).
@@ -2220,7 +2234,7 @@ private struct FavoriteTransitItem: Identifiable {
     var cockpitHeadline: String {
         switch severity {
         case .normal:
-            return reportCount == 0 ? AppLocalizer.string("favorites.cockpit.none", defaultValue: "Aucun incident actif") : AppLocalizer.string("favorites.cockpit.one_report", defaultValue: "1 signalement actif")
+            return reportCount == 0 ? AppLocalizer.string("Rien à signaler", defaultValue: "Rien à signaler") : AppLocalizer.string("favorites.cockpit.one_report", defaultValue: "1 signalement actif")
         case .warning:
             if let type = lastProblemType {
                 return AppLocalizer.format("favorites.cockpit.type_ongoing", defaultValue: "%@ en cours", SignalementDTO.localizedReportType(type))

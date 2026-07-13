@@ -320,14 +320,22 @@ struct ReportsView: View {
     @ViewBuilder
     private var sncbInfoTraficContent: some View {
         let active = sncbActiveReports
+        // FIX A1 — le header disait « 0 » + carte verte « Réseau SNCB OK »
+        // pendant que la carte de gare juste en dessous affichait « 9
+        // perturbations » en rouge : le compteur ne lisait QUE les
+        // signalements communauté, les cartes lisaient AUSSI les retards/
+        // suppressions iRail + perturbations officielles. Le header compte
+        // désormais la même source que les cartes ; la carte verte ne
+        // s'affiche que si cette source unifiée est vide. Un écran, une vérité.
+        let totalProblems = sncbUnifiedProblemCount
         VStack(alignment: .leading, spacing: DS.Spacing.lg) {
             VStack(alignment: .leading, spacing: 10) {
-                sncbSectionHeader(icon: active.isEmpty ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
-                                  title: "Perturbations en cours", count: active.count,
-                                  tint: active.isEmpty ? DS.Color.statusOK : DS.Color.statusMajor)
-                if active.isEmpty {
+                sncbSectionHeader(icon: totalProblems == 0 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill",
+                                  title: "Perturbations en cours", count: totalProblems,
+                                  tint: totalProblems == 0 ? DS.Color.statusOK : DS.Color.statusMajor)
+                if totalProblems == 0 {
                     sncbAllClearCard
-                } else {
+                } else if !active.isEmpty {
                     VStack(spacing: 8) {
                         ForEach(active) { sncbReportCard($0) }
                     }
@@ -342,6 +350,23 @@ struct ReportsView: View {
                 onSelect: { selectedGareForDetail = $0 }
             )
         }
+    }
+
+    /// Somme des perturbations réellement AFFICHÉES sur cet écran : les
+    /// signalements communauté actifs (rendus en cartes sous le header) + les
+    /// problèmes live des 3 gares proches épinglées par l'annuaire (retards/
+    /// suppressions iRail, perturbations officielles nommant la gare — ce que
+    /// les cartes de gares comptent dans « N perturbations »). Les types
+    /// communauté des gares proches sont déjà comptés via `sncbActiveReports`,
+    /// on ne compte donc ici que la part non-communauté de leurs badges.
+    private var sncbUnifiedProblemCount: Int {
+        let nearest = SNCBStationService
+            .nearbyStations(around: locationManager.userCoordinate, radiusMeters: 35_000, limit: 3)
+            .map(\.station)
+        let liveBadges = nearest.reduce(0) { total, station in
+            total + max(0, sncbBadgeTypes(for: station).count - sncbActiveReportTypes(for: station).count)
+        }
+        return sncbActiveReports.count + liveBadges
     }
 
     /// All the problem indicators for a gare, fed to the directory as per-type
@@ -1745,17 +1770,22 @@ struct ReportsView: View {
         return AppLocalizer.format("time.hours_ago", defaultValue: "il y a %lld h", minutes / 60)
     }
 
+    /// FIX A6 — « À venir » sans date ne dit pas QUAND : on accole la date de
+    /// début (« À venir · sam. 18 juil. »). `phaseLabel` arrive du backend en
+    /// FRANÇAIS (« À venir » / « En cours » / « Terminé ») → routé par le
+    /// catalogue pour l'app NL (« Binnenkort · za 18 jul. »).
     private func eventTimeLabel(for event: TransportEventImpactDTO) -> String {
+        var parts: [String] = []
         if let phase = event.phaseLabel, !phase.isEmpty {
-            return phase
+            parts.append(AppLocalizer.string(phase, defaultValue: phase))
         }
         if let startsAt = event.startsAt {
             let formatter = DateFormatter()
             formatter.locale = AppLocale.current
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: startsAt)
+            formatter.dateFormat = "EEE d MMM"
+            parts.append(formatter.string(from: startsAt))
         }
-        return "—"
+        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
     }
 
     private func summaryCarousel(_ summary: TransportPerturbationSummaryDTO) -> some View {

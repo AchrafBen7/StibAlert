@@ -90,10 +90,15 @@ final class LigneDetailViewModel: ObservableObject {
         if unique.count >= 2 {
             return "\(unique[0]) ⇄ \(unique[1])"
         }
-        return unique.first ?? activeLine?.line.name ?? line.direction
+        // Plus de retombée sur `line.direction` (« Bruxelles ») : quand le fetch
+        // des variantes a échoué, ce libellé générique se faisait passer pour un
+        // vrai tracé. Vide → l'en-tête n'affiche rien et l'état d'erreur parle.
+        return unique.first ?? activeLine?.line.name ?? ""
     }
 
     var routeSubtitle: String {
+        // Pas de tracé chargé → pas de « 0 arrêts · temps réel STIB » inventé.
+        guard activeLine != nil else { return "" }
         let stopsCount = orderedStops.count
         if orderedStops.contains(where: { $0.disruption != nil }) {
             let count = orderedStops.filter { $0.disruption != nil }.count
@@ -146,22 +151,13 @@ final class LigneDetailViewModel: ObservableObject {
             }
         }
 
-        return stopCatalog.map { dto in
-            StopSnapshot(
-                id: dto.stopId ?? dto.id,
-                backendId: dto.id,
-                stopId: dto.stopId,
-                name: dto.nom,
-                waits: dto.nextPassages ?? dto.nextPassageMinutes.map { [$0] } ?? [],
-                waitsSource: dto.nextPassageSource,
-                disruption: nil,
-                incidentType: nil,
-                disruptionSeverity: nil,
-                reportsCount: 0,
-                delayMinutes: dto.delayMinutes,
-                vehiclePresent: false
-            )
-        }
+        // FIX — plus de fallback sur `stopCatalog` brut quand les variantes
+        // city/suburb/base ont toutes échoué : ce catalogue n'est PAS ordonné,
+        // mélange les deux directions et contient des doublons (EENENS deux
+        // fois, « Terminus » au milieu du tracé, « Bruxelles · 38 arrêts » sans
+        // toggle direction). Le fallback se déguisait en données réelles. Sans
+        // tracé chargé, la vue affiche un état d'erreur honnête + Réessayer.
+        return []
     }
 
     var alternativeSummary: String? {
@@ -244,8 +240,12 @@ final class LigneDetailViewModel: ObservableObject {
             selectedVariant = previousVariant
         }
 
-        if cityLine == nil && suburbLine == nil && baseLine == nil && stopCatalog.isEmpty {
-            loadError = "Pas de données disponibles pour cette ligne."
+        // L'erreur se déclenche dès que le TRACÉ manque (les 3 variantes nil),
+        // même si `stopCatalog` est revenu : on ne rend plus de timeline depuis
+        // ce catalogue non ordonné (cf. orderedStops).
+        if cityLine == nil && suburbLine == nil && baseLine == nil {
+            loadError = AppLocalizer.string("line.load_error",
+                                            defaultValue: "Impossible de charger le tracé de la ligne.")
         }
     }
 
@@ -639,15 +639,46 @@ struct LigneDetailPage: View {
                 .tint(DS.Color.ink)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
-        } else if let loadError = viewModel.loadError, viewModel.orderedStops.isEmpty {
-            Text(loadError)
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.inkMute)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
+        } else if viewModel.activeLine == nil || viewModel.orderedStops.isEmpty {
+            // Tracé indisponible APRÈS chargement → état d'erreur honnête au
+            // lieu d'une timeline fabriquée depuis le catalogue brut.
+            lineLoadErrorState
         } else {
             timeline
         }
+    }
+
+    /// État d'erreur du tracé : icône + message + Réessayer (relance le même
+    /// `refresh()` que le bouton du header, en gardant la direction courante).
+    private var lineLoadErrorState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(DS.Color.inkMute)
+            Text(viewModel.loadError ?? AppLocalizer.string("line.load_error",
+                                                            defaultValue: "Impossible de charger le tracé de la ligne."))
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+                .multilineTextAlignment(.center)
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                Text(AppLocalizer.string("Réessayer", defaultValue: "Réessayer"))
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.paper)
+                    .padding(.horizontal, 18)
+                    .frame(height: 38)
+                    .background(DS.Color.ink)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 34)
+        .frame(maxWidth: .infinity)
+        .background(DS.Color.paper2.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     /// Whether the line currently has any active issue — community,
@@ -970,15 +1001,21 @@ struct LigneDetailPage: View {
                 // used to dominate the screen and push the tabs below the
                 // fold. 17pt bold leaves room for the operator row +
                 // direction toggle without scrolling.
-                Text(viewModel.destinationsLabel)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(2)
+                // Vides quand le tracé n'a pas chargé (état d'erreur en
+                // dessous) : on n'affiche pas un faux « Bruxelles · 0 arrêts ».
+                if !viewModel.destinationsLabel.isEmpty {
+                    Text(viewModel.destinationsLabel)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(2)
+                }
 
-                Text(viewModel.routeSubtitle)
-                    .font(DS.Font.labelSmall)
-                    .tracking(1.0)
-                    .foregroundStyle(viewModel.orderedStops.contains(where: { $0.disruption != nil }) ? DS.Color.statusMajor : DS.Color.inkMute)
+                if !viewModel.routeSubtitle.isEmpty {
+                    Text(viewModel.routeSubtitle)
+                        .font(DS.Font.labelSmall)
+                        .tracking(1.0)
+                        .foregroundStyle(viewModel.orderedStops.contains(where: { $0.disruption != nil }) ? DS.Color.statusMajor : DS.Color.inkMute)
+                }
             }
         }
     }

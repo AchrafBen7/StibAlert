@@ -120,7 +120,8 @@ struct HomeEventImpactSheet: View {
             }
 
             HStack(spacing: 8) {
-                badge(event.phaseLabel ?? "À venir", tint: phaseTint)
+                // phaseLabel = String FRANÇAIS du backend → routé par le catalogue.
+                badge(AppLocalizer.string(event.phaseLabel ?? "À venir", defaultValue: event.phaseLabel ?? "À venir"), tint: phaseTint)
                 if let impact = event.impactLevel {
                     badge(impactLabel(impact), tint: impactTint(impact))
                 }

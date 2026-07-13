@@ -31,7 +31,7 @@ struct OperatorLineDirectory: View {
                 return lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending
             }
 
-        return [OperatorLineZone(key: OperatorLineZone.allKey, label: "Toutes zones", count: lines.count)] + concreteZones
+        return [OperatorLineZone(key: OperatorLineZone.allKey, label: AppLocalizer.string("Toutes zones", defaultValue: "Toutes zones"), count: lines.count)] + concreteZones
     }
 
     private var groups: [(mode: String, lines: [OperatorLine])] {
@@ -512,7 +512,7 @@ struct OperatorDisruptionsList: View {
                 return lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending
             }
 
-        return [OperatorLineZone(key: OperatorLineZone.allKey, label: "Toutes zones", count: lineIssues.count)] + concreteZones
+        return [OperatorLineZone(key: OperatorLineZone.allKey, label: AppLocalizer.string("Toutes zones", defaultValue: "Toutes zones"), count: lineIssues.count)] + concreteZones
     }
 
     private var filteredIssues: [OperatorLineIssue] {
@@ -683,7 +683,11 @@ struct OperatorDisruptionsList: View {
         if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return AppLocalizer.string("zone.search_all", defaultValue: "RECHERCHE SUR TOUT LE RÉSEAU")
         }
-        return userCoordinate == nil ? "ZONE PRIORITAIRE" : "PLUS PROCHE DE TOI"
+        // String prop → Text(variable) ne se localise jamais : on route par le
+        // catalogue (l'app NL affichait « PLUS PROCHE DE TOI » en français).
+        return userCoordinate == nil
+            ? AppLocalizer.string("zone.priority", defaultValue: "Zone prioritaire").uppercased()
+            : AppLocalizer.string("zone.nearest", defaultValue: "Plus proche de toi").uppercased()
     }
 
     private func zoneChip(_ zone: OperatorLineZone) -> some View {
@@ -1106,8 +1110,17 @@ private extension OperatorLine {
         return "other"
     }
 
+    /// FIX zones De Lijn — match par MOT ENTIER, plus par sous-chaîne : «
+    /// H**asse**lt » contient « asse » (commune du Rand), donc TOUTES les
+    /// lignes Hasselt/Bocholt/Bree du Limbourg tombaient dans « Bruxelles /
+    /// Rand » (testé avant la liste Limbourg). Les frontières de mot (\b)
+    /// gardent les communes composées (« sint-genesius-rode ») intactes tout
+    /// en refusant les inclusions accidentelles.
     private func containsAny(_ text: String, _ needles: [String]) -> Bool {
-        needles.contains { text.contains($0) }
+        needles.contains { needle in
+            text.range(of: "\\b\(NSRegularExpression.escapedPattern(for: needle))\\b",
+                       options: .regularExpression) != nil
+        }
     }
 }
 

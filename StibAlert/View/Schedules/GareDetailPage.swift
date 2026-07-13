@@ -68,12 +68,15 @@ struct GareDetailPage: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { await load() }
         .sheet(item: $selectedDeparture) { dep in
+            let rt = liveMatch(for: dep)
             SncbDepartureSheet(
                 stationName: station.displayName,
                 stationId: station.id,
                 day: selectedDay,
                 departure: dep,
-                favorites: favorites
+                favorites: favorites,
+                platform: displayPlatform(rt),
+                platformChanged: rt?.platformChanged == true
             )
         }
     }
@@ -164,7 +167,9 @@ struct GareDetailPage: View {
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(station.displayProvince.uppercased() + " · GARE SNCB")
+                // Concaténation String → jamais localisée : « GARE SNCB »
+                // restait français en NL. On route par le catalogue.
+                Text((station.displayProvince + " · " + AppLocalizer.string("Gare SNCB", defaultValue: "Gare SNCB")).uppercased())
                     .font(DS.Font.eyebrow)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
@@ -181,8 +186,11 @@ struct GareDetailPage: View {
 
     private var primaryTabSwitcher: some View {
         HStack(spacing: 0) {
-            primaryTabLabel(.schedule, label: "Horaires")
-            primaryTabLabel(.traffic, label: "Infos trafic", showsStatusIcon: true)
+            // `label` est un paramètre String → Text(label) ne se localise
+            // jamais : les onglets restaient « Horaires » / « Infos trafic »
+            // dans l'app NL. Même routage que LigneDetailPage.
+            primaryTabLabel(.schedule, label: AppLocalizer.string("Horaires", defaultValue: "Horaires"))
+            primaryTabLabel(.traffic, label: AppLocalizer.string("Infos trafic", defaultValue: "Infos trafic"), showsStatusIcon: true)
         }
         .frame(height: 44)
         .overlay(alignment: .bottom) {
@@ -234,12 +242,15 @@ struct GareDetailPage: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 48)
         } else if visibleList.isEmpty {
+            // Paramètres String → routés par le catalogue (fuites FR en NL).
             emptyStateCard(
                 icon: "calendar.badge.exclamationmark",
-                title: isViewingToday ? "Plus de départ aujourd'hui" : "Aucun départ ce jour",
+                title: isViewingToday
+                    ? AppLocalizer.string("gare.empty.today.title", defaultValue: "Plus de départ aujourd'hui")
+                    : AppLocalizer.string("gare.empty.day.title", defaultValue: "Aucun départ ce jour"),
                 detail: isViewingToday
-                    ? "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisis un autre jour ci-dessus."
-                    : "Pas de train au départ de cette gare pour \(selectedDay.label.lowercased())."
+                    ? AppLocalizer.string("gare.empty.today.detail", defaultValue: "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisis un autre jour ci-dessus.")
+                    : AppLocalizer.format("gare.empty.day.detail", defaultValue: "Pas de train au départ de cette gare pour %@.", selectedDay.label.lowercased())
             )
         } else {
             if !favoriteDepartures.isEmpty {
@@ -363,7 +374,10 @@ struct GareDetailPage: View {
     private func scheduleRow(_ dep: SNCBDeparture) -> some View {
         let isNext = nextKey == key(for: dep)
         let isFav = favorites.contains(SNCBDepartureFavorites.key(stationId: station.id, day: selectedDay, departure: dep))
-        let rt = rtMatch(for: dep)
+        // Le liveboard iRail décrit MAINTENANT : on ne le joint qu'au jour
+        // réellement en cours. Avant, un horaire « Samedi » consulté un
+        // dimanche héritait des retards/voies du train du même créneau.
+        let rt = liveMatch(for: dep)
         let canceled = rt?.canceled ?? false
         let delay = rt?.delayMinutes ?? 0
         return Button { selectedDeparture = dep } label: {
@@ -384,10 +398,23 @@ struct GareDetailPage: View {
                         .clipShape(Capsule())
                 }
 
-                Text(dep.destination)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dep.destination)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    // Voie du temps réel uniquement — vérifié : `/api/sncb/schedule`
+                    // (GTFS statique précalculé côté backend) ne porte pas de quai,
+                    // seul `/api/sncb/realtime` (iRail) l'expose. Pour une voie
+                    // PLANIFIÉE sur un départ à J+n (hors couverture iRail), il
+                    // faudrait que l'import GTFS lise `stops.txt` au niveau quai
+                    // (child stops, `parent_station`) et le propage dans la
+                    // précalculation — chantier de ré-import, pas fait ici.
+                    // En attendant : rien quand inconnue, jamais de « Voie — ».
+                    if let platform = displayPlatform(rt) {
+                        platformTag(platform, changed: rt?.platformChanged == true)
+                    }
+                }
 
                 Spacer(minLength: 0)
 
@@ -480,8 +507,9 @@ struct GareDetailPage: View {
 
     private var trafficSubtabSwitcher: some View {
         HStack(spacing: 4) {
-            subtabChip(.live, label: "En cours", count: signalements.count)
-            subtabChip(.official, label: "Officiel", count: officialCount)
+            // Paramètres String → routés (clés existantes, nl Lopend/Officieel).
+            subtabChip(.live, label: AppLocalizer.string("En cours", defaultValue: "En cours"), count: signalements.count)
+            subtabChip(.official, label: AppLocalizer.string("Officiel", defaultValue: "Officiel"), count: officialCount)
         }
         .padding(4)
         .background(DS.Color.paper2.opacity(0.55))
@@ -844,6 +872,45 @@ struct GareDetailPage: View {
         let destKey = dep.destination.normalizedStopKey
         return candidates.first { $0.destination.normalizedStopKey == destKey }
             ?? candidates.first { $0.line.caseInsensitiveCompare(dep.line) == .orderedSame }
+    }
+
+    /// Version « honnête » du join temps réel : uniquement pour le jour en
+    /// cours. Pour un jour futur (Semaine/Samedi/Dimanche consultés en
+    /// avance), retards et voies ne sont pas connaissables → nil.
+    private func liveMatch(for dep: SNCBDeparture) -> SNCBRTDeparture? {
+        guard isViewingToday else { return nil }
+        return rtMatch(for: dep)
+    }
+
+    /// Voie affichable : renseignée, non vide, et pas le « ? » qu'iRail envoie
+    /// quand le quai n'est pas encore attribué. Absente → on n'affiche RIEN
+    /// (pas de « Voie — »).
+    private func displayPlatform(_ rt: SNCBRTDeparture?) -> String? {
+        guard let raw = rt?.platform?.trimmingCharacters(in: .whitespaces),
+              !raw.isEmpty, raw != "?" else { return nil }
+        return raw
+    }
+
+    /// Petit badge « Voie N » / « Spoor N » ; accentué (ambre) quand iRail
+    /// signale un CHANGEMENT de voie.
+    private func platformTag(_ platform: String, changed: Bool) -> some View {
+        HStack(spacing: 3) {
+            if changed {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 8, weight: .black))
+            }
+            Text("Voie \(platform)")
+                .font(.system(size: 10, weight: changed ? .black : .semibold))
+        }
+        .foregroundStyle(changed ? DS.Color.statusMinor : DS.Color.inkMute)
+        .padding(.horizontal, 6)
+        .frame(height: 17)
+        .background(
+            Capsule().fill(changed ? DS.Color.statusMinor.opacity(0.14) : DS.Color.paper2.opacity(0.8))
+        )
+        .overlay(
+            Capsule().stroke(changed ? DS.Color.statusMinor.opacity(0.45) : DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
     }
 
     private var isViewingToday: Bool { schedule?.todayType == selectedDay }

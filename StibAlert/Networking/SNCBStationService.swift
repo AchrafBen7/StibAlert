@@ -18,7 +18,13 @@ struct SNCBStation: Decodable, Identifiable, Equatable, Hashable {
     }
 
     var displayName: String {
-        standardname.isEmpty ? name : standardname
+        // Liste et détail rendent le MÊME champ (displayName) : ils ne peuvent
+        // pas diverger. L'annuaire embarqué a name == standardname partout
+        // (vérifié : 0/591 divergent) ; si un futur import fournit les deux
+        // formes, on suit la langue de l'app (fr → name, nl → standardname).
+        let preferred = AppLocale.languageCode == "nl" ? standardname : name
+        let fallback = AppLocale.languageCode == "nl" ? name : standardname
+        return preferred.isEmpty ? fallback : preferred
     }
 
     var displayProvince: String { province ?? "Autre" }
@@ -57,11 +63,14 @@ enum SNCBDayType: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Libellé localisé : ces valeurs partent dans des `Text(variable)` (puces
+    /// de jour, états vides, « Départ %@ » de la sheet) qui ne se localisent
+    /// jamais seuls — l'app NL affichait « Samedi » et « Vertrek samedi ».
     var label: String {
         switch self {
-        case .weekday: return "Semaine"
-        case .saturday: return "Samedi"
-        case .sunday: return "Dimanche"
+        case .weekday: return AppLocalizer.string("Semaine", defaultValue: "Semaine")
+        case .saturday: return AppLocalizer.string("Samedi", defaultValue: "Samedi")
+        case .sunday: return AppLocalizer.string("Dimanche", defaultValue: "Dimanche")
         }
     }
 }
@@ -102,6 +111,9 @@ struct SNCBRTDeparture: Decodable, Identifiable {
     let delayMinutes: Int
     let canceled: Bool
     let platform: String?
+    /// iRail signale les CHANGEMENTS de voie (`platforminfo.normal == "0"`).
+    /// Optionnel : nil tant que le backend déployé ne l'expose pas encore.
+    let platformChanged: Bool?
     var id: String { "\(scheduledMinutes)-\(destination)-\(line)" }
 }
 

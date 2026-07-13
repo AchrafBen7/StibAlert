@@ -9,6 +9,11 @@ struct SncbDepartureSheet: View {
     let day: SNCBDayType
     let departure: SNCBDeparture
     @ObservedObject var favorites: SNCBDepartureFavorites
+    /// Voie temps réel (iRail) du départ, si connue — uniquement pour les
+    /// départs du jour couverts par le liveboard. nil → pas de badge.
+    var platform: String? = nil
+    /// iRail signale un changement de voie → badge accentué.
+    var platformChanged: Bool = false
     @Environment(\.dismiss) private var dismiss
 
     private var favKey: String {
@@ -19,10 +24,14 @@ struct SncbDepartureSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(stationName.uppercased() + " · GARE SNCB")
+                // Concaténation String → « GARE SNCB » restait FR en NL.
+                Text((stationName + " · " + AppLocalizer.string("Gare SNCB", defaultValue: "Gare SNCB")).uppercased())
                     .font(DS.Font.eyebrow)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
+                // « Vertrek samedi » : le gabarit « Départ %@ » se traduisait,
+                // mais on y interpolait le nom de jour FRANÇAIS codé en dur.
+                // `day.label` est désormais localisé à la source (SNCBDayType).
                 Text("Départ \(day.label.lowercased())")
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
@@ -41,6 +50,27 @@ struct SncbDepartureSheet: View {
                         .frame(height: 26)
                         .background(Color(hex: "#0055A4"))
                         .clipShape(Capsule())
+                }
+                // Voie temps réel — rien quand elle est inconnue (« Voie — »
+                // n'existe pas) ; accent ambre si iRail signale un changement.
+                if let platform {
+                    HStack(spacing: 4) {
+                        if platformChanged {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10, weight: .black))
+                        }
+                        Text("Voie \(platform)")
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                    }
+                    .foregroundStyle(platformChanged ? DS.Color.statusMinor : DS.Color.ink)
+                    .padding(.horizontal, 9)
+                    .frame(height: 26)
+                    .background(
+                        Capsule().fill(platformChanged ? DS.Color.statusMinor.opacity(0.16) : DS.Color.paper2)
+                    )
+                    .overlay(
+                        Capsule().stroke(platformChanged ? DS.Color.statusMinor.opacity(0.5) : DS.Color.ink.opacity(0.14), lineWidth: 1)
+                    )
                 }
                 Spacer(minLength: 0)
             }

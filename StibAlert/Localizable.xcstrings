@@ -12826,7 +12826,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diensten"
+            "value": "Dienstregeling"
           }
         }
       }
@@ -32944,6 +32944,178 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wist het account en de bijbehorende gegevens definitief."
+          }
+        }
+      }
+    },
+    "À venir": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Binnenkort"
+          }
+        }
+      }
+    },
+    "line.load_error": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Impossible de charger le tracé de la ligne."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kan het traject van de lijn niet laden."
+          }
+        }
+      }
+    },
+    "Semaine": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Week"
+          }
+        }
+      }
+    },
+    "Samedi": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaterdag"
+          }
+        }
+      }
+    },
+    "Dimanche": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zondag"
+          }
+        }
+      }
+    },
+    "Gare SNCB": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NMBS-station"
+          }
+        }
+      }
+    },
+    "gare.empty.today.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Plus de départ aujourd'hui"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen vertrekken meer vandaag"
+          }
+        }
+      }
+    },
+    "gare.empty.today.detail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Il n'y a plus de train au départ de cette gare aujourd'hui. Choisis un autre jour ci-dessus."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er zijn vandaag geen treinen meer vanuit dit station. Kies hierboven een andere dag."
+          }
+        }
+      }
+    },
+    "gare.empty.day.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Aucun départ ce jour"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen vertrek op deze dag"
+          }
+        }
+      }
+    },
+    "gare.empty.day.detail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Pas de train au départ de cette gare pour %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen trein vanuit dit station op %@."
+          }
+        }
+      }
+    },
+    "zone.nearest": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Plus proche de toi"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dichtst bij jou"
+          }
+        }
+      }
+    },
+    "zone.priority": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Zone prioritaire"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prioritaire zone"
+          }
+        }
+      }
+    },
+    "Rien à signaler": {
+      "localizations": {
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niets te melden"
           }
         }
       }

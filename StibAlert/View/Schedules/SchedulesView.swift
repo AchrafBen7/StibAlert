@@ -73,7 +73,9 @@ struct SchedulesView: View {
         // Favoris so the navigation feels coherent. Dropped the eyebrow
         // + Dela Gothic display font to free up vertical space for the
         // mode-grouped lines grid below.
-        Text("Horaires")
+        // L'onglet s'appelle « Lignes » : le littéral « Horaires » affichait
+        // l'ANCIEN nom (et « Diensten » en NL). Même clé que la tab bar.
+        Text(AppLocalizer.string("schedules.title", defaultValue: "Lignes"))
             .font(.system(size: 22, weight: .bold))
             .foregroundStyle(DS.Color.ink)
             .padding(.top, 16)
