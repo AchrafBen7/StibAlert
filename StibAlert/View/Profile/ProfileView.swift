@@ -260,13 +260,30 @@ struct ProfileView: View {
                     VStack(spacing: 22) {
                         identityCard
 
-                        profileGroup(title: "Carte de transport") {
-                            // P3 : on lit le cache @State au lieu de
-                            // recharger UserDefaults à chaque render
-                            profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCardCached) {
-                                selectedSubpage = .transitPass
-                            }
-                        }
+                        // ⚠️ CARTE MOBIB MASQUÉE AU LANCEMENT (décision produit).
+                        //
+                        // Lire la puce d'une MoBIB laisse croire à un lien officiel
+                        // avec la STIB — alors que Blayse n'est pas affilié, ne peut
+                        // ni afficher un solde, ni valider, ni recharger. La promesse
+                        // implicite dépasse ce que la fonctionnalité tient : c'est le
+                        // genre d'écart qu'Apple sanctionne, et que la STIB pourrait
+                        // nous reprocher.
+                        //
+                        // Rien n'est supprimé : `TransitPassSettingsView`, le scan NFC
+                        // et `TransitPassStorage` restent en place, et une carte déjà
+                        // enregistrée reste en base. Seule l'ENTRÉE disparaît. Pour
+                        // rouvrir : décommenter ce bloc.
+                        //
+                        // Voir aussi Info.plist — `NFCReaderUsageDescription` doit
+                        // partir du binaire livré tant que l'écran est injoignable :
+                        // Apple rejette une permission demandée pour une
+                        // fonctionnalité inaccessible.
+                        //
+                        // profileGroup(title: "Carte de transport") {
+                        //     profileRow(icon: "creditcard", label: "MOBIB", value: maskedTransitCardCached) {
+                        //         selectedSubpage = .transitPass
+                        //     }
+                        // }
 
                         profileGroup(title: "Préférences") {
                             // P2 : on affiche l'état EFFECTIF (backend ET

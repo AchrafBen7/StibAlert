@@ -56,7 +56,7 @@ enum IssueLineCrowding {
 }
 
 enum ReportProblemType: String, CaseIterable, Identifiable {
-    case control      // Contrôle — différenciateur #1 vs app officielle
+    case control      // Contrôle — MASQUÉ au lancement, cf. `selectableCases`
     case crowding     // Affluence — info "humaine" que la STIB ne donne pas
     case delay
     case breakdown
@@ -64,6 +64,21 @@ enum ReportProblemType: String, CaseIterable, Identifiable {
     case incivility
     case cleanliness
     case aggression
+
+    /// Les types réellement PROPOSÉS à l'utilisateur.
+    ///
+    /// `control` (« contrôleurs à tel arrêt ») en est retiré pour le lancement.
+    /// Signaler la position des contrôleurs se lit trop facilement comme une aide
+    /// à la fraude : c'est un angle d'attaque gratuit face à la STIB (dont on
+    /// consomme les données ouvertes) et un motif de rejet plausible à l'App Store.
+    ///
+    /// ⚠️ Le `case` reste dans l'enum : des signalements de ce type existent DÉJÀ
+    /// en base et doivent continuer à se décoder et à s'afficher. On masque
+    /// l'entrée, on ne casse pas l'historique. Pour le réactiver : remettre
+    /// `allCases` ici.
+    static var selectableCases: [ReportProblemType] {
+        allCases.filter { $0 != .control }
+    }
 
     var id: String { rawValue }
 

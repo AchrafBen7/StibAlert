@@ -21,8 +21,11 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<key>NFCReaderUsageDescription</key>
-	<string>Blayse lit la puce de ta carte MoBIB pour l'associer à ton profil. Blayse ne peut ni afficher ton solde, ni valider un trajet, ni recharger ta carte.</string>
+	<!-- NFCReaderUsageDescription retiré avec le masquage de l'écran MoBIB.
+	     Une permission déclarée pour une fonctionnalité INJOIGNABLE est un motif
+	     de rejet App Store (même cas que le micro, hérité de l'assistant vocal
+	     supprimé). À remettre le jour où l'entrée MoBIB est rouverte dans le
+	     profil — le code de scan, lui, n'a pas bougé. -->
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<!-- Calypso "1TIC.ICA" AID — used by MoBIB / STIB-MIVB Brussels -->

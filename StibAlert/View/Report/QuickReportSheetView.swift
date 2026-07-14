@@ -879,7 +879,7 @@ struct QuickReportSheetView: View {
                 columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
                 spacing: 10
             ) {
-                ForEach(ReportProblemType.allCases) { type in
+                ForEach(ReportProblemType.selectableCases) { type in
                     problemCard(type)
                 }
             }
