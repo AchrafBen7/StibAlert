@@ -25,36 +25,80 @@ struct RouteRecommendationsSheet: View {
 
     // Translation de drag en @State (et non @GestureState) : @GestureState se
     // remet à 0 INSTANTANÉMENT au relâchement → la feuille « sautait » avant que
-    // la hauteur ne s'anime (le « bug » quand on descend la feuille). Ici on
-    // anime le retour à 0 dans le même ressort que le changement de hauteur.
+    // la hauteur ne s'anime. Ici on anime le retour à 0 dans le même ressort que
+    // le changement de hauteur.
     @State private var dragTranslation: CGFloat = 0
     @State private var expandedRouteID: UUID?
     @State private var selectedModeKey: String = "transit"
+    @State private var detent: SheetDetent = .medium
+    /// Hauteur disponible, mémorisée pour que le geste puisse calculer ses crans
+    /// (le `GeometryReader` n'est pas accessible depuis `onEnded`).
+    @State private var availableHeight: CGFloat = 0
 
-    private var sheetDragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                // On ne suit que les drags vers le BAS ; vers le haut = expand
-                // au relâchement (pas de déplacement visuel pendant le geste).
-                dragTranslation = max(0, value.translation.height)
+    /// Les 3 crans du sheet. Tirer sous le plus petit = fermer.
+    enum SheetDetent: CaseIterable {
+        case small, medium, large
+
+        func height(in available: CGFloat) -> CGFloat {
+            switch self {
+            case .small:  return min(available * 0.26, 220)
+            case .medium: return min(available * 0.52, 440)
+            case .large:  return min(available * 0.88, 760)
             }
-            .onEnded { value in
-                let verticalMove = value.translation.height
-                let predictedMove = value.predictedEndTranslation.height
+        }
+    }
 
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                    if verticalMove < -70 || predictedMove < -120 {
-                        isExpanded = true
-                    } else if verticalMove > 110 || predictedMove > 180 {
-                        if isExpanded {
-                            isExpanded = false
-                        } else {
-                            onClose()
-                        }
-                    }
-                    dragTranslation = 0 // retour animé → plus de saut
+    /// Geste à 3 crans, fluide.
+    ///
+    /// L'ancien geste ne suivait le doigt QUE vers le bas : monter ne produisait
+    /// aucun mouvement, la feuille sautait d'un coup au relâchement. D'où la
+    /// sensation de blocage. Ici la hauteur suit le doigt dans LES DEUX SENS,
+    /// puis se cale sur le cran le plus proche de la position PROJETÉE (élan du
+    /// geste inclus) — donc un petit coup sec envoie au cran suivant, un
+    /// glissement lent s'arrête au plus proche.
+    private var sheetDragGesture: some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                let raw = value.translation.height
+                // Résistance au-delà du plus grand cran : on peut tirer un peu
+                // plus haut, mais ça freine (comme un sheet iOS natif).
+                if raw < 0, currentHeight >= SheetDetent.large.height(in: availableHeight) {
+                    dragTranslation = raw * 0.25
+                } else {
+                    dragTranslation = raw
                 }
             }
+            .onEnded { value in
+                let available = availableHeight
+                let projected = detent.height(in: available) - value.predictedEndTranslation.height
+                let smallest = SheetDetent.small.height(in: available)
+
+                // Tiré nettement sous le plus petit cran → on ferme.
+                if projected < smallest * 0.55 {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                        dragTranslation = 0
+                    }
+                    onClose()
+                    return
+                }
+
+                let target = SheetDetent.allCases.min {
+                    abs($0.height(in: available) - projected) < abs($1.height(in: available) - projected)
+                } ?? .medium
+
+                withAnimation(.interpolatingSpring(stiffness: 260, damping: 27)) {
+                    detent = target
+                    dragTranslation = 0
+                    isExpanded = (target == .large)
+                }
+            }
+    }
+
+    /// Hauteur réellement affichée = cran courant, décalé par le doigt.
+    private var currentHeight: CGFloat {
+        let base = detent.height(in: availableHeight)
+        let maxH = SheetDetent.large.height(in: availableHeight) + 60
+        return min(max(base - dragTranslation, 80), maxH)
     }
 
     private var filteredOptions: [HomeRouteOption] {
@@ -117,21 +161,26 @@ struct RouteRecommendationsSheet: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let expandedHeight = min(proxy.size.height * 0.66, 584)
-            let collapsedHeight = min(proxy.size.height * 0.34, 286)
-            let sheetHeight = isExpanded ? expandedHeight : collapsedHeight
+            let sheetHeight = currentHeight
 
             VStack(spacing: 0) {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: 0) {
-                    sheetHandle
-                        .contentShape(Rectangle())
-                        .gesture(sheetDragGesture)
+                    // EN-TÊTE FIXE ET SAISISSABLE : poignée + bande de modes.
+                    // La poignée seule offrait une cible minuscule ; on peut
+                    // désormais attraper le sheet sur toute cette zone. La bande
+                    // reste visible pendant qu'on fait défiler la liste (les
+                    // onglets de mode sont une navigation, pas du contenu).
+                    VStack(alignment: .leading, spacing: 0) {
+                        sheetHandle
+                        modeSummaryStrip
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(sheetDragGesture)
 
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
-                            modeSummaryStrip
                             routeFiltersBar
                             if isRouting {
                                 routeLoadingState
@@ -176,11 +225,19 @@ struct RouteRecommendationsSheet: View {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
                 )
-                .offset(y: dragTranslation)
+                // ⚠️ PAS d'`.offset(y: dragTranslation)` ici : la hauteur
+                // (`currentHeight`) absorbe DÉJÀ le geste. Le sheet est ancré en
+                // bas, donc réduire sa hauteur fait descendre son bord haut —
+                // c'est le même effet visuel. Cumuler les deux le faisait bouger
+                // deux fois plus vite et glisser hors de l'écran.
                 .allowsHitTesting(true)
             }
             .ignoresSafeArea()
+            .onChange(of: proxy.size.height) { _, newValue in
+                availableHeight = newValue
+            }
             .onAppear {
+                availableHeight = proxy.size.height
                 let mode = preferredInitialMode
                 selectedModeKey = mode
                 let rec = recommendedOption(for: mode)
@@ -377,12 +434,18 @@ struct RouteRecommendationsSheet: View {
                         }
                     }
                     if index < modeSummaries.count - 1 {
+                        // ⚠️ HAUTEUR EXPLICITE. Un Rectangle sans hauteur est
+                        // GLOUTON : tant que la bande vivait dans la ScrollView
+                        // (hauteur libre) il se calait sur les carreaux, mais
+                        // épinglée dans un en-tête à hauteur contrainte, il
+                        // s'étirait et gonflait la bande à ~250 pt de haut.
                         Rectangle()
                             .fill(DS.Color.ink.opacity(0.12))
-                            .frame(width: 1)
+                            .frame(width: 1, height: 24)
                     }
                 }
             }
+            .frame(height: 40)
             .background(DS.Color.paper)
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -407,6 +470,7 @@ struct RouteRecommendationsSheet: View {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         expandedRouteID = recommended.id
                         isExpanded = true
+                        detent = .large
                     }
                 },
                 isExpandedCard: expandedRouteID == recommended.id,
@@ -415,6 +479,7 @@ struct RouteRecommendationsSheet: View {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                         expandedRouteID = expandedRouteID == recommended.id ? nil : recommended.id
                         isExpanded = true
+                        detent = .large
                     }
                 },
                 comparisonText: recommended.comparisonTag
@@ -557,6 +622,9 @@ struct RouteRecommendationsSheet: View {
                                 onSelect(option)
                                 expandedRouteID = option.id
                                 isExpanded = true
+                            detent = .large
+                                detent = .large
+                        detent = .large
                             }
                         }
                     },
@@ -566,6 +634,8 @@ struct RouteRecommendationsSheet: View {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
                             expandedRouteID = expandedRouteID == option.id ? nil : option.id
                             isExpanded = true
+                            detent = .large
+                        detent = .large
                         }
                     },
                     comparisonText: option.comparisonTag ?? option.deltaText(comparedTo: recommended)
@@ -790,24 +860,28 @@ private struct RouteModeSummaryTile: View {
         }
     }
 
+    /// Une SEULE ligne : icône + durée côte à côte. La version empilée (icône /
+    /// durée / titre sur trois lignes) faisait ~78 pt de haut et mangeait le
+    /// sheet avant même le premier itinéraire. Le pictogramme dit déjà « vélo »
+    /// ou « à pied » : réécrire le mot dessous est redondant. On tombe à ~40 pt.
     var body: some View {
-        VStack(spacing: 3) {
+        HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.inkMute)
             Text(summary.durationText)
-                .font(.system(size: 16, weight: .heavy))
+                .font(.system(size: 14, weight: .heavy))
                 .tracking(-0.3)
                 .foregroundStyle(isHighlighted ? DS.Color.paper : DS.Color.ink)
-            Text(summary.title)
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(isHighlighted ? DS.Color.paper.opacity(0.85) : DS.Color.inkMute)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .frame(height: 40)
         .background(isHighlighted ? DS.Color.ink : DS.Color.paper)
+        // Le mot reste lisible par VoiceOver, il n'est simplement plus dessiné.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(summary.title) \(summary.durationText)")
     }
 }
 

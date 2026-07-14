@@ -380,8 +380,30 @@ struct HomeRouteOption: Identifiable {
         let departureDate = (realtimeMatchesThisTrip ? realtime : nil) ?? scheduled ?? realtime
         let departureText = departureDate.map(Self.timeFormatter.string(from:)) ?? departureTimeText
         let arrivalText = (step.realtimeArrivalAt ?? step.scheduledArrivalAt).map(Self.timeFormatter.string(from:))
-        let waitText = departureDate.map(Self.waitText)
-            ?? L10n.Routing.atTime(departureText)
+
+        // GARDE-FOU : un départ qu'on ne peut PAS attraper ne s'annonce pas
+        // comme attrapable.
+        //
+        // Le backend écrase l'heure du tronçon avec « le prochain passage à cet
+        // arrêt » : sur un trajet avec 9 min de marche, le tram était donné pour
+        // partir à l'instant même du départ du trajet. On affichait donc
+        // « Maintenant » sur un tram qu'il faut 9 minutes pour rejoindre.
+        // Si le départ tombe avant qu'on puisse physiquement être là, on cesse
+        // de promettre un délai et on se contente de donner l'HEURE : c'est vrai,
+        // et ça laisse l'utilisateur juger.
+        let walkMinutesBefore = (backendAlternative?.steps ?? [])
+            .sorted { $0.order < $1.order }
+            .prefix { Self.isNonTransit($0.mode) }
+            .reduce(0) { $0 + $1.durationMinutes }
+        let isReachable: Bool = {
+            guard let departureDate else { return true }
+            let minutesUntil = departureDate.timeIntervalSinceNow / 60
+            return minutesUntil >= Double(walkMinutesBefore)
+        }()
+
+        let waitText = isReachable
+            ? (departureDate.map(Self.waitText) ?? L10n.Routing.atTime(departureText))
+            : L10n.Routing.atTime(departureText)
 
         return RouteDepartureInsight(
             lineCode: line,
