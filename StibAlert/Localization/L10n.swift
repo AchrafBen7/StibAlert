@@ -37,6 +37,8 @@ enum L10n {
         static var authenticationTitle: String { AppLocalizer.string("common.authentication_title", defaultValue: "Authentification") }
         static var login: String { AppLocalizer.string("common.login", defaultValue: "Se connecter") }
         static var register: String { AppLocalizer.string("common.register", defaultValue: "S'inscrire") }
+        static var expanded: String { AppLocalizer.string("common.expanded", defaultValue: "Déplié") }
+        static var collapsed: String { AppLocalizer.string("common.collapsed", defaultValue: "Replié") }
     }
 
     enum Errors {
@@ -146,6 +148,7 @@ enum L10n {
         static var otherItineraries: String { AppLocalizer.string("routing.other_itineraries", defaultValue: "Autres itinéraires") }
         static var next: String { AppLocalizer.string("routing.next", defaultValue: "Prochain") }
         static var nextDeparture: String { AppLocalizer.string("routing.next_departure", defaultValue: "Prochain passage") }
+        static var otherDepartures: String { AppLocalizer.string("routing.other_departures", defaultValue: "Autres départs") }
         static var fastest: String { AppLocalizer.string("routing.fastest", defaultValue: "Rapide") }
         static var itinerary: String { AppLocalizer.string("routing.itinerary", defaultValue: "Itinéraire") }
         static var homePlace: String { AppLocalizer.string("routing.home_place", defaultValue: "Domicile") }

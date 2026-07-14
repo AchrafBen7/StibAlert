@@ -790,6 +790,24 @@ struct TransportRouteStepDTO: Codable, Identifiable, Equatable {
     let vehicle: TransportVehicleDTO?
     let alerts: [TransportOfficialAlertDTO]?
     let path: [TransportStepCoordinateDTO]?
+    /// Les arrêts TRAVERSÉS entre la montée et la descente, dans l'ordre.
+    /// Le backend ne les connaît que pour la STIB (horaires théoriques STIB) : un
+    /// tronçon De Lijn / TEC / SNCB arrive donc légitimement vide — et l'app
+    /// n'affiche alors aucun chevron plutôt qu'un dépliant qui s'ouvre sur du vide.
+    let intermediateStops: [String]?
+    /// Les autres passages de CETTE ligne à CET arrêt, autour du nôtre.
+    let otherDepartures: [TransportStepDepartureDTO]?
+}
+
+/// Un autre passage de la ligne à l'arrêt de montée.
+struct TransportStepDepartureDTO: Codable, Equatable {
+    /// L'heure théorique. `realtimeMinutes` la corrige quand la STIB la connaît.
+    let scheduledAt: Date?
+    let realtimeMinutes: Int?
+    /// Le passage de CE trajet-ci — celui qu'on surligne. Le backend ne le marque
+    /// que s'il le reconnaît vraiment : sur un tronçon où rien ne correspond,
+    /// aucun passage n'est surligné plutôt qu'un au hasard.
+    let isThisTrip: Bool?
 }
 
 struct TransportOfficialAlertDTO: Codable, Identifiable, Equatable {

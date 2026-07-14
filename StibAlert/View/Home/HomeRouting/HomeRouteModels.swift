@@ -89,6 +89,18 @@ struct InlineRouteStepItem: Identifiable {
     var waitAfterMinutes: Int? = nil
 }
 
+/// Un autre passage de la ligne à l'arrêt de montée, prêt à afficher.
+struct RouteOtherDeparture: Identifiable {
+    let id = UUID()
+    /// L'heure du passage, déjà formatée (HH:mm, fuseau de Bruxelles).
+    let timeText: String
+    /// Le temps réel quand la STIB le donne — sinon `nil`, et on n'affiche
+    /// que l'heure théorique plutôt qu'un retard inventé.
+    let realtimeText: String?
+    /// Le passage de CE trajet : c'est lui qu'on surligne.
+    let isThisTrip: Bool
+}
+
 struct RouteItinerarySegment {
     let timeText: String
     let placeTitle: String
@@ -97,6 +109,13 @@ struct RouteItinerarySegment {
     let stepCard: RouteItineraryStepCard?
     let durationBadge: String?
     var stopCountText: String? = nil
+    /// Les arrêts traversés par ce tronçon, dans l'ordre. VIDE hors STIB (le
+    /// backend n'a le détail que du réseau STIB) : dans ce cas on n'affiche
+    /// AUCUN chevron — un dépliant qui s'ouvre sur du vide est pire que pas
+    /// de dépliant.
+    var intermediateStops: [String] = []
+    /// Les autres passages de la ligne à cet arrêt. Même règle : vide = pas de chevron.
+    var otherDepartures: [RouteOtherDeparture] = []
 }
 
 struct RouteItineraryStepCard {

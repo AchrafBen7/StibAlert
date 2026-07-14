@@ -168,6 +168,9 @@ private struct RouteTimelineRow: View {
     let isFirst: Bool
     let isLast: Bool
 
+    @State private var showsStops = false
+    @State private var showsDepartures = false
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(segment.timeText)
@@ -176,6 +179,10 @@ private struct RouteTimelineRow: View {
                 .frame(width: 54, alignment: .leading)
                 .padding(.top, 2)
 
+            // Le trait de la timeline s'ÉTIRE sur la hauteur réelle du contenu.
+            // Avant, sa longueur était une constante (120 pt, 188 pt selon la carte) :
+            // en dépliant les arrêts traversés, le contenu grandissait et le trait
+            // restait court — la timeline se cassait en deux.
             VStack(spacing: 0) {
                 if !isFirst {
                     Rectangle()
@@ -194,7 +201,8 @@ private struct RouteTimelineRow: View {
                 if !isLast {
                     Rectangle()
                         .fill(segment.accentColor.opacity(0.9))
-                        .frame(width: 3, height: max(40, segment.stepCard == nil ? 36 : (segment.stepCard?.serviceInfo == nil ? 120 : 188)))
+                        .frame(width: 3)
+                        .frame(minHeight: 36, maxHeight: .infinity)
                 }
             }
             .frame(width: 16)
@@ -242,9 +250,124 @@ private struct RouteTimelineRow: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
+
+                // Les arrêts TRAVERSÉS. Le backend ne les connaît que sur le réseau STIB :
+                // ailleurs la liste est vide, et on n'affiche alors AUCUN chevron — un
+                // dépliant qui s'ouvre sur du vide est pire que pas de dépliant.
+                if !segment.intermediateStops.isEmpty {
+                    RouteDisclosureRow(
+                        title: stopsDisclosureTitle,
+                        isExpanded: showsStops,
+                        onToggle: { toggle($showsStops) }
+                    ) {
+                        VStack(alignment: .leading, spacing: 7) {
+                            ForEach(Array(segment.intermediateStops.enumerated()), id: \.offset) { _, stop in
+                                HStack(spacing: 9) {
+                                    Circle()
+                                        .fill(segment.accentColor.opacity(0.55))
+                                        .frame(width: 5, height: 5)
+                                    Text(stop)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(DS.Color.inkMute)
+                                }
+                            }
+                        }
+                        .padding(.leading, 2)
+                    }
+                }
+
+                // Les AUTRES passages de cette ligne à cet arrêt. Même règle.
+                if !segment.otherDepartures.isEmpty {
+                    RouteDisclosureRow(
+                        title: L10n.Routing.otherDepartures,
+                        isExpanded: showsDepartures,
+                        onToggle: { toggle($showsDepartures) }
+                    ) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(segment.otherDepartures) { departure in
+                                RouteDepartureLine(departure: departure)
+                            }
+                        }
+                    }
+                }
             }
             .padding(.bottom, isLast ? 0 : 18)
         }
+    }
+
+    /// « 10 arrêts (14 min) », comme chez Google : le nombre d'arrêts ET la durée.
+    private var stopsDisclosureTitle: String {
+        let stops = segment.stopCountText ?? L10n.Routing.stopCount(segment.intermediateStops.count + 1)
+        guard let durationBadge = segment.durationBadge else { return stops }
+        return "\(stops) (\(durationBadge))"
+    }
+
+    private func toggle(_ flag: Binding<Bool>) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+            flag.wrappedValue.toggle()
+        }
+    }
+}
+
+/// Une rangée dépliable : un titre, un chevron qui pivote, et le contenu en dessous.
+/// L'appelant ne la construit QUE s'il a quelque chose à y mettre.
+private struct RouteDisclosureRow<Content: View>: View {
+    let title: String
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: onToggle) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(DS.Font.labelSmall.weight(.bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(isExpanded ? L10n.Common.expanded : L10n.Common.collapsed)
+
+            if isExpanded {
+                content()
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+}
+
+/// Un autre passage : l'heure, le temps réel s'il existe, surligné si c'est le nôtre.
+private struct RouteDepartureLine: View {
+    let departure: RouteOtherDeparture
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(departure.timeText)
+                .font(.system(size: 13, weight: departure.isThisTrip ? .bold : .regular))
+                .foregroundStyle(DS.Color.ink)
+
+            if let realtimeText = departure.realtimeText {
+                Text(realtimeText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DS.Color.community)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(departure.isThisTrip ? DS.Color.primary.opacity(0.12) : Color.clear)
+        )
     }
 }
 

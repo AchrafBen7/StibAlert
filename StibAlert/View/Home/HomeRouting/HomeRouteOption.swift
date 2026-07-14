@@ -240,7 +240,17 @@ struct HomeRouteOption: Identifiable {
                         serviceInfo: nil
                     ),
                     durationBadge: "\(duration) min",
-                    stopCountText: step.stopsCount.map(L10n.Routing.stopCount)
+                    stopCountText: step.stopsCount.map(L10n.Routing.stopCount),
+                    // Le backend ne renseigne ces deux listes que sur un tronçon
+                    // transport STIB. Partout ailleurs (marche, De Lijn, TEC, SNCB)
+                    // elles arrivent nil → vides → aucun chevron.
+                    //
+                    // La STIB nomme ses arrêts en CAPITALES (« DE WAND ») là où Google
+                    // les rend en casse normale (« Gare de Bockstael »). On aligne
+                    // l'affichage sur Google — les deux se côtoient dans la même carte.
+                    intermediateStops: (step.intermediateStops ?? [])
+                        .map { $0.capitalized(with: AppLocale.current) },
+                    otherDepartures: Self.otherDepartures(from: step)
                 )
             )
         }
@@ -610,6 +620,20 @@ struct HomeRouteOption: Identifiable {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+
+    /// Les autres passages de la ligne à cet arrêt, prêts à afficher.
+    /// Un passage sans heure n'est PAS affiché : mieux vaut une liste plus courte
+    /// qu'une ligne vide dans le dépliant.
+    private static func otherDepartures(from step: TransportRouteStepDTO) -> [RouteOtherDeparture] {
+        (step.otherDepartures ?? []).compactMap { departure in
+            guard let scheduledAt = departure.scheduledAt else { return nil }
+            return RouteOtherDeparture(
+                timeText: timeFormatter.string(from: scheduledAt),
+                realtimeText: departure.realtimeMinutes.map(L10n.Routing.inMinutes),
+                isThisTrip: departure.isThisTrip ?? false
+            )
+        }
+    }
 
     private static func modeText(for step: TransportRouteStepDTO) -> String {
         switch step.mode.lowercased() {
