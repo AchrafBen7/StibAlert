@@ -141,6 +141,63 @@ struct HomeRouteOption: Identifiable {
         return rect.insetBy(dx: -rect.width * 0.35, dy: -rect.height * 0.35)
     }
 
+    /// Modes qui ne sont PAS du transport en commun (marche, vélo).
+    private static let nonTransitModes: Set<String> = [
+        "walk", "walking", "foot", "pedestrian",
+        "bike", "biking", "bicycle", "bicycling", "cycling",
+    ]
+
+    private static func isNonTransit(_ mode: String) -> Bool {
+        nonTransitModes.contains(mode.lowercased())
+    }
+
+    /// Une suite de manœuvres marche/vélo réduite à UNE étape.
+    private struct MergedStep {
+        /// La première manœuvre du lot : elle porte le point de départ du segment.
+        let step: TransportRouteStepDTO
+        /// Somme RÉELLE des durées fusionnées (pas 1 min par manœuvre).
+        let durationMinutes: Int
+        let isMerged: Bool
+    }
+
+    /// Fusionne les manœuvres consécutives d'un même mode non-transport.
+    ///
+    /// ORS renvoie du guidage tour-par-tour : un trajet vélo de 25 min arrive en
+    /// **36 manœuvres** (« Head west », « Turn right », « Turn slight left »…)
+    /// de 0 à 1 min chacune. En rendre une rangée chacune donnait 36 lignes
+    /// identiques « Vélo vers destination · 1 MIN », et le `max(1, …)` appliqué
+    /// PAR manœuvre gonflait le temps cumulé bien au-delà de la durée réelle.
+    /// Un écran de CHOIX d'itinéraire montre le trajet, pas le guidage : une
+    /// seule rangée par segment à pied / à vélo, avec la durée vraiment cumulée.
+    private func mergedSteps(from steps: [TransportRouteStepDTO]) -> [MergedStep] {
+        var merged: [MergedStep] = []
+        for step in steps.sorted(by: { $0.order < $1.order }) {
+            let mode = step.mode.lowercased()
+            if Self.isNonTransit(mode),
+               let last = merged.last,
+               last.step.mode.lowercased() == mode {
+                merged[merged.count - 1] = MergedStep(
+                    step: last.step,
+                    durationMinutes: last.durationMinutes + step.durationMinutes,
+                    isMerged: true
+                )
+            } else {
+                merged.append(MergedStep(step: step, durationMinutes: step.durationMinutes, isMerged: false))
+            }
+        }
+        return merged
+    }
+
+    /// Libellé propre d'un segment marche/vélo. Les manœuvres ORS arrivent en
+    /// ANGLAIS (« Head west ») : on ne les affiche pas, on décrit le segment.
+    private static func nonTransitTitle(mode: String, minutes: Int) -> String {
+        let normalized = mode.lowercased()
+        let isBike = normalized.contains("bik") || normalized.contains("cycl")
+        return isBike
+            ? AppLocalizer.format("routing.bike_minutes", defaultValue: "Vélo %lld min", minutes)
+            : AppLocalizer.format("routing.walk_minutes", defaultValue: "Marche %lld min", minutes)
+    }
+
     private func detailSegments(from steps: [TransportRouteStepDTO]) -> [RouteItinerarySegment] {
         let startDate = Date()
         var elapsedMinutes = 0
@@ -155,11 +212,14 @@ struct HomeRouteOption: Identifiable {
             )
         ]
 
-        let sortedSteps = steps.sorted { $0.order < $1.order }
-        for (index, step) in sortedSteps.enumerated() {
-            elapsedMinutes += max(1, step.durationMinutes)
-            let isLastStep = index == sortedSteps.count - 1
+        let mergedList = mergedSteps(from: steps)
+        for (index, merged) in mergedList.enumerated() {
+            let step = merged.step
+            let duration = max(1, merged.durationMinutes)
+            elapsedMinutes += duration
+            let isLastStep = index == mergedList.count - 1
             let lineDescriptor = Self.lineDescriptor(for: step)
+            let nonTransit = Self.isNonTransit(step.mode)
 
             segments.append(
                 RouteItinerarySegment(
@@ -169,12 +229,14 @@ struct HomeRouteOption: Identifiable {
                     accentColor: lineDescriptor?.fillColor ?? Self.accentColor(for: step),
                     stepCard: RouteItineraryStepCard(
                         style: Self.cardStyle(for: step),
-                        title: step.instruction,
+                        title: nonTransit
+                            ? Self.nonTransitTitle(mode: step.mode, minutes: duration)
+                            : step.instruction,
                         subtitle: Self.subtitle(for: step),
                         lineBadge: lineDescriptor,
                         serviceInfo: nil
                     ),
-                    durationBadge: "\(max(1, step.durationMinutes)) min",
+                    durationBadge: "\(duration) min",
                     stopCountText: step.stopsCount.map(L10n.Routing.stopCount)
                 )
             )
@@ -226,6 +288,16 @@ struct HomeRouteOption: Identifiable {
             return Self.timeFormatter.string(from: date)
         }
         return Self.timeFormatter.string(from: Date().addingTimeInterval(TimeInterval(totalDurationMinutes * 60)))
+    }
+
+    /// « 12:54 – 13:08 » — la plage horaire du trajet, ligne 1 de la rangée
+    /// compacte. `timeFormatter` est calé sur Europe/Brussels et sur la langue
+    /// de l'app (et non sur `Locale.current`, que l'override de langue interne
+    /// ne modifie pas). Les deux bornes ont un repli (départ = maintenant,
+    /// arrivée = maintenant + durée), donc la plage est toujours affichable,
+    /// y compris pour une option Apple Maps sans alternative backend.
+    var scheduleRangeText: String {
+        "\(departureTimeText) – \(arrivalTimeText)"
     }
 
     var scheduledDepartureTimeText: String? {
@@ -318,14 +390,6 @@ struct HomeRouteOption: Identifiable {
         }
     }
 
-    var primaryModeIcon: String {
-        switch primaryModeKey {
-        case "bike": return "bicycle"
-        case "walk": return "figure.walk"
-        default: return "tram.fill"
-        }
-    }
-
     var transferSummary: String {
         let transfers = backendAlternative?.transfers ?? max(0, displayLineCodes.count - 1)
         return L10n.Routing.transferCount(transfers)
@@ -403,27 +467,6 @@ struct HomeRouteOption: Identifiable {
         case "walk": return DS.Color.inkMute.opacity(0.45)
         default: return DS.Color.primary
         }
-    }
-
-    /// Tracé géographique par tronçon (couleur de ligne officielle), pour le
-    /// mini-aperçu dessiné sur la card — contrairement à `legChips` qui n'est
-    /// qu'iconographique (badges de ligne), ceci montre la FORME réelle du
-    /// trajet. Vide si aucune coordonnée n'est exploitable ; le caller retombe
-    /// alors sur `legChips`.
-    var thumbnailSegments: [RouteThumbnailSegment] {
-        if let backendAlternative, let steps = backendAlternative.steps, !steps.isEmpty {
-            return steps.sorted { $0.order < $1.order }.compactMap { step in
-                let coordinates = Self.segmentCoordinates(for: step)
-                guard coordinates.count > 1 else { return nil }
-                return RouteThumbnailSegment(
-                    coordinates: coordinates,
-                    color: Self.mapStrokeColor(for: step),
-                    width: Self.mapStrokeWidth(for: step)
-                )
-            }
-        }
-        guard routeCoordinates.count > 1 else { return [] }
-        return [RouteThumbnailSegment(coordinates: routeCoordinates, color: DS.Color.primary, width: 5)]
     }
 
     /// Court tag expliquant POURQUOI cette option diffère (ex. "Plus fiable",

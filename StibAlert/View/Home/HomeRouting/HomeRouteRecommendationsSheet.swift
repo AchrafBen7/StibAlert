@@ -11,7 +11,13 @@ struct RouteRecommendationsSheet: View {
     @Binding var selectedRouteID: UUID?
     @Binding var isExpanded: Bool
     @Binding var preferredOperator: String?
-    var onOperatorChange: () -> Void = {}
+    @Binding var departureTime: Date?
+    @Binding var transitModes: Set<RouteTransitMode>
+    /// Vrai pendant le recalcul déclenché par un changement de filtre : la
+    /// liste passe en état de chargement au lieu de garder un résultat
+    /// obsolète à l'écran.
+    var isRouting: Bool = false
+    var onFiltersChange: () -> Void = {}
     let onSelect: (HomeRouteOption) -> Void
     let onClose: () -> Void
 
@@ -61,7 +67,12 @@ struct RouteRecommendationsSheet: View {
     /// bannière l'utilisateur croyait que ces options étaient « le transport »
     /// — c'est le 🔴 « échec d'API silencieux ». On l'avertit explicitement.
     private var showTransitUnavailableNotice: Bool {
-        selectedModeKey == "transit" && !options.contains { $0.primaryModeKey == "transit" }
+        // `!options.isEmpty` évite que cette bannière ("transport en commun
+        // indisponible, voici marche/vélo") se superpose à l'état "aucun
+        // itinéraire avec ces filtres" quand la liste est VRAIMENT vide
+        // (options.isEmpty) : ce sont deux causes différentes, une seule
+        // doit s'afficher à la fois.
+        !options.isEmpty && selectedModeKey == "transit" && !options.contains { $0.primaryModeKey == "transit" }
     }
     /// La carte « recommandée » (grande, en haut) suit la route SÉLECTIONNÉE :
     /// taper une autre route la fait monter en tête (« sélectionner à la place »)
@@ -110,12 +121,16 @@ struct RouteRecommendationsSheet: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             modeSummaryStrip
-                            operatorPreferenceStrip
-                            transitUnavailableBanner
-                            rerouteBanner
-                            recommendedSection
-                            optionsHeader
-                            otherOptionsList
+                            routeFiltersBar
+                            if isRouting {
+                                routeLoadingState
+                            } else {
+                                transitUnavailableBanner
+                                rerouteBanner
+                                recommendedSection
+                                optionsHeader
+                                otherOptionsList
+                            }
                         }
                     }
                 }
@@ -188,39 +203,32 @@ struct RouteRecommendationsSheet: View {
             .padding(.bottom, 14)
     }
 
-    private var operatorChoices: [(label: String, value: String?)] {
-        [("Tous", nil), ("STIB", "stib"), ("De Lijn", "delijn"), ("TEC", "tec")]
-    }
-
-    // #4 — préférence d'opérateur : re-classe les itinéraires pour privilégier
-    // un réseau (sans exclure). Visible seulement quand il y a du transit.
-    @ViewBuilder private var operatorPreferenceStrip: some View {
+    /// Rangée de filtres (Départ / Transports / Opérateur), sous les onglets
+    /// de mode. Remplace l'ancienne bande "opérateur seul" (#4) : même règle
+    /// de visibilité — filtrer par opérateur, heure ou mode n'a pas de sens
+    /// sur une option 100% marche/vélo, donc masquée sans alternative transit.
+    @ViewBuilder private var routeFiltersBar: some View {
         if modeSummaries.contains(where: { $0.modeKey == "transit" && $0.durationText != "—" }) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(operatorChoices, id: \.label) { choice in
-                        let isSelected = preferredOperator == choice.value
-                        Button {
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            preferredOperator = choice.value
-                            onOperatorChange()
-                        } label: {
-                            Text(choice.label)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(isSelected ? DS.Color.primaryForeground : DS.Color.ink)
-                                .padding(.horizontal, 12)
-                                .frame(height: 30)
-                                .background(isSelected ? DS.Color.primary : DS.Color.paper2)
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(DS.Color.ink.opacity(isSelected ? 0 : 0.14), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
+            RouteFiltersBar(
+                departureTime: $departureTime,
+                transitModes: $transitModes,
+                preferredOperator: $preferredOperator,
+                onChange: onFiltersChange
+            )
             .padding(.top, 8)
         }
+    }
+
+    private var hasActiveFilters: Bool {
+        preferredOperator != nil || departureTime != nil || !transitModes.isEmpty
+    }
+
+    private func resetFilters() {
+        UISelectionFeedbackGenerator().selectionChanged()
+        preferredOperator = nil
+        departureTime = nil
+        transitModes = []
+        onFiltersChange()
     }
 
     @ViewBuilder private var transitUnavailableBanner: some View {
@@ -334,6 +342,7 @@ struct RouteRecommendationsSheet: View {
             RouteOptionCard(
                 option: recommended,
                 isRecommended: true,
+                isFastest: recommended.id == filteredOptions.first?.id,
                 isSelected: selectedRouteID == recommended.id,
                 action: {
                     onSelect(recommended)
@@ -353,6 +362,14 @@ struct RouteRecommendationsSheet: View {
                 comparisonText: recommended.comparisonTag
             )
             .padding(.horizontal, 16)
+        } else if hasActiveFilters {
+            // Résultat backend vide À CAUSE des filtres (cf. HomeView ->
+            // buildBackendFirstRouteOptions/respectActiveFilters) : un état
+            // dédié, honnête, plutôt que le message générique "active ta
+            // position" qui n'a rien à voir avec la cause réelle.
+            noItineraryWithFiltersState
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
         } else {
             // E1 — État vide : avant la feuille s'affichait sans contenu
             // (zéro option + tous les modeSummaries à "—"). Désormais on
@@ -391,29 +408,88 @@ struct RouteRecommendationsSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private var optionsHeader: some View {
-        HStack(alignment: .center) {
-            Text(L10n.Routing.otherItineraries.uppercased(with: AppLocale.current))
-                .font(DS.Font.labelSmall.weight(.bold))
-                .tracking(2)
-                .foregroundStyle(DS.Color.ink)
-            Text(String(format: "%02d", max(others.count, 0)))
-                .font(DS.Font.labelSmall)
-                .foregroundStyle(DS.Color.inkMute)
-            Rectangle()
-                .fill(DS.Color.ink.opacity(0.12))
-                .frame(height: 1)
+    /// Cas fréquent : un filtre légitime (ex. "SNCB" sur un trajet
+    /// intra-Bruxelles) ne donne simplement aucun résultat. Plutôt que de
+    /// laisser croire à une panne, on nomme la cause et on propose la sortie.
+    private var noItineraryWithFiltersState: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMinor)
+                    .frame(width: 32, height: 32)
+                    .background(DS.Color.statusMinor.opacity(0.12))
+                    .clipShape(Circle())
+                Text(L10n.Routing.noItineraryWithFiltersTitle)
+                    .font(DS.Font.bodyBold)
+                    .foregroundStyle(DS.Color.ink)
+                Spacer()
+            }
+            Button(action: resetFilters) {
+                Text(L10n.Routing.resetFilters)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(DS.Color.primaryForeground)
+                    .padding(.horizontal, 14)
+                    .frame(height: 32)
+                    .background(DS.Color.primary)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .padding(14)
+        .background(DS.Color.paper2.opacity(0.7))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// Remplace la liste pendant le recalcul déclenché par un changement de
+    /// filtre — "remet la liste en chargement" plutôt que de laisser un
+    /// résultat obsolète (potentiellement pour d'autres filtres) à l'écran.
+    private var routeLoadingState: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .tint(DS.Color.ink)
+            Text(L10n.Common.loading)
+                .font(DS.Font.bodySmall)
+                .foregroundStyle(DS.Color.inkMute)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    /// En-tête « AUTRES ITINÉRAIRES · N ». Rendu UNIQUEMENT s'il y en a :
+    /// affiché sur une liste vide, il annonçait « AUTRES ITINÉRAIRES 00 » —
+    /// un titre de section suivi de rien, avec un compteur zéro-padded qui
+    /// ressemblait à un bug d'affichage.
+    @ViewBuilder private var optionsHeader: some View {
+        if !others.isEmpty {
+            HStack(alignment: .center) {
+                Text(L10n.Routing.otherItineraries.uppercased(with: AppLocale.current))
+                    .font(DS.Font.labelSmall.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(DS.Color.ink)
+                Text("\(others.count)")
+                    .font(DS.Font.labelSmall)
+                    .foregroundStyle(DS.Color.inkMute)
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+        }
     }
 
     private var otherOptionsList: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             ForEach(others) { option in
                 RouteOptionCard(
                     option: option,
                     isRecommended: false,
+                    isFastest: option.id == filteredOptions.first?.id,
                     isSelected: selectedRouteID == option.id,
                     action: {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
@@ -447,6 +523,11 @@ struct RouteRecommendationsSheet: View {
 private struct RouteOptionCard: View {
     let option: HomeRouteOption
     let isRecommended: Bool
+    /// Vraie option la plus rapide de la liste filtrée. Indépendant de
+    /// `isRecommended`, qui suit la sélection MANUELLE de l'utilisateur
+    /// (cf. `RouteRecommendationsSheet.recommended`) — un choix plus lent
+    /// promu en tête ne doit jamais s'afficher "Le plus rapide".
+    var isFastest: Bool = false
     let isSelected: Bool
     let action: () -> Void
     var isExpandedCard: Bool = false
@@ -460,11 +541,7 @@ private struct RouteOptionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: action) {
-                if isRecommended {
-                    recommendedLayout
-                } else {
-                    alternativeLayout
-                }
+                compactLayout
             }
             .buttonStyle(.plain)
 
@@ -476,7 +553,7 @@ private struct RouteOptionCard: View {
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(option.leadingAccentColor)
-                .frame(width: isRecommended ? 6 : 4)
+                .frame(width: isRecommended ? 5 : 3)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -485,151 +562,90 @@ private struct RouteOptionCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    /// État collapsed simplifié : un repère visuel (mini-tracé), UN nombre
-    /// proéminent (durée), UN tag de comparaison — le détail (correspondances,
-    /// horaires précis, étapes) reste dans `expandedContent` (InlineRouteDetails),
-    /// pas dupliqué ici. Avant, cette carte affichait 4-5 informations
-    /// textuelles en même temps (durée + retard + heure d'arrivée + mode/
-    /// transferts + flow-strip + prochain départ) ; jugé trop chargé.
-    private var recommendedLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 12) {
-                routeThumbnail(size: 56)
+    /// Rangée compacte façon Google Maps (~72-84 pt, contre ~150-200 pt avant) :
+    /// colonne durée fixe à gauche, plage horaire + séquence de tronçons +
+    /// temps réel empilés à droite. UNE seule mise en page pour la carte
+    /// recommandée et les alternatives (avant : deux layouts distincts) — seuls
+    /// le liseré et le tag "Le plus rapide" distinguent la meilleure option.
+    /// La vignette de carte (`RouteShapeThumbnail`) a disparu : elle bouffait
+    /// la place et le tracé réel est déjà dessiné sur la carte sous le sheet.
+    private var compactLayout: some View {
+        HStack(alignment: .top, spacing: 12) {
+            durationColumn
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(option.durationText)
-                            .font(.system(size: 24, weight: .black))
-                            .tracking(-0.7)
-                            .foregroundStyle(DS.Color.ink)
-                        Spacer(minLength: 8)
-                        Button(action: { onToggleExpanded?() }) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(option.scheduleRangeText)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                    if let tag = displayedTag {
+                        tagPill(tag)
+                    }
+                    Spacer(minLength: 0)
+                    if let onToggleExpanded {
+                        Button(action: onToggleExpanded) {
                             Image(systemName: isExpandedCard ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(DS.Color.inkMute)
-                                .frame(width: 28, height: 28)
+                                .frame(width: 22, height: 22)
                         }
                         .buttonStyle(.plain)
                     }
-
-                    // Arrivée + raison sur une ligne dédiée : à côté du « 27 min » en
-                    // gros, le tag « Het snelste traject » était tronqué (« … TRA… »).
-                    // Ici il a toute la largeur ; l'arrivée garde la priorité.
-                    HStack(spacing: 8) {
-                        Text(arrivalSubtitleText)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DS.Color.inkMute)
-                            .lineLimit(1)
-                            .layoutPriority(1)
-                        if let comparisonText {
-                            comparisonTag(comparisonText, prominent: true)
-                        }
-                        Spacer(minLength: 0)
-                    }
-
-                    if !option.legChips.isEmpty {
-                        RouteLinesStrip(chips: option.legChips)
-                            .padding(.top, 3)
-                    }
-
-                    if let nextDeparture = option.nextDepartureInsight {
-                        RouteNextDepartureLine(insight: nextDeparture)
-                            .padding(.top, 2)
-                    }
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, isExpandedCard ? 10 : 16)
-        }
-    }
 
-    /// Arrivée + retard sur UNE ligne (avant : deux éléments de texte séparés
-    /// avec leur propre traitement visuel pour la même info temporelle).
-    private var arrivalSubtitleText: String {
-        guard let secondary = option.timingSecondaryText else { return option.timingHeadlineText }
-        return "\(option.timingHeadlineText) · \(secondary)"
-    }
-
-    private var alternativeLayout: some View {
-        HStack(spacing: 14) {
-            routeThumbnail(size: 40)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(option.durationText)
-                    .font(.system(size: 17, weight: .black))
-                    .tracking(-0.5)
-                    .foregroundStyle(DS.Color.ink)
                 if !option.legChips.isEmpty {
                     RouteLinesStrip(chips: option.legChips)
                 }
-                if let comparisonText {
-                    comparisonTag(comparisonText, prominent: false)
+
+                if let nextDeparture = option.nextDepartureInsight {
+                    RouteNextDepartureLine(insight: nextDeparture)
                 }
             }
-
-            Spacer(minLength: 8)
-
-            Text(option.timingHeadlineText)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(DS.Color.inkMute)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Color.inkMute)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
     }
 
-    /// Mini-tracé géographique si on a des coordonnées exploitables, sinon
-    /// l'icône de mode (repli identique à l'ancien design de la carte
-    /// recommandée, juste réutilisé aussi pour les alternatives).
-    @ViewBuilder
-    private func routeThumbnail(size: CGFloat) -> some View {
-        if !option.thumbnailSegments.isEmpty {
-            RouteShapeThumbnail(segments: option.thumbnailSegments, size: size)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(DS.Color.ink)
-                Image(systemName: option.primaryModeIcon)
-                    .font(.system(size: size * 0.34, weight: .medium))
-                    .foregroundStyle(DS.Color.paper)
-            }
-            .frame(width: size, height: size)
+    /// Nombre en gros + unité dessous, largeur fixe pour que toutes les
+    /// rangées s'alignent verticalement (comme les résultats Google Maps).
+    private var durationColumn: some View {
+        VStack(spacing: 0) {
+            Text("\(option.totalDurationMinutes)")
+                .font(.system(size: 22, weight: .black))
+                .tracking(-0.5)
+                .foregroundStyle(DS.Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(L10n.Routing.minutesUnit)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
         }
+        .frame(width: 56)
+    }
+
+    /// Priorité à la raison backend ("Plus fiable"…) ; à défaut, "Le plus
+    /// rapide" UNIQUEMENT sur la vraie option la plus rapide — jamais sur une
+    /// option juste promue par sélection manuelle (cf. `isFastest`).
+    private var displayedTag: String? {
+        if let comparisonText, !comparisonText.isEmpty { return comparisonText }
+        return isFastest ? L10n.Routing.fastestTag : nil
     }
 
     // Casse normale, sans-serif : un tag « Het snelste traject » se lit comme un
     // label, pas comme un code en capitales monospace. La mono reste réservée au
     // temps réel (minutes d'attente), pas à une étiquette de comparaison.
-    private func comparisonTag(_ text: String, prominent: Bool) -> some View {
+    private func tagPill(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(prominent ? DS.Color.primary : DS.Color.inkMute)
+            .font(.system(size: 10.5, weight: .bold))
+            .foregroundStyle(DS.Color.primary)
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .modifier(ComparisonTagBackground(prominent: prominent))
-    }
-}
-
-/// Pastille pour la version "recommandée" (proéminente), texte nu pour les
-/// alternatives compactes (cohérent avec leur densité réduite).
-private struct ComparisonTagBackground: ViewModifier {
-    let prominent: Bool
-    func body(content: Content) -> some View {
-        if prominent {
-            content
-                .padding(.horizontal, 7)
-                .frame(height: 20)
-                .background(DS.Color.primary.opacity(0.12))
-                .clipShape(Capsule())
-        } else {
-            content
-        }
+            .padding(.horizontal, 6)
+            .frame(height: 18)
+            .background(DS.Color.primary.opacity(0.12))
+            .clipShape(Capsule())
     }
 }
 
@@ -756,67 +772,6 @@ private struct RouteLineMiniBadge: View {
                     .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-    }
-}
-
-/// Mini-aperçu géographique du tracé : normalise les coordonnées dans une
-/// bounding box (avec correction cos(latitude) pour que la forme ne soit pas
-/// distordue est-ouest) puis dessine chaque tronçon avec sa couleur de ligne
-/// officielle. Donne une vraie FORME au trajet sur la card, là où avant seuls
-/// des badges de ligne (`legChips`) étaient visibles.
-private struct RouteShapeThumbnail: View {
-    let segments: [RouteThumbnailSegment]
-    var size: CGFloat = 56
-
-    var body: some View {
-        Canvas { context, canvasSize in
-            let allCoordinates = segments.flatMap(\.coordinates)
-            guard allCoordinates.count > 1 else { return }
-
-            let lats = allCoordinates.map(\.latitude)
-            let lngs = allCoordinates.map(\.longitude)
-            guard let minLat = lats.min(), let maxLat = lats.max(),
-                  let minLng = lngs.min(), let maxLng = lngs.max() else { return }
-
-            let midLat = (minLat + maxLat) / 2
-            let midLng = (minLng + maxLng) / 2
-            let lngCorrection = cos(midLat * .pi / 180)
-
-            let latSpan = max(maxLat - minLat, 0.0008)
-            let correctedLngSpan = max((maxLng - minLng) * lngCorrection, 0.0008)
-            let inset: CGFloat = 6
-            let drawable = min(canvasSize.width, canvasSize.height) - inset * 2
-            let scale = drawable / CGFloat(max(latSpan, correctedLngSpan))
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-
-            func point(for coordinate: CLLocationCoordinate2D) -> CGPoint {
-                CGPoint(
-                    x: center.x + CGFloat((coordinate.longitude - midLng) * lngCorrection) * scale,
-                    y: center.y - CGFloat(coordinate.latitude - midLat) * scale
-                )
-            }
-
-            for segment in segments {
-                guard segment.coordinates.count > 1 else { continue }
-                var path = Path()
-                path.move(to: point(for: segment.coordinates[0]))
-                for coordinate in segment.coordinates.dropFirst() {
-                    path.addLine(to: point(for: coordinate))
-                }
-                context.stroke(
-                    path,
-                    with: .color(segment.color),
-                    style: StrokeStyle(lineWidth: max(segment.width * 0.55, 2), lineCap: .round, lineJoin: .round)
-                )
-            }
-        }
-        .frame(width: size, height: size)
-        .background(DS.Color.paper2.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
-        )
     }
 }
 

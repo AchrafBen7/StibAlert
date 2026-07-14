@@ -1078,6 +1078,14 @@ struct TransportRecommendationRequest: Encodable {
     /// Opérateur préféré (stib/delijn/tec/sncb) : le backend remonte les
     /// alternatives qui l'utilisent. `nil` = aucune préférence.
     var preferredOperator: String? = nil
+    /// Heure de départ souhaitée, ISO-8601 (chaîne, pas un `Date` : l'encodeur
+    /// JSON par défaut de l'app sérialise `Date` en timestamp numérique, pas
+    /// en ISO-8601 — le formatage se fait donc en amont, côté service).
+    /// `nil` = maintenant.
+    var departureTime: String? = nil
+    /// Sous-ensemble de `["TRAM","SUBWAY","BUS","RAIL"]` (valeurs MOTIS).
+    /// `nil` ou vide = tous les modes.
+    var transitModes: [String]? = nil
 }
 
 struct TransportRecommendationDTO: Codable, Equatable {

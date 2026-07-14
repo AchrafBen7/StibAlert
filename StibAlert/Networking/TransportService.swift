@@ -48,11 +48,21 @@ enum TransportService {
         try await APIClient.shared.request("/api/transport/line/\(id)")
     }
 
+    /// Formatte en ISO-8601 (sans fraction de seconde — suffisant pour que
+    /// `new Date(string)` côté backend parse correctement).
+    private static let departureTimeFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
     static func recommendRoute(
         depart: String,
         destination: String,
         lignesBloquees: [String] = [],
-        preferredOperator: String? = nil
+        preferredOperator: String? = nil,
+        departureTime: Date? = nil,
+        transitModes: [String]? = nil
     ) async throws -> TransportRecommendationDTO {
         let result: TransportRecommendationDTO = try await APIClient.shared.request(
             "/api/transport/route/recommend",
@@ -61,7 +71,9 @@ enum TransportService {
                 depart: depart,
                 destination: destination,
                 lignesBloquees: lignesBloquees,
-                preferredOperator: preferredOperator
+                preferredOperator: preferredOperator,
+                departureTime: departureTime.map(departureTimeFormatter.string(from:)),
+                transitModes: (transitModes?.isEmpty ?? true) ? nil : transitModes
             )
         )
         Analytics.track(.routeCalculated)

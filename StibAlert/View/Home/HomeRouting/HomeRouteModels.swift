@@ -9,14 +9,6 @@ struct RouteModeSummary {
     let isFastest: Bool
 }
 
-/// Un tronçon du tracé réel (coordonnées géographiques), pour le mini-aperçu
-/// dessiné sur les cartes d'itinéraire.
-struct RouteThumbnailSegment {
-    let coordinates: [CLLocationCoordinate2D]
-    let color: Color
-    let width: CGFloat
-}
-
 struct RouteDepartureInsight {
     let lineCode: String
     let modeText: String

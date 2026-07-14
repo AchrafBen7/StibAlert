@@ -306,6 +306,32 @@ enum L10n {
                 ? AppLocalizer.string("routing.one_line_summary", defaultValue: "1 ligne")
                 : AppLocalizer.format("routing.lines_summary", defaultValue: "%d lignes", count)
         }
+
+        // MARK: - Rangée compacte + filtres du sheet d'itinéraires
+
+        static var train: String { AppLocalizer.string("routing.train", defaultValue: "Train") }
+        /// Unité sous le gros nombre de la colonne durée (« 20 » / « min »).
+        static var minutesUnit: String { AppLocalizer.string("routing.minutes_unit", defaultValue: "min") }
+        static var fastestTag: String { AppLocalizer.string("routing.fastest_tag", defaultValue: "Le plus rapide") }
+        static var transportsFilter: String { AppLocalizer.string("routing.filters.transports", defaultValue: "Transports") }
+        static var operatorsFilter: String { AppLocalizer.string("routing.filters.operators", defaultValue: "Opérateurs") }
+        static var allTransports: String { AppLocalizer.string("routing.filters.all_transports", defaultValue: "Tous les transports") }
+        static var allOperators: String { AppLocalizer.string("routing.filters.all_operators", defaultValue: "Tous les opérateurs") }
+        static var departureTimeTitle: String { AppLocalizer.string("routing.filters.departure_title", defaultValue: "Heure de départ") }
+        static var noItineraryWithFiltersTitle: String {
+            AppLocalizer.string("routing.filters.empty_title", defaultValue: "Aucun itinéraire avec ces filtres")
+        }
+        static var resetFilters: String { AppLocalizer.string("routing.filters.reset", defaultValue: "Réinitialiser les filtres") }
+
+        static func departureAt(_ time: String) -> String {
+            AppLocalizer.format("routing.filters.departure_at", defaultValue: "Départ %@", time)
+        }
+
+        /// Toujours appelé avec `count >= 3` (en deçà, la capsule affiche les
+        /// modes en toutes lettres) — donc jamais de forme singulière à gérer.
+        static func transportsCount(_ count: Int) -> String {
+            AppLocalizer.format("routing.filters.transports_count", defaultValue: "%d transports", count)
+        }
     }
 
     enum Reports {

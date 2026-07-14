@@ -7,7 +7,10 @@ struct HomeRouteSurfaceOverlay: View {
     @Binding var selectedRouteID: UUID?
     @Binding var isRouteSheetExpanded: Bool
     @Binding var preferredOperator: String?
-    var onOperatorChange: () -> Void = {}
+    @Binding var departureTime: Date?
+    @Binding var transitModes: Set<RouteTransitMode>
+    var isRouting: Bool = false
+    var onFiltersChange: () -> Void = {}
     let selectedRouteDetail: HomeRouteOption?
     let shouldShowRouteSheet: Bool
     let shouldShowRouteDetail: Bool
@@ -27,7 +30,10 @@ struct HomeRouteSurfaceOverlay: View {
                     selectedRouteID: $selectedRouteID,
                     isExpanded: $isRouteSheetExpanded,
                     preferredOperator: $preferredOperator,
-                    onOperatorChange: onOperatorChange,
+                    departureTime: $departureTime,
+                    transitModes: $transitModes,
+                    isRouting: isRouting,
+                    onFiltersChange: onFiltersChange,
                     onSelect: onSelect,
                     onClose: onCloseRouteSheet
                 )

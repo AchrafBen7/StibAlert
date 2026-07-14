@@ -58,6 +58,18 @@ struct HomeView: View {
     // #4 — opérateur préféré pour l'itinéraire (nil = tous). Les derniers points
     // du trajet servent à recalculer quand la préférence change.
     @State var preferredRouteOperator: String? = nil
+    // Rangée de filtres (sheet d'itinéraires) : heure de départ souhaitée
+    // (nil = maintenant) et sous-ensemble de modes de transit (vide = tous).
+    // Mêmes points de trajet réutilisés pour recalculer au changement.
+    @State var preferredRouteDepartureTime: Date? = nil
+    @State var preferredRouteTransitModes: Set<RouteTransitMode> = []
+    /// Vrai dès qu'un des 3 filtres s'écarte de son défaut. Sert à décider si
+    /// un résultat backend vide doit rester vide (état honnête « aucun
+    /// itinéraire avec ces filtres ») ou si on retombe sur les routes
+    /// Apple Maps non filtrées (cf. `buildBackendFirstRouteOptions`).
+    private var hasActiveRouteFilters: Bool {
+        preferredRouteOperator != nil || preferredRouteDepartureTime != nil || !preferredRouteTransitModes.isEmpty
+    }
     @State private var lastRoutedSource: MKMapItem? = nil
     @State private var lastRoutedDestination: MKMapItem? = nil
     @State private var lastRoutedOriginName: String = ""
@@ -355,9 +367,24 @@ struct HomeView: View {
                 || summary.contains("pas de circulation")
             guard interrupted else { continue }
             let code = normalizedLineNumber(cluster.ligne)
-            if !code.isEmpty { lines.insert(code) }
+            guard Self.looksLikeLineCode(code) else { continue }
+            lines.insert(code)
         }
         return Array(lines)
+    }
+
+    /// Une perturbation RÉSEAU (pas propre à une ligne) arrive avec `ligne`
+    /// valant le nom de l'opérateur — « STIB ». Insérée telle quelle, elle
+    /// s'affichait comme une ligne à éviter (« Itinéraire recalculé — évite
+    /// 37, STIB, N12, 51 »), ce qui n'a aucun sens et pouvait écarter des
+    /// trajets à tort. On valide donc la FORME d'un code de ligne plutôt que
+    /// de blacklister des noms d'opérateurs (liste qui serait toujours en
+    /// retard d'un opérateur) : chiffres (12, 92), noctis (N12), ou préfixe
+    /// de mode + chiffres (T7, B71, M5).
+    private static func looksLikeLineCode(_ code: String) -> Bool {
+        guard !code.isEmpty else { return false }
+        return code.range(of: "^[TBM]?[0-9]{1,3}[A-Z]?$|^N[0-9]{1,3}$",
+                          options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     private var routeOfficialSignalPoints: [RouteOfficialSignalPoint] {
@@ -1378,7 +1405,10 @@ struct HomeView: View {
             selectedRouteID: $selectedRouteID,
             isRouteSheetExpanded: $isRouteSheetExpanded,
             preferredOperator: $preferredRouteOperator,
-            onOperatorChange: { Task { await reRouteForOperatorChange() } },
+            departureTime: $preferredRouteDepartureTime,
+            transitModes: $preferredRouteTransitModes,
+            isRouting: isRouting,
+            onFiltersChange: { Task { await reRouteForFilterChange() } },
             selectedRouteDetail: selectedRouteDetail,
             shouldShowRouteSheet: shouldShowRouteSheet,
             shouldShowRouteDetail: shouldShowRouteDetail,
@@ -2971,9 +3001,10 @@ struct HomeView: View {
         await buildRoute(from: source, to: destination, originName: L10n.Routing.currentPosition)
     }
 
-    /// Recalcule le trajet courant avec la nouvelle préférence d'opérateur (#4).
+    /// Recalcule le trajet courant après un changement de filtre (opérateur,
+    /// heure de départ, ou modes de transport — rangée de filtres du sheet).
     @MainActor
-    private func reRouteForOperatorChange() async {
+    private func reRouteForFilterChange() async {
         guard let source = lastRoutedSource, let destination = lastRoutedDestination else { return }
         await buildRoute(from: source, to: destination, originName: lastRoutedOriginName)
     }
@@ -3007,7 +3038,8 @@ struct HomeView: View {
             recommendation: recommendation,
             fallbackOptions: fallbackOptions,
             originName: originName,
-            destinationName: destination.name ?? L10n.Routing.destination.capitalized(with: AppLocale.current)
+            destinationName: destination.name ?? L10n.Routing.destination.capitalized(with: AppLocale.current),
+            respectActiveFilters: hasActiveRouteFilters
         )
 
         guard !finalOptions.isEmpty || recommendation != nil else { return }
@@ -3045,7 +3077,9 @@ struct HomeView: View {
             depart: depart,
             destination: destinationQuery,
             lignesBloquees: liveBlockedLines,
-            preferredOperator: preferredRouteOperator
+            preferredOperator: preferredRouteOperator,
+            departureTime: preferredRouteDepartureTime,
+            transitModes: preferredRouteTransitModes.isEmpty ? nil : preferredRouteTransitModes.map(\.rawValue)
         )
     }
 
@@ -3149,9 +3183,20 @@ struct HomeView: View {
         recommendation: TransportRecommendationDTO?,
         fallbackOptions: [HomeRouteOption],
         originName: String,
-        destinationName: String
+        destinationName: String,
+        respectActiveFilters: Bool = false
     ) -> [HomeRouteOption] {
         guard let recommendation else { return demoteWalkingOnlyOptions(fallbackOptions) }
+
+        // Un ou plusieurs filtres (opérateur / heure / modes) sont actifs et le
+        // backend renvoie 0 alternative : NE PAS combler avec les routes Apple
+        // Maps, qui ignorent ces filtres (ex. elles montreraient du STIB alors
+        // que l'utilisateur a demandé "SNCB uniquement"). Mieux vaut un état
+        // vide honnête qu'un résultat qui semble respecter le filtre sans le
+        // faire réellement.
+        if respectActiveFilters && recommendation.recommendedAlternatives.isEmpty {
+            return []
+        }
 
         var backendOptions = recommendation.recommendedAlternatives.enumerated().map { index, alternative in
             let matchedRoute = matchedFallbackRoute(for: alternative, in: fallbackOptions)
