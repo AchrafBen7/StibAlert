@@ -33460,6 +33460,40 @@
           }
         }
       }
+    },
+    "routing.backend_unreachable.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveur injoignable"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server onbereikbaar"
+          }
+        }
+      }
+    },
+    "routing.backend_unreachable.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les itinéraires en transport n'ont pas pu être chargés. Ce n'est pas le réseau qui manque, c'est la connexion."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De routes met het openbaar vervoer konden niet worden geladen. Het net rijdt wel — de verbinding ontbreekt."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

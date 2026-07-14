@@ -141,17 +141,26 @@ struct APIClient {
     }()
     private let encoder = JSONEncoder()
 
+    /// - Parameter timeout: dépassement propre à CETTE requête. Le défaut de la
+    ///   session (8 s) convient aux appels simples, mais pas au calcul
+    ///   d'itinéraire : côté serveur il agrège Transitous + ORS + les API STIB,
+    ///   et l'instance peut sortir de veille. Au-delà de 8 s l'appel echouait,
+    ///   l'app retombait sur Apple Plans (qui ne sait ni le vélo ni le transit
+    ///   bruxellois) et annonçait « aucun itinéraire en transport en commun » —
+    ///   un mensonge, pour une app de transport en commun.
     func request<Response: Decodable>(
         _ path: String,
         method: HTTPMethod = .GET,
         body: Encodable? = nil,
         requiresAuth: Bool = false,
+        timeout: TimeInterval? = nil,
         as: Response.Type = Response.self
     ) async throws -> Response {
         guard AppConfig.isBackendEnabled else { throw APIError.backendDisabled }
         guard let url = URL(string: AppConfig.backendBaseURL + path) else { throw APIError.invalidURL }
 
         var req = URLRequest(url: url)
+        if let timeout { req.timeoutInterval = timeout }
         req.httpMethod = method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")

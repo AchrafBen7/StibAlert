@@ -74,7 +74,11 @@ enum TransportService {
                 preferredOperator: preferredOperator,
                 departureTime: departureTime.map(departureTimeFormatter.string(from:)),
                 transitModes: (transitModes?.isEmpty ?? true) ? nil : transitModes
-            )
+            ),
+            // Le cœur du produit : on lui laisse le temps de répondre. 8 s (le
+            // défaut de la session) coupait l'appel dès que le serveur sortait
+            // de veille ou qu'un fournisseur amont trainait.
+            timeout: 30
         )
         Analytics.track(.routeCalculated)
         return result

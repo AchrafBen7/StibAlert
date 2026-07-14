@@ -18,6 +18,8 @@ struct RouteRecommendationsSheet: View {
     /// obsolète à l'écran.
     var isRouting: Bool = false
     var onFiltersChange: () -> Void = {}
+    /// Le serveur n'a pas répondu — distinct de « ce trajet n'a pas de transport ».
+    var backendUnreachable: Bool = false
     let onSelect: (HomeRouteOption) -> Void
     let onClose: () -> Void
 
@@ -72,7 +74,16 @@ struct RouteRecommendationsSheet: View {
         // itinéraire avec ces filtres" quand la liste est VRAIMENT vide
         // (options.isEmpty) : ce sont deux causes différentes, une seule
         // doit s'afficher à la fois.
-        !options.isEmpty && selectedModeKey == "transit" && !options.contains { $0.primaryModeKey == "transit" }
+        //
+        // Et surtout : elle ne doit PAS s'afficher quand le serveur n'a pas
+        // répondu. « Aucun transport en commun sur ce trajet » est un VERDICT
+        // sur le réseau ; une panne réseau n'autorise aucun verdict. Dans ce
+        // cas c'est `backendUnreachableBanner` qui parle, et lui propose de
+        // réessayer.
+        !backendUnreachable
+            && !options.isEmpty
+            && selectedModeKey == "transit"
+            && !options.contains { $0.primaryModeKey == "transit" }
     }
     /// La carte « recommandée » (grande, en haut) suit la route SÉLECTIONNÉE :
     /// taper une autre route la fait monter en tête (« sélectionner à la place »)
@@ -125,6 +136,7 @@ struct RouteRecommendationsSheet: View {
                             if isRouting {
                                 routeLoadingState
                             } else {
+                                backendUnreachableBanner
                                 transitUnavailableBanner
                                 rerouteBanner
                                 recommendedSection
@@ -229,6 +241,52 @@ struct RouteRecommendationsSheet: View {
         departureTime = nil
         transitModes = []
         onFiltersChange()
+    }
+
+    /// « Je n'ai pas pu joindre le serveur », et on propose de réessayer.
+    /// Surtout PAS « aucun itinéraire en transport en commun sur ce trajet » :
+    /// c'est un verdict sur le réseau bruxellois qu'une panne réseau ne permet
+    /// pas de rendre — et c'est ce que l'app affichait.
+    @ViewBuilder private var backendUnreachableBanner: some View {
+        if backendUnreachable {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMajor)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(AppLocalizer.string("routing.backend_unreachable.title",
+                                             defaultValue: "Serveur injoignable"))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                    Text(AppLocalizer.string("routing.backend_unreachable.body",
+                                             defaultValue: "Les itinéraires en transport n'ont pas pu être chargés. Ce n'est pas le réseau qui manque, c'est la connexion."))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(DS.Color.inkMute)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(action: { onFiltersChange() }) {
+                        Text(AppLocalizer.string("common.retry", defaultValue: "Réessayer"))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(DS.Color.paper)
+                            .padding(.horizontal, 14)
+                            .frame(height: 30)
+                            .background(Capsule().fill(DS.Color.ink))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(DS.Color.statusMajor.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.statusMajor.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+        }
     }
 
     @ViewBuilder private var transitUnavailableBanner: some View {

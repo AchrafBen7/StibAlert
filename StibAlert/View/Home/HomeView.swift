@@ -63,6 +63,10 @@ struct HomeView: View {
     // Mêmes points de trajet réutilisés pour recalculer au changement.
     @State var preferredRouteDepartureTime: Date? = nil
     @State var preferredRouteTransitModes: Set<RouteTransitMode> = []
+    /// Le serveur n'a pas répondu (veille, réseau, timeout) — À NE PAS CONFONDRE
+    /// avec « ce trajet n'a pas de transport en commun ». Sans cette distinction,
+    /// une panne réseau s'affichait comme un verdict sur le réseau bruxellois.
+    @State var routeBackendUnreachable = false
     /// Vrai dès qu'un des 3 filtres s'écarte de son défaut. Sert à décider si
     /// un résultat backend vide doit rester vide (état honnête « aucun
     /// itinéraire avec ces filtres ») ou si on retombe sur les routes
@@ -1409,6 +1413,7 @@ struct HomeView: View {
             transitModes: $preferredRouteTransitModes,
             isRouting: isRouting,
             onFiltersChange: { Task { await reRouteForFilterChange() } },
+            backendUnreachable: routeBackendUnreachable,
             selectedRouteDetail: selectedRouteDetail,
             shouldShowRouteSheet: shouldShowRouteSheet,
             shouldShowRouteDetail: shouldShowRouteDetail,
@@ -3065,6 +3070,17 @@ struct HomeView: View {
         }
     }
 
+    /// ⚠️ Cette fonction avalait son erreur (`try?`). Quand l'appel échouait —
+    /// serveur en veille, réseau, timeout de 8 s — elle renvoyait `nil`, l'app
+    /// retombait silencieusement sur Apple Plans (qui ne fournit ni vélo ni
+    /// transit bruxellois exploitable) et affichait « Aucun itinéraire en
+    /// transport en commun trouvé pour ce trajet ».
+    ///
+    /// C'était FAUX, et c'est le pire mensonge possible pour une app de
+    /// transport en commun : le trajet existait (le serveur en avait 4), on
+    /// n'avait simplement pas réussi à le demander. On distingue desormais
+    /// « pas de transport sur ce trajet » de « je n'ai pas pu joindre le
+    /// serveur », et on le dit.
     private func fetchBackendRecommendation(
         source: MKMapItem,
         destination: MKMapItem
@@ -3073,14 +3089,22 @@ struct HomeView: View {
 
         let depart = "\(source.placemark.coordinate.latitude),\(source.placemark.coordinate.longitude)"
         let destinationQuery = "\(destination.placemark.coordinate.latitude),\(destination.placemark.coordinate.longitude)"
-        return try? await TransportService.recommendRoute(
-            depart: depart,
-            destination: destinationQuery,
-            lignesBloquees: liveBlockedLines,
-            preferredOperator: preferredRouteOperator,
-            departureTime: preferredRouteDepartureTime,
-            transitModes: preferredRouteTransitModes.isEmpty ? nil : preferredRouteTransitModes.map(\.rawValue)
-        )
+        do {
+            let result = try await TransportService.recommendRoute(
+                depart: depart,
+                destination: destinationQuery,
+                lignesBloquees: liveBlockedLines,
+                preferredOperator: preferredRouteOperator,
+                departureTime: preferredRouteDepartureTime,
+                transitModes: preferredRouteTransitModes.isEmpty ? nil : preferredRouteTransitModes.map(\.rawValue)
+            )
+            await MainActor.run { routeBackendUnreachable = false }
+            return result
+        } catch {
+            ErrorReporting.capture(error)
+            await MainActor.run { routeBackendUnreachable = true }
+            return nil
+        }
     }
 
     private func buildModeSummaries(
@@ -3306,12 +3330,24 @@ struct HomeView: View {
         let depart = "\(source.placemark.coordinate.latitude),\(source.placemark.coordinate.longitude)"
         let destinationQuery = "\(destination.placemark.coordinate.latitude),\(destination.placemark.coordinate.longitude)"
 
-        guard let recommendation = try? await TransportService.recommendRoute(
-            depart: depart,
-            destination: destinationQuery,
-            lignesBloquees: liveBlockedLines,
-            preferredOperator: preferredRouteOperator
-        ) else {
+        // Même règle que `fetchBackendRecommendation` : une erreur réseau se
+        // signale, elle ne se déguise pas en « pas d'itinéraire ». Et les
+        // filtres actifs doivent être respectés ici aussi, sinon un recalcul
+        // renvoyait des trajets qui les ignoraient.
+        let recommendation: TransportRecommendationDTO
+        do {
+            recommendation = try await TransportService.recommendRoute(
+                depart: depart,
+                destination: destinationQuery,
+                lignesBloquees: liveBlockedLines,
+                preferredOperator: preferredRouteOperator,
+                departureTime: preferredRouteDepartureTime,
+                transitModes: preferredRouteTransitModes.isEmpty ? nil : preferredRouteTransitModes.map(\.rawValue)
+            )
+            await MainActor.run { routeBackendUnreachable = false }
+        } catch {
+            ErrorReporting.capture(error)
+            await MainActor.run { routeBackendUnreachable = true }
             return nil
         }
 

@@ -11,6 +11,7 @@ struct HomeRouteSurfaceOverlay: View {
     @Binding var transitModes: Set<RouteTransitMode>
     var isRouting: Bool = false
     var onFiltersChange: () -> Void = {}
+    var backendUnreachable: Bool = false
     let selectedRouteDetail: HomeRouteOption?
     let shouldShowRouteSheet: Bool
     let shouldShowRouteDetail: Bool
@@ -34,6 +35,7 @@ struct HomeRouteSurfaceOverlay: View {
                     transitModes: $transitModes,
                     isRouting: isRouting,
                     onFiltersChange: onFiltersChange,
+                    backendUnreachable: backendUnreachable,
                     onSelect: onSelect,
                     onClose: onCloseRouteSheet
                 )
