@@ -3,7 +3,10 @@ import SwiftUI
 
 /// One leg of a journey, for the Google-style flow strip (walk vs a line).
 enum RouteLegChip: Equatable {
-    case walk
+    /// Marche, AVEC sa durée : une icône de piéton nue ne dit rien. Google
+    /// écrit « 🚶 4 » — c'est la minute qui porte l'information, pas le
+    /// pictogramme, et une rangée en alignait jusqu'à cinq, muets.
+    case walk(minutes: Int)
     case line(RouteLineDescriptor)
 }
 
@@ -354,11 +357,30 @@ struct HomeRouteOption: Identifiable {
             }),
             let line = Self.displayLine(for: step) else { return nil }
 
-        let departureDate = step.realtimeDepartureAt ?? step.scheduledDepartureAt
+        // L'HEURE DE CE TRAJET-CI, PAS « LE PROCHAIN À CET ARRÊT ».
+        //
+        // `realtimeDepartureMinutes` décrit le prochain passage de la ligne à
+        // l'arrêt, calculé depuis MAINTENANT — il ne connaît pas l'itinéraire.
+        // Le lire en priorité produisait deux mensonges visibles à l'écran :
+        //   1. deux itinéraires « 10 → 88 » arrivant à 16:46 et à 17:01
+        //      affichaient TOUS LES DEUX « Prochain 10 · Maintenant », alors
+        //      qu'ils prennent deux trams différents ;
+        //   2. « Maintenant » sur un trajet qui commence par 7 min de marche :
+        //      ce tram-là, on ne peut PAS l'avoir. L'itinéraire, lui, tient
+        //      déjà compte de la marche — c'est donc SON heure d'embarquement
+        //      qui est la bonne, et elle seule.
+        // On garde le temps réel uniquement quand il colle à ce départ-ci
+        // (tolérance 10 min = un retard plausible, pas une autre course).
+        let scheduled = step.scheduledDepartureAt
+        let realtime = step.realtimeDepartureAt
+        let realtimeMatchesThisTrip: Bool = {
+            guard let realtime, let scheduled else { return false }
+            return abs(realtime.timeIntervalSince(scheduled)) <= 10 * 60
+        }()
+        let departureDate = (realtimeMatchesThisTrip ? realtime : nil) ?? scheduled ?? realtime
         let departureText = departureDate.map(Self.timeFormatter.string(from:)) ?? departureTimeText
         let arrivalText = (step.realtimeArrivalAt ?? step.scheduledArrivalAt).map(Self.timeFormatter.string(from:))
-        let waitText = step.realtimeDepartureMinutes.map(Self.waitText)
-            ?? departureDate.map(Self.waitText)
+        let waitText = departureDate.map(Self.waitText)
             ?? L10n.Routing.atTime(departureText)
 
         return RouteDepartureInsight(
@@ -368,7 +390,10 @@ struct HomeRouteOption: Identifiable {
             departureText: departureText,
             arrivalText: arrivalText,
             stopText: step.destination ?? step.arrivalStopName,
-            isRealtime: step.realtimeDepartureAt != nil || step.realtimeDepartureMinutes != nil
+            // La pastille verte « temps réel » ne s'allume que si le temps réel
+            // concerne VRAIMENT ce départ-ci. Sinon, on affiche une heure
+            // théorique honnête plutôt qu'une fausse promesse de live.
+            isRealtime: realtimeMatchesThisTrip
         )
     }
 
@@ -433,13 +458,23 @@ struct HomeRouteOption: Identifiable {
         }
         var chips: [RouteLegChip] = []
         for step in steps.sorted(by: { $0.order < $1.order }) {
-            let mode = step.mode.lowercased()
-            if mode == "walk" || mode == "walking" || mode == "foot" {
-                if chips.last == .walk { continue }
-                chips.append(.walk)
+            if Self.isNonTransit(step.mode) {
+                // Marches consécutives fusionnées, avec la durée CUMULÉE : le
+                // vélo/la marche arrivent en manœuvres tour-par-tour (ORS), et
+                // une puce par manœuvre donnait une file d'icônes identiques.
+                if case .walk(let minutes) = chips.last {
+                    chips[chips.count - 1] = .walk(minutes: minutes + step.durationMinutes)
+                } else {
+                    chips.append(.walk(minutes: step.durationMinutes))
+                }
             } else if let descriptor = Self.lineDescriptor(for: step) {
                 chips.append(.line(descriptor))
             }
+        }
+        // Une marche de moins d'une minute n'est pas une étape : on la tait.
+        chips = chips.filter { chip in
+            if case .walk(let minutes) = chip { return minutes >= 1 }
+            return true
         }
         return chips.isEmpty ? displayLineDescriptors.map { .line($0) } : chips
     }
@@ -557,8 +592,9 @@ struct HomeRouteOption: Identifiable {
     private static func modeText(for step: TransportRouteStepDTO) -> String {
         switch step.mode.lowercased() {
         case "bus": return L10n.Routing.bus
-        case "metro": return L10n.Routing.metro
+        case "metro", "subway": return L10n.Routing.metro
         case "tram": return L10n.Routing.tram
+        case "train", "rail": return AppLocalizer.string("routing.train", defaultValue: "Train")
         default: return L10n.Routing.line
         }
     }
@@ -796,11 +832,18 @@ struct HomeRouteOption: Identifiable {
         return nil
     }
 
+    /// Le backend émet `walk` / `bike` / `bus` / `tram` / `metro` / `train`
+    /// (vérifié en prod). L'ancien `default: "tram.fill"` faisait donc porter
+    /// une icône de TRAM au métro ET au train SNCB — factuellement faux, et
+    /// visible : la ligne 6 (métro) s'affichait avec un tram.
     private static func iconName(for step: TransportRouteStepDTO) -> String? {
         switch step.mode.lowercased() {
-        case "walk": return "figure.walk"
-        case "bike": return "bicycle"
+        case "walk", "walking", "foot", "pedestrian": return "figure.walk"
+        case "bike", "biking", "bicycle", "bicycling", "cycling": return "bicycle"
         case "bus": return "bus.fill"
+        case "metro", "subway": return "tram.fill.tunnel"
+        case "train", "rail": return "train.side.front.car"
+        case "tram": return "tram.fill"
         default: return "tram.fill"
         }
     }

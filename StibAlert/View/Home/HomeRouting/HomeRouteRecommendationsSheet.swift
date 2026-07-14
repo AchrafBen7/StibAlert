@@ -664,10 +664,14 @@ private struct RouteLinesStrip: View {
                         .foregroundStyle(DS.Color.inkMute.opacity(0.45))
                 }
                 switch chip {
-                case .walk:
-                    Image(systemName: "figure.walk")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(DS.Color.inkMute)
+                case .walk(let minutes):
+                    HStack(spacing: 2) {
+                        Image(systemName: "figure.walk")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("\(minutes)")
+                            .font(.system(size: 10, weight: .heavy))
+                    }
+                    .foregroundStyle(DS.Color.inkMute)
                 case .line(let descriptor):
                     Text(descriptor.code)
                         .font(.system(size: 11, weight: .heavy))
