@@ -21,11 +21,14 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<!-- NFCReaderUsageDescription retiré avec le masquage de l'écran MoBIB.
-	     Une permission déclarée pour une fonctionnalité INJOIGNABLE est un motif
-	     de rejet App Store (même cas que le micro, hérité de l'assistant vocal
-	     supprimé). À remettre le jour où l'entrée MoBIB est rouverte dans le
-	     profil — le code de scan, lui, n'a pas bougé. -->
+	<!-- NFCReaderUsageDescription REQUIS : `MobibNFCReader.swift` (CoreNFC /
+	     NFCTagReaderSession) est TOUJOURS compilé dans le binaire, même si
+	     l'écran MoBIB est masqué. App Store rejette l'UPLOAD d'un binaire qui
+	     référence CoreNFC sans cette clé (validation automatique). La retirer
+	     le 2026-07-13 était une erreur : elle aurait bloqué la soumission.
+	     Le texte reste vrai (scan pour associer la carte, sans solde/validation). -->
+	<key>NFCReaderUsageDescription</key>
+	<string>Blayse lit la puce de ta carte MoBIB pour l'associer à ton profil. Blayse ne peut ni afficher ton solde, ni valider un trajet, ni recharger ta carte.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<!-- Calypso "1TIC.ICA" AID — used by MoBIB / STIB-MIVB Brussels -->
