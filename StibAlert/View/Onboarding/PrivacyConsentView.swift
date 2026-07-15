@@ -15,7 +15,7 @@ struct PrivacyConsentView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    Text("Avant de continuer, voici comment Blayse traite tes données.")
+                    Text(AppLocalizer.string("Avant de continuer, voici comment Blayse traite tes données.", defaultValue: "Avant de continuer, voici comment Blayse traite tes données."))
                         .font(DS.Font.body)
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.bottom, 8)
@@ -55,7 +55,7 @@ struct PrivacyConsentView: View {
                             Text("Partager des statistiques d'usage anonymes")
                                 .font(DS.Font.bodyBold)
                                 .foregroundStyle(DS.Color.ink)
-                            Text("Aucune donnée personnelle identifiable. Modifiable dans Profil → Confidentialité.")
+                            Text(AppLocalizer.string("Aucune donnée personnelle identifiable. Modifiable dans Profil → Confidentialité.", defaultValue: "Aucune donnée personnelle identifiable. Modifiable dans Profil → Confidentialité."))
                                 .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.inkMute)
                         }
@@ -70,7 +70,7 @@ struct PrivacyConsentView: View {
                     } label: {
                         HStack {
                             Image(systemName: "doc.text")
-                            Text("Lire la politique de confidentialité complète")
+                            Text(AppLocalizer.string("Lire la politique de confidentialité complète", defaultValue: "Lire la politique de confidentialité complète"))
                             Spacer()
                             Image(systemName: "chevron.right")
                         }
@@ -142,7 +142,7 @@ struct PrivacyConsentView: View {
                 .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(2)
                 .foregroundStyle(DS.Color.primary)
-            Text("Tes données, tes règles")
+            Text(AppLocalizer.string("Tes données, tes règles", defaultValue: "Tes données, tes règles"))
                 .font(DS.Font.displayH1)
                 .foregroundStyle(DS.Color.ink)
         }
@@ -175,11 +175,11 @@ struct PrivacyPolicySheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Politique de confidentialité — Blayse")
+                    Text(AppLocalizer.string("Politique de confidentialité — Blayse", defaultValue: "Politique de confidentialité — Blayse"))
                         .font(DS.Font.displayH2)
                         .foregroundStyle(DS.Color.ink)
 
-                    Text("Dernière mise à jour : 12 mai 2026 · Version \(PrivacyConsent.currentVersion)")
+                    Text(AppLocalizer.format("onboarding.privacy.last_updated", defaultValue: "Dernière mise à jour : 12 mai 2026 · Version %@", PrivacyConsent.currentVersion))
                         .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
 

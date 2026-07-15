@@ -84,12 +84,12 @@ struct OnboardingRoutineStep: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Ton trajet régulier.")
+                Text(AppLocalizer.string("Ton trajet régulier.", defaultValue: "Ton trajet régulier."))
                     .font(DesignSystem.Typography.display)
                     .foregroundStyle(DS.Color.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("On peut t'envoyer un brief 15 min avant ton départ habituel. Si rien à signaler, silence.")
+                Text(AppLocalizer.string("On peut t'envoyer un brief 15 min avant ton départ habituel. Si rien à signaler, silence.", defaultValue: "On peut t'envoyer un brief 15 min avant ton départ habituel. Si rien à signaler, silence."))
                     .font(DesignSystem.Typography.body)
                     .foregroundStyle(DS.Color.inkSoft)
                     .lineSpacing(3)
@@ -101,7 +101,7 @@ struct OnboardingRoutineStep: View {
     private var departureCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Heure de départ")
+                Text(AppLocalizer.string("Heure de départ", defaultValue: "Heure de départ"))
                     .font(DS.Font.labelSmall)
                     .tracking(1.8)
                     .textCase(.uppercase)
@@ -146,7 +146,7 @@ struct OnboardingRoutineStep: View {
             DS.Rule()
 
             Toggle(isOn: $skipDeparture) {
-                Text("Horaire variable — pas de brief programmé")
+                Text(AppLocalizer.string("Horaire variable — pas de brief programmé", defaultValue: "Horaire variable — pas de brief programmé"))
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)
             }
@@ -163,7 +163,7 @@ struct OnboardingRoutineStep: View {
 
     private var homeCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Ton point de départ")
+            Text(AppLocalizer.string("Ton point de départ", defaultValue: "Ton point de départ"))
                 .font(DS.Font.labelSmall)
                 .tracking(1.8)
                 .textCase(.uppercase)
@@ -190,7 +190,7 @@ struct OnboardingRoutineStep: View {
             )
 
             // Pas de monospace : elle est réservée aux données temps réel.
-            Text("Tu pourras associer un vrai arrêt STIB plus tard dans Profil.")
+            Text(AppLocalizer.string("Tu pourras associer un vrai arrêt STIB plus tard dans Profil.", defaultValue: "Tu pourras associer un vrai arrêt STIB plus tard dans Profil."))
                 .font(DS.Font.caption)
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -275,7 +275,7 @@ struct OnboardingRoutineStep: View {
             persist()
             onSkip()
         } label: {
-            Text("Passer cette étape")
+            Text(AppLocalizer.string("Passer cette étape", defaultValue: "Passer cette étape"))
                 .font(DS.Font.label)
                 .tracking(1.4)
                 .textCase(.uppercase)

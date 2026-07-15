@@ -122,7 +122,7 @@ struct FeatureTourView: View {
                     // visite" reste accessible depuis Profile pour rejouer.
                     if pageIndex == 0 {
                         Button(action: skip) {
-                            Text("Je découvre tout seul")
+                            Text(AppLocalizer.string("Je découvre tout seul", defaultValue: "Je découvre tout seul"))
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(DS.Color.inkMute)
                                 .padding(.vertical, 4)
