@@ -310,7 +310,11 @@ struct HomeProactiveAlertCard: View {
         collapseTask?.cancel()
         guard !isCollapsed else { return }
         collapseTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            // 8 s, pas 3 : à 3 s la carte se repliait avant même qu'on ait fini
+            // de lire « perturbation officielle sur telle ligne à tel arrêt ».
+            // C'est une info à lire ET sur laquelle agir (confirmer / infirmer),
+            // pas une notif qu'on chasse d'un geste.
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
                 isCollapsed = true

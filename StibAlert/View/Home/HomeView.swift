@@ -1405,7 +1405,11 @@ struct HomeView: View {
         HomeRouteSurfaceOverlay(
             options: routeOptions,
             modeSummaries: routeModeSummaries,
-            blockedLines: currentTransportRecommendation?.request.lignesBloquees ?? [],
+            // Le bandeau « recalculé » ne liste que les lignes bloquées PERTINENTES
+            // pour ce trajet (elles desservent départ/arrivée), pas la liste
+            // globale des lignes bloquées de la ville. Repli sur la liste globale
+            // si un backend antérieur ne renvoie pas encore le champ.
+            blockedLines: currentTransportRecommendation.map { $0.relevantBlockedLines ?? $0.request.lignesBloquees } ?? [],
             selectedRouteID: $selectedRouteID,
             isRouteSheetExpanded: $isRouteSheetExpanded,
             preferredOperator: $preferredRouteOperator,

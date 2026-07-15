@@ -93,6 +93,15 @@ struct RouteFiltersBar: View {
         return formatter
     }()
 
+    /// Jour court, localisé (« sam. » / « za. ») — pour un départ un autre jour.
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = AppLocale.current
+        formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return formatter
+    }()
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -167,7 +176,15 @@ struct RouteFiltersBar: View {
 
     private var departureLabel: String {
         guard let departureTime else { return L10n.Routing.now }
-        return L10n.Routing.departureAt(Self.timeFormatter.string(from: departureTime))
+        // Le JOUR n'apparaît que s'il n'est pas aujourd'hui : sinon « Départ 12:00 »
+        // suffit ; pour demain / ce week-end on préfixe le jour (« Départ sam. 12:00 »)
+        // pour que la capsule ne mente pas sur le jour.
+        let cal = Calendar.current
+        let time = Self.timeFormatter.string(from: departureTime)
+        if cal.isDateInToday(departureTime) {
+            return L10n.Routing.departureAt(time)
+        }
+        return L10n.Routing.departureAt("\(Self.dayFormatter.string(from: departureTime)) \(time)")
     }
 
     /// Les modes choisis en toutes lettres tant que ça tient (« Tram, Bus »),
@@ -213,36 +230,38 @@ private struct DepartureFilterSheet: View {
                     usesNow = true
                 }
 
+                // Date ET heure : on peut désormais préparer un trajet pour un
+                // autre JOUR (demain, ce week-end…), pas seulement une heure
+                // aujourd'hui. Borné à [maintenant, +7 jours] : le passé n'a pas
+                // de sens pour un départ, et l'horaire GTFS ne va pas au-delà.
                 DatePicker(
                     L10n.Routing.departureTimeTitle,
                     selection: Binding(
                         get: { time },
                         set: { newValue in
                             time = newValue
-                            usesNow = false // toucher la roue = vouloir une heure précise
+                            usesNow = false // toucher le sélecteur = vouloir un départ précis
                         }
                     ),
-                    displayedComponents: .hourAndMinute
+                    in: Self.selectableRange,
+                    displayedComponents: [.date, .hourAndMinute]
                 )
-                .datePickerStyle(.wheel)
+                .datePickerStyle(.compact)
                 .labelsHidden()
                 .opacity(usesNow ? 0.45 : 1)
+
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, 4)
         }
-        .onDisappear { onApply(usesNow ? nil : Self.normalized(time)) }
+        // La borne `in:` empêche déjà le passé : plus besoin de recaler à demain.
+        .onDisappear { onApply(usesNow ? nil : time) }
     }
 
-    /// Recale l'heure choisie dans la fenêtre J+0 / J+1.
-    ///
-    /// La roue ne rend que des heures/minutes : à 13 h, choisir « 08:00 » produit
-    /// un `Date` situé CE MATIN, donc dans le passé. Le backend ignore en silence
-    /// une heure passée et retombe sur « maintenant » — la capsule afficherait
-    /// « Départ 08:00 » au-dessus d'un itinéraire calculé pour maintenant, c'est-
-    /// à-dire un mensonge. Une heure déjà passée ne peut donc désigner que demain.
-    /// La tolérance d'une minute est celle du backend.
-    private static func normalized(_ date: Date) -> Date {
-        guard date < Date().addingTimeInterval(-60) else { return date }
-        return date.addingTimeInterval(24 * 3600)
+    /// De maintenant à +7 jours — l'horizon de l'horaire théorique.
+    private static var selectableRange: ClosedRange<Date> {
+        let now = Date()
+        return now...now.addingTimeInterval(7 * 24 * 3600)
     }
 }
 

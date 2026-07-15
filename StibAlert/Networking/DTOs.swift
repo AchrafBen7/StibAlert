@@ -1114,6 +1114,10 @@ struct TransportRecommendationDTO: Codable, Equatable {
     }
 
     let request: Request
+    /// Les lignes bloquées qui desservent VRAIMENT ce trajet (départ/arrivée) —
+    /// pour le bandeau « itinéraire recalculé ». Optionnel : un backend antérieur
+    /// ne l'envoie pas → le bandeau retombe alors sur la liste globale.
+    let relevantBlockedLines: [String]?
     let severity: String
     let confidence: Double
     let realtimeStatus: String

@@ -248,6 +248,10 @@ extension HomeView {
     @ViewBuilder
     var proactiveAlertOverlay: some View {
         if let cluster = proactiveAlertCluster,
+           // Uniquement sur la Home (la carte). Son état vit dans HomeView, qui
+           // reste monté sous les autres onglets d'un TabView : sans ce garde,
+           // la carte flottait par-dessus Lignes / Alertes / Favoris / Profil.
+           nav.currentPage == .home,
            // La grève (bandeau plein écran) prime sur la carte proactive.
            !(strike.active && !strikeBannerDismissed),
            !tripTracker.isActive,
