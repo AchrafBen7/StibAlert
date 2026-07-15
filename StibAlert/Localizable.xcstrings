@@ -33563,6 +33563,23 @@
           }
         }
       }
+    },
+    "routing.stops_between": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld arrêts intermédiaires"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tussenhaltes"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

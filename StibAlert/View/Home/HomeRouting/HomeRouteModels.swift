@@ -87,6 +87,10 @@ struct InlineRouteStepItem: Identifiable {
     /// arrival and the following leg's departure). Drives the "Attente X min"
     /// connector so a long correspondence isn't silently hidden.
     var waitAfterMinutes: Int? = nil
+    /// Les arrêts TRAVERSÉS par ce tronçon (STIB uniquement — vide ailleurs).
+    var intermediateStops: [String] = []
+    /// Les autres passages de la ligne à cet arrêt (STIB uniquement — vide ailleurs).
+    var otherDepartures: [RouteOtherDeparture] = []
 }
 
 /// Un autre passage de la ligne à l'arrêt de montée, prêt à afficher.

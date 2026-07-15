@@ -931,94 +931,196 @@ private struct InlineRouteDetails: View {
                 .padding(.bottom, 8)
 
             ForEach(Array(option.inlineSteps.enumerated()), id: \.element.id) { index, item in
-                HStack(alignment: .top, spacing: 10) {
-                    if let lineCode = item.lineCode {
-                        RouteLineMiniBadge(line: lineCode)
-                            .frame(width: 30, height: 30)
-                    } else {
-                        ZStack {
-                            Circle()
-                                .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
-                                .frame(width: 28, height: 28)
-                            if let icon = item.icon {
-                                Image(systemName: icon)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(DS.Color.inkMute)
-                            }
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(item.title)
-                                .font(.system(size: 12.5, weight: .bold))
-                                .foregroundStyle(DS.Color.ink)
-                                .lineLimit(2)
-                            Spacer(minLength: 6)
-                            if let timingBadge = item.timingBadge {
-                                Text(timingBadge)
-                                    .font(.system(size: 10.5, weight: .black))
-                                    .tracking(-0.1)
-                                    .foregroundStyle(DS.Color.primary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        if let timingDetail = item.timingDetail {
-                            Text(timingDetail)
-                                .font(.system(size: 11.5, weight: .semibold))
-                                .foregroundStyle(DS.Color.ink)
-                                .lineLimit(1)
-                        }
-                        // Opérateur + faits sur la même ligne. La pastille colorée
-                        // (« STIB », « De Lijn », « TEC », « SNCB ») rend l'opérateur
-                        // explicite d'un coup d'œil — au-delà de la couleur du badge de
-                        // ligne, qui ne suffit pas à distinguer les réseaux.
-                        HStack(spacing: 6) {
-                            if let op = operatorFor(item) {
-                                Text(op.mapLabel)
-                                    .font(.system(size: 9, weight: .black))
-                                    .tracking(0.3)
-                                    .foregroundStyle(op.brandTextColor)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(op.brandColor)
-                                    .clipShape(Capsule())
-                                    .accessibilityLabel(op.accessibilityLabel)
-                            }
-                            Text(item.meta)
-                                .font(DS.Font.labelSmall)
-                                .tracking(1.2)
-                                .foregroundStyle(DS.Color.inkMute)
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 8)
-
-                if let wait = item.waitAfterMinutes {
-                    HStack(spacing: 8) {
-                        Image(systemName: "hourglass")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(DS.Color.statusMinor)
-                            .frame(width: 30)
-                        Text(L10n.Routing.waitTransfer(wait))
-                            .font(.system(size: 11.5, weight: .bold))
-                            .foregroundStyle(DS.Color.statusMinor)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 6)
-                    .background(DS.Color.statusMinor.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } else if index < option.inlineSteps.count - 1 {
-                    Rectangle()
-                        .fill(DS.Color.ink.opacity(0.12))
-                        .frame(height: 1)
-                }
+                InlineRouteStepRow(
+                    item: item,
+                    operatorType: operatorFor(item),
+                    isLast: index == option.inlineSteps.count - 1
+                )
             }
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
+    }
+}
+
+/// Une rangée du détail inline : le tronçon, puis — pour un tronçon STIB — les
+/// arrêts traversés et les autres départs, chacun dépliable. Extraite en vue à
+/// part pour porter son propre état de dépliage (impossible dans un `ForEach`).
+private struct InlineRouteStepRow: View {
+    let item: InlineRouteStepItem
+    let operatorType: TransitOperator?
+    let isLast: Bool
+
+    @State private var showsStops = false
+    @State private var showsDepartures = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 10) {
+                if let lineCode = item.lineCode {
+                    RouteLineMiniBadge(line: lineCode)
+                        .frame(width: 30, height: 30)
+                } else {
+                    ZStack {
+                        Circle()
+                            .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1.5)
+                            .frame(width: 28, height: 28)
+                        if let icon = item.icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(DS.Color.inkMute)
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(item.title)
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(2)
+                        Spacer(minLength: 6)
+                        if let timingBadge = item.timingBadge {
+                            Text(timingBadge)
+                                .font(.system(size: 10.5, weight: .black))
+                                .tracking(-0.1)
+                                .foregroundStyle(DS.Color.primary)
+                                .lineLimit(1)
+                        }
+                    }
+                    if let timingDetail = item.timingDetail {
+                        Text(timingDetail)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(1)
+                    }
+                    HStack(spacing: 6) {
+                        if let op = operatorType {
+                            Text(op.mapLabel)
+                                .font(.system(size: 9, weight: .black))
+                                .tracking(0.3)
+                                .foregroundStyle(op.brandTextColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(op.brandColor)
+                                .clipShape(Capsule())
+                                .accessibilityLabel(op.accessibilityLabel)
+                        }
+                        Text(item.meta)
+                            .font(DS.Font.labelSmall)
+                            .tracking(1.2)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(1)
+                    }
+
+                    // Les arrêts traversés + les autres départs. Le backend ne les
+                    // fournit que pour la STIB : vides ailleurs → aucun chevron
+                    // (un dépliant qui s'ouvre sur du vide est pire que rien).
+                    if !item.intermediateStops.isEmpty {
+                        InlineDisclosure(
+                            title: L10n.Routing.stopsBetween(item.intermediateStops.count),
+                            isExpanded: $showsStops
+                        ) {
+                            ForEach(Array(item.intermediateStops.enumerated()), id: \.offset) { _, stop in
+                                HStack(spacing: 8) {
+                                    Circle().fill(DS.Color.inkMute.opacity(0.4)).frame(width: 4, height: 4)
+                                    Text(stop)
+                                        .font(.system(size: 11.5))
+                                        .foregroundStyle(DS.Color.inkMute)
+                                }
+                            }
+                        }
+                    }
+                    if !item.otherDepartures.isEmpty {
+                        InlineDisclosure(
+                            title: L10n.Routing.otherDepartures,
+                            isExpanded: $showsDepartures
+                        ) {
+                            ForEach(item.otherDepartures) { dep in
+                                InlineDepartureLine(departure: dep)
+                            }
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 8)
+
+            if let wait = item.waitAfterMinutes {
+                HStack(spacing: 8) {
+                    Image(systemName: "hourglass")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(DS.Color.statusMinor)
+                        .frame(width: 30)
+                    Text(L10n.Routing.waitTransfer(wait))
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundStyle(DS.Color.statusMinor)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 7)
+                .padding(.horizontal, 6)
+                .background(DS.Color.statusMinor.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else if !isLast {
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+            }
+        }
+    }
+}
+
+/// Un dépliant discret : un titre + chevron, le contenu dessous quand ouvert.
+private struct InlineDisclosure<Content: View>: View {
+    let title: String
+    @Binding var isExpanded: Bool
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .black))
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    Text(title)
+                        .font(.system(size: 11.5, weight: .bold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(DS.Color.inkMute)
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 5) { content() }
+                    .padding(.leading, 4)
+            }
+        }
+        .padding(.top, 2)
+    }
+}
+
+/// Une ligne « autre départ » : l'heure, le retard temps réel, le nôtre surligné.
+private struct InlineDepartureLine: View {
+    let departure: RouteOtherDeparture
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(departure.timeText)
+                .font(.system(size: 11.5, weight: departure.isThisTrip ? .black : .semibold))
+                .foregroundStyle(departure.isThisTrip ? DS.Color.primary : DS.Color.ink)
+            if let realtime = departure.realtimeText {
+                Text(realtime)
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundStyle(DS.Color.statusMinor)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .background(departure.isThisTrip ? DS.Color.primary.opacity(0.12) : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }

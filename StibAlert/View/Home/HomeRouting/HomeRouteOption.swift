@@ -576,7 +576,13 @@ struct HomeRouteOption: Identifiable {
                     lineDescriptor: Self.lineDescriptor(for: step),
                     timingBadge: Self.inlineTimingBadge(for: step),
                     timingDetail: Self.inlineTimingDetail(for: step),
-                    waitAfterMinutes: Self.waitMinutes(after: step, next: index + 1 < sorted.count ? sorted[index + 1] : nil)
+                    waitAfterMinutes: Self.waitMinutes(after: step, next: index + 1 < sorted.count ? sorted[index + 1] : nil),
+                    // La STIB nomme ses arrêts en CAPITALES (« DE WAND ») ; on aligne
+                    // sur la casse de Google (« Gare de Bockstael »). Vide hors STIB
+                    // → aucun dépliant (géré côté vue).
+                    intermediateStops: (step.intermediateStops ?? [])
+                        .map { $0.capitalized(with: AppLocale.current) },
+                    otherDepartures: Self.otherDepartures(from: step)
                 )
             }
         }
