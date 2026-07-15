@@ -121,7 +121,12 @@ struct HomeVilloStationSheet: View {
 
                 if let lastUpdate = station.lastUpdate {
                     let date = Date(timeIntervalSince1970: TimeInterval(lastUpdate) / 1000)
-                    Text("Mis à jour \(RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date()))")
+                    let rdf: RelativeDateTimeFormatter = {
+                        let f = RelativeDateTimeFormatter()
+                        f.locale = AppLocale.current
+                        return f
+                    }()
+                    Text(AppLocalizer.format("preview.updated", defaultValue: "Mis à jour %@", rdf.localizedString(for: date, relativeTo: Date())))
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(DS.Color.inkMute)
                         .padding(.horizontal, 2)
@@ -181,13 +186,13 @@ struct HomeVilloStationSheet: View {
             }
 
             HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text("\(station.availableBikes) vélos")
+                Text(AppLocalizer.format("preview.bikes", defaultValue: "%lld vélos", station.availableBikes))
                     .font(.system(size: 26, weight: .black, design: .rounded))
                     .foregroundStyle(DS.Color.ink)
                 Text("·")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
-                Text("\(station.availableBikeStands) places")
+                Text(AppLocalizer.format("preview.stands", defaultValue: "%lld places", station.availableBikeStands))
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(DS.Color.inkSoft)
             }
@@ -198,7 +203,7 @@ struct HomeVilloStationSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "figure.walk")
                         .font(.system(size: 15, weight: .bold))
-                    Text("ITINÉRAIRE À PIED")
+                    Text(AppLocalizer.string("ITINÉRAIRE À PIED", defaultValue: "ITINÉRAIRE À PIED"))
                     Spacer(minLength: 0)
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
@@ -448,7 +453,7 @@ private struct HomeStopPreviewCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("ARRÊT" + (effectiveStop.stopId.map { " · \($0)" } ?? ""))
+                        Text(AppLocalizer.string("ARRÊT", defaultValue: "ARRÊT") + (effectiveStop.stopId.map { " · \($0)" } ?? ""))
                             .font(DS.Font.labelSmall.weight(.bold))
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
@@ -512,31 +517,31 @@ private struct HomeStopPreviewCard: View {
                         Image(systemName: "clock")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(DS.Color.inkMute)
-                        Text("PROCHAINS PASSAGES")
+                        Text(AppLocalizer.string("PROCHAINS PASSAGES", defaultValue: "PROCHAINS PASSAGES"))
                             .font(DS.Font.label.weight(.bold))
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
                     }
 
                     if isLoading {
-                        Text("Chargement des prochains passages…")
+                        Text(AppLocalizer.string("Chargement des prochains passages…", defaultValue: "Chargement des prochains passages…"))
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     } else if detailError != nil {
                         HStack(spacing: 10) {
-                            Text("Impossible de charger les passages.")
+                            Text(AppLocalizer.string("Impossible de charger les passages.", defaultValue: "Impossible de charger les passages."))
                                 .font(DS.Font.body)
                                 .foregroundStyle(DS.Color.inkMute)
                             Spacer()
                             Button(action: onRetry) {
-                                Label("Réessayer", systemImage: "arrow.clockwise")
+                                Label(AppLocalizer.string("common.retry", defaultValue: "Réessayer"), systemImage: "arrow.clockwise")
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundStyle(DS.Color.primary)
                             }
                             .buttonStyle(.plain)
                         }
                     } else if departureGroups.isEmpty {
-                        Text("Aucun passage prévu pour le moment.")
+                        Text(AppLocalizer.string("Aucun passage prévu pour le moment.", defaultValue: "Aucun passage prévu pour le moment."))
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     } else {
@@ -545,18 +550,18 @@ private struct HomeStopPreviewCard: View {
                                 ForEach(departureGroups) { group in
                                     HStack(spacing: 12) {
                                         LineBadge(line: group.line, size: .sm)
-                                        Text("→ \(group.destination ?? "Direction en cours")")
+                                        Text("→ \(group.destination ?? AppLocalizer.string("preview.direction_unknown", defaultValue: "Direction en cours"))")
                                             .font(.system(size: 15, weight: .medium))
                                             .foregroundStyle(DS.Color.ink)
                                             .frame(maxWidth: .infinity, alignment: .leading)
                                             .lineLimit(1)
 
                                         VStack(alignment: .trailing, spacing: 2) {
-                                            Text(group.primary.minutes <= 0 ? "Imminent" : "\(group.primary.minutes) min")
+                                            Text(group.primary.minutes <= 0 ? AppLocalizer.string("Imminent", defaultValue: "Imminent") : "\(group.primary.minutes) min")
                                                 .font(DS.Font.displayH3)
                                                 .foregroundStyle(DS.Color.ink)
                                             if let secondary = group.secondary {
-                                                Text("puis \(secondary.minutes) min")
+                                                Text(AppLocalizer.format("preview.then_min", defaultValue: "puis %lld min", secondary.minutes))
                                                     .font(DS.Font.labelSmall.weight(.bold))
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.inkMute)
@@ -566,7 +571,7 @@ private struct HomeStopPreviewCard: View {
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.statusMajor)
                                             } else if group.primary.source == "scheduled" {
-                                                Text("théorique")
+                                                Text(AppLocalizer.string("théorique", defaultValue: "théorique"))
                                                     .font(DS.Font.labelSmall.weight(.bold))
                                                     .tracking(0.8)
                                                     .foregroundStyle(DS.Color.inkMute)
@@ -602,7 +607,7 @@ private struct HomeStopPreviewCard: View {
                             Image(systemName: "mappin.and.ellipse")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(DS.Color.inkMute)
-                            Text("AUTRES QUAIS ICI")
+                            Text(AppLocalizer.string("AUTRES QUAIS ICI", defaultValue: "AUTRES QUAIS ICI"))
                                 .font(DS.Font.label.weight(.bold))
                                 .tracking(2)
                                 .foregroundStyle(DS.Color.inkMute)
@@ -625,7 +630,7 @@ private struct HomeStopPreviewCard: View {
                                                 .foregroundStyle(DS.Color.ink)
                                                 .lineLimit(1)
                                             if let dist = distanceMeters(to: stop) {
-                                                Text("\(dist) m · ARRÊT \(stop.stopId ?? stop.id)")
+                                                Text(AppLocalizer.format("preview.dist_stop", defaultValue: "%lld m · ARRÊT %@", dist, stop.stopId ?? stop.id))
                                                     .font(DS.Font.labelSmall)
                                                     .foregroundStyle(DS.Color.inkMute)
                                             }
@@ -651,7 +656,7 @@ private struct HomeStopPreviewCard: View {
 
                 Button(action: onOpenDetail) {
                     HStack {
-                        Text("VOIR L'ARRÊT EN DÉTAIL")
+                        Text(AppLocalizer.string("VOIR L'ARRÊT EN DÉTAIL", defaultValue: "VOIR L'ARRÊT EN DÉTAIL"))
                         Spacer()
                         Image(systemName: "chevron.right")
                     }

@@ -92,7 +92,7 @@ struct HomeEventImpactSheet: View {
 
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("ÉVÉNEMENT BRUXELLES")
+            Text(AppLocalizer.string("ÉVÉNEMENT BRUXELLES", defaultValue: "ÉVÉNEMENT BRUXELLES"))
                 .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.8)
                 .foregroundStyle(DS.Color.inkMute)
@@ -350,14 +350,14 @@ private struct HomeStopDetailSheet: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Signaler à cet arrêt")
+                    .accessibilityLabel(AppLocalizer.string("Signaler à cet arrêt", defaultValue: "Signaler à cet arrêt"))
                 }
 
                 if isLoading {
                     HStack(spacing: 10) {
                         ProgressView()
                             .tint(.white)
-                        Text("Chargement des prochains passages…")
+                        Text(AppLocalizer.string("Chargement des prochains passages…", defaultValue: "Chargement des prochains passages…"))
                             .font(.custom("Montserrat-Regular", size: 13))
                             .foregroundStyle(.white.opacity(0.78))
                     }
@@ -365,7 +365,7 @@ private struct HomeStopDetailSheet: View {
 
                 if !sheetDisplayedLines.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Lignes")
+                        Text(AppLocalizer.string("common.lines", defaultValue: "Lignes"))
                             .font(.custom("Montserrat-SemiBold", size: 12))
                             .foregroundStyle(Color.white.opacity(0.72))
 
@@ -386,7 +386,7 @@ private struct HomeStopDetailSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Prochains passages")
+                    Text(AppLocalizer.string("Prochains passages", defaultValue: "Prochains passages"))
                         .font(.custom("DelaGothicOne-Regular", size: 15))
                         .foregroundStyle(.white)
 
@@ -401,19 +401,19 @@ private struct HomeStopDetailSheet: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(group.destination ?? "Direction en cours")
+                                    Text(group.destination ?? AppLocalizer.string("preview.direction_unknown", defaultValue: "Direction en cours"))
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
                                         .lineLimit(2)
 
-                                    let primaryText = "Dans \(group.primary.minutes) min"
-                                    let secondaryText = group.secondary.map { " · puis \($0.minutes) min" } ?? ""
+                                    let primaryText = AppLocalizer.format("sheet.in_min", defaultValue: "Dans %lld min", group.primary.minutes)
+                                    let secondaryText = group.secondary.map { AppLocalizer.format("sheet.then_min_dot", defaultValue: " · puis %lld min", $0.minutes) } ?? ""
                                     if let delay = group.primary.delayMinutes, delay > 2 {
-                                        Text("\(primaryText) · retard +\(delay) min\(secondaryText)")
+                                        Text("\(primaryText) · \(AppLocalizer.format("stopdetail.delay_plus_min", defaultValue: "retard +%lld min", delay))\(secondaryText)")
                                             .font(.custom("Montserrat-Regular", size: 12))
                                             .foregroundStyle(Color(hex: "#FF6B6B"))
                                     } else if group.primary.source == "scheduled" {
-                                        Text("\(primaryText) · horaire théorique\(secondaryText)")
+                                        Text("\(primaryText) · \(AppLocalizer.string("sheet.theoretical", defaultValue: "horaire théorique"))\(secondaryText)")
                                             .font(.custom("Montserrat-Regular", size: 12))
                                             .foregroundStyle(.white.opacity(0.72))
                                     } else {
@@ -430,7 +430,7 @@ private struct HomeStopDetailSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     } else if !isLoading {
-                        Text("Aucun prochain passage fiable pour le moment.")
+                        Text(AppLocalizer.string("Aucun prochain passage fiable pour le moment.", defaultValue: "Aucun prochain passage fiable pour le moment."))
                             .font(.custom("Montserrat-Regular", size: 13))
                             .foregroundStyle(.white.opacity(0.72))
                     }
@@ -438,7 +438,7 @@ private struct HomeStopDetailSheet: View {
 
                 if !nearbyVilloStations.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Villo! à proximité")
+                        Text(AppLocalizer.string("Villo! à proximité", defaultValue: "Villo! à proximité"))
                             .font(.custom("DelaGothicOne-Regular", size: 15))
                             .foregroundStyle(.white)
 
@@ -456,7 +456,7 @@ private struct HomeStopDetailSheet: View {
                                         .font(.custom("Montserrat-SemiBold", size: 12))
                                         .foregroundStyle(.white)
                                         .lineLimit(2)
-                                    Text("\(item.station.availableBikes) vélos • \(item.station.availableBikeStands) places • \(item.distanceMeters)m")
+                                    Text(AppLocalizer.format("sheet.villo_stats", defaultValue: "%lld vélos • %lld places • %lldm", item.station.availableBikes, item.station.availableBikeStands, item.distanceMeters))
                                         .font(.custom("Montserrat-Regular", size: 12))
                                         .foregroundStyle(.white.opacity(0.72))
                                 }

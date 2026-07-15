@@ -440,7 +440,7 @@ struct ArretDetailPage: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
 
-                    Text("Mise à jour en direct · STIB-MIVB")
+                    Text(AppLocalizer.string("Mise à jour en direct · STIB-MIVB", defaultValue: "Mise à jour en direct · STIB-MIVB"))
                         .font(DS.Font.eyebrow)
                         .foregroundStyle(DS.Color.inkMute.opacity(0.75))
                         .padding(.top, 20)
@@ -531,7 +531,7 @@ struct ArretDetailPage: View {
                 HStack(spacing: 6) {
                     Image(systemName: "location.north.line")
                         .font(.system(size: 11, weight: .bold))
-                    Text("Ouvrir la carte")
+                    Text(AppLocalizer.string("Ouvrir la carte", defaultValue: "Ouvrir la carte"))
                         .font(DS.Font.labelSmall.weight(.semibold))
                         .textCase(.uppercase)
                         .tracking(1.2)
@@ -607,7 +607,7 @@ struct ArretDetailPage: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(DS.Color.statusMinor)
-                Text("Perturbation · cet arrêt")
+                Text(AppLocalizer.string("Perturbation · cet arrêt", defaultValue: "Perturbation · cet arrêt"))
                     .font(DS.Font.eyebrow)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer(minLength: 0)
@@ -690,7 +690,7 @@ struct ArretDetailPage: View {
             HStack(spacing: 6) {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
                     .font(.system(size: 11))
-                Text("Signalements communauté")
+                Text(AppLocalizer.string("Signalements communauté", defaultValue: "Signalements communauté"))
                     .font(DS.Font.eyebrow)
                 Spacer()
                 Text(lastHourCountText)
@@ -706,7 +706,7 @@ struct ArretDetailPage: View {
             }
 
             if stopCommunitySignalements.count > 4 {
-                Text("+\(stopCommunitySignalements.count - 4) autres")
+                Text(AppLocalizer.format("stopdetail.plus_others", defaultValue: "+%lld autres", stopCommunitySignalements.count - 4))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -726,9 +726,9 @@ struct ArretDetailPage: View {
     private var lastHourCountText: String {
         let count = signalementsLastHourCount
         if count == 0 {
-            return "Aucun · 1 h"
+            return AppLocalizer.string("stopdetail.none_1h", defaultValue: "Aucun · 1 h")
         }
-        return "\(count) · 1 h"
+        return AppLocalizer.format("stopdetail.count_1h", defaultValue: "%lld · 1 h", count)
     }
 
     /// "À proximité sur la ligne" — propagated section showing community
@@ -740,7 +740,7 @@ struct ArretDetailPage: View {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.triangle.branch")
                     .font(.system(size: 11))
-                Text("Sur la ligne · à proximité")
+                Text(AppLocalizer.string("Sur la ligne · à proximité", defaultValue: "Sur la ligne · à proximité"))
                     .font(DS.Font.eyebrow)
                 Spacer()
                 Text("\(linePropagatedSignalements.count)")
@@ -755,7 +755,7 @@ struct ArretDetailPage: View {
             }
 
             if linePropagatedSignalements.count > 3 {
-                Text("+\(linePropagatedSignalements.count - 3) autres sur la ligne")
+                Text(AppLocalizer.format("stopdetail.plus_others_on_line", defaultValue: "+%lld autres sur la ligne", linePropagatedSignalements.count - 3))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -892,7 +892,7 @@ struct ArretDetailPage: View {
             }
 
             HStack {
-                Label("Prochains passages", systemImage: "clock")
+                Label(AppLocalizer.string("Prochains passages", defaultValue: "Prochains passages"), systemImage: "clock")
                     .font(DS.Font.eyebrow)
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
@@ -953,7 +953,7 @@ struct ArretDetailPage: View {
         return HStack(spacing: 12) {
             LineBadge(line: group.line, size: .lg)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Direction")
+                Text(AppLocalizer.string("Direction", defaultValue: "Direction"))
                     .font(DS.Font.eyebrow)
                     .foregroundStyle(DS.Color.inkMute)
                 Text("→ \(group.destination)")
@@ -966,11 +966,11 @@ struct ArretDetailPage: View {
                     let source = next.source == "scheduled"
                         ? AppLocalizer.string("prévu", defaultValue: "prévu")
                         : AppLocalizer.string("temps réel", defaultValue: "temps réel")
-                    Text("\(source) à \(formatPassageMinutes(next.minutes))")
+                    Text("\(source) · \(formatPassageMinutes(next.minutes))")
                         .font(DS.Font.labelSmall)
                         .foregroundStyle(DS.Color.inkMute)
                     if let delay = next.delayMinutes, delay > 2 {
-                        Text("retard +\(delay) min")
+                        Text(AppLocalizer.format("stopdetail.delay_plus_min", defaultValue: "retard +%lld min", delay))
                             .font(DS.Font.labelSmall)
                             .foregroundStyle(DS.Color.statusMajor)
                     }
@@ -1014,13 +1014,13 @@ struct ArretDetailPage: View {
 
     private var linesTab: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Lignes & destinations")
+            Text(AppLocalizer.string("Lignes & destinations", defaultValue: "Lignes & destinations"))
                 .font(DS.Font.eyebrow)
                 .foregroundStyle(DS.Color.ink)
             Rectangle().fill(DS.Color.ink).frame(height: 2)
 
             if lineDestinations.isEmpty {
-                Text("Aucune ligne référencée.")
+                Text(AppLocalizer.string("Aucune ligne référencée.", defaultValue: "Aucune ligne référencée."))
                     .font(DS.Font.body)
                     .italic()
                     .foregroundStyle(DS.Color.inkMute)
@@ -1035,7 +1035,7 @@ struct ArretDetailPage: View {
                             HStack(spacing: 12) {
                                 LineBadge(line: item.line, size: .lg)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Vers")
+                                    Text(AppLocalizer.string("routing.to", defaultValue: "Vers"))
                                         .font(DS.Font.eyebrow)
                                         .foregroundStyle(DS.Color.inkMute)
                                     Text(item.destination)
@@ -1130,14 +1130,14 @@ struct ArretDetailPage: View {
                 Spacer(minLength: 0)
                 if selectedScheduleDayType == StibScheduleService.currentDayType(),
                    let nextIndex, times.indices.contains(nextIndex) {
-                    Text("Prochain · \(times[nextIndex])")
+                    Text(AppLocalizer.format("stopdetail.next_dot", defaultValue: "Prochain · %@", times[nextIndex]))
                         .font(DS.Font.labelSmall.weight(.bold))
                         .foregroundStyle(DS.Color.primary)
                 }
             }
 
             if times.isEmpty {
-                Text("Pas de passages prévus.")
+                Text(AppLocalizer.string("Pas de passages prévus.", defaultValue: "Pas de passages prévus."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
@@ -1171,11 +1171,11 @@ struct ArretDetailPage: View {
             Image(systemName: "clock.badge.questionmark")
                 .font(.system(size: 26, weight: .light))
                 .foregroundStyle(DS.Color.inkMute)
-            Text("Horaires théoriques non disponibles pour cet arrêt.")
+            Text(AppLocalizer.string("Horaires théoriques non disponibles pour cet arrêt.", defaultValue: "Horaires théoriques non disponibles pour cet arrêt."))
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
-            Text("Consulte l'onglet « Temps réel » pour les prochains passages.")
+            Text(AppLocalizer.string("Consulte l'onglet « Temps réel » pour les prochains passages.", defaultValue: "Consulte l'onglet « Temps réel » pour les prochains passages."))
                 .font(.system(size: 11))
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -1185,9 +1185,9 @@ struct ArretDetailPage: View {
 
     private func scheduleDayLabel(_ dayType: String) -> String {
         switch dayType {
-        case "weekday":  return "LUN-VEN"
-        case "saturday": return "SAMEDI"
-        case "sunday":   return "DIMANCHE"
+        case "weekday":  return AppLocalizer.string("stopdetail.day.weekday", defaultValue: "LUN-VEN")
+        case "saturday": return AppLocalizer.string("stopdetail.day.saturday", defaultValue: "SAMEDI")
+        case "sunday":   return AppLocalizer.string("stopdetail.day.sunday", defaultValue: "DIMANCHE")
         default:         return dayType.uppercased()
         }
     }
@@ -1221,13 +1221,13 @@ struct ArretDetailPage: View {
     private var aroundTab: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Arrêts à proximité", systemImage: "figure.walk")
+                Label(AppLocalizer.string("Arrêts à proximité", defaultValue: "Arrêts à proximité"), systemImage: "figure.walk")
                     .font(DS.Font.eyebrow)
                     .foregroundStyle(DS.Color.ink)
                 Rectangle().fill(DS.Color.ink).frame(height: 2)
 
                 if nearbyStops.isEmpty {
-                    Text("Aucun arrêt voisin à moins de 350 m.")
+                    Text(AppLocalizer.string("Aucun arrêt voisin à moins de 350 m.", defaultValue: "Aucun arrêt voisin à moins de 350 m."))
                         .font(DS.Font.body)
                         .italic()
                         .foregroundStyle(DS.Color.inkMute)
@@ -1250,7 +1250,7 @@ struct ArretDetailPage: View {
 
             if !nearbyVilloStations.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Villo! à proximité", systemImage: "bicycle")
+                    Label(AppLocalizer.string("Villo! à proximité", defaultValue: "Villo! à proximité"), systemImage: "bicycle")
                         .font(DS.Font.eyebrow)
                         .foregroundStyle(DS.Color.ink)
                     Rectangle().fill(DS.Color.ink).frame(height: 2)
@@ -1623,7 +1623,7 @@ private struct StopIncidentDetailSheet: View {
                     onOpenLine(line)
                 } label: {
                     HStack {
-                        Text("Voir la ligne \(line)")
+                        Text(AppLocalizer.format("stopdetail.see_line", defaultValue: "Voir la ligne %@", line))
                             .font(DS.Font.labelSmall.weight(.bold))
                             .textCase(.uppercase)
                             .tracking(1.4)

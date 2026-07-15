@@ -76,7 +76,7 @@ struct HomeStopMiniHeaderCard: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Text("ARRÊT")
+                            Text(AppLocalizer.string("ARRÊT", defaultValue: "ARRÊT"))
                                 .font(.system(size: 9, weight: .bold))
                                 .tracking(1.2)
                                 .foregroundStyle(DS.Color.inkMute)
@@ -113,7 +113,7 @@ struct HomeStopMiniHeaderCard: View {
                 .buttonStyle(.plain)
                 .opacity(isLoading ? 0.5 : 1)
                 .disabled(isLoading)
-                .accessibilityLabel("Rafraîchir les passages")
+                .accessibilityLabel(AppLocalizer.string("Rafraîchir les passages", defaultValue: "Rafraîchir les passages"))
 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -125,7 +125,7 @@ struct HomeStopMiniHeaderCard: View {
                         .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Fermer le détail")
+                .accessibilityLabel(AppLocalizer.string("Fermer le détail", defaultValue: "Fermer le détail"))
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -158,12 +158,12 @@ struct HomeStopMiniHeaderCard: View {
         if isLoading && lineDepartures.isEmpty {
             HStack(spacing: 6) {
                 ProgressView().scaleEffect(0.7)
-                Text("Chargement des prochains passages…")
+                Text(AppLocalizer.string("Chargement des prochains passages…", defaultValue: "Chargement des prochains passages…"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
             }
         } else if lineDepartures.isEmpty {
-            Text("Aucun passage prévu")
+            Text(AppLocalizer.string("Aucun passage prévu", defaultValue: "Aucun passage prévu"))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
         } else {
@@ -191,7 +191,7 @@ struct HomeStopMiniHeaderCard: View {
         HStack(spacing: 4) {
             Image(systemName: "clock")
                 .font(.system(size: 9, weight: .bold))
-            Text("Horaires théoriques")
+            Text(AppLocalizer.string("Horaires théoriques", defaultValue: "Horaires théoriques"))
                 .font(.system(size: 10, weight: .semibold))
         }
         .foregroundStyle(DS.Color.inkMute)
@@ -260,7 +260,7 @@ struct HomeStopMiniHeaderCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "list.bullet.rectangle.fill")
                     .font(.system(size: 11, weight: .bold))
-                Text("Voir l'arrêt en détail")
+                Text(AppLocalizer.string("Voir l'arrêt en détail", defaultValue: "Voir l'arrêt en détail"))
                     .font(.system(size: 12, weight: .bold))
                 Spacer()
                 Image(systemName: "chevron.right")

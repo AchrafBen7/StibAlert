@@ -48,7 +48,7 @@ struct HomeOperatorStopSheet: View {
                     .padding(.bottom, 4)
                 }
             } else {
-                Text("Horaires détaillés indisponibles pour cet arrêt \(stop.op.mapLabel).")
+                Text(AppLocalizer.format("opstop.detailed_unavailable", defaultValue: "Horaires détaillés indisponibles pour cet arrêt %@.", stop.op.mapLabel))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer(minLength: 0)
@@ -79,7 +79,7 @@ struct HomeOperatorStopSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "plus")
                     .font(.system(size: 16, weight: .black))
-                Text("Signaler cet arrêt")
+                Text(AppLocalizer.string("Signaler cet arrêt", defaultValue: "Signaler cet arrêt"))
                     .font(DS.Font.bodyBold)
             }
             .foregroundStyle(DS.Color.primaryForeground)
@@ -113,7 +113,7 @@ struct HomeOperatorStopSheet: View {
                 )
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("ARRÊT \(stop.op.mapLabel.uppercased())")
+                    Text(AppLocalizer.format("opstop.stop_header", defaultValue: "ARRÊT %@", stop.op.mapLabel.uppercased()))
                         .font(DS.Font.eyebrow)
                         .tracking(2)
                         .foregroundStyle(DS.Color.inkMute)
@@ -148,7 +148,7 @@ struct HomeOperatorStopSheet: View {
     private var liveSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Prochains passages")
+                Text(AppLocalizer.string("Prochains passages", defaultValue: "Prochains passages"))
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
@@ -164,7 +164,7 @@ struct HomeOperatorStopSheet: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else if futurePassages.isEmpty, !isLoading {
-                Text("Aucun passage \(stop.op.mapLabel) annoncé dans les prochaines minutes.")
+                Text(AppLocalizer.format("opstop.no_passage", defaultValue: "Aucun passage %@ annoncé dans les prochaines minutes.", stop.op.mapLabel))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
@@ -192,7 +192,7 @@ struct HomeOperatorStopSheet: View {
         let uniqueLines = dedupedLines(stopInfo?.lines ?? [])
         if !uniqueLines.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Lignes à cet arrêt")
+                Text(AppLocalizer.string("Lignes à cet arrêt", defaultValue: "Lignes à cet arrêt"))
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 // Grille compacte de badges : un arrêt avec 10+ lignes tient en
@@ -220,7 +220,7 @@ struct HomeOperatorStopSheet: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(DS.Color.primary)
-                    Text("Infos trafic à cet arrêt")
+                    Text(AppLocalizer.string("Infos trafic à cet arrêt", defaultValue: "Infos trafic à cet arrêt"))
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
                 }
@@ -256,7 +256,7 @@ struct HomeOperatorStopSheet: View {
         HStack(spacing: 5) {
             Image(systemName: "clock")
                 .font(.system(size: 10, weight: .bold))
-            Text("Horaires théoriques")
+            Text(AppLocalizer.string("Horaires théoriques", defaultValue: "Horaires théoriques"))
                 .font(DS.Font.labelSmall.weight(.bold))
         }
         .foregroundStyle(DS.Color.inkMute)
@@ -291,7 +291,7 @@ struct HomeOperatorStopSheet: View {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(DS.Color.community)
-                    Text("Signalements communauté")
+                    Text(AppLocalizer.string("Signalements communauté", defaultValue: "Signalements communauté"))
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
                 }
