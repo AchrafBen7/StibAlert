@@ -1316,6 +1316,10 @@ struct QuickReportSheetView: View {
     // MARK: - Bootstrap
 
     private func bootstrap() {
+        // Funnel du différenciateur communautaire : la feuille de signalement
+        // s'ouvre. Comparé à `signalementCreated` (envoyé), l'écart mesure
+        // l'abandon — sans jamais dire QUOI est signalé.
+        Analytics.track(.signalementStarted)
         guard selectedOperator == .stib else {
             loadLocalOperatorTargets()
             return

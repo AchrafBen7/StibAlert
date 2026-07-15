@@ -16,6 +16,7 @@ struct StibAlertApp: App {
     @StateObject private var connectivity = NetworkConnectivityMonitor()
     @StateObject private var offlineQueue = OfflineQueueSync()
     @StateObject private var languageStore = AppLanguageStore.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         ErrorReporting.setUp()
@@ -24,7 +25,9 @@ struct StibAlertApp: App {
         // secondaires allumés et ne voient jamais le nouveau défaut.
         MapLayerDefaults.applyCalmDefaultIfNeeded()
         Analytics.start()
-        Analytics.track(.appOpened)
+        // `App.opened` n'est PLUS émis ici : depuis l'init il ne comptait que le
+        // démarrage à froid. La rétention (J+1/J+7) a besoin de CHAQUE retour au
+        // premier plan → émis sur scenePhase `.active` (cf. body).
         UIWindow.appearance().overrideUserInterfaceStyle = .light
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
@@ -46,6 +49,12 @@ struct StibAlertApp: App {
                     offlineQueue.bind(to: connectivity)
                     await offlineQueue.sync()
                 }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Un `App.opened` par passage au premier plan (démarrage à froid ET
+            // retour d'arrière-plan) : c'est ce que TelemetryDeck agrège pour la
+            // rétention. Anonyme, aucun paramètre.
+            if phase == .active { Analytics.track(.appOpened) }
         }
     }
 

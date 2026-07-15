@@ -64,8 +64,9 @@ enum UtilisateurService {
             requiresAuth: true
         )
         // Ne compter que les ajouts : l'arrêt est présent dans la liste après le toggle.
+        // `kind` distingue arrêt / ligne SANS révéler LEQUEL (anonyme).
         if result.favoris?.contains(arretId) == true {
-            Analytics.track(.favoriteAdded)
+            Analytics.track(.favoriteAdded, ["kind": "stop"])
         }
         return result
     }

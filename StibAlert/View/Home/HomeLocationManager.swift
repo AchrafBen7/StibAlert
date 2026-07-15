@@ -9,11 +9,15 @@ final class HomeLocationManager: NSObject, ObservableObject, CLLocationManagerDe
     static let mockCoordinate = CLLocationCoordinate2D(latitude: 50.8503, longitude: 4.3517)
 
     private let manager = CLLocationManager()
+    /// Dernier statut connu, pour ne compter (analytics) que la RÉPONSE de
+    /// l'utilisateur au prompt — pas chaque lancement d'une app déjà autorisée.
+    private var lastAuthStatus: CLAuthorizationStatus = .notDetermined
 
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        lastAuthStatus = manager.authorizationStatus
         // Permission requested lazily via start(), not here
     }
 
@@ -29,8 +33,23 @@ final class HomeLocationManager: NSObject, ObservableObject, CLLocationManagerDe
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        if manager.authorizationStatus == .authorizedWhenInUse ||
-           manager.authorizationStatus == .authorizedAlways {
+        let status = manager.authorizationStatus
+        // Funnel : on ne compte QUE la transition depuis `.notDetermined`, c.-à-d.
+        // le moment où l'utilisateur vient de répondre au prompt. Sinon on
+        // compterait « accordé » à chaque ouverture d'une app déjà autorisée.
+        if lastAuthStatus == .notDetermined && status != .notDetermined {
+            switch status {
+            case .authorizedWhenInUse, .authorizedAlways:
+                Analytics.track(.locationGranted)
+            case .denied, .restricted:
+                Analytics.track(.locationDenied)
+            default:
+                break
+            }
+        }
+        lastAuthStatus = status
+
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
             manager.startUpdatingLocation()
             manager.startUpdatingHeading()
         }

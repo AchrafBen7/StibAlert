@@ -393,6 +393,9 @@ struct LigneDetailPage: View {
         do {
             let updated = try await UtilisateurService.mettreAJourProfil(userId: user.id, favoriteLines: updatedLines)
             session.applyCurrentUserUpdate(updated)
+            // Funnel : on ne compte que l'AJOUT (pas le retrait). `kind: line`,
+            // pendant du `kind: stop` — sans révéler quelle ligne.
+            if !alreadyFav { Analytics.track(.favoriteAdded, ["kind": "line"]) }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } catch {
             // Silencieux : un favori qui échoue ne doit pas casser la page.

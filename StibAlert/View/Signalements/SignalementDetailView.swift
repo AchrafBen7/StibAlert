@@ -192,6 +192,9 @@ struct SignalementDetailView: View {
             .modifier(PaperGrainBackground())
             .toolbar(.hidden, for: .navigationBar)
         }
+        // Funnel : l'utilisateur a ouvert le détail d'une alerte. Anonyme —
+        // on ne dit ni laquelle, ni sur quelle ligne.
+        .onAppear { Analytics.track(.alertViewed) }
     }
 
     private var topBar: some View {

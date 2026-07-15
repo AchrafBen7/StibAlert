@@ -46,13 +46,27 @@ enum Analytics {
         #endif
     }
 
-    /// Les 6 événements qui comptent pour mesurer usage, rétention et funnel.
+    /// Les événements du funnel d'activation + rétention.
+    ///
+    /// ⚠️ RÈGLE ABSOLUE : un événement ne porte JAMAIS de donnée identifiante —
+    /// pas de nom d'arrêt, pas de coordonnées, pas d'id utilisateur. Seulement un
+    /// TYPE anonyme (`kind: stop|line`). Un événement ne doit jamais permettre de
+    /// reconstituer la routine de quelqu'un. C'est ce qui garde TelemetryDeck
+    /// hors du champ « donnée personnelle » du RGPD (+ opt-in décoché par défaut).
+    ///
+    /// La rétention J+1 / J+7 n'a PAS d'événement dédié : TelemetryDeck la calcule
+    /// depuis la récurrence de `App.opened` (d'où le passage en foreground, pas
+    /// seulement au démarrage à froid).
     enum Event: String {
         case appOpened           = "App.opened"
         case onboardingCompleted = "Onboarding.completed"
-        case signalementCreated  = "Signalement.created"
+        case locationGranted     = "Location.granted"   // le premier goulot du funnel
+        case locationDenied      = "Location.denied"
+        case favoriteAdded       = "Favorite.added"     // paramètre kind: stop | line
         case routeCalculated     = "Route.calculated"
-        case favoriteAdded       = "Favorite.added"
+        case alertViewed         = "Alert.viewed"
+        case signalementStarted  = "Signalement.started"   // feuille ouverte
+        case signalementCreated  = "Signalement.created"   // réellement envoyé
         case pushOpened          = "Push.opened"
     }
 }
