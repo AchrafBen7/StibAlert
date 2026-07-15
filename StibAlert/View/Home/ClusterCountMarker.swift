@@ -46,7 +46,7 @@ struct ClusterCountMarker: View {
         }
     }
 
-    /// `AppLocalizer.format` et non `String(localized:)` : ce dernier suit
+    /// `AppLocalizer.format` et non l'API localisée standard : cette dernière suit
     /// `Locale.current` (la langue du téléphone) au lieu de la langue choisie
     /// dans l'app (Profil → Langues).
     private var accessibilityText: String {

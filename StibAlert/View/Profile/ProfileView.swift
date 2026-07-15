@@ -350,7 +350,7 @@ struct ProfileView: View {
                             // constante dans AppConfig dès attribution.
                             ShareLink(
                                 item: AppConfig.shareAppURL,
-                                message: Text("Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :")
+                                message: Text(AppLocalizer.string("Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :", defaultValue: "Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :"))
                             ) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "person.2.fill")
@@ -358,10 +358,10 @@ struct ProfileView: View {
                                         .foregroundColor(DS.Color.ink)
                                         .frame(width: 18)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text("Inviter un ami")
+                                        Text(AppLocalizer.string("Inviter un ami", defaultValue: "Inviter un ami"))
                                             .font(.system(size: 13.5, weight: .semibold))
                                             .foregroundStyle(DS.Color.ink)
-                                        Text("Partage Blayse avec tes proches qui prennent les transports.")
+                                        Text(AppLocalizer.string("Partage Blayse avec tes proches qui prennent les transports.", defaultValue: "Partage Blayse avec tes proches qui prennent les transports."))
                                             .font(.system(size: 11.5))
                                             .foregroundStyle(DS.Color.inkMute)
                                             .lineLimit(2)
@@ -405,7 +405,7 @@ struct ProfileView: View {
                         // account n'est pas "easily discoverable".
                         accountActionsSection
 
-                        Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
+                        Text(AppLocalizer.format("profile.footer_full", defaultValue: "BLAYSE · V%@ (%@) · BRUXELLES", Bundle.main.shortVersion, Bundle.main.buildNumber))
                             .font(DS.Font.labelSmall)
                             .tracking(2)
                             .foregroundStyle(DS.Color.inkMute)
@@ -434,7 +434,7 @@ struct ProfileView: View {
         // explicite (texte) qui est plus claire qu'une icône abstraite.
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Profil")
+                Text(AppLocalizer.string("guest.title.profile", defaultValue: "Profil"))
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Spacer()
@@ -581,7 +581,7 @@ struct ProfileView: View {
                     Text(displayProfileName)
                         .font(.system(size: 15, weight: .bold))
                         .foregroundColor(DS.Color.ink)
-                    Text("MEMBRE BLAYSE · \(profileLanguageLabel.uppercased())")
+                    Text(AppLocalizer.format("profile.member", defaultValue: "MEMBRE BLAYSE · %@", profileLanguageLabel.uppercased()))
                         .font(DS.Font.labelSmall)
                         .tracking(1.2)
                         .foregroundColor(DS.Color.inkMute)
@@ -738,7 +738,7 @@ struct ProfileView: View {
     private var recentActivitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Activité récente")
+                Text(AppLocalizer.string("Activité récente", defaultValue: "Activité récente"))
                     .font(.system(size: 13, weight: .black))
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.inkMute)
@@ -747,7 +747,7 @@ struct ProfileView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     nav.currentPage = .reports
                 } label: {
-                    Text("Tout voir")
+                    Text(AppLocalizer.string("Tout voir", defaultValue: "Tout voir"))
                         .font(.system(size: 11.5, weight: .bold))
                         .foregroundStyle(DS.Color.primary)
                         .underline()
@@ -864,7 +864,7 @@ struct ProfileView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
                         .font(.system(size: 15, weight: .semibold))
-                    Text("Se déconnecter")
+                    Text(AppLocalizer.string("Se déconnecter", defaultValue: "Se déconnecter"))
                         .font(.system(size: 14, weight: .bold))
                 }
                 .foregroundStyle(DS.Color.ink)
@@ -891,7 +891,7 @@ struct ProfileView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "trash")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Supprimer mon compte")
+                    Text(AppLocalizer.string("Supprimer mon compte", defaultValue: "Supprimer mon compte"))
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundStyle(DS.Color.statusMajor)
@@ -910,22 +910,22 @@ struct ProfileView: View {
             }
         }
         // Alert Logout — réversible
-        .alert("Se déconnecter ?", isPresented: $showLogoutConfirm) {
-            Button("Annuler", role: .cancel) {}
-            Button("Se déconnecter", role: .destructive) {
+        .alert(AppLocalizer.string("Se déconnecter ?", defaultValue: "Se déconnecter ?"), isPresented: $showLogoutConfirm) {
+            Button(AppLocalizer.string("common.cancel", defaultValue: "Annuler"), role: .cancel) {}
+            Button(AppLocalizer.string("Se déconnecter", defaultValue: "Se déconnecter"), role: .destructive) {
                 Task { await performLogout() }
             }
         } message: {
-            Text("Tes favoris et préférences locales restent sur cet appareil. Tu peux te reconnecter à tout moment.")
+            Text(AppLocalizer.string("Tes favoris et préférences locales restent sur cet appareil. Tu peux te reconnecter à tout moment.", defaultValue: "Tes favoris et préférences locales restent sur cet appareil. Tu peux te reconnecter à tout moment."))
         }
         // Alert Supprimer — IRRÉVERSIBLE
-        .alert("Supprimer le compte définitivement ?", isPresented: $showDeleteConfirm) {
-            Button("Annuler", role: .cancel) {}
-            Button("Supprimer définitivement", role: .destructive) {
+        .alert(AppLocalizer.string("Supprimer le compte définitivement ?", defaultValue: "Supprimer le compte définitivement ?"), isPresented: $showDeleteConfirm) {
+            Button(AppLocalizer.string("common.cancel", defaultValue: "Annuler"), role: .cancel) {}
+            Button(AppLocalizer.string("Supprimer définitivement", defaultValue: "Supprimer définitivement"), role: .destructive) {
                 Task { await performDeleteAccount() }
             }
         } message: {
-            Text("Cette action est IRRÉVERSIBLE. Toutes tes données (profil, signalements, favoris) seront supprimées de nos serveurs sous 30 jours conformément au RGPD.")
+            Text(AppLocalizer.string("Cette action est IRRÉVERSIBLE. Toutes tes données (profil, signalements, favoris) seront supprimées de nos serveurs sous 30 jours conformément au RGPD.", defaultValue: "Cette action est IRRÉVERSIBLE. Toutes tes données (profil, signalements, favoris) seront supprimées de nos serveurs sous 30 jours conformément au RGPD."))
         }
     }
 
@@ -1014,7 +1014,7 @@ struct ProfileView: View {
 
                 // label + value arrivent en String runtime (verbatim) → on localise
                 // explicitement via AppLocalizer, qui lit le .lproj de la langue
-                // CHOISIE DANS L'APP. `String(localized:)` suivait `Locale.current`,
+                // CHOISIE DANS L'APP. L'API localisée standard suivait `Locale.current`,
                 // donc la langue du téléphone : un override Profil → Nederlands sur
                 // un iPhone en français restait en français. Comme lui, AppLocalizer
                 // renvoie l'entrée inchangée si aucune clé ne matche ("@pseudo").
@@ -1453,7 +1453,7 @@ private struct LanguageSettingsView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(DS.Color.inkMute)
-                    TextField("Rechercher une langue…", text: $query)
+                    TextField(AppLocalizer.string("Rechercher une langue…", defaultValue: "Rechercher une langue…"), text: $query)
                         .font(DS.Font.body)
                         .foregroundColor(DS.Color.ink)
                         .autocorrectionDisabled()
@@ -1482,7 +1482,7 @@ private struct LanguageSettingsView: View {
                     }
                 }
 
-                Text("L’app suit d’abord la langue du téléphone. Cette préférence aide aussi les contenus éditoriaux disponibles.")
+                Text(AppLocalizer.string("L’app suit d’abord la langue du téléphone. Cette préférence aide aussi les contenus éditoriaux disponibles.", defaultValue: "L’app suit d’abord la langue du téléphone. Cette préférence aide aussi les contenus éditoriaux disponibles."))
                     .font(.system(size: 11.5))
                     .foregroundColor(DS.Color.inkSoft)
                     .padding(.horizontal, 4)
@@ -1905,7 +1905,7 @@ private struct NotificationToggleRow: View {
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
                 if let payloadExample {
-                    Text("Ex : « \(payloadExample) »")
+                    Text(AppLocalizer.format("profile.example", defaultValue: "Ex : « %@ »", payloadExample))
                         .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(DS.Color.inkMute.opacity(0.75))
                         .italic()
@@ -2007,7 +2007,7 @@ private struct AccountSettingsView: View {
                         ProgressView()
                             .tint(DS.Color.primaryForeground)
                     } else {
-                        Text("Enregistrer")
+                        Text(AppLocalizer.string("common.save", defaultValue: "Enregistrer"))
                             .font(.system(size: 14, weight: .bold))
                             .tracking(0.6)
                     }
@@ -2027,7 +2027,7 @@ private struct AccountSettingsView: View {
             .disabled(isSaving)
             .opacity(isSaving ? 0.7 : 1)
 
-            Text("BLAYSE · V\(Bundle.main.shortVersion) (\(Bundle.main.buildNumber)) · BRUXELLES")
+            Text(AppLocalizer.format("profile.footer_full", defaultValue: "BLAYSE · V%@ (%@) · BRUXELLES", Bundle.main.shortVersion, Bundle.main.buildNumber))
                 .font(DS.Font.labelSmall)
                 .tracking(2)
                 .foregroundColor(DS.Color.inkMute)
@@ -2149,7 +2149,7 @@ private struct FavoriteLinesSelector: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(DS.Color.ink)
 
-                Text("Lignes favorites")
+                Text(AppLocalizer.string("Lignes favorites", defaultValue: "Lignes favorites"))
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(DS.Color.ink)
             }
@@ -2157,7 +2157,7 @@ private struct FavoriteLinesSelector: View {
             .padding(.top, 12)
 
             if options.isEmpty {
-                Text("Ajoute d’abord des arrêts favoris pour sélectionner des lignes utiles.")
+                Text(AppLocalizer.string("Ajoute d’abord des arrêts favoris pour sélectionner des lignes utiles.", defaultValue: "Ajoute d’abord des arrêts favoris pour sélectionner des lignes utiles."))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2192,7 +2192,7 @@ private struct FavoriteLinesSelector: View {
                                 )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Ligne favorite \(line)")
+                        .accessibilityLabel(AppLocalizer.format("profile.fav_line", defaultValue: "Ligne favorite %@", line))
                         .accessibilityValue(isSelected ? "Sélectionnée" : "Non sélectionnée")
                     }
                 }
@@ -2246,7 +2246,7 @@ private struct FavoriteStopPickerRow: View {
 
     var body: some View {
         Menu {
-            Button("Aucun") { selection = nil }
+            Button(AppLocalizer.string("Aucun", defaultValue: "Aucun")) { selection = nil }
             ForEach(options) { stop in
                 Button(stop.nom) { selection = stop.id }
             }
@@ -2281,7 +2281,7 @@ private struct PasswordRow: View {
                 .foregroundStyle(DS.Color.ink)
                 .frame(width: 18)
 
-            Text("Mot de passe")
+            Text(AppLocalizer.string("auth.password_placeholder", defaultValue: "Mot de passe"))
                 .font(.system(size: 13.5, weight: .medium))
                 .foregroundStyle(DS.Color.ink)
 
@@ -2325,7 +2325,7 @@ private struct PrivacySettingsView: View {
                             .font(.system(size: 15, weight: .regular))
                             .foregroundColor(DS.Color.ink)
                             .frame(width: 18)
-                        Text("Lire la politique de confidentialité complète")
+                        Text(AppLocalizer.string("Lire la politique de confidentialité complète", defaultValue: "Lire la politique de confidentialité complète"))
                             .font(.system(size: 13.5, weight: .medium))
                             .foregroundColor(DS.Color.ink)
                         Spacer()
@@ -2393,13 +2393,13 @@ private struct PrivacySettingsView: View {
                 )
             }
         }
-        .alert("Supprimer ton compte", isPresented: $showDeleteAlert) {
-            Button("Annuler", role: .cancel) {}
-            Button("Supprimer", role: .destructive) {
+        .alert(AppLocalizer.string("Supprimer ton compte", defaultValue: "Supprimer ton compte"), isPresented: $showDeleteAlert) {
+            Button(AppLocalizer.string("common.cancel", defaultValue: "Annuler"), role: .cancel) {}
+            Button(AppLocalizer.string("common.delete", defaultValue: "Supprimer"), role: .destructive) {
                 Task { try? await session.supprimerCompte() }
             }
         } message: {
-            Text("Cette action est irréversible. Ton compte et toutes tes données seront définitivement supprimés.")
+            Text(AppLocalizer.string("Cette action est irréversible. Ton compte et toutes tes données seront définitivement supprimés.", defaultValue: "Cette action est irréversible. Ton compte et toutes tes données seront définitivement supprimés."))
         }
     }
 }
@@ -2466,7 +2466,7 @@ private struct PrivacyActionRow: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let url = learnMoreURL {
-                    Button("En savoir plus") { openURL(url) }
+                    Button(AppLocalizer.string("En savoir plus", defaultValue: "En savoir plus")) { openURL(url) }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(DS.Color.primary)
@@ -2522,10 +2522,10 @@ private struct SupportSettingsView: View {
                             .foregroundColor(DS.Color.primary)
                             .frame(width: 18)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Revoir la visite guidée")
+                            Text(AppLocalizer.string("Revoir la visite guidée", defaultValue: "Revoir la visite guidée"))
                                 .font(.system(size: 13.5, weight: .semibold))
                                 .foregroundColor(DS.Color.ink)
-                            Text("3 cartes : carte, signalement, favoris")
+                            Text(AppLocalizer.string("3 cartes : carte, signalement, favoris", defaultValue: "3 cartes : carte, signalement, favoris"))
                                 .font(.system(size: 11.5))
                                 .foregroundColor(DS.Color.inkMute)
                         }
@@ -2551,7 +2551,7 @@ private struct SupportSettingsView: View {
                 }
             }
 
-            Text("Réponse par email selon disponibilité de l’équipe Blayse.")
+            Text(AppLocalizer.string("Réponse par email selon disponibilité de l’équipe Blayse.", defaultValue: "Réponse par email selon disponibilité de l’équipe Blayse."))
                 .font(.system(size: 11.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .padding(.horizontal, 4)
@@ -2561,15 +2561,15 @@ private struct SupportSettingsView: View {
             // mention claire d'indépendance.
             ProfileSettingsSection(title: "À propos") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Blayse est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+                    Text(AppLocalizer.string("Blayse est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.", defaultValue: "Blayse est une application indépendante développée par un étudiant. Elle n'est ni produite, ni endossée, ni affiliée à STIB-MIVB, SNCB, De Lijn ou TEC."))
                         .font(.system(size: 12.5))
                         .foregroundColor(DS.Color.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté Blayse. Les marques citées appartiennent à leurs propriétaires respectifs.")
+                    Text(AppLocalizer.string("Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté Blayse. Les marques citées appartiennent à leurs propriétaires respectifs.", defaultValue: "Les données affichées proviennent des portails publics open data de ces opérateurs, ainsi que des signalements de la communauté Blayse. Les marques citées appartiennent à leurs propriétaires respectifs."))
                         .font(.system(size: 12))
                         .foregroundColor(DS.Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Version \(Bundle.main.shortVersion) · Build \(Bundle.main.buildNumber)")
+                    Text(AppLocalizer.format("profile.version_build", defaultValue: "Version %@ · Build %@", Bundle.main.shortVersion, Bundle.main.buildNumber))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(DS.Color.inkMute)
                         .padding(.top, 4)

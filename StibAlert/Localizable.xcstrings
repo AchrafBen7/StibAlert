@@ -34464,6 +34464,91 @@
           }
         }
       }
+    },
+    "profile.footer_full": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLAYSE · V%@ (%@) · BRUXELLES"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLAYSE · V%@ (%@) · BRUSSEL"
+          }
+        }
+      }
+    },
+    "profile.member": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MEMBRE BLAYSE · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BLAYSE-LID · %@"
+          }
+        }
+      }
+    },
+    "profile.example": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ex : « %@ »"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bijv.: « %@ »"
+          }
+        }
+      }
+    },
+    "profile.fav_line": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne favorite %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriete lijn %@"
+          }
+        }
+      }
+    },
+    "profile.version_build": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ · Build %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versie %@ · Build %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
