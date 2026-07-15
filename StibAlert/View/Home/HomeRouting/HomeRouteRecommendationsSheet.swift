@@ -1103,10 +1103,27 @@ private struct InlineDisclosure<Content: View>: View {
 }
 
 /// Une ligne « autre départ » : l'heure, le retard temps réel, le nôtre surligné.
+/// Tappable (sauf le passage courant) : recalcule le trajet depuis cette heure,
+/// comme Google Maps. La closure vient de l'Environment (`routeReplan`).
 private struct InlineDepartureLine: View {
     let departure: RouteOtherDeparture
+    @Environment(\.routeReplan) private var routeReplan
+
+    private var tappableDate: Date? {
+        departure.isThisTrip ? nil : departure.scheduledAt
+    }
 
     var body: some View {
+        if let date = tappableDate {
+            Button { routeReplan(date) } label: { row(showReplanHint: true) }
+                .buttonStyle(.plain)
+                .accessibilityHint(L10n.Routing.replanFromDeparture)
+        } else {
+            row(showReplanHint: false)
+        }
+    }
+
+    private func row(showReplanHint: Bool) -> some View {
         HStack(spacing: 8) {
             Text(departure.timeText)
                 .font(.system(size: 11.5, weight: departure.isThisTrip ? .black : .semibold))
@@ -1117,7 +1134,13 @@ private struct InlineDepartureLine: View {
                     .foregroundStyle(DS.Color.statusMinor)
             }
             Spacer(minLength: 0)
+            if showReplanHint {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.7))
+            }
         }
+        .contentShape(Rectangle())
         .padding(.vertical, 3)
         .padding(.horizontal, 6)
         .background(departure.isThisTrip ? DS.Color.primary.opacity(0.12) : .clear)

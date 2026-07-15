@@ -636,7 +636,8 @@ struct HomeRouteOption: Identifiable {
             return RouteOtherDeparture(
                 timeText: timeFormatter.string(from: scheduledAt),
                 realtimeText: departure.realtimeMinutes.map(L10n.Routing.inMinutes),
-                isThisTrip: departure.isThisTrip ?? false
+                isThisTrip: departure.isThisTrip ?? false,
+                scheduledAt: scheduledAt
             )
         }
     }

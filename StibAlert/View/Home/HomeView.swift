@@ -1425,7 +1425,16 @@ struct HomeView: View {
             onCloseRouteSheet: closeRouteSurface,
             onBackFromRouteDetail: showRoutePreviewFromDetail,
             onCloseRouteDetail: closeRouteSurface,
-            onShowRouteMap: showRoutePreviewFromDetail
+            onShowRouteMap: showRoutePreviewFromDetail,
+            // Taper un autre départ dans le détail = replanifier depuis cette heure,
+            // exactement comme changer le filtre date : on pose l'heure choisie, on
+            // revient à la liste (qui affiche le spinner), et le recalcul repeuple
+            // les itinéraires pour ce départ.
+            onSelectDeparture: { date in
+                preferredRouteDepartureTime = date
+                showRoutePreviewFromDetail()
+                Task { await reRouteForFilterChange() }
+            }
         )
 
         if nav.currentPage != .home {

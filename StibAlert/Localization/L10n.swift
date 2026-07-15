@@ -149,6 +149,7 @@ enum L10n {
         static var next: String { AppLocalizer.string("routing.next", defaultValue: "Prochain") }
         static var nextDeparture: String { AppLocalizer.string("routing.next_departure", defaultValue: "Prochain passage") }
         static var otherDepartures: String { AppLocalizer.string("routing.other_departures", defaultValue: "Autres départs") }
+        static var replanFromDeparture: String { AppLocalizer.string("routing.replan_from_departure", defaultValue: "Recalculer depuis ce départ") }
         static func stopsBetween(_ count: Int) -> String {
             AppLocalizer.format("routing.stops_between", defaultValue: "%lld arrêts intermédiaires", count)
         }

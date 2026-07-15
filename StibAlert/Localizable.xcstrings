@@ -35198,6 +35198,23 @@
           }
         }
       }
+    },
+    "routing.replan_from_departure": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recalculer depuis ce départ"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herbereken vanaf dit vertrek"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

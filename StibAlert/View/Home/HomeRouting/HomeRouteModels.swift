@@ -103,6 +103,10 @@ struct RouteOtherDeparture: Identifiable {
     let realtimeText: String?
     /// Le passage de CE trajet : c'est lui qu'on surligne.
     let isThisTrip: Bool
+    /// L'heure théorique (ISO) de ce passage. Sert à REPLANIFIER le trajet depuis
+    /// ce départ quand l'utilisateur le tape (comme Google Maps) : on la renvoie au
+    /// filtre `departureTime` et on relance le calcul. nil ⇒ non tappable.
+    let scheduledAt: Date?
 }
 
 struct RouteItinerarySegment {
@@ -183,5 +187,22 @@ extension CLLocationDistance {
             return String(format: "%.1f km", self / 1000)
         }
         return "\(max(1, Int(rounded()))) m"
+    }
+}
+
+// MARK: - Replanification depuis un autre départ (comme Google Maps)
+
+/// Injecté en haut de la surface d'itinéraire (`HomeRouteSurfaceOverlay`) pour que
+/// les feuilles qui listent les « autres départs » — dans le sheet compact ET dans
+/// le détail plein écran — puissent recalculer le trajet depuis l'heure tapée, sans
+/// threader la closure à travers 5 couches de vues privées.
+private struct RouteReplanKey: EnvironmentKey {
+    static let defaultValue: (Date) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var routeReplan: (Date) -> Void {
+        get { self[RouteReplanKey.self] }
+        set { self[RouteReplanKey.self] = newValue }
     }
 }

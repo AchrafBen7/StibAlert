@@ -20,6 +20,8 @@ struct HomeRouteSurfaceOverlay: View {
     let onBackFromRouteDetail: () -> Void
     let onCloseRouteDetail: () -> Void
     let onShowRouteMap: () -> Void
+    /// Replanifier depuis un autre départ tapé dans le détail (comme Google Maps).
+    var onSelectDeparture: (Date) -> Void = { _ in }
 
     var body: some View {
         Group {
@@ -54,5 +56,8 @@ struct HomeRouteSurfaceOverlay: View {
                 .zLayer(.routeDetail)
             }
         }
+        // Une seule injection pour les deux feuilles (sheet compact + détail) : taper
+        // un « autre départ » recalcule le trajet depuis cette heure.
+        .environment(\.routeReplan, onSelectDeparture)
     }
 }

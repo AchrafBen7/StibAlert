@@ -345,10 +345,27 @@ private struct RouteDisclosureRow<Content: View>: View {
 }
 
 /// Un autre passage : l'heure, le temps réel s'il existe, surligné si c'est le nôtre.
+/// Tappable (sauf le passage courant) : recalcule le trajet à partir de cette heure,
+/// comme Google Maps. Un passage sans heure théorique n'est pas tappable.
 private struct RouteDepartureLine: View {
     let departure: RouteOtherDeparture
+    @Environment(\.routeReplan) private var routeReplan
+
+    private var tappableDate: Date? {
+        departure.isThisTrip ? nil : departure.scheduledAt
+    }
 
     var body: some View {
+        if let date = tappableDate {
+            Button { routeReplan(date) } label: { row(showReplanHint: true) }
+                .buttonStyle(.plain)
+                .accessibilityHint(L10n.Routing.replanFromDeparture)
+        } else {
+            row(showReplanHint: false)
+        }
+    }
+
+    private func row(showReplanHint: Bool) -> some View {
         HStack(spacing: 8) {
             Text(departure.timeText)
                 .font(.system(size: 13, weight: departure.isThisTrip ? .bold : .regular))
@@ -361,9 +378,16 @@ private struct RouteDepartureLine: View {
             }
 
             Spacer(minLength: 0)
+
+            if showReplanHint {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkMute.opacity(0.7))
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
+        .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(departure.isThisTrip ? DS.Color.primary.opacity(0.12) : Color.clear)
