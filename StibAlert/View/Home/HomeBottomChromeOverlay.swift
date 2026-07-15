@@ -110,7 +110,7 @@ struct HomeBottomChromeOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .shadow(color: DS.Color.ink.opacity(0.08), radius: 6, y: 2)
         .padding(.horizontal, 14)
-        .accessibilityLabel("Mode invité — créer un compte pour favoris et alertes")
+        .accessibilityLabel(AppLocalizer.string("Mode invité — créer un compte pour favoris et alertes", defaultValue: "Mode invité — créer un compte pour favoris et alertes"))
     }
 }
 

@@ -65,7 +65,7 @@ struct StopCardAccessibilityLabel: View {
             Text(departureInfo).hidden()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Arrêt: \(stopName)")
+        .accessibilityLabel(AppLocalizer.format("a11y.stop_named", defaultValue: "Arrêt : %@", stopName))
         .accessibilityValue("\(lineInfo). \(departureInfo).")
     }
 }
@@ -122,7 +122,7 @@ struct AccessibleErrorMessage: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Réessayer")
+            .accessibilityLabel(AppLocalizer.string("Réessayer", defaultValue: "Réessayer"))
             .accessibilityHint("Double-tap pour réessayer le chargement")
         }
         .padding(14)

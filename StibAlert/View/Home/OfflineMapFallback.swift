@@ -17,7 +17,7 @@ struct OfflineMapFallback: View {
                     .scaledToFill()
                     .ignoresSafeArea()
                     .overlay(Color.black.opacity(0.12))
-                    .accessibilityLabel("Carte hors-ligne, dernière vue connue")
+                    .accessibilityLabel(AppLocalizer.string("Carte hors-ligne, dernière vue connue", defaultValue: "Carte hors-ligne, dernière vue connue"))
 
                 banner
                     .padding(.top, 50)

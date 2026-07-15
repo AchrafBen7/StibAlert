@@ -55,7 +55,7 @@ struct VehicleMarker: View {
         }
         .frame(width: 48, height: 48)
         .accessibilityElement()
-        .accessibilityLabel("Véhicule ligne \(vehicle.line ?? "?")")
+        .accessibilityLabel(AppLocalizer.format("a11y.vehicle_line", defaultValue: "Véhicule ligne %@", vehicle.line ?? "?"))
     }
 }
 

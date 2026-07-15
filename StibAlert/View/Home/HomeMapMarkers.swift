@@ -300,7 +300,7 @@ struct HomeStopMarker: View {
         .scaleEffect(isSelected ? 1.18 : (isFavorite ? 1.12 : 1))
         .background(loadingPulse)
         .accessibilityElement()
-        .accessibilityLabel("Arrêt \(stop.name)\(isFavorite ? ", favori" : "")")
+        .accessibilityLabel(isFavorite ? AppLocalizer.format("a11y.stop_favorite", defaultValue: "Arrêt %@, favori", stop.name) : AppLocalizer.format("a11y.stop_named", defaultValue: "Arrêt : %@", stop.name))
         .accessibilityHint("Ouvre les détails et prochains passages")
         .onChange(of: isLoading) { _, newValue in
             if newValue { pulseAnimating = true } else { pulseAnimating = false }
@@ -622,7 +622,7 @@ struct EventMapMarker: View {
                 .offset(y: -4)
         }
         .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 5)
-        .accessibilityLabel("Événement \(event.title)")
+        .accessibilityLabel(AppLocalizer.format("a11y.event_named", defaultValue: "Événement %@", event.title))
     }
 
     private var backgroundTint: Color {

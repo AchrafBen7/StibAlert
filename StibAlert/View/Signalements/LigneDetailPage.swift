@@ -536,7 +536,7 @@ struct LigneDetailPage: View {
         }
         .buttonStyle(.plain)
         .disabled(viewModel.isLoading)
-        .accessibilityLabel("Rafraîchir les horaires")
+        .accessibilityLabel(AppLocalizer.string("Rafraîchir les horaires", defaultValue: "Rafraîchir les horaires"))
     }
 
     private var content: some View {
@@ -1305,7 +1305,7 @@ private struct LigneTimelineRow: View {
                             .background(DS.Color.statusMinor.opacity(0.14))
                             .overlay(Capsule().stroke(DS.Color.statusMinor.opacity(0.35), lineWidth: 0.8))
                             .clipShape(Capsule())
-                            .accessibilityLabel("\(communityReportCount) signalements communauté")
+                            .accessibilityLabel(AppLocalizer.format("a11y.community_reports", defaultValue: "%lld signalements communauté", communityReportCount))
                         }
 
                         if isTerminus {

@@ -134,7 +134,7 @@ struct GareDetailPage: View {
             }
             .buttonStyle(.plain)
             .disabled(isRefreshing)
-            .accessibilityLabel("Rafraîchir")
+            .accessibilityLabel(AppLocalizer.string("Rafraîchir", defaultValue: "Rafraîchir"))
         }
         .padding(.horizontal, DS.Spacing.xl)
         .padding(.top, DS.Spacing.md)

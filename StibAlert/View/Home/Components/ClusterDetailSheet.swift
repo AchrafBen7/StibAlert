@@ -58,7 +58,7 @@ struct ClusterDetailSheet: View {
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Fermer le détail")
+            .accessibilityLabel(AppLocalizer.string("Fermer le détail", defaultValue: "Fermer le détail"))
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
@@ -91,7 +91,7 @@ struct ClusterDetailSheet: View {
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Pourquoi cette confiance ?")
+                .accessibilityLabel(AppLocalizer.string("a11y.why_confidence", defaultValue: "Pourquoi cette confiance ?"))
             }
 
             if showConfidenceExplain {
@@ -167,7 +167,7 @@ struct ClusterDetailSheet: View {
             .padding(.vertical, 3)
             .background(color.opacity(0.12))
             .clipShape(Capsule())
-            .accessibilityLabel("Fiabilité : \(label)")
+            .accessibilityLabel(AppLocalizer.format("a11y.reliability", defaultValue: "Fiabilité : %@", label))
     }
 
     private func confidenceBadge(_ confidence: ClusterConfidence) -> some View {

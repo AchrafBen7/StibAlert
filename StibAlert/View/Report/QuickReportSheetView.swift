@@ -1056,7 +1056,7 @@ struct QuickReportSheetView: View {
             }
             .padding(.horizontal, 18)
 
-            TextField("Ex : Tram bloqué depuis 5 min au feu Bailli, beaucoup de monde sur le quai", text: $description, axis: .vertical)
+            TextField(AppLocalizer.string("report.description_placeholder", defaultValue: "Ex : Tram bloqué depuis 5 min au feu Bailli, beaucoup de monde sur le quai"), text: $description, axis: .vertical)
                 .focused($focusedField, equals: .description)
                 .lineLimit(4...6)
                 .padding(14)

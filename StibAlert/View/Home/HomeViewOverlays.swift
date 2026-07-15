@@ -401,7 +401,7 @@ extension HomeView {
             .transition(.move(edge: .top).combined(with: .opacity))
             .zLayer(.allClearChip)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Aucun incident signalé à proximité")
+            .accessibilityLabel(AppLocalizer.string("Aucun incident signalé à proximité", defaultValue: "Aucun incident signalé à proximité"))
         }
     }
 

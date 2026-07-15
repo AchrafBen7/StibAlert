@@ -131,7 +131,7 @@ private struct HomeEditorialSearchField: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DS.Color.inkSoft)
 
-            TextField("Où vas-tu ?", text: $localText)
+            TextField(AppLocalizer.string("search.where_to", defaultValue: "Où vas-tu ?"), text: $localText)
                 .font(DS.Font.body)
                 .foregroundStyle(DS.Color.ink)
                 .focused($isFocused)

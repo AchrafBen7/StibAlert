@@ -405,7 +405,7 @@ struct FavoritesView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.Color.inkMute)
 
-            TextField("Rechercher une ligne ou un arrêt", text: $query)
+            TextField(AppLocalizer.string("favorites.search_placeholder", defaultValue: "Rechercher une ligne ou un arrêt"), text: $query)
                 .font(.system(size: 13.5))
                 .foregroundStyle(DS.Color.ink)
                 .textInputAutocapitalization(.words)
@@ -1848,7 +1848,7 @@ private struct LiveStatusCard: View {
             HStack {
                 // « Fiabilité du Service » laissait croire qu'on note la STIB.
                 // On note la fiabilité de NOS données (temps réel vs théorique).
-                Label("Fiabilité des données", systemImage: "chart.line.uptrend.xyaxis")
+                Label(AppLocalizer.string("favorites.data_reliability", defaultValue: "Fiabilité des données"), systemImage: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.ink)
 
