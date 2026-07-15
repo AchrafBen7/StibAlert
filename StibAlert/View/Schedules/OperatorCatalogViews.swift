@@ -78,7 +78,7 @@ struct OperatorLineDirectory: View {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 60)
                     ProgressView().tint(DS.Color.ink)
-                    Text("Chargement des lignes \(op.mapLabel)…")
+                    Text(AppLocalizer.format("opcat.loading_lines", defaultValue: "Chargement des lignes %@…", op.mapLabel))
                         .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
                 }
                 .frame(maxWidth: .infinity)
@@ -86,7 +86,7 @@ struct OperatorLineDirectory: View {
                 VStack(spacing: 8) {
                     Spacer().frame(height: 60)
                     Image(systemName: "magnifyingglass").font(.system(size: 22)).foregroundStyle(DS.Color.inkMute)
-                    Text("Aucune ligne trouvée").font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
+                    Text(AppLocalizer.string("Aucune ligne trouvée", defaultValue: "Aucune ligne trouvée")).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
                 }
                 .frame(maxWidth: .infinity)
             } else {
@@ -333,7 +333,7 @@ struct OperatorStopDirectory: View {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 60)
                     ProgressView().tint(DS.Color.ink)
-                    Text("Arrêts \(op.mapLabel) à proximité…")
+                    Text(AppLocalizer.format("opcat.stops_nearby", defaultValue: "Arrêts %@ à proximité…", op.mapLabel))
                         .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
                 }
                 .frame(maxWidth: .infinity)
@@ -343,7 +343,7 @@ struct OperatorStopDirectory: View {
                         VStack(spacing: 14) {
                             Spacer().frame(height: 60)
                             ProgressView().tint(DS.Color.ink)
-                            Text("Recherche d'arrêts…")
+                            Text(AppLocalizer.string("Recherche d'arrêts…", defaultValue: "Recherche d'arrêts…"))
                                 .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
                         }
                         .frame(maxWidth: .infinity)
@@ -595,12 +595,12 @@ struct OperatorDisruptionsList: View {
                     .frame(width: 28, height: 28)
                     .background((disruptions.isEmpty ? DS.Color.statusOK : DS.Color.statusMajor).opacity(0.14))
                     .clipShape(Circle())
-                Text("RÉSEAU \(op.mapLabel.uppercased())")
+                Text(AppLocalizer.format("opcat.network_header", defaultValue: "RÉSEAU %@", op.mapLabel.uppercased()))
                     .font(DS.Font.eyebrow)
                     .tracking(2)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
-                Text("\(disruptions.count) dépêches")
+                Text(AppLocalizer.format("opcat.dispatches", defaultValue: "%lld dépêches", disruptions.count))
                     .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -627,7 +627,7 @@ struct OperatorDisruptionsList: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
-                TextField("Chercher une ligne \(op.mapLabel)", text: $searchQuery)
+                TextField(AppLocalizer.format("opcat.search_line", defaultValue: "Chercher une ligne %@", op.mapLabel), text: $searchQuery)
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.ink)
                     .textInputAutocapitalization(.never)
@@ -736,10 +736,10 @@ struct OperatorDisruptionsList: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(DS.Color.statusOK)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Réseau \(op.mapLabel) OK")
+                    Text(AppLocalizer.format("opcat.network_ok", defaultValue: "Réseau %@ OK", op.mapLabel))
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
-                    Text("Aucune perturbation officielle liée à une ligne.")
+                    Text(AppLocalizer.string("Aucune perturbation officielle liée à une ligne.", defaultValue: "Aucune perturbation officielle liée à une ligne."))
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -759,10 +759,10 @@ struct OperatorDisruptionsList: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Aucune ligne trouvée")
+                    Text(AppLocalizer.string("Aucune ligne trouvée", defaultValue: "Aucune ligne trouvée"))
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(DS.Color.ink)
-                    Text("Essaie un numéro de ligne ou une autre zone.")
+                    Text(AppLocalizer.string("Essaie un numéro de ligne ou une autre zone.", defaultValue: "Essaie un numéro de ligne ou une autre zone."))
                         .font(DS.Font.bodySmall)
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -1146,7 +1146,7 @@ private struct OperatorLineDisruptionDetail: View {
                 HStack(spacing: 8) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12, weight: .bold))
-                    Text("Lignes \(op.mapLabel)")
+                    Text(AppLocalizer.format("opcat.lines_of", defaultValue: "Lignes %@", op.mapLabel))
                         .font(DS.Font.bodyBold)
                 }
                 .foregroundStyle(DS.Color.ink)
@@ -1190,10 +1190,10 @@ private struct OperatorLineDisruptionDetail: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(DS.Color.statusOK)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Aucune perturbation connue")
+                        Text(AppLocalizer.string("Aucune perturbation connue", defaultValue: "Aucune perturbation connue"))
                             .font(DS.Font.bodyBold)
                             .foregroundStyle(DS.Color.ink)
-                        Text("Cette ligne circule normalement selon les données disponibles.")
+                        Text(AppLocalizer.string("Cette ligne circule normalement selon les données disponibles.", defaultValue: "Cette ligne circule normalement selon les données disponibles."))
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkMute)
                     }
@@ -1209,7 +1209,7 @@ private struct OperatorLineDisruptionDetail: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        Text("DÉTAIL DES PROBLÈMES")
+                        Text(AppLocalizer.string("DÉTAIL DES PROBLÈMES", defaultValue: "DÉTAIL DES PROBLÈMES"))
                             .font(DS.Font.eyebrow)
                             .tracking(1.6)
                             .foregroundStyle(DS.Color.inkMute)
@@ -1248,7 +1248,7 @@ private struct OperatorLineDisruptionDetail: View {
                 }
                 if let url = URL(string: disruption.url), !disruption.url.isEmpty {
                     Link(destination: url) {
-                        Text("Plus d'infos")
+                        Text(AppLocalizer.string("Plus d'infos", defaultValue: "Plus d'infos"))
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(DS.Color.info)
                     }

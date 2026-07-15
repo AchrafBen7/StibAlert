@@ -467,10 +467,10 @@ struct ReportsView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(DS.Color.statusOK)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Réseau SNCB OK")
+                Text(AppLocalizer.string("Réseau SNCB OK", defaultValue: "Réseau SNCB OK"))
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
-                Text("Aucune perturbation signalée sur les gares.")
+                Text(AppLocalizer.string("Aucune perturbation signalée sur les gares.", defaultValue: "Aucune perturbation signalée sur les gares."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -1118,7 +1118,7 @@ struct ReportsView: View {
             TextField(
                 "",
                 text: $query,
-                prompt: Text("Rechercher une ligne, un arrêt ou un problème")
+                prompt: Text(AppLocalizer.string("Rechercher une ligne, un arrêt ou un problème", defaultValue: "Rechercher une ligne, un arrêt ou un problème"))
                     .foregroundStyle(DS.Color.inkMute)
             )
             .font(DS.Font.body)
@@ -1297,7 +1297,7 @@ struct ReportsView: View {
             Button {
                 Task { await loadReports(force: true) }
             } label: {
-                Text("Réessayer")
+                Text(AppLocalizer.string("common.retry", defaultValue: "Réessayer"))
                     .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundStyle(DS.Color.primary)
             }
@@ -2056,7 +2056,7 @@ private struct EditorialNowCard: View {
         HStack(alignment: .top, spacing: 10) {
             LineBadge(line: item.line, size: .lg)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Officiel STIB")
+                Text(AppLocalizer.string("Officiel STIB", defaultValue: "Officiel STIB"))
                     .font(DS.Font.labelSmall)
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.statusMajor)
@@ -2112,7 +2112,7 @@ struct EditorialLineGroupCard<NestedContent: View>: View {
 
                     VStack(alignment: .leading, spacing: 5) {
                         HStack(spacing: 6) {
-                            Text("Ligne \(group.line)")
+                            Text(AppLocalizer.format("common.line_x", defaultValue: "Ligne %@", group.line))
                                 .font(DS.Font.bodyBold)
                                 .foregroundStyle(DS.Color.ink)
                             if isFavoriteLine {
@@ -2256,7 +2256,7 @@ struct EditorialFeedCard: View {
                             Spacer()
                             Link(destination: url) {
                                 HStack(spacing: 4) {
-                                    Text("Billetterie")
+                                    Text(AppLocalizer.string("Billetterie", defaultValue: "Billetterie"))
                                         .font(DS.Font.bodySmall.weight(.semibold))
                                         .underline()
                                     Image(systemName: "arrow.up.right.square")
@@ -2271,7 +2271,7 @@ struct EditorialFeedCard: View {
 
                 if let affluence {
                     HStack(spacing: 8) {
-                        Text("Affluence prévue")
+                        Text(AppLocalizer.string("Affluence prévue", defaultValue: "Affluence prévue"))
                             .font(DS.Font.labelSmall)
                             .tracking(1.4)
                             .foregroundStyle(DS.Color.inkMute)
@@ -2339,7 +2339,7 @@ struct EditorialFeedCard: View {
                         HStack(spacing: 5) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 10, weight: .semibold))
-                            Text("CONCERNE TA LIGNE")
+                            Text(AppLocalizer.string("CONCERNE TA LIGNE", defaultValue: "CONCERNE TA LIGNE"))
                                 .font(DS.Font.labelSmall.weight(.bold))
                                 .tracking(1.2)
                         }
@@ -2719,7 +2719,7 @@ private struct EventImpactDetailSheet: View {
     private var heroCard: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("LIEU")
+                Text(AppLocalizer.string("LIEU", defaultValue: "LIEU"))
                     .font(DS.Font.labelSmall.weight(.bold))
                     .foregroundColor(DS.Color.inkMute)
                 Text(venueTitle)
@@ -2800,7 +2800,7 @@ private struct EventImpactDetailSheet: View {
             Button(action: openDirections) {
                 HStack(spacing: 6) {
                     Image(systemName: "location.fill").font(.system(size: 13))
-                    Text("Itinéraire").font(.system(size: 12.5, weight: .bold))
+                    Text(AppLocalizer.string("Itinéraire", defaultValue: "Itinéraire")).font(.system(size: 12.5, weight: .bold))
                 }
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundColor(DS.Color.ink)
@@ -2814,7 +2814,7 @@ private struct EventImpactDetailSheet: View {
                 Link(destination: url) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.right.square").font(.system(size: 13))
-                        Text("Site officiel").font(.system(size: 12.5, weight: .bold))
+                        Text(AppLocalizer.string("Site officiel", defaultValue: "Site officiel")).font(.system(size: 12.5, weight: .bold))
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .foregroundColor(DS.Color.ink)
@@ -2828,7 +2828,7 @@ private struct EventImpactDetailSheet: View {
 
     private var linesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("LIGNES DESSERVANT LE LIEU")
+            Text(AppLocalizer.string("LIGNES DESSERVANT LE LIEU", defaultValue: "LIGNES DESSERVANT LE LIEU"))
                 .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
@@ -2855,7 +2855,7 @@ private struct EventImpactDetailSheet: View {
 
     private var nearbyStopsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("ARRÊTS À PROXIMITÉ")
+            Text(AppLocalizer.string("ARRÊTS À PROXIMITÉ", defaultValue: "ARRÊTS À PROXIMITÉ"))
                 .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
@@ -2868,7 +2868,7 @@ private struct EventImpactDetailSheet: View {
                     .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.ink.opacity(0.15), lineWidth: 1.5))
                     .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
             } else if canonicalStopRows.isEmpty {
-                Text("Aucun arrêt STIB dans le rayon défini.")
+                Text(AppLocalizer.string("Aucun arrêt STIB dans le rayon défini.", defaultValue: "Aucun arrêt STIB dans le rayon défini."))
                     .font(DS.Font.bodySmall)
                     .foregroundColor(DS.Color.inkMute)
                     .frame(maxWidth: .infinity)
@@ -2919,14 +2919,14 @@ private struct EventImpactDetailSheet: View {
 
     private var programmingSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("PROGRAMMATION")
+            Text(AppLocalizer.string("PROGRAMMATION", defaultValue: "PROGRAMMATION"))
                 .font(DS.Font.labelSmall.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
                 .padding(.horizontal, 4)
 
             if displayedEvents.isEmpty {
-                Text("Aucun événement annoncé.")
+                Text(AppLocalizer.string("Aucun événement annoncé.", defaultValue: "Aucun événement annoncé."))
                     .font(DS.Font.bodySmall)
                     .foregroundColor(DS.Color.inkMute)
                     .frame(maxWidth: .infinity)
@@ -2988,12 +2988,12 @@ private struct EventImpactDetailSheet: View {
                             .foregroundColor(DS.Color.inkMute)
                     }
                     if item.soldOut == true {
-                        Text("COMPLET")
+                        Text(AppLocalizer.string("reports.event_full", defaultValue: "COMPLET"))
                             .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundColor(DS.Color.destructive)
                     }
                     if item.phase == "cancelled" {
-                        Text("ANNULÉ")
+                        Text(AppLocalizer.string("ANNULÉ", defaultValue: "ANNULÉ"))
                             .font(DS.Font.labelSmall.weight(.bold))
                             .foregroundColor(DS.Color.inkMute)
                             .strikethrough()
@@ -3288,7 +3288,7 @@ private struct ReportsSummarySheet: View {
 
                                 if !crowdingRisk.eventNames.isEmpty {
                                     VStack(alignment: .leading, spacing: 6) {
-                                        Text("Événements suivis")
+                                        Text(AppLocalizer.string("Événements suivis", defaultValue: "Événements suivis"))
                                             .font(DS.Font.eyebrow)
                                             .foregroundStyle(DS.Color.inkMute)
                                         ForEach(crowdingRisk.eventNames, id: \.self) { event in
@@ -3634,7 +3634,7 @@ struct EditorialDossierCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("PERTURBATION OFFICIELLE")
+                        Text(AppLocalizer.string("PERTURBATION OFFICIELLE", defaultValue: "PERTURBATION OFFICIELLE"))
                             .font(.system(size: 9, weight: .bold))
                             .tracking(1.4)
                             .foregroundStyle(DS.Color.statusMajor)

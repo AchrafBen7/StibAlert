@@ -143,7 +143,7 @@ struct SchedulesView: View {
             VStack(spacing: 14) {
                 Spacer().frame(height: 60)
                 ProgressView().tint(DS.Color.ink)
-                Text("Chargement des lignes…")
+                Text(AppLocalizer.string("Chargement des lignes…", defaultValue: "Chargement des lignes…"))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                 Spacer()
@@ -158,14 +158,14 @@ struct SchedulesView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(DS.Color.statusMinor)
-                Text("Impossible de charger les lignes")
+                Text(AppLocalizer.string("Impossible de charger les lignes", defaultValue: "Impossible de charger les lignes"))
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 Text(loadError)
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .multilineTextAlignment(.center)
-                Button("Réessayer") { Task { await loadLines() } }
+                Button(AppLocalizer.string("common.retry", defaultValue: "Réessayer")) { Task { await loadLines() } }
                     .buttonStyle(.borderedProminent)
                 Spacer()
             }
@@ -176,10 +176,10 @@ struct SchedulesView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 22))
                     .foregroundStyle(DS.Color.inkMute)
-                Text("Aucune ligne trouvée")
+                Text(AppLocalizer.string("Aucune ligne trouvée", defaultValue: "Aucune ligne trouvée"))
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
-                Text("Réinitialise la recherche pour voir toutes les lignes \(selectedOperator.shortName).")
+                Text(AppLocalizer.format("sched.reset_search", defaultValue: "Réinitialise la recherche pour voir toutes les lignes %@.", selectedOperator.shortName))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .multilineTextAlignment(.center)
@@ -191,7 +191,7 @@ struct SchedulesView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "list.bullet")
                             .font(.system(size: 13, weight: .bold))
-                        Text("Voir toutes les lignes")
+                        Text(AppLocalizer.string("empty.see_all_lines", defaultValue: "Voir toutes les lignes"))
                             .font(DS.Font.bodyBold)
                     }
                     .foregroundStyle(DS.Color.primaryForeground)
@@ -245,10 +245,10 @@ struct SchedulesView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(DS.Color.statusMinor)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Connexion limitée")
+                    Text(AppLocalizer.string("Connexion limitée", defaultValue: "Connexion limitée"))
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
-                    Text("Données en cache · Tape pour réessayer")
+                    Text(AppLocalizer.string("Données en cache · Tape pour réessayer", defaultValue: "Données en cache · Tape pour réessayer"))
                         .font(.system(size: 11))
                         .foregroundStyle(DS.Color.inkMute)
                 }
@@ -303,10 +303,10 @@ struct SchedulesView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 42, height: 42)
-            Text("Horaires \(transitOperator.shortName) indisponibles")
+            Text(AppLocalizer.format("sched.schedules_unavailable", defaultValue: "Horaires %@ indisponibles", transitOperator.shortName))
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
-            Text("La base locale n’est pas encore branchée pour cet opérateur.")
+            Text(AppLocalizer.string("La base locale n’est pas encore branchée pour cet opérateur.", defaultValue: "La base locale n’est pas encore branchée pour cet opérateur."))
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkMute)
             Spacer()

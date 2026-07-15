@@ -34277,6 +34277,193 @@
           }
         }
       }
+    },
+    "common.line_x": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@"
+          }
+        }
+      }
+    },
+    "reports.event_full": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "COMPLET"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VOLZET"
+          }
+        }
+      }
+    },
+    "opcat.loading_lines": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des lignes %@…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijnen van %@ laden…"
+          }
+        }
+      }
+    },
+    "opcat.stops_nearby": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêts %@ à proximité…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haltes van %@ in de buurt…"
+          }
+        }
+      }
+    },
+    "opcat.network_header": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RÉSEAU %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NETWERK %@"
+          }
+        }
+      }
+    },
+    "opcat.dispatches": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld dépêches"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld berichten"
+          }
+        }
+      }
+    },
+    "opcat.search_line": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chercher une ligne %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een %@-lijn zoeken"
+          }
+        }
+      }
+    },
+    "opcat.network_ok": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réseau %@ OK"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-net OK"
+          }
+        }
+      }
+    },
+    "opcat.lines_of": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lignes %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijnen %@"
+          }
+        }
+      }
+    },
+    "sched.reset_search": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialise la recherche pour voir toutes les lignes %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset de zoekopdracht om alle %@-lijnen te zien."
+          }
+        }
+      }
+    },
+    "sched.schedules_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horaires %@ indisponibles"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-dienstregeling niet beschikbaar"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
