@@ -26,7 +26,7 @@ struct CommuteSetupNudgeCard: View {
                         .font(.system(size: 9.5, weight: .black))
                         .tracking(1.8)
                         .foregroundStyle(DS.Color.inkMute)
-                    Text("Configure-le pour un brief avant ton départ")
+                    Text(AppLocalizer.string("Configure-le pour un brief avant ton départ", defaultValue: "Configure-le pour un brief avant ton départ"))
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(2)

@@ -16,7 +16,7 @@ struct StrikeBanner: View {
                     .foregroundStyle(.white)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Grève en cours")
+                    Text(AppLocalizer.string("Grève en cours", defaultValue: "Grève en cours"))
                         .font(DS.Font.bodyBold)
                         .foregroundStyle(.white)
                     if !strike.localizedMessage.isEmpty {
@@ -42,7 +42,7 @@ struct StrikeBanner: View {
             }
             if !strike.affectedLines.isEmpty {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Lignes à l'arrêt")
+                    Text(AppLocalizer.string("Lignes à l'arrêt", defaultValue: "Lignes à l'arrêt"))
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1.0)
                         .foregroundStyle(.white.opacity(0.8))

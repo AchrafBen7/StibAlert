@@ -361,7 +361,7 @@ struct SignalementDetailView: View {
                 Text("Tu es sur place ?")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                Text("« Toujours bloqué » si le problème dure, « C'est rentré dans l'ordre » s'il est résolu.")
+                Text(AppLocalizer.string("« Toujours bloqué » si le problème dure, « C'est rentré dans l'ordre » s'il est résolu.", defaultValue: "« Toujours bloqué » si le problème dure, « C'est rentré dans l'ordre » s'il est résolu."))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
@@ -460,7 +460,7 @@ struct SignalementDetailView: View {
                 HStack(spacing: 12) {
                     LineBadge(line: latest.ligne, size: .lg)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Voir la ligne complète")
+                        Text(AppLocalizer.string("Voir la ligne complète", defaultValue: "Voir la ligne complète"))
                             .font(DS.Font.bodyBold)
                             .foregroundStyle(DS.Color.ink)
                         Text("TIMELINE TEMPS RÉEL")
@@ -508,7 +508,7 @@ struct SignalementDetailView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "bubble.left")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Compléter")
+                        Text(AppLocalizer.string("Compléter", defaultValue: "Compléter"))
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)

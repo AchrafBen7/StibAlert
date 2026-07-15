@@ -296,7 +296,7 @@ struct QuickReportSheetView: View {
 
     private var sheetHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Signaler un problème")
+            Text(AppLocalizer.string("Signaler un problème", defaultValue: "Signaler un problème"))
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
             Text(selectedOperator == .sncb ? "Gare détectée automatiquement" : "Arrêt détecté automatiquement")
@@ -947,7 +947,7 @@ struct QuickReportSheetView: View {
                 Text("Alerte prioritaire")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                Text("Ce type prévient immédiatement les voyageurs proches, même en mode silencieux. À utiliser seulement si c'est réel.")
+                Text(AppLocalizer.string("Ce type prévient immédiatement les voyageurs proches, même en mode silencieux. À utiliser seulement si c'est réel.", defaultValue: "Ce type prévient immédiatement les voyageurs proches, même en mode silencieux. À utiliser seulement si c'est réel."))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)
@@ -972,7 +972,7 @@ struct QuickReportSheetView: View {
             // plutôt que créer un doublon.
             if exactDuplicateSignalement != nil {
                 sectionTitle(icon: "exclamationmark.bubble.fill", text: "D'autres signalent déjà ça")
-                Text("Confirme l'alerte existante au lieu d'en créer une nouvelle — elle gagnera en fiabilité.")
+                Text(AppLocalizer.string("Confirme l'alerte existante au lieu d'en créer une nouvelle — elle gagnera en fiabilité.", defaultValue: "Confirme l'alerte existante au lieu d'en créer une nouvelle — elle gagnera en fiabilité."))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)
                     .padding(.horizontal, 18)
@@ -1047,7 +1047,7 @@ struct QuickReportSheetView: View {
     private var optionalDescriptionField: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Text("Décris la situation")
+                Text(AppLocalizer.string("Décris la situation", defaultValue: "Décris la situation"))
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
                 Text("· +5 pts")
@@ -1134,7 +1134,7 @@ struct QuickReportSheetView: View {
                     ProgressView().tint(DS.Color.primaryForeground)
                 } else if submitSuccess {
                     Image(systemName: "checkmark").font(.system(size: 18, weight: .bold))
-                    Text("Envoyé")
+                    Text(AppLocalizer.string("Envoyé", defaultValue: "Envoyé"))
                 } else {
                     Image(systemName: "paperplane.fill").font(.system(size: 14, weight: .semibold))
                     Text("Signaler")

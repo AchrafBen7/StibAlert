@@ -912,7 +912,7 @@ struct LigneDetailPage: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .lineLimit(4)
-                Text("Cette ligne est mentionnée dans l'avis général — pas d'incident propre à elle pour le moment.")
+                Text(AppLocalizer.string("Cette ligne est mentionnée dans l'avis général — pas d'incident propre à elle pour le moment.", defaultValue: "Cette ligne est mentionnée dans l'avis général — pas d'incident propre à elle pour le moment."))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
                     .padding(.top, 2)
@@ -1363,7 +1363,7 @@ private struct LigneTimelineRow: View {
                                 .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.statusMajor)
                         } else if stop.waitsSource == "scheduled" {
-                            Text("théorique")
+                            Text(AppLocalizer.string("théorique", defaultValue: "théorique"))
                                 .font(DS.Font.labelSmall)
                                 .foregroundStyle(DS.Color.inkMute)
                         }

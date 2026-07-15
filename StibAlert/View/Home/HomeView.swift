@@ -3943,7 +3943,7 @@ private struct HomeAlternativeDetailsSheet: View {
                                         Text("\(suggestion.contextLabel) • \(suggestion.station.displayName)")
                                             .font(.custom("Montserrat-SemiBold", size: 12))
                                             .foregroundStyle(.white)
-                                        Text("\(suggestion.station.availableBikes) vélos • \(suggestion.station.availableBikeStands) places • \(suggestion.distanceMeters)m")
+                                        Text(AppLocalizer.format("villo.bikes_stands_dist", defaultValue: "%lld vélos • %lld places • %lldm", suggestion.station.availableBikes, suggestion.station.availableBikeStands, suggestion.distanceMeters))
                                             .font(.custom("Montserrat-Regular", size: 12))
                                             .foregroundStyle(.white.opacity(0.72))
                                     }

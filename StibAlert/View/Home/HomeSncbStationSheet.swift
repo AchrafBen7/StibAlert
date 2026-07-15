@@ -80,7 +80,7 @@ struct HomeSncbStationSheet: View {
                 HStack { ProgressView().tint(DS.Color.ink); Spacer() }
                     .padding(.vertical, 8)
             } else if departures.isEmpty {
-                Text("Aucun départ à venir pour le moment (horaires théoriques).")
+                Text(AppLocalizer.string("Aucun départ à venir pour le moment (horaires théoriques).", defaultValue: "Aucun départ à venir pour le moment (horaires théoriques)."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             } else {
@@ -94,7 +94,7 @@ struct HomeSncbStationSheet: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-                Text("Horaires théoriques")
+                Text(AppLocalizer.string("Horaires théoriques", defaultValue: "Horaires théoriques"))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
             }

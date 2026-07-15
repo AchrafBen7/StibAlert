@@ -10,7 +10,7 @@ struct SearchPillButton: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.Palette.textPrimary)
-                Text("Rechercher un arrêt…")
+                Text(AppLocalizer.string("Rechercher un arrêt…", defaultValue: "Rechercher un arrêt…"))
                     .font(AppTheme.Fonts.body)
                     .foregroundColor(AppTheme.Palette.textSecondary)
                 Spacer(minLength: 0)
@@ -82,7 +82,7 @@ struct SearchInputOverlay: View {
                     .foregroundStyle(AppTheme.Palette.textSecondary)
                 ZStack(alignment: .leading) {
                     if query.isEmpty {
-                        Text("Où veux-tu aller ?")
+                        Text(AppLocalizer.string("Où veux-tu aller ?", defaultValue: "Où veux-tu aller ?"))
                             .font(AppTheme.Fonts.body)
                             .foregroundStyle(AppTheme.Palette.textMuted)
                     }

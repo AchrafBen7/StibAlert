@@ -69,11 +69,11 @@ struct AddOperatorFavoriteSheet: View {
                     if isLoading && stops.isEmpty {
                         ProgressView().tint(DS.Color.ink).frame(maxWidth: .infinity).padding(.vertical, 48)
                     } else if stops.isEmpty {
-                        Text("Aucun arrêt \(op.mapLabel) à proximité.")
+                        Text(AppLocalizer.format("favorites.no_operator_stop_nearby", defaultValue: "Aucun arrêt %@ à proximité.", op.mapLabel))
                             .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
                             .padding(.horizontal, 20).padding(.top, 24)
                     } else if filteredStops.isEmpty {
-                        Text("Aucun arrêt trouvé pour « \(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)) ».")
+                        Text(AppLocalizer.format("favorites.no_stop_for_query", defaultValue: "Aucun arrêt trouvé pour « %@ ».", searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)))
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkMute)
                             .frame(maxWidth: .infinity, alignment: .leading)

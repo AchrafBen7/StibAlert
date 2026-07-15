@@ -385,7 +385,7 @@ extension HomeView {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.Color.statusOK)
-                Text("Tout est fluide près de toi")
+                Text(AppLocalizer.string("Tout est fluide près de toi", defaultValue: "Tout est fluide près de toi"))
                     .font(DS.Font.bodySmall.weight(.semibold))
                     .foregroundStyle(DS.Color.ink)
             }

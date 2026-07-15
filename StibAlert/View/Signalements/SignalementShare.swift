@@ -97,10 +97,10 @@ struct ReportSharePromptSheet: View {
             }
 
             VStack(spacing: 8) {
-                Text("Signalement publié")
+                Text(AppLocalizer.string("Signalement publié", defaultValue: "Signalement publié"))
                     .font(.system(size: 22, weight: .black))
                     .foregroundStyle(DS.Color.ink)
-                Text("Merci — ton signalement aide la communauté à anticiper les perturbations en temps réel.")
+                Text(AppLocalizer.string("Merci — ton signalement aide la communauté à anticiper les perturbations en temps réel.", defaultValue: "Merci — ton signalement aide la communauté à anticiper les perturbations en temps réel."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
                     .multilineTextAlignment(.center)
@@ -183,7 +183,7 @@ struct ReportSharePromptSheet: View {
                 Text("Astuce dopaminergique")
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
-                Text("Décrire en 1 ligne (« Bloqué au feu Bailli ») apporte +5 pts à ton score communauté la prochaine fois.")
+                Text(AppLocalizer.string("Décrire en 1 ligne (« Bloqué au feu Bailli ») apporte +5 pts à ton score communauté la prochaine fois.", defaultValue: "Décrire en 1 ligne (« Bloqué au feu Bailli ») apporte +5 pts à ton score communauté la prochaine fois."))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)
                     .fixedSize(horizontal: false, vertical: true)

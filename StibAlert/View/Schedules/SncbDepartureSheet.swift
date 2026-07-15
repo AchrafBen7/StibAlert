@@ -32,7 +32,7 @@ struct SncbDepartureSheet: View {
                 // « Vertrek samedi » : le gabarit « Départ %@ » se traduisait,
                 // mais on y interpolait le nom de jour FRANÇAIS codé en dur.
                 // `day.label` est désormais localisé à la source (SNCBDayType).
-                Text("Départ \(day.label.lowercased())")
+                Text(AppLocalizer.format("sncb.departure_day", defaultValue: "Départ %@", day.label.lowercased()))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -107,7 +107,7 @@ struct SncbDepartureSheet: View {
             }
             .buttonStyle(.plain)
 
-            Text("Horaires théoriques (indicatifs).")
+            Text(AppLocalizer.string("Horaires théoriques (indicatifs).", defaultValue: "Horaires théoriques (indicatifs)."))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)

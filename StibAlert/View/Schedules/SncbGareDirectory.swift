@@ -51,7 +51,7 @@ struct SncbGareDirectory: View {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionHeader(icon: "magnifyingglass", title: AppLocalizer.string("search.results", defaultValue: "Résultats"), count: results.count, expanded: true)
                     if results.isEmpty {
-                        Text("Aucune gare trouvée")
+                        Text(AppLocalizer.string("Aucune gare trouvée", defaultValue: "Aucune gare trouvée"))
                             .font(DS.Font.bodySmall)
                             .foregroundStyle(DS.Color.inkMute)
                             .padding(.vertical, 8)

@@ -299,7 +299,7 @@ struct FavoritesView: View {
             Text(AppLocalizer.string("favorites.empty.no_station", defaultValue: "Aucune gare en favori"))
                 .font(DS.Font.bodyBold)
                 .foregroundStyle(DS.Color.ink)
-            Text("Ouvre une gare (Lignes ou Alertes) et appuie sur ★ pour l'épingler ici.")
+            Text(AppLocalizer.string("Ouvre une gare (Lignes ou Alertes) et appuie sur ★ pour l'épingler ici.", defaultValue: "Ouvre une gare (Lignes ou Alertes) et appuie sur ★ pour l'épingler ici."))
                 .font(DS.Font.bodySmall)
                 .foregroundStyle(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
@@ -319,7 +319,7 @@ struct FavoritesView: View {
                 Spacer().frame(height: 50)
                 Image(systemName: "star").font(.system(size: 26)).foregroundStyle(DS.Color.inkMute)
                 Text(AppLocalizer.format("favorites.empty.no_op_stop", defaultValue: "Aucun arrêt %@ en favori", op.mapLabel)).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink)
-                Text("Appuie sur + pour épingler un arrêt \(op.mapLabel) proche.")
+                Text(AppLocalizer.format("favorites.pin_operator_hint", defaultValue: "Appuie sur + pour épingler un arrêt %@ proche.", op.mapLabel))
                     .font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute).multilineTextAlignment(.center)
                 Spacer()
             }
@@ -350,7 +350,7 @@ struct FavoritesView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(fav.name).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink).lineLimit(1)
-                Text("Arrêt \(fav.operatorType.mapLabel)").font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+                Text(AppLocalizer.format("favorites.operator_stop", defaultValue: "Arrêt %@", fav.operatorType.mapLabel)).font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
             }
             Spacer()
             Button {
@@ -957,7 +957,7 @@ struct FavoritesView: View {
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
 
-                Text("Départ \(routine.departureTime) · trajet quotidien")
+                Text(AppLocalizer.format("favorites.routine_departure", defaultValue: "Départ %@ · trajet quotidien", routine.departureTime))
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.inkMute)
             }
@@ -1390,7 +1390,7 @@ private struct FavoriteStopDetailView: View {
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Arrêt favori")
+                Text(AppLocalizer.string("Arrêt favori", defaultValue: "Arrêt favori"))
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.3)
                     .foregroundStyle(DS.Color.inkMute)
@@ -1948,7 +1948,7 @@ private struct FavoriteStopDecisionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Analyse réseau")
+                Text(AppLocalizer.string("Analyse réseau", defaultValue: "Analyse réseau"))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(DS.Color.ink)
 

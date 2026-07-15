@@ -257,7 +257,7 @@ struct GareDetailPage: View {
                 favoritesSection
             }
             timetable
-            Text("Horaires théoriques")
+            Text(AppLocalizer.string("Horaires théoriques", defaultValue: "Horaires théoriques"))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
                 .frame(maxWidth: .infinity, alignment: .center)
