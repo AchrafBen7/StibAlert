@@ -139,6 +139,8 @@ struct FavoritesView: View {
                     .fullScreenCover(item: $selectedGareForDetail) { gare in
                         GareDetailPage(station: gare, initialTab: .schedule, onReport: { _ in
                             selectedGareForDetail = nil
+                            // Feuille de signalement rendue seulement sur la Home.
+                            nav.currentPage = .home
                             nav.showReportSheet = true
                         })
                         .environmentObject(session)

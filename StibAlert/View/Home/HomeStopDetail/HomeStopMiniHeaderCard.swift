@@ -243,7 +243,8 @@ struct HomeStopMiniHeaderCard: View {
     }
 
     private func minutesText(for minutes: Int) -> String {
-        if minutes <= 0 { return "now" }
+        // « now » en dur → suivait la langue de l'app (« maintenant » / « nu »).
+        if minutes <= 0 { return AppLocalizer.string("realtime.now", defaultValue: "maintenant") }
         return "\(minutes) min"
     }
 

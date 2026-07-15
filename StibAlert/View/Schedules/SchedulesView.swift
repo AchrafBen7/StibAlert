@@ -288,6 +288,8 @@ struct SchedulesView: View {
         // Tap a gare → push its full detail page opened on the Horaires tab.
         .navigationDestination(item: $selectedGare) { gare in
             GareDetailPage(station: gare, initialTab: .schedule, onReport: { _ in
+                // Feuille de signalement rendue seulement sur la Home.
+                nav.currentPage = .home
                 nav.showReportSheet = true
             })
         }

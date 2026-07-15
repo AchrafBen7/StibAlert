@@ -34,13 +34,15 @@ struct ClusterDetailSheet: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 if let cluster = detail {
+                    // LineBadge affiche un badge RÉSEAU quand `ligne` est un nom
+                    // d'opérateur (perturbation réseau), pas un « STIB » incohérent.
                     LineBadge(line: cluster.ligne, size: .lg)
                     Text(cluster.typeProbleme)
                         .font(DS.Font.displayH3)
                         .foregroundStyle(DS.Color.ink)
                     confidenceLabel(for: cluster)
                 } else {
-                    Text("Alerte communauté")
+                    Text(AppLocalizer.string("cluster.community_alert", defaultValue: "Alerte communauté"))
                         .font(DS.Font.displayH3)
                         .foregroundStyle(DS.Color.ink)
                 }
@@ -101,19 +103,23 @@ struct ClusterDetailSheet: View {
 
     private func confidenceExplanation(for cluster: ClusterDetailDTO) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("POURQUOI CETTE CONFIANCE")
+            Text(AppLocalizer.string("cluster.why_confidence", defaultValue: "POURQUOI CETTE CONFIANCE"))
                 .font(DS.Font.labelSmall.weight(.bold))
                 .tracking(1.5)
                 .foregroundStyle(DS.Color.inkMute)
             VStack(alignment: .leading, spacing: 4) {
-                bulletPoint("\(cluster.reportCount) personnes ont signalé indépendamment")
-                bulletPoint("Score de confiance moyen: \(Int(cluster.aggregateTrust))/100")
+                bulletPoint(AppLocalizer.format("cluster.reporters_count",
+                                                defaultValue: "Signalements indépendants : %lld", cluster.reportCount))
+                bulletPoint(AppLocalizer.format("cluster.avg_trust",
+                                                defaultValue: "Score de confiance moyen : %lld/100", Int(cluster.aggregateTrust)))
                 if cluster.signalements.contains(where: { $0.source == "user" }) {
-                    bulletPoint("Inclut au moins 1 utilisateur authentifié")
+                    bulletPoint(AppLocalizer.string("cluster.includes_authed",
+                                                    defaultValue: "Inclut au moins 1 utilisateur authentifié"))
                 }
                 if let firstReportedAt = cluster.firstReportedAt {
                     let mins = max(1, Int(Date().timeIntervalSince(firstReportedAt) / 60))
-                    bulletPoint("Première alerte il y a \(mins) min")
+                    bulletPoint(AppLocalizer.format("cluster.first_alert_ago",
+                                                    defaultValue: "Première alerte il y a %lld min", mins))
                 }
                 if cluster.stillBlockedConfirmationCount > 0 {
                     bulletPoint(AppLocalizer.format("plural.confirmations_blocked",
@@ -148,9 +154,9 @@ struct ClusterDetailSheet: View {
         let label: String
         let color: Color
         switch status {
-        case "confirmed": label = "Confirmé"; color = DS.Color.success
-        case "likely": label = "Probable"; color = DS.Color.warning
-        default: label = "À vérifier"; color = Color(hex: "#9CA3AF")
+        case "confirmed": label = AppLocalizer.string("cluster.status.confirmed", defaultValue: "Confirmé"); color = DS.Color.success
+        case "likely": label = AppLocalizer.string("cluster.status.likely", defaultValue: "Probable"); color = DS.Color.warning
+        default: label = AppLocalizer.string("cluster.status.unverified", defaultValue: "À vérifier"); color = Color(hex: "#9CA3AF")
         }
         let pct = cluster.confidenceScore.map { " · \(Int(($0 * 100).rounded()))%" } ?? ""
         return Text("\(label)\(pct)")
@@ -171,7 +177,7 @@ struct ClusterDetailSheet: View {
         case .medium: color = DS.Color.warning
         case .low: color = Color(hex: "#9CA3AF")
         }
-        return Text("Confiance: \(confidence.displayLabel.lowercased())")
+        return Text(AppLocalizer.format("cluster.confidence_label", defaultValue: "Confiance : %@", confidence.displayLabel.lowercased()))
             .font(DS.Font.labelSmall.weight(.bold))
             .tracking(0.8)
             .foregroundStyle(color)
@@ -227,12 +233,16 @@ struct ClusterDetailSheet: View {
                     }
 
                     if detail.stillBlockedConfirmationCount > 0 {
-                        Text("\(detail.stillBlockedConfirmationCount) personne\(detail.stillBlockedConfirmationCount > 1 ? "s ont" : " a") confirmé « toujours bloqué »")
+                        Text(AppLocalizer.format("cluster.still_blocked_count",
+                                                 defaultValue: "« Toujours bloqué » confirmé : %lld×",
+                                                 detail.stillBlockedConfirmationCount))
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     }
                     if detail.resolveConfirmationCount > 0 {
-                        Text("Résolu confirmé par \(detail.resolveConfirmationCount)/3 personnes")
+                        Text(AppLocalizer.format("cluster.resolved_count",
+                                                 defaultValue: "Résolu confirmé : %lld/3",
+                                                 detail.resolveConfirmationCount))
                             .font(DS.Font.body)
                             .foregroundStyle(DS.Color.inkMute)
                     }
@@ -250,7 +260,7 @@ struct ClusterDetailSheet: View {
                 .foregroundStyle(DS.Color.primary)
                 .padding(.top, 1)
             VStack(alignment: .leading, spacing: 3) {
-                Text("EN BREF")
+                Text(AppLocalizer.string("cluster.in_brief", defaultValue: "EN BREF"))
                     .font(DS.Font.labelSmall.weight(.bold))
                     .tracking(1.5)
                     .foregroundStyle(DS.Color.primary)
@@ -278,7 +288,7 @@ struct ClusterDetailSheet: View {
                 .foregroundStyle(DS.Color.inkMute)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
-                Text("« \(report.description ?? "Signalement") »")
+                Text("« \(report.description ?? AppLocalizer.string("cluster.report_fallback", defaultValue: "Signalement")) »")
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(3)
@@ -298,10 +308,11 @@ struct ClusterDetailSheet: View {
     private func expiryText(expiresAt: Date) -> String {
         let minutes = max(0, Int(expiresAt.timeIntervalSinceNow / 60))
         if minutes <= 0 { return AppLocalizer.string("cluster.expires_soon", defaultValue: "Expire bientôt") }
-        if minutes < 60 { return "Expire dans \(minutes) min" }
+        if minutes < 60 { return AppLocalizer.format("cluster.expires_in_min", defaultValue: "Expire dans %lld min", minutes) }
         let hours = minutes / 60
         let mins = minutes % 60
-        return "Expire dans \(hours)h\(mins > 0 ? " \(mins)min" : "")"
+        let hm = mins > 0 ? "\(hours)h \(mins)min" : "\(hours)h"
+        return AppLocalizer.format("cluster.expires_in", defaultValue: "Expire dans %@", hm)
     }
 
     private func loadDetail() async {

@@ -261,7 +261,30 @@ struct LineBadge: View {
     /// les badges doivent être rigoureusement identiques. nil = normal.
     var squareSide: CGFloat? = nil
 
+    /// « STIB », « MIVB », « SNCB »… ne sont PAS des lignes : une perturbation
+    /// réseau arrive parfois avec le nom de l'opérateur dans le champ `ligne`.
+    /// Rendu dans un badge de ligne coloré, ça donnait un « STIB » incohérent
+    /// (un opérateur maquillé en ligne, signalé « étrange et faux »). On le
+    /// détecte et on affiche un badge RÉSEAU neutre à la place.
+    private var networkLabel: String? {
+        switch line.uppercased().trimmingCharacters(in: .whitespaces) {
+        case "STIB", "MIVB", "STIB-MIVB", "MIVB-STIB": return "STIB·MIVB"
+        case "SNCB", "NMBS": return "SNCB"
+        case "DE LIJN", "DELIJN": return "De Lijn"
+        case "TEC": return "TEC"
+        default: return nil
+        }
+    }
+
     var body: some View {
+        if let networkLabel {
+            networkBadge(networkLabel)
+        } else {
+            lineBadge
+        }
+    }
+
+    private var lineBadge: some View {
         Text(line)
             .font(size.font)
             .fontWeight(.bold)
@@ -281,6 +304,27 @@ struct LineBadge: View {
                 RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
                     .stroke(DS.Color.ink.opacity(0.12), lineWidth: 1)
             )
+    }
+
+    private func networkBadge(_ label: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "dot.radiowaves.left.and.right")
+                .font(size.font)
+            Text(label)
+                .font(size.font)
+                .fontWeight(.bold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundStyle(DS.Color.ink)
+        .padding(.horizontal, size.horizontalPadding + 2)
+        .frame(minHeight: size.height)
+        .background(DS.Color.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+        )
     }
 }
 

@@ -909,6 +909,10 @@ struct ReportsView: View {
             // standard report flow.
             GareDetailPage(station: gare, initialTab: .traffic, onReport: { _ in
                 selectedGareForDetail = nil
+                // La feuille de signalement n'est rendue que dans les overlays de
+                // la Home : sans repasser sur l'onglet Carte, `showReportSheet`
+                // restait vrai sans que RIEN ne s'affiche (bouton « mort »).
+                nav.currentPage = .home
                 nav.showReportSheet = true
             })
             .environmentObject(session)
