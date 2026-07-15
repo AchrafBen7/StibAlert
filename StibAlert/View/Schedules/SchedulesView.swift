@@ -37,7 +37,11 @@ struct SchedulesView: View {
                 content
                     .padding(.top, 14)
             }
-            .padding(.bottom, 110) // tab bar clearance
+            // PAS de `.padding(.bottom, 110)` sur le VStack : ça coupait le
+            // ScrollView 110 pt avant le bas → une zone morte crème derrière la
+            // barre d'onglets flottante (le « gros bloc blanc » qu'Alertes n'a
+            // pas). Le contenu défile désormais SOUS la barre ; la clearance est
+            // gérée à l'intérieur de chaque ScrollView (comme ReportsView).
             .background(DS.Color.paper.ignoresSafeArea())
             .task {
                 locationManager.start()
@@ -218,7 +222,7 @@ struct SchedulesView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
-                .padding(.bottom, 18)
+                .padding(.bottom, 120) // clearance barre flottante
             }
             .navigationDestination(for: String.self) { lineId in
                 // .navigationDestination ne propage pas de façon fiable les
@@ -283,7 +287,7 @@ struct SchedulesView: View {
             )
             .padding(.horizontal, 18)
             .padding(.top, 4)
-            .padding(.bottom, 18)
+            .padding(.bottom, 120) // clearance barre flottante
         }
         // Tap a gare → push its full detail page opened on the Horaires tab.
         .navigationDestination(item: $selectedGare) { gare in

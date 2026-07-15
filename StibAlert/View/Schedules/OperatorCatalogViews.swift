@@ -73,7 +73,7 @@ struct OperatorLineDirectory: View {
                 )
                 .padding(.horizontal, 18)
                 .padding(.top, 8)
-                .padding(.bottom, 18)
+                .padding(.bottom, 120) // clearance barre flottante
             } else if isLoading && lines.isEmpty {
                 VStack(spacing: 14) {
                     Spacer().frame(height: 60)
@@ -98,7 +98,7 @@ struct OperatorLineDirectory: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
-                .padding(.bottom, 18)
+                .padding(.bottom, 120) // clearance barre flottante
             }
         }
         .task(id: op) {
@@ -383,7 +383,7 @@ struct OperatorStopDirectory: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
-                .padding(.bottom, 18)
+                .padding(.bottom, 120) // clearance barre flottante
             }
         }
         .task(id: op) { await load() }
