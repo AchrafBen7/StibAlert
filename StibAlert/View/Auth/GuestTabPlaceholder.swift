@@ -165,7 +165,7 @@ struct GuestTabPlaceholder: View {
     private var actions: some View {
         VStack(spacing: 10) {
             Button(action: onSignUp) {
-                Text("Créer un compte")
+                Text(AppLocalizer.string("Créer un compte", defaultValue: "Créer un compte"))
                     .font(.system(size: 14, weight: .bold))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(DS.Color.primaryForeground)

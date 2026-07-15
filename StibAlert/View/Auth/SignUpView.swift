@@ -78,9 +78,9 @@ struct SignUpView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 8) {
             (
-                Text("Le réseau, ")
+                Text(AppLocalizer.string("signup.hero.prefix", defaultValue: "Le réseau, "))
                     .foregroundColor(DS.Color.ink)
-                + Text("à toi")
+                + Text(AppLocalizer.string("signup.hero.emphasis", defaultValue: "à toi"))
                     .font(.system(size: 36, weight: .bold, design: .serif))
                     .italic()
                     .foregroundColor(DS.Color.primary)
@@ -197,7 +197,7 @@ struct SignUpView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.right.circle.fill")
                                     .font(.system(size: 12, weight: .bold))
-                                Text("Se connecter à la place")
+                                Text(AppLocalizer.string("Se connecter à la place", defaultValue: "Se connecter à la place"))
                                     .font(.system(size: 12, weight: .bold))
                             }
                             .foregroundStyle(DS.Color.primary)
@@ -255,7 +255,7 @@ struct SignUpView: View {
                 .font(.system(size: 11.5, weight: satisfied ? .semibold : .regular))
                 .foregroundStyle(satisfied ? DS.Color.ink : DS.Color.inkMute)
             if !required {
-                Text("· recommandé")
+                Text(AppLocalizer.string("common.recommended_dot", defaultValue: "· recommandé"))
                     .font(.system(size: 10.5))
                     .foregroundStyle(DS.Color.inkMute.opacity(0.8))
             }
@@ -294,7 +294,7 @@ struct SignUpView: View {
 
     private var termsBlock: some View {
         VStack(spacing: 8) {
-            Text("En créant un compte, tu acceptes nos conditions et notre politique de confidentialité.")
+            Text(AppLocalizer.string("En créant un compte, tu acceptes nos conditions et notre politique de confidentialité.", defaultValue: "En créant un compte, tu acceptes nos conditions et notre politique de confidentialité."))
                 .font(.system(size: 11))
                 .foregroundColor(DS.Color.inkMute)
                 .multilineTextAlignment(.center)
@@ -309,7 +309,7 @@ struct SignUpView: View {
                 }
                 if let url = URL(string: "\(AppConfig.backendBaseURL)/privacy") {
                     Link(destination: url) {
-                        Text("Politique de confidentialité")
+                        Text(AppLocalizer.string("Politique de confidentialité", defaultValue: "Politique de confidentialité"))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(DS.Color.statusMajor)
                     }

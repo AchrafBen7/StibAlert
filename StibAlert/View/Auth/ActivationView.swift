@@ -96,7 +96,7 @@ struct ActivationView: View {
                         .foregroundStyle(DS.Color.primary)
                 }
 
-                Text("Compte activé")
+                Text(AppLocalizer.string("Compte activé", defaultValue: "Compte activé"))
                     .font(DS.Font.displayH2)
                     .foregroundStyle(DS.Color.ink)
 
@@ -118,7 +118,7 @@ struct ActivationView: View {
 
     private var heroBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Dernière étape,")
+            Text(AppLocalizer.string("Dernière étape,", defaultValue: "Dernière étape,"))
                 .font(.system(size: 36, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
             +
@@ -128,7 +128,7 @@ struct ActivationView: View {
                 .foregroundStyle(DS.Color.primary)
 
             if let email = session.pendingActivationEmail {
-                Text("Entre le code reçu à \(email) pour ouvrir la session et synchroniser ton compte.")
+                Text(AppLocalizer.format("auth.activation.enter_code", defaultValue: "Entre le code reçu à %@ pour ouvrir la session et synchroniser ton compte.", email))
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)
                     .frame(maxWidth: 300, alignment: .leading)
@@ -173,7 +173,7 @@ struct ActivationView: View {
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.statusMajor)
             } else {
-                Text("Le code expire rapidement. Tu peux en demander un nouveau si nécessaire.")
+                Text(AppLocalizer.string("Le code expire rapidement. Tu peux en demander un nouveau si nécessaire.", defaultValue: "Le code expire rapidement. Tu peux en demander un nouveau si nécessaire."))
                     .font(DS.Font.bodySmall)
                     .foregroundStyle(DS.Color.inkMute)
             }

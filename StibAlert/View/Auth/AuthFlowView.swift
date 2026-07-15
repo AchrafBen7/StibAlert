@@ -150,7 +150,7 @@ private struct WelcomePage: View {
             .padding(.bottom, 4)
 
             // Disclaimer App Store : voir SplashView.
-            Text("Application indépendante — non affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.")
+            Text(AppLocalizer.string("Application indépendante — non affiliée à STIB-MIVB, SNCB, De Lijn ou TEC.", defaultValue: "Application indépendante — non affiliée à STIB-MIVB, SNCB, De Lijn ou TEC."))
                 .font(.system(size: 10, weight: .medium))
                 .tracking(0.2)
                 .foregroundColor(DS.Color.inkMute)
@@ -183,7 +183,7 @@ private struct WelcomePage: View {
             .tracking(-1.5)
             .lineSpacing(-2)
 
-            Text("Temps réel, perturbations vérifiées par la communauté et trajets réellement praticables, pour Bruxelles.")
+            Text(AppLocalizer.string("Temps réel, perturbations vérifiées par la communauté et trajets réellement praticables, pour Bruxelles.", defaultValue: "Temps réel, perturbations vérifiées par la communauté et trajets réellement praticables, pour Bruxelles."))
                 .font(.system(size: 15))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
@@ -215,7 +215,7 @@ private struct WelcomePage: View {
                             .font(.system(size: 12.5, weight: .semibold))
                             .foregroundColor(DS.Color.ink)
                             .lineLimit(1)
-                        Text("il y a \(2 + tickIndex) min · confirmé par \(12 + tickIndex * 3) voyageurs")
+                        Text(AppLocalizer.format("auth.demo.confirmed_by", defaultValue: "il y a %lld min · confirmé par %lld voyageurs", 2 + tickIndex, 12 + tickIndex * 3))
                             .font(DS.Font.label)
                             .foregroundColor(DS.Color.inkMute)
                     }
@@ -327,7 +327,7 @@ private struct WelcomePage: View {
     private var manifesto: some View {
         VStack(alignment: .leading, spacing: 12) {
             DS.Rule(thick: true)
-            Text("« Pas de pub, pas de tracking. Juste le réseau bruxellois, lisible, pour les gens qui le prennent vraiment. »")
+            Text(AppLocalizer.string("« Pas de pub, pas de tracking. Juste le réseau bruxellois, lisible, pour les gens qui le prennent vraiment. »", defaultValue: "« Pas de pub, pas de tracking. Juste le réseau bruxellois, lisible, pour les gens qui le prennent vraiment. »"))
                 .font(.system(size: 16, design: .serif))
                 .italic()
                 .foregroundColor(DS.Color.ink)
@@ -348,7 +348,7 @@ private struct WelcomePage: View {
 
             Button(action: onSignUp) {
                 HStack(spacing: 8) {
-                    Text("Créer un compte gratuit")
+                    Text(AppLocalizer.string("Créer un compte gratuit", defaultValue: "Créer un compte gratuit"))
                         .font(.system(size: 14, weight: .bold))
                     Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .bold))
@@ -366,7 +366,7 @@ private struct WelcomePage: View {
             .buttonStyle(PressableScaleStyle())
 
             Button(action: onSignIn) {
-                Text("J'ai déjà un compte")
+                Text(AppLocalizer.string("J'ai déjà un compte", defaultValue: "J'ai déjà un compte"))
                     .font(.system(size: 14, weight: .bold))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundColor(DS.Color.ink)

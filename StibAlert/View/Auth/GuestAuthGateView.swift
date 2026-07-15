@@ -63,7 +63,7 @@ struct GuestAuthGateView: View {
 
             VStack(spacing: 12) {
                 Button(action: onSignUp) {
-                    Text("Créer un compte")
+                    Text(AppLocalizer.string("Créer un compte", defaultValue: "Créer un compte"))
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(DS.Color.primaryForeground)
                         .frame(maxWidth: .infinity)

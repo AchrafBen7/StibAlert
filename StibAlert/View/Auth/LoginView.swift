@@ -49,7 +49,7 @@ struct LoginView: View {
             .font(.system(size: 36, weight: .bold))
             .tracking(-1.2)
 
-            Text("Tes lignes favorites, alertes et trajets, reconnectés en un instant.")
+            Text(AppLocalizer.string("Tes lignes favorites, alertes et trajets, reconnectés en un instant.", defaultValue: "Tes lignes favorites, alertes et trajets, reconnectés en un instant."))
                 .font(.system(size: 13.5))
                 .foregroundColor(DS.Color.inkSoft)
                 .frame(maxWidth: 280, alignment: .leading)
@@ -133,7 +133,7 @@ struct LoginView: View {
             HStack {
                 Spacer()
                 Button(action: openPasswordReset) {
-                    Text("Mot de passe oublié ?")
+                    Text(AppLocalizer.string("Mot de passe oublié ?", defaultValue: "Mot de passe oublié ?"))
                         .font(DS.Font.label.weight(.bold))
                         .foregroundColor(DS.Color.ink)
                         .underline()
