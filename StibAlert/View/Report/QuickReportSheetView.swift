@@ -1,7 +1,6 @@
 import SwiftUI
 import CoreLocation
 import UIKit
-import PhotosUI
 
 /// A selectable train at a gare for the SNCB report flow — sourced from live
 /// (iRail) departures when available, else the static schedule.
@@ -28,12 +27,10 @@ struct QuickReportSheetView: View {
     @State private var lineSearchQuery: String = ""
     @State private var selectedProblem: ReportProblemType? = nil
     @State private var description: String = ""
-    // S1 — Photo de preuve (optionnelle, fortement encouragée pour Accident /
-    // Propreté / Incivilité). L'API SignalementService.ajouter(photo:) gère
-    // déjà l'upload multipart ; il ne manquait que le picker UI.
-    @State private var selectedPhoto: UIImage? = nil
-    @State private var photoPickerItem: PhotosPickerItem? = nil
-    @State private var isLoadingPhoto = false
+    // La photo de signalement a été RETIRÉE (décision produit 2026-07-15) : pas
+    // de contenu image uploadé au lancement → moins de modération à assurer, et
+    // une donnée « Photos or Videos » de moins à déclarer à l'App Store. Le champ
+    // `photo` reste côté backend (dormant), l'app n'en envoie simplement plus.
     @State private var isSubmitting: Bool = false
     @State private var submitError: String? = nil
     @State private var submitSuccess: Bool = false
@@ -228,7 +225,6 @@ struct QuickReportSheetView: View {
                                 }
 
                                 optionalDescriptionField
-                                photoAttachmentField
                             }
                         }
 
@@ -1128,105 +1124,6 @@ struct QuickReportSheetView: View {
 
     // MARK: - Photo attachment (S1)
 
-    /// Une photo vaut mille votes : preuve directe pour Accident/Propreté/
-    /// Incivilité. Fortement suggérée pour ces types, optionnelle ailleurs.
-    private var photoSuggested: Bool {
-        guard let problem = selectedProblem else { return false }
-        return problem == .accident || problem == .cleanliness || problem == .incivility
-    }
-
-    private var photoAttachmentField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text("Photo")
-                    .font(.system(size: 12.5, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(photoSuggested ? "· conseillée" : "· optionnelle")
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(photoSuggested ? DS.Color.primary : DS.Color.inkMute)
-            }
-            .padding(.horizontal, 18)
-
-            if let selectedPhoto {
-                ZStack(alignment: .topTrailing) {
-                    Image(uiImage: selectedPhoto)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 168)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-                        )
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            self.selectedPhoto = nil
-                            photoPickerItem = nil
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(Circle().fill(.black.opacity(0.55)))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                    .accessibilityLabel("Retirer la photo")
-                }
-                .padding(.horizontal, 18)
-            } else {
-                PhotosPicker(selection: $photoPickerItem, matching: .images, photoLibrary: .shared()) {
-                    HStack(spacing: 10) {
-                        if isLoadingPhoto {
-                            ProgressView().scaleEffect(0.8)
-                        } else {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                        }
-                        Text(isLoadingPhoto ? "Chargement…" : "Ajouter une photo")
-                            .font(.system(size: 14, weight: .semibold))
-                        Spacer()
-                        if photoSuggested {
-                            Text("+ crédibilité")
-                                .font(.system(size: 10.5, weight: .bold))
-                                .foregroundStyle(DS.Color.primary)
-                        }
-                    }
-                    .foregroundStyle(DS.Color.ink)
-                    .padding(14)
-                    .frame(maxWidth: .infinity)
-                    .background(DS.Color.paper2.opacity(0.35))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                photoSuggested ? DS.Color.primary.opacity(0.4) : DS.Color.ink.opacity(0.10),
-                                style: StrokeStyle(lineWidth: 1.2, dash: photoSuggested ? [] : [5, 4])
-                            )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 18)
-                .disabled(isLoadingPhoto)
-            }
-        }
-        .onChange(of: photoPickerItem) { _, newItem in
-            guard let newItem else { return }
-            isLoadingPhoto = true
-            Task {
-                defer { Task { @MainActor in isLoadingPhoto = false } }
-                if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.2)) { selectedPhoto = image }
-                    }
-                }
-            }
-        }
-    }
 
     // MARK: - Submit bar
 
@@ -1422,27 +1319,11 @@ struct QuickReportSheetView: View {
         selectedLine = nil
         selectedProblem = nil
         description = ""
-        selectedPhoto = nil
-        photoPickerItem = nil
         submitError = nil
         isStopPickerExpanded = false
         stopSearchQuery = ""
         sncbTrainOptions = []
         selectedSncbTrain = nil
-    }
-
-    /// S1 — Réduit l'image à `maxDimension` px sur le plus grand côté avant
-    /// upload (économise data + temps serveur). La compression JPEG finale
-    /// est gérée par SignalementService (0.8).
-    private static func downscale(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let longest = max(image.size.width, image.size.height)
-        guard longest > maxDimension else { return image }
-        let scale = maxDimension / longest
-        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
     }
 
     /// Loads the selected gare's upcoming trains for the SNCB "Train concerné"
@@ -1513,8 +1394,7 @@ struct QuickReportSheetView: View {
                     description: finalDescription,
                     latitude: reportLatitude,
                     longitude: reportLongitude,
-                    transportOperator: selectedOperator.rawValue,
-                    photo: selectedPhoto.map { Self.downscale($0, maxDimension: 1024) }
+                    transportOperator: selectedOperator.rawValue
                 )
                 // Hand the new signalement back to the parent so it can appear
                 // on the map + in the stop detail before the next backend poll.

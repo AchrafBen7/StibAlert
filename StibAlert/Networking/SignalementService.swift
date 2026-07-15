@@ -37,7 +37,7 @@ enum SignalementService {
         latitude: Double?,
         longitude: Double?,
         transportOperator: String? = nil,
-        photo: UIImage?
+        photo: UIImage? = nil
     ) async throws -> AjoutSignalementResponse {
         var fields: [String: String] = [
             "nomArret": nomArret,
