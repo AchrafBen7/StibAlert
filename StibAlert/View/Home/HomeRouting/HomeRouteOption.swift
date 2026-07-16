@@ -551,17 +551,20 @@ struct HomeRouteOption: Identifiable {
             // un tag. La carte reste alors nue — sa durée en gros suffit.
             return reason.count <= 24 ? reason : nil
         }
-        // On ignore les libellés génériques du backend (« Alternative 1 »,
-        // « Alternatief 2 », « Route 3 ») : c'est de la numérotation technique, pas
-        // une raison de choisir cet itinéraire. Sans vraie raison, la carte n'affiche
-        // aucun tag — la durée en gros parle d'elle-même, comme sur Google Maps.
-        let label = backendAlternative.label.trimmingCharacters(in: .whitespaces)
-        let lower = label.lowercased()
-        let generic = ["alternative", "alternatief", "route ", "itinéraire ", "itinerary"]
-        if label.isEmpty || generic.contains(where: { lower.hasPrefix($0) }) {
-            return nil
+        // Fallback : le badge de TYPE. On NE réutilise PAS `backendAlternative.label`
+        // (le scoring backend le code en dur en FRANÇAIS — « Meilleur compromis »,
+        // « Plus fiable » —, ce qui fuitait tel quel dans l'app néerlandaise). On mappe
+        // le `type` technique vers une trad FR/NL. Les types numérotés
+        // (« alternative_1 »…) ne sont pas une raison de choix → aucun tag.
+        switch backendAlternative.type {
+        case "best_overall":   return AppLocalizer.string("route.type.best", defaultValue: "Meilleur compromis")
+        case "most_reliable":  return AppLocalizer.string("route.type.reliable", defaultValue: "Plus fiable")
+        case "fastest":        return AppLocalizer.string("route.type.fastest", defaultValue: "Le plus rapide")
+        case "least_walking":  return AppLocalizer.string("route.type.least_walking", defaultValue: "Moins de marche")
+        case "bike":           return AppLocalizer.string("route.type.bike", defaultValue: "Alternative vélo")
+        case "walk":           return AppLocalizer.string("route.type.walk", defaultValue: "Alternative à pied")
+        default:               return nil
         }
-        return label
     }
 
     var inlineSteps: [InlineRouteStepItem] {
