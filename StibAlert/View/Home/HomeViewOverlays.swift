@@ -107,7 +107,10 @@ extension HomeView {
                             }
                         },
                         onOpenItineraryPlanner: {
-                            showRoutePlanner = true
+                            // Même page que la barre de recherche, mais en mode
+                            // Départ/Arrivée (l'ancien planner ne s'ouvre plus).
+                            mapSearchMode = .route
+                            isMapSearchActive = true
                             activeMapFilter = .none
                         },
                         onSubmitSearch: {
@@ -151,7 +154,10 @@ extension HomeView {
                                 label: label
                             )
                         },
-                        onActivateSearch: { isMapSearchActive = true }
+                        onActivateSearch: {
+                            mapSearchMode = .destination
+                            isMapSearchActive = true
+                        }
                     )
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))

@@ -86,6 +86,8 @@ struct HomeView: View {
     /// Page de recherche plein écran (façon Google Maps) : ouverte au tap sur la
     /// barre. La saisie + récents + résultats y vivent, plus dans un dropdown.
     @State var isMapSearchActive = false
+    /// `.destination` (barre de recherche) ou `.route` (bouton Itinéraires).
+    @State var mapSearchMode: MapSearchPage.Mode = .destination
     /// Nom du lieu qu'on vient de sélectionner et qu'on a figé dans le champ
     /// de recherche. Empêche `onChange(of: searchQuery)` de re-fetcher des
     /// suggestions pour CE nom — sinon le dropdown se rouvrait tout seul juste
@@ -927,6 +929,7 @@ struct HomeView: View {
                 suggestions: searchSuggestions,
                 isRouting: isRouting,
                 userCoordinate: locationManager.userCoordinate,
+                mode: mapSearchMode,
                 onSelect: { item in
                     // Même comportement que l'ancienne sélection : on fige le champ
                     // sur le lieu choisi et on pose la destination (→ itinéraire).
@@ -941,6 +944,14 @@ struct HomeView: View {
                 onDismiss: {
                     isMapSearchActive = false
                     searchSuggestions = []
+                },
+                onPlanRoute: { departure, arrival in
+                    // Mode Itinéraires : trajet départ → arrivée (départ nil = position).
+                    searchSuggestions = []
+                    let source = departure ?? MKMapItem(placemark: MKPlacemark(coordinate: locationManager.displayCoordinate))
+                    if departure == nil { source.name = L10n.Routing.currentPosition }
+                    let originName = departure?.name ?? L10n.Routing.currentPosition
+                    Task { await buildRoute(from: source, to: arrival, originName: originName) }
                 }
             )
         }

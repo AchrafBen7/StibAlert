@@ -7,16 +7,23 @@ import SwiftUI
 /// les RÉCENTS quand le champ est vide, les RÉSULTATS live quand on tape.
 /// Réutilise les stores du planificateur d'itinéraire (récents + lieux sauvés).
 struct MapSearchPage: View {
+    enum Mode { case destination, route }
+
     @Binding var query: String
     let suggestions: [MKMapItem]
     let isRouting: Bool
     let userCoordinate: CLLocationCoordinate2D?
+    /// `.destination` (barre de recherche) : un seul champ, on pose la destination.
+    /// `.route` (bouton Itinéraires) : en-tête Départ/Arrivée + échange.
+    var mode: Mode = .destination
     /// Un lieu a été choisi (suggestion, récent ou lieu sauvé) → on le pose comme
     /// destination. Le parent (HomeView) enclenche l'itinéraire, comme avant.
     let onSelect: (MKMapItem) -> Void
     /// Validation clavier sans choisir de résultat → itinéraire direct.
     let onSubmit: () -> Void
     let onDismiss: () -> Void
+    /// Mode route : calcule un trajet départ → arrivée. Départ nil = « Ta position ».
+    var onPlanRoute: (MKMapItem?, MKMapItem) -> Void = { _, _ in }
 
     @FocusState private var isFocused: Bool
     @State private var localText = ""
@@ -24,13 +31,27 @@ struct MapSearchPage: View {
     @State private var recents: [HomeRouteRecentPlace] = HomeRouteRecentStore.load()
     private let saved: [HomeRouteSavedPlaceKind: HomeRouteRecentPlace] = HomeRouteSavedPlaceStore.load()
 
+    // Mode route — deux champs.
+    private enum RouteField: Hashable { case departure, arrival }
+    @FocusState private var routeFocus: RouteField?
+    @State private var departureText = ""
+    @State private var arrivalText = ""
+    @State private var departureItem: MKMapItem?   // nil + « Ta position » = position live
+    @State private var arrivalItem: MKMapItem?
+
+    /// Texte du champ actif (celui qui pilote la recherche → `query`).
+    private var activeText: String {
+        guard mode == .route else { return localText }
+        return routeFocus == .departure ? departureText : arrivalText
+    }
+
     private var isSearching: Bool {
-        !localText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !activeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if mode == .route { routeHeader } else { header }
             Divider().overlay(DS.Color.ink.opacity(0.08))
 
             ScrollView(showsIndicators: false) {
@@ -52,7 +73,14 @@ struct MapSearchPage: View {
             localText = query
             // Petit délai : laisse la transition se poser avant d'ouvrir le clavier
             // → l'entrée reste fluide (~0,3 s) au lieu de saccader.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { isFocused = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                if mode == .route { routeFocus = .arrival } else { isFocused = true }
+            }
+        }
+        // Changement de champ (départ ↔ arrivée) : les résultats suivent le champ actif.
+        .onChange(of: routeFocus) { _, f in
+            guard mode == .route else { return }
+            query = (f == .departure) ? departureText : arrivalText
         }
     }
 
@@ -121,6 +149,95 @@ struct MapSearchPage: View {
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 10)
+    }
+
+    // MARK: - En-tête Départ / Arrivée (mode itinéraire)
+
+    private var routeHeader: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button(action: dismiss) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.ink)
+                    .frame(width: 40, height: 46)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppLocalizer.string("common.back", defaultValue: "Retour"))
+
+            VStack(spacing: 0) {
+                routeFieldRow(field: .departure, icon: "location.fill",
+                              text: $departureText, item: $departureItem,
+                              placeholder: AppLocalizer.string("route.departure", defaultValue: "Départ"),
+                              tint: DS.Color.community)
+
+                HStack(spacing: 10) {
+                    VStack(spacing: 3) {
+                        ForEach(0..<3) { _ in Circle().fill(DS.Color.inkMute.opacity(0.35)).frame(width: 3, height: 3) }
+                    }
+                    .frame(width: 40)
+                    Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1)
+                    Button(action: swapRoute) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 15, weight: .black))
+                            .foregroundStyle(DS.Color.ink)
+                            .frame(width: 38, height: 38)
+                            .background(DS.Color.paper)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(AppLocalizer.string("route.swap", defaultValue: "Échanger départ et arrivée"))
+                }
+                .padding(.trailing, 8)
+
+                routeFieldRow(field: .arrival, icon: "mappin.circle.fill",
+                              text: $arrivalText, item: $arrivalItem,
+                              placeholder: AppLocalizer.string("route.destination", defaultValue: "Destination"),
+                              tint: DS.Color.primary)
+            }
+            .padding(.vertical, 6)
+            .background(DS.Color.paper2.opacity(0.7))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous).stroke(DS.Color.ink.opacity(0.12), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+    }
+
+    private func routeFieldRow(field: RouteField, icon: String, text: Binding<String>,
+                               item: Binding<MKMapItem?>, placeholder: String, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 40, height: 40)
+
+            TextField("", text: text, prompt: Text(placeholder).foregroundStyle(DS.Color.inkMute))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.Color.ink)
+                .focused($routeFocus, equals: field)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onChange(of: text.wrappedValue) { _, newValue in
+                    item.wrappedValue = nil    // la frappe invalide la sélection figée
+                    debounceTask?.cancel()
+                    debounceTask = Task {
+                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        if Task.isCancelled { return }
+                        if routeFocus == field, query != newValue { query = newValue }
+                    }
+                }
+
+            if !text.wrappedValue.isEmpty {
+                Button { text.wrappedValue = ""; item.wrappedValue = nil; query = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16)).foregroundStyle(DS.Color.inkMute)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
     }
 
     // MARK: - Accès rapides (Domicile / Travail déjà enregistrés)
@@ -292,11 +409,39 @@ struct MapSearchPage: View {
     // MARK: - Actions
 
     private func select(_ item: MKMapItem) {
-        // Mémorise le choix en récent (remonte en tête, dédupliqué).
-        let place = HomeRouteRecentPlace(item: item)
-        HomeRouteRecentStore.save(HomeRouteRecentStore.prepending(place, to: recents))
-        onSelect(item)
+        // Mémorise le choix en récent (remonte en tête, dédupliqué), les 2 modes.
+        HomeRouteRecentStore.save(HomeRouteRecentStore.prepending(HomeRouteRecentPlace(item: item), to: recents))
+
+        guard mode == .route else {
+            onSelect(item)
+            onDismiss()
+            return
+        }
+        // Mode itinéraire : remplit le champ focalisé, enchaîne ou calcule.
+        let label = item.name ?? item.placemark.title ?? ""
+        if routeFocus == .departure {
+            departureItem = item; departureText = label
+            if arrivalItem == nil {
+                routeFocus = .arrival; query = arrivalText
+            } else {
+                planRoute()
+            }
+        } else {
+            arrivalItem = item; arrivalText = label
+            planRoute()
+        }
+    }
+
+    /// Calcule dès qu'on a une arrivée. Départ = l'item choisi, sinon nil = « Ta position ».
+    private func planRoute() {
+        guard let arrival = arrivalItem else { routeFocus = .arrival; return }
+        onPlanRoute(departureItem, arrival)
         onDismiss()
+    }
+
+    private func swapRoute() {
+        swap(&departureText, &arrivalText)
+        swap(&departureItem, &arrivalItem)
     }
 
     private func dismiss() {
