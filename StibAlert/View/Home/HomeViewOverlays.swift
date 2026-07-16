@@ -107,7 +107,6 @@ extension HomeView {
                             }
                         },
                         onOpenItineraryPlanner: {
-                            routePlannerStartBlank = true
                             showRoutePlanner = true
                             activeMapFilter = .none
                         },
@@ -152,14 +151,7 @@ extension HomeView {
                                 label: label
                             )
                         },
-                        // Tap sur la barre de recherche → même page unifiée que
-                        // « Itinéraires », mais départ « Ta position » pré-rempli et
-                        // focus direct sur l'arrivée (on cherche une destination).
-                        onActivateSearch: {
-                            routePlannerStartBlank = false
-                            showRoutePlanner = true
-                            activeMapFilter = .none
-                        }
+                        onActivateSearch: { isMapSearchActive = true }
                     )
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
