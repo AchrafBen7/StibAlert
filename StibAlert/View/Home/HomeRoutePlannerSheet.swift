@@ -6,6 +6,10 @@ struct HomeRoutePlannerSheet: View {
 
     let userCoordinate: CLLocationCoordinate2D?
     let isRouting: Bool
+    /// Ouverture « vierge » (venu du bouton « Itinéraires ») : départ ET arrivée
+    /// vides, focus sur le départ, à remplir de zéro. false (venu de la barre de
+    /// recherche) = départ « Ta position » pré-rempli, focus direct sur l'arrivée.
+    var startBlank: Bool = false
     let onPlanRoute: (MKMapItem, MKMapItem, String) -> Void
 
     @State private var departureQuery = L10n.Routing.currentPosition
@@ -69,7 +73,14 @@ struct HomeRoutePlannerSheet: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
-                focusedField = .arrival
+                if startBlank {
+                    // « Itinéraires » : slate vierge, on part du départ.
+                    departureQuery = ""
+                    selectedDeparture = nil
+                    focusedField = .departure
+                } else {
+                    focusedField = .arrival
+                }
             }
         }
         // U1 — `.preferredColorScheme(.light)` retiré. Voir SchedulesView.
