@@ -665,7 +665,7 @@ struct HomeRoutePlannerSheet: View {
     }
 }
 
-private enum HomeRouteSavedPlaceKind: String, Codable, CaseIterable, Hashable {
+enum HomeRouteSavedPlaceKind: String, Codable, CaseIterable, Hashable {
     case home
     case work
 
@@ -677,7 +677,7 @@ private enum HomeRouteSavedPlaceKind: String, Codable, CaseIterable, Hashable {
     }
 }
 
-private struct HomeRouteRecentPlace: Codable, Identifiable, Equatable {
+struct HomeRouteRecentPlace: Codable, Identifiable, Equatable {
     enum Kind: String, Codable {
         case place
         case stop
@@ -708,7 +708,7 @@ private struct HomeRouteRecentPlace: Codable, Identifiable, Equatable {
     }
 }
 
-private enum HomeRouteRecentStore {
+enum HomeRouteRecentStore {
     private static let key = "home.route.recent.places.v1"
 
     static func load() -> [HomeRouteRecentPlace] {
@@ -731,7 +731,7 @@ private enum HomeRouteRecentStore {
     }
 }
 
-private enum HomeRouteSavedPlaceStore {
+enum HomeRouteSavedPlaceStore {
     private static let key = "home.route.saved.places.v1"
 
     static func load() -> [HomeRouteSavedPlaceKind: HomeRouteRecentPlace] {

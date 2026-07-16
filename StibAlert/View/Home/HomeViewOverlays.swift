@@ -150,7 +150,8 @@ extension HomeView {
                                 coordinate: coord,
                                 label: label
                             )
-                        }
+                        },
+                        onActivateSearch: { isMapSearchActive = true }
                     )
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))

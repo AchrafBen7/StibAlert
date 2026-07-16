@@ -83,6 +83,9 @@ struct HomeView: View {
     @State private var selectedRouteDetail: HomeRouteOption?
     @State var searchQuery = ""
     @State var searchSuggestions: [MKMapItem] = []
+    /// Page de recherche plein écran (façon Google Maps) : ouverte au tap sur la
+    /// barre. La saisie + récents + résultats y vivent, plus dans un dropdown.
+    @State var isMapSearchActive = false
     /// Nom du lieu qu'on vient de sélectionner et qu'on a figé dans le champ
     /// de recherche. Empêche `onChange(of: searchQuery)` de re-fetcher des
     /// suggestions pour CE nom — sinon le dropdown se rouvrait tout seul juste
@@ -915,6 +918,29 @@ struct HomeView: View {
                     let coord = destination.placemark.coordinate
                     let label = destination.name ?? destination.placemark.title
                     tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
+                }
+            )
+        }
+        .fullScreenCover(isPresented: $isMapSearchActive) {
+            MapSearchPage(
+                query: $searchQuery,
+                suggestions: searchSuggestions,
+                isRouting: isRouting,
+                userCoordinate: locationManager.userCoordinate,
+                onSelect: { item in
+                    // Même comportement que l'ancienne sélection : on fige le champ
+                    // sur le lieu choisi et on pose la destination (→ itinéraire).
+                    let coord = item.placemark.coordinate
+                    let label = item.name ?? item.placemark.title
+                    searchSuggestions = []
+                    lastAppliedSearchName = label
+                    searchQuery = label ?? ""
+                    tripDestination = HomeView.TripDestination(coordinate: coord, label: label)
+                },
+                onSubmit: { submitSearchToRoute() },
+                onDismiss: {
+                    isMapSearchActive = false
+                    searchSuggestions = []
                 }
             )
         }

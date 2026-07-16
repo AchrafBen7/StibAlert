@@ -26,10 +26,8 @@ struct HomeSearchHeaderOverlay: View {
     let onOpenFavorites: () -> Void
     let onOpenReports: () -> Void
     let onSelectSuggestion: (MKMapItem) -> Void
-
-    private var isSearching: Bool {
-        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    /// Tap sur la barre → ouvre la page de recherche plein écran.
+    var onActivateSearch: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 10) {
@@ -44,7 +42,7 @@ struct HomeSearchHeaderOverlay: View {
             }
 
             HStack(spacing: 10) {
-                HomeEditorialSearchField(query: $searchQuery, onSubmit: onSubmitSearch)
+                HomeEditorialSearchField(query: $searchQuery, onActivate: onActivateSearch)
 
                 Button(action: onShowLegend) {
                     RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
@@ -65,138 +63,83 @@ struct HomeSearchHeaderOverlay: View {
             }
             .padding(.horizontal, 18)
 
-            if isSearching {
-                if !suggestions.isEmpty {
-                    SearchSuggestionsDropdown(
-                        suggestions: suggestions,
-                        isRouting: isRouting,
-                        userCoordinate: userCoordinate,
-                        onSelect: onSelectSuggestion
+            // La saisie + les résultats vivent désormais dans MapSearchPage
+            // (plein écran). La barre ci-dessus n'est qu'un déclencheur, donc on
+            // affiche toujours les raccourcis d'action sous elle.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    HomeEditorialActionChip(
+                        icon: "arrow.triangle.turn.up.right.diamond.fill",
+                        title: AppLocalizer.string("home.action.itineraries", defaultValue: "Itinéraires"),
+                        count: nil,
+                        isActive: isRouting,
+                        action: onOpenItineraryPlanner
                     )
-                    .padding(.horizontal, 18)
-                }
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        HomeEditorialActionChip(
-                            icon: "arrow.triangle.turn.up.right.diamond.fill",
-                            title: AppLocalizer.string("home.action.itineraries", defaultValue: "Itinéraires"),
-                            count: nil,
-                            isActive: isRouting,
-                            action: onOpenItineraryPlanner
-                        )
 
-                        HomeEditorialActionChip(
-                            icon: "star.fill",
-                            title: AppLocalizer.string("home.action.favorites", defaultValue: "Favoris"),
-                            count: favoriteLineCount,
-                            isActive: isFavoritesFilterActive,
-                            action: onOpenFavorites
-                        )
+                    HomeEditorialActionChip(
+                        icon: "star.fill",
+                        title: AppLocalizer.string("home.action.favorites", defaultValue: "Favoris"),
+                        count: favoriteLineCount,
+                        isActive: isFavoritesFilterActive,
+                        action: onOpenFavorites
+                    )
 
-                        HomeEditorialActionChip(
-                            icon: "exclamationmark.triangle.fill",
-                            title: AppLocalizer.string("home.action.disruptions", defaultValue: "Perturbations"),
-                            count: totalActiveSignalementsCount,
-                            isActive: isPerturbationsFilterActive,
-                            action: onOpenReports
-                        )
-                    }
-                    .padding(.horizontal, 18)
+                    HomeEditorialActionChip(
+                        icon: "exclamationmark.triangle.fill",
+                        title: AppLocalizer.string("home.action.disruptions", defaultValue: "Perturbations"),
+                        count: totalActiveSignalementsCount,
+                        isActive: isPerturbationsFilterActive,
+                        action: onOpenReports
+                    )
                 }
+                .padding(.horizontal, 18)
             }
         }
     }
 }
 
+/// Barre de recherche de la carte. N'édite plus en place : un tap ouvre la page
+/// de recherche plein écran (`MapSearchPage`), façon Google Maps. Elle affiche
+/// juste le lieu courant (ou le placeholder) et un bouton effacer.
 private struct HomeEditorialSearchField: View {
     @Binding var query: String
-    /// Called when the user presses search/enter on the keyboard *after*
-    /// typing something. Hands off to the full route planner.
-    let onSubmit: () -> Void
-
-    @FocusState private var isFocused: Bool
-    /// État LOCAL du champ. Avant TextField était bound à `$query`
-    /// (= @State de HomeView, 3700 lignes) → chaque caractère invalidait
-    /// tout HomeView.body. Maintenant le local absorbe la frappe sans
-    /// solliciter le parent, et on synchronise via debounce 150 ms (assez
-    /// rapide pour que les suggestions de recherche se mettent à jour
-    /// fluidement, assez lent pour que la frappe soit naturelle).
-    @State private var localText: String = ""
-    @State private var debounceTask: Task<Void, Never>?
+    /// Tap sur la barre → ouvre la page de recherche plein écran.
+    let onActivate: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(DS.Color.inkSoft)
+        Button(action: onActivate) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DS.Color.inkSoft)
 
-            TextField(AppLocalizer.string("search.where_to", defaultValue: "Où vas-tu ?"), text: $localText)
-                .font(DS.Font.body)
-                .foregroundStyle(DS.Color.ink)
-                .focused($isFocused)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                // Bouton "Terminé" au-dessus du clavier : seul moyen fiable de
-                // fermer le clavier quand on tape une adresse sans valider (le
-                // tap sur la carte ne le fermait pas). Standard iOS.
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button(AppLocalizer.string("Terminé")) {
-                            isFocused = false
-                        }
-                        .fontWeight(.semibold)
-                    }
-                }
-                .onSubmit {
-                    guard !localText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    // Sync immédiat avant submit pour que le parent ait la
-                    // valeur finale avant d'ouvrir le planner.
-                    query = localText
-                    isFocused = false
-                    onSubmit()
-                }
-                .onChange(of: localText) { _, newValue in
-                    debounceTask?.cancel()
-                    debounceTask = Task {
-                        try? await Task.sleep(nanoseconds: 150_000_000)
-                        if Task.isCancelled { return }
-                        if query != newValue { query = newValue }
-                    }
-                }
-                .onAppear { localText = query }
-                .onChange(of: query) { _, newValue in
-                    // Reset externe (HomeView set query = "" ou
-                    // = destination.name après sélection) → on rapatrie.
-                    if newValue != localText { localText = newValue }
-                }
+                Text(query.isEmpty ? AppLocalizer.string("search.where_to", defaultValue: "Où vas-tu ?") : query)
+                    .font(DS.Font.body)
+                    .foregroundStyle(query.isEmpty ? DS.Color.inkSoft : DS.Color.ink)
+                    .lineLimit(1)
 
-            if !localText.isEmpty {
-                Button {
-                    localText = ""
-                    query = ""
-                } label: {
+                Spacer(minLength: 0)
+
+                if !query.isEmpty {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 17))
                         .foregroundStyle(DS.Color.inkMute)
+                        .onTapGesture { query = "" }
+                        .accessibilityLabel(AppLocalizer.string("search.clear", defaultValue: "Effacer la recherche"))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(AppLocalizer.string("search.clear", defaultValue: "Effacer la recherche"))
             }
+            .padding(.horizontal, 14)
+            .frame(height: 48)
+            .background(DS.Color.paper.opacity(0.96))
+            .overlay(
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .stroke(DS.Color.ink.opacity(0.16), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .shadow(DS.Shadow.floating)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 48)
-        .background(DS.Color.paper.opacity(0.96))
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(
-                    isFocused ? DS.Color.ink.opacity(0.36) : DS.Color.ink.opacity(0.16),
-                    lineWidth: 1
-                )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-        .shadow(DS.Shadow.floating)
+        .buttonStyle(.plain)
+        .accessibilityLabel(AppLocalizer.string("search.open", defaultValue: "Ouvrir la recherche"))
     }
 }
 
