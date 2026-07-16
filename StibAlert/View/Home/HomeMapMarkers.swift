@@ -453,11 +453,11 @@ struct OperatorStopMarker: View {
             ZStack {
                 Circle()
                     .fill(stop.op.brandColor)
-                    .frame(width: 14, height: 14)
+                    .frame(width: 18, height: 18)
                     .overlay(Circle().stroke(DS.Color.paper, lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 6, weight: .black))
+                    .font(.system(size: 8, weight: .black))
                     .foregroundStyle(stop.op.brandTextColor)
             }
         }
