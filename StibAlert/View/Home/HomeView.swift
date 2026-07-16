@@ -174,7 +174,12 @@ struct HomeView: View {
     @State var strikeBannerDismissed = false
     /// Clés (ligne|arrêt|type) des alertes que l'utilisateur a marquées « pas
     /// passé par là » → on ne les réaffiche plus en carte proactive.
-    @State private var dismissedProactiveClusterKeys: Set<String> = []
+    /// Alertes proactives rejetées (« Ik was er niet ») → clé : instant d'expiration
+    /// (epoch). PERSISTÉ (avant : Set en mémoire → se vidait à chaque redémarrage /
+    /// nouveau build, donc l'alerte revenait sans cesse). Expiration 12 h pour ne pas
+    /// masquer éternellement une VRAIE future perturbation au même arrêt/ligne.
+    @State private var dismissedProactiveClusterKeys: [String: TimeInterval] =
+        (UserDefaults.standard.dictionary(forKey: "home.proactive.dismissed.v1") as? [String: TimeInterval]) ?? [:]
     @State var tripDestination: TripDestination? = nil
     @State private var showDestinationPicker = false
     /// Trip prepared from the voice flow (geocoded + planned), kept around so
@@ -1339,7 +1344,7 @@ struct HomeView: View {
         let maxDistanceMeters = 1500.0
         let affectedCluster = activeClusters.first { cluster in
             // « Pas passé par là » : ne plus jamais representer cette perturbation.
-            guard !dismissedProactiveClusterKeys.contains(proactiveClusterKey(cluster)) else { return false }
+            guard (dismissedProactiveClusterKeys[proactiveClusterKey(cluster)] ?? 0) < Date().timeIntervalSince1970 else { return false }
             let line = cluster.ligne.uppercased()
             let isRelevant = favoriteLines.contains(line)
                 || (user.routine?.homeStopId).map { cluster.arretId == $0 } == true
@@ -2547,7 +2552,8 @@ struct HomeView: View {
     func dismissProactiveAlertNotConcerned(_ cluster: ClusterDTO) {
         // Aucun vote envoyé (on n'a pas observé l'arrêt) — on masque + on retient
         // pour ne plus harceler l'utilisateur avec cette perturbation.
-        dismissedProactiveClusterKeys.insert(proactiveClusterKey(cluster))
+        dismissedProactiveClusterKeys[proactiveClusterKey(cluster)] = Date().addingTimeInterval(12 * 3600).timeIntervalSince1970
+        UserDefaults.standard.set(dismissedProactiveClusterKeys, forKey: "home.proactive.dismissed.v1")
         closeProactiveAlert()
     }
 
