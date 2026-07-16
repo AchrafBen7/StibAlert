@@ -6,6 +6,15 @@ struct HomeSncbStationSheet: View {
 
     @State private var departures: [SNCBDeparture] = []
     @State private var isLoadingDepartures = true
+    /// Temps réel iRail (facultatif) : sert UNIQUEMENT à annoter chaque départ
+    /// théorique de sa VOIE. Le GTFS statique n'a aucun quai — la voie n'existe
+    /// qu'en temps réel (comme dans GareDetailPage).
+    @State private var realtime: SNCBRealtime?
+
+    /// Départs temps réel groupés par minute planifiée, pour matcher le théorique.
+    private var rtByMinute: [Int: [SNCBRTDeparture]] {
+        Dictionary(grouping: realtime?.departures ?? [], by: \.scheduledMinutes)
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -64,7 +73,10 @@ struct HomeSncbStationSheet: View {
         .background(DS.Color.paper.ignoresSafeArea())
         .preferredColorScheme(.light)
         .task {
-            departures = await SNCBStationService.departures(stationId: station.id, limit: 8)
+            async let depTask = SNCBStationService.departures(stationId: station.id, limit: 8)
+            async let rtTask = SNCBStationService.realtime(stationId: station.id)
+            departures = await depTask
+            realtime = await rtTask
             isLoadingDepartures = false
         }
     }
@@ -124,11 +136,43 @@ struct HomeSncbStationSheet: View {
                 .lineLimit(1)
 
             Spacer(minLength: 0)
+
+            // Voie temps réel (iRail), à droite comme sur un panneau de gare.
+            // Absente = pas de badge (jamais de « Voie — »).
+            if let voie = platform(for: dep) {
+                Text("Voie \(voie)")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(.horizontal, 8)
+                    .frame(height: 22)
+                    .background(DS.Color.paper2.opacity(0.8))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
+                    .fixedSize()
+            }
         }
         .padding(.vertical, 11)
         .padding(.horizontal, 12)
         .overlay(alignment: .bottom) {
             Rectangle().fill(DS.Color.ink.opacity(0.08)).frame(height: 1)
         }
+    }
+
+    /// Voie du départ théorique via le temps réel iRail (match par minute
+    /// planifiée, désambiguïsé par destination puis ligne — même logique que
+    /// GareDetailPage). nil si iRail ne la connaît pas ou renvoie « ? ».
+    private func platform(for dep: SNCBDeparture) -> String? {
+        guard let candidates = rtByMinute[dep.minutes], !candidates.isEmpty else { return nil }
+        let rt: SNCBRTDeparture?
+        if candidates.count == 1 {
+            rt = candidates[0]
+        } else {
+            let destKey = dep.destination.normalizedStopKey
+            rt = candidates.first { $0.destination.normalizedStopKey == destKey }
+                ?? candidates.first { $0.line.caseInsensitiveCompare(dep.line) == .orderedSame }
+        }
+        guard let raw = rt?.platform?.trimmingCharacters(in: .whitespaces),
+              !raw.isEmpty, raw != "?" else { return nil }
+        return raw
     }
 }
