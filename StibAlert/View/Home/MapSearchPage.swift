@@ -38,6 +38,9 @@ struct MapSearchPage: View {
     @State private var arrivalText = ""
     @State private var departureItem: MKMapItem?   // nil + « Ta position » = position live
     @State private var arrivalItem: MKMapItem?
+    /// Vrai le temps de poser un texte APRÈS sélection, pour que le `.onChange`
+    /// de frappe ne remette pas l'item choisi à nil.
+    @State private var isApplyingSelection = false
 
     /// Texte du champ actif (celui qui pilote la recherche → `query`).
     private var activeText: String {
@@ -220,7 +223,12 @@ struct MapSearchPage: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
                 .onChange(of: text.wrappedValue) { _, newValue in
-                    item.wrappedValue = nil    // la frappe invalide la sélection figée
+                    // Ne PAS effacer l'item quand c'est NOUS qui posons le texte
+                    // après une sélection (sinon le départ/arrivée choisi est perdu
+                    // et le trajet repart de la position). Seule la vraie frappe
+                    // utilisateur invalide la sélection figée.
+                    guard !isApplyingSelection else { return }
+                    item.wrappedValue = nil
                     debounceTask?.cancel()
                     debounceTask = Task {
                         try? await Task.sleep(nanoseconds: 150_000_000)
@@ -419,15 +427,17 @@ struct MapSearchPage: View {
         }
         // Mode itinéraire : remplit le champ focalisé, enchaîne ou calcule.
         let label = item.name ?? item.placemark.title ?? ""
+        isApplyingSelection = true                       // protège l'item du .onChange
+        defer { DispatchQueue.main.async { isApplyingSelection = false } }
         if routeFocus == .departure {
-            departureItem = item; departureText = label
+            departureText = label; departureItem = item
             if arrivalItem == nil {
                 routeFocus = .arrival; query = arrivalText
             } else {
                 planRoute()
             }
         } else {
-            arrivalItem = item; arrivalText = label
+            arrivalText = label; arrivalItem = item
             planRoute()
         }
     }
