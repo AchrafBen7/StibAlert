@@ -35486,6 +35486,22 @@
           }
         }
       }
+    },
+    "Voir la gare en détail": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir la gare en détail"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Station in detail bekijken"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

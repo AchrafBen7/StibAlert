@@ -3,6 +3,10 @@ import SwiftUI
 struct HomeSncbStationSheet: View {
     let station: SNCBStation
     let onReport: () -> Void
+    /// Ouvre la page détaillée de la gare (GareDetailPage) — mêmes horaires
+    /// complets + infos trafic que par la liste Lijnen. nil-op par défaut pour
+    /// ne pas casser d'éventuels autres appelants.
+    var onOpenDetail: () -> Void = {}
 
     @State private var departures: [SNCBDeparture] = []
     @State private var isLoadingDepartures = true
@@ -46,6 +50,29 @@ struct HomeSncbStationSheet: View {
                 }
 
                 departuresSection
+
+                Button(action: onOpenDetail) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "list.bullet.rectangle")
+                            .font(.system(size: 15, weight: .bold))
+                        Text(AppLocalizer.string("Voir la gare en détail", defaultValue: "Voir la gare en détail"))
+                            .font(DS.Font.bodyBold)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(DS.Color.ink)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(DS.Color.paper2.opacity(0.7))
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
+                            .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
 
                 Button(action: onReport) {
                     HStack(spacing: 10) {

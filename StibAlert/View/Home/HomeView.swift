@@ -126,6 +126,9 @@ struct HomeView: View {
     @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
+    /// Gare dont on affiche la page détaillée (GareDetailPage) en plein écran,
+    /// ouverte depuis le bouton « Voir la gare en détail » du sheet carte.
+    @State private var sncbStationDetail: SNCBStation?
     @State private var problemFilter: ReportProblemType? = nil
     @State var activeMapFilter: MapFilter = .none
     @State private var cameraLatitudeDelta: Double = 0.04
@@ -974,10 +977,29 @@ struct HomeView: View {
                 onReport: {
                     selectedSncbStation = nil
                     nav.showReportSheet = true
+                },
+                onOpenDetail: {
+                    // On ferme d'abord le sheet, puis on présente la page détaillée
+                    // en plein écran (présenter pendant la fermeture d'un sheet
+                    // échoue en SwiftUI → petit délai le temps de l'animation).
+                    let gare = station
+                    selectedSncbStation = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        sncbStationDetail = gare
+                    }
                 }
             )
-            .presentationDetents([.height(280), .medium])
+            .presentationDetents([.height(320), .medium])
             .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(item: $sncbStationDetail) { gare in
+            GareDetailPage(station: gare, initialTab: .schedule, onReport: { _ in
+                // Signalement rendu seulement sur la Home : on ferme la page et
+                // on ouvre la feuille de signalement.
+                sncbStationDetail = nil
+                nav.currentPage = .home
+                nav.showReportSheet = true
+            })
         }
         .sheet(item: $selectedOperatorStop) { stop in
             HomeOperatorStopSheet(stop: stop, onReport: {
