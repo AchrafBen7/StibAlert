@@ -125,6 +125,7 @@ struct HomeView: View {
     @AppStorage(AppStorageKeys.mapLayerShowStibStops) private var showStibStops = true
     @AppStorage(AppStorageKeys.mapLayerShowCommunitySignals) private var showCommunitySignals = true
     @AppStorage(AppStorageKeys.mapLayerShowOfficialSignals) private var showOfficialSignals = true
+    @AppStorage(AppStorageKeys.mapLayerSignalsFavoritesOnly) private var signalsFavoritesOnly = false
     @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
@@ -272,6 +273,27 @@ struct HomeView: View {
 
     private var officialSignalPoints: [LiveSignalPoint] {
         liveSignalPoints.filter { $0.source == "stib_officiel" }
+    }
+
+    /// Mode « Mes lignes seulement » : ne garde que les signalements communautaires
+    /// qui concernent l'utilisateur — lignes favorites OU arrêt domicile/travail
+    /// (même règle de pertinence que l'alerte proactive). Sans favoris ni routine,
+    /// on ne filtre RIEN (sinon la carte se viderait et le mode paraîtrait cassé).
+    private func clustersOnMyLines(_ clusters: [ClusterDTO]) -> [ClusterDTO] {
+        guard let user = session.currentUser else { return clusters }
+        let favoriteLines = Set((user.favoriteLines ?? []).compactMap { raw -> String? in
+            let normalized = raw.uppercased()
+            return normalized.contains(":") ? nil : normalized
+        })
+        let homeStopId = user.routine?.homeStopId
+        let workStopId = user.routine?.workStopId
+        guard !favoriteLines.isEmpty || homeStopId != nil || workStopId != nil else { return clusters }
+        return clusters.filter { cluster in
+            if favoriteLines.contains(cluster.ligne.uppercased()) { return true }
+            if let homeStopId, cluster.arretId == homeStopId { return true }
+            if let workStopId, cluster.arretId == workStopId { return true }
+            return false
+        }
     }
 
     private var mapClusters: [MapSignalCluster] {
@@ -1219,7 +1241,9 @@ struct HomeView: View {
             // markers left are the focused line's stops and its live vehicles.
             officialSignalPoints: (isFocusModeActive || !showOfficialSignals) ? [] : officialSignalPoints,
             routeOfficialSignalPoints: routeOfficialSignalPoints,
-            activeClusters: (isFocusModeActive || !showCommunitySignals) ? [] : activeClusters,
+            activeClusters: (isFocusModeActive || !showCommunitySignals)
+                ? []
+                : (signalsFavoritesOnly ? clustersOnMyLines(activeClusters) : activeClusters),
             selectedClusterIndex: selectedClusterIndex,
             cameraLatitudeDelta: cameraLatitudeDelta,
             mapVehicles: mapVehicles,
@@ -1431,7 +1455,8 @@ struct HomeView: View {
                 showVilloStations: $showVilloStations,
                 showEventImpacts: $showEventImpacts,
                 showCommunitySignals: $showCommunitySignals,
-                showOfficialSignals: $showOfficialSignals
+                showOfficialSignals: $showOfficialSignals,
+                signalsFavoritesOnly: $signalsFavoritesOnly
             ) {
                 withAnimation(transitionSpring) {
                     showLegend = false

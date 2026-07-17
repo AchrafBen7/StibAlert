@@ -40,6 +40,9 @@ enum AppStorageKeys {
     // ces gros blocs pour une carte épurée.
     static let mapLayerShowCommunitySignals = "mapLayerShowCommunitySignals"
     static let mapLayerShowOfficialSignals = "mapLayerShowOfficialSignals"
+    /// Restreint les signalements communautaires à ceux qui concernent
+    /// l'utilisateur (lignes favorites + arrêts domicile/travail). Défaut off.
+    static let mapLayerSignalsFavoritesOnly = "mapLayerSignalsFavoritesOnly"
 
     /// Migration unique. `@AppStorage` n'applique sa valeur par défaut que si la
     /// clé est **absente** : les installations existantes ont déjà `true` écrit en

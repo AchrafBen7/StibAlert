@@ -12,6 +12,7 @@ struct MapLegendOverlay: View {
     @Binding var showEventImpacts: Bool
     @Binding var showCommunitySignals: Bool
     @Binding var showOfficialSignals: Bool
+    @Binding var signalsFavoritesOnly: Bool
     let onDismiss: () -> Void
 
     var body: some View {
@@ -38,6 +39,9 @@ struct MapLegendOverlay: View {
                 symbolToggleRow(systemImage: "exclamationmark.triangle.fill", fill: DS.Color.info,
                                 title: AppLocalizer.string("layers.official_signals", defaultValue: "Officiel"),
                                 isOn: $showOfficialSignals)
+                symbolToggleRow(systemImage: "star.fill", fill: DS.Color.primary,
+                                title: AppLocalizer.string("layers.my_lines_only", defaultValue: "Mes lignes seulement"),
+                                isOn: $signalsFavoritesOnly)
 
                 legendSubheader(AppLocalizer.string("layers.others", defaultValue: "AUTRES"))
                 iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)

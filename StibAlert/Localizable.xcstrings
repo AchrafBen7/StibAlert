@@ -35614,6 +35614,22 @@
           }
         }
       }
+    },
+    "layers.my_lines_only": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes lignes seulement"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alleen mijn lijnen"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
