@@ -10,6 +10,8 @@ struct MapLegendOverlay: View {
     @Binding var showTecStops: Bool
     @Binding var showVilloStations: Bool
     @Binding var showEventImpacts: Bool
+    @Binding var showCommunitySignals: Bool
+    @Binding var showOfficialSignals: Bool
     let onDismiss: () -> Void
 
     var body: some View {
@@ -21,7 +23,7 @@ struct MapLegendOverlay: View {
             VStack(alignment: .leading, spacing: 0) {
                 legendHeader
 
-                legendSubheader("OPÉRATEURS")
+                legendSubheader(AppLocalizer.string("layers.operators", defaultValue: "OPÉRATEURS"))
                 operatorToggleRow(asset: "operator-stib", title: "STIB-MIVB", isOn: $showStibStops)
                 operatorToggleRow(asset: "operator-sncb", title: "SNCB", isOn: $showSncbStations)
                 // S1 — De Lijn / TEC activés maintenant que le live multi-op
@@ -29,7 +31,15 @@ struct MapLegendOverlay: View {
                 operatorToggleRow(asset: "operator-delijn", title: "De Lijn", isOn: $showDelijnStops)
                 operatorToggleRow(asset: "operator-tec", title: "TEC", isOn: $showTecStops)
 
-                legendSubheader("AUTRES")
+                legendSubheader(AppLocalizer.string("layers.signalements", defaultValue: "SIGNALEMENTS"))
+                symbolToggleRow(systemImage: "exclamationmark.bubble.fill", fill: DS.Color.warning,
+                                title: AppLocalizer.string("layers.community_signals", defaultValue: "Communauté"),
+                                isOn: $showCommunitySignals)
+                symbolToggleRow(systemImage: "exclamationmark.triangle.fill", fill: DS.Color.info,
+                                title: AppLocalizer.string("layers.official_signals", defaultValue: "Officiel"),
+                                isOn: $showOfficialSignals)
+
+                legendSubheader(AppLocalizer.string("layers.others", defaultValue: "AUTRES"))
                 iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)
                 iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: AppLocalizer.string("scope.events", defaultValue: "Événements"), isOn: $showEventImpacts)
 
@@ -158,6 +168,33 @@ struct MapLegendOverlay: View {
                             .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
                         Text(letter)
                             .font(.system(size: 16, weight: .heavy, design: .rounded))
+                            .foregroundStyle(isOn.wrappedValue ? .white : DS.Color.inkMute)
+                    }
+                ),
+                title: title,
+                titleColor: isOn.wrappedValue ? DS.Color.ink : DS.Color.inkMute,
+                trailing: AnyView(toggleIndicator(isOn: isOn.wrappedValue))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Variante de `iconToggleRow` avec une icône SF au lieu d'une lettre —
+    /// langue-neutre, utilisée pour les signalements (communauté / officiel).
+    private func symbolToggleRow(systemImage: String, fill: Color, title: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            UISelectionFeedbackGenerator().selectionChanged()
+            isOn.wrappedValue.toggle()
+        } label: {
+            rowBody(
+                leading: AnyView(
+                    ZStack {
+                        Circle()
+                            .fill(isOn.wrappedValue ? fill : DS.Color.paper2)
+                            .frame(width: 40, height: 40)
+                            .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                        Image(systemName: systemImage)
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(isOn.wrappedValue ? .white : DS.Color.inkMute)
                     }
                 ),

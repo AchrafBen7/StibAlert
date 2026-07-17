@@ -123,6 +123,8 @@ struct HomeView: View {
     @AppStorage(AppStorageKeys.mapLayerShowVilloStations) private var showVilloStations = false
     @AppStorage(AppStorageKeys.mapLayerShowEventImpacts) private var showEventImpacts = false
     @AppStorage(AppStorageKeys.mapLayerShowStibStops) private var showStibStops = true
+    @AppStorage(AppStorageKeys.mapLayerShowCommunitySignals) private var showCommunitySignals = true
+    @AppStorage(AppStorageKeys.mapLayerShowOfficialSignals) private var showOfficialSignals = true
     @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
@@ -1215,9 +1217,9 @@ struct HomeView: View {
             destinationCoordinate: destinationCoord,
             // Focus mode strips every overlay from the map so the only
             // markers left are the focused line's stops and its live vehicles.
-            officialSignalPoints: isFocusModeActive ? [] : officialSignalPoints,
+            officialSignalPoints: (isFocusModeActive || !showOfficialSignals) ? [] : officialSignalPoints,
             routeOfficialSignalPoints: routeOfficialSignalPoints,
-            activeClusters: isFocusModeActive ? [] : activeClusters,
+            activeClusters: (isFocusModeActive || !showCommunitySignals) ? [] : activeClusters,
             selectedClusterIndex: selectedClusterIndex,
             cameraLatitudeDelta: cameraLatitudeDelta,
             mapVehicles: mapVehicles,
@@ -1427,7 +1429,9 @@ struct HomeView: View {
                 showDelijnStops: $showDelijnStops,
                 showTecStops: $showTecStops,
                 showVilloStations: $showVilloStations,
-                showEventImpacts: $showEventImpacts
+                showEventImpacts: $showEventImpacts,
+                showCommunitySignals: $showCommunitySignals,
+                showOfficialSignals: $showOfficialSignals
             ) {
                 withAnimation(transitionSpring) {
                     showLegend = false

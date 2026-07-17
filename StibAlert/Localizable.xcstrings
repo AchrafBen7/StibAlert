@@ -35534,6 +35534,86 @@
           }
         }
       }
+    },
+    "layers.signalements": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SIGNALEMENTS"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MELDINGEN"
+          }
+        }
+      }
+    },
+    "layers.community_signals": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Communauté"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemeenschap"
+          }
+        }
+      }
+    },
+    "layers.official_signals": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Officiel"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Officieel"
+          }
+        }
+      }
+    },
+    "layers.others": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AUTRES"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OVERIGE"
+          }
+        }
+      }
+    },
+    "layers.operators": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OPÉRATEURS"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OPERATOREN"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

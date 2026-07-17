@@ -35,6 +35,11 @@ enum AppStorageKeys {
     static let mapLayerShowEventImpacts = "mapLayerShowEventImpacts"
     static let mapLayerShowDelijnStops = "mapLayerShowDelijnStops"
     static let mapLayerShowTecStops = "mapLayerShowTecStops"
+    // Signalements sur la carte : communauté (orange) + officiels (bleu). Défaut
+    // visible (true) — c'est le cœur de l'app — mais l'utilisateur peut masquer
+    // ces gros blocs pour une carte épurée.
+    static let mapLayerShowCommunitySignals = "mapLayerShowCommunitySignals"
+    static let mapLayerShowOfficialSignals = "mapLayerShowOfficialSignals"
 
     /// Migration unique. `@AppStorage` n'applique sa valeur par défaut que si la
     /// clé est **absente** : les installations existantes ont déjà `true` écrit en
