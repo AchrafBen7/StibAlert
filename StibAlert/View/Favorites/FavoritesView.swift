@@ -1468,6 +1468,9 @@ private struct FavoriteStopDetailView: View {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                 nav.currentPage = .home
             }
+            // Ouvre la recherche (mode destination) sur la Home, comme un tap
+            // sur le searchbar : HomeView observe ce flag.
+            nav.pendingOpenSearch = true
         } label: {
             HStack(spacing: 8) {
                 Text("Besoin d’un plan B ?")

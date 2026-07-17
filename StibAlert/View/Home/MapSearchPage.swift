@@ -62,6 +62,7 @@ struct MapSearchPage: View {
                     if isSearching {
                         resultsSection
                     } else {
+                        if mode == .route, userCoordinate != nil { myLocationRow }
                         quickAccessRow
                         recentsSection
                     }
@@ -295,6 +296,17 @@ struct MapSearchPage: View {
 
     // MARK: - Récents
 
+    /// Mode itinéraire : accès rapide « Ma position » en tête → remplit le champ
+    /// focalisé (départ par défaut) avec la position live de l'utilisateur.
+    private var myLocationRow: some View {
+        row(icon: "location.fill",
+            title: AppLocalizer.string("route.my_location", defaultValue: "Ma position"),
+            subtitle: AppLocalizer.string("route.my_location_sub", defaultValue: "Utiliser ta position actuelle"),
+            trailing: nil) {
+            selectMyLocation()
+        }
+    }
+
     @ViewBuilder
     private var recentsSection: some View {
         if recents.isEmpty {
@@ -438,6 +450,24 @@ struct MapSearchPage: View {
             }
         } else {
             arrivalText = label; arrivalItem = item
+            planRoute()
+        }
+    }
+
+    /// « Ma position » : pose la position live comme DÉPART (cas courant « d'ici
+    /// vers X » — à l'ouverture le focus est sur Arrivée, on ne veut donc pas
+    /// écraser l'arrivée). Puis on enchaîne sur l'arrivée si vide, sinon on
+    /// calcule. Pas mémorisé en récent (ce n'est pas un lieu à retenir).
+    private func selectMyLocation() {
+        guard let coord = userCoordinate else { return }
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: coord))
+        item.name = AppLocalizer.string("route.my_location", defaultValue: "Ma position")
+        isApplyingSelection = true
+        defer { DispatchQueue.main.async { isApplyingSelection = false } }
+        departureText = item.name ?? ""; departureItem = item
+        if arrivalItem == nil {
+            routeFocus = .arrival; query = arrivalText
+        } else {
             planRoute()
         }
     }

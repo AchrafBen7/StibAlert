@@ -35502,6 +35502,38 @@
           }
         }
       }
+    },
+    "route.my_location": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ma position"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mijn locatie"
+          }
+        }
+      }
+    },
+    "route.my_location_sub": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser ta position actuelle"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebruik je huidige locatie"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

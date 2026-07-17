@@ -1148,6 +1148,19 @@ struct HomeView: View {
             }
             nav.pendingClusterFocusIndex = nil
         }
+        // « Besoin d'un plan B ? » (détail arrêt favori) → ouvre la page de
+        // recherche en mode destination, exactement comme un tap sur le searchbar.
+        // Petit délai le temps que le détail favori se ferme avant de présenter
+        // le fullScreenCover.
+        .onChange(of: nav.pendingOpenSearch) { _, newValue in
+            guard newValue else { return }
+            nav.pendingOpenSearch = false
+            dismissOtherBottomDetails(except: .none)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                mapSearchMode = .destination
+                isMapSearchActive = true
+            }
+        }
         .onReceive(locationManager.$userCoordinate.compactMap { $0 }) { coord in
             if !hasAutoCenteredOnUser || isFollowingUser {
                 suppressNextCameraInteraction = true
@@ -3526,6 +3539,7 @@ struct HomeView: View {
     }
 
     enum BottomDetailKind {
+        case none   // « fermer tout » : aucune feuille n'est préservée
         case signalementPreview, cluster, vehicle, operatorStop, sncbStation, villoStation, eventImpact
     }
 

@@ -27,4 +27,8 @@ final class AppNavigation: ObservableObject {
     /// DeepLinkRouter. Désormais on capture le clusterIndex ici et HomeView
     /// l'observe pour ouvrir le ClusterDetailSheet sur la bonne entrée.
     @Published var pendingClusterFocusIndex: Int?
+    /// Demande d'ouverture de la page de recherche (mode destination) sur la
+    /// Home — posé par « Besoin d'un plan B ? » depuis le détail d'un arrêt
+    /// favori. HomeView l'observe, ouvre la recherche puis remet à false.
+    @Published var pendingOpenSearch = false
 }
