@@ -21,25 +21,14 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<!-- NFCReaderUsageDescription REQUIS : `MobibNFCReader.swift` (CoreNFC /
-	     NFCTagReaderSession) est TOUJOURS compilé dans le binaire, même si
-	     l'écran MoBIB est masqué. App Store rejette l'UPLOAD d'un binaire qui
-	     référence CoreNFC sans cette clé (validation automatique). La retirer
-	     le 2026-07-13 était une erreur : elle aurait bloqué la soumission.
-	     Le texte reste vrai (scan pour associer la carte, sans solde/validation). -->
-	<key>NFCReaderUsageDescription</key>
-	<string>Blayse lit la puce de ta carte MoBIB pour l'associer à ton profil. Blayse ne peut ni afficher ton solde, ni valider un trajet, ni recharger ta carte.</string>
-	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
-	<array>
-		<!-- Calypso "1TIC.ICA" AID — used by MoBIB / STIB-MIVB Brussels -->
-		<string>315449432E494341</string>
-		<!-- Calypso B Prime (older MoBIB revisions) -->
-		<string>A0000004040125009101</string>
-		<!-- Calypso applet generic -->
-		<string>334D54520010</string>
-		<!-- Mifare DESFire DF7560 (some MoBIB variants) -->
-		<string>D2760000850100</string>
-	</array>
+	<!-- Clés NFC MoBIB RETIRÉES au lancement (App Review 2026-07-21, Guideline
+	     2.1 : Apple exigeait une vidéo démo NFC). CoreNFC est sorti du binaire
+	     via le flag MOBIB_NFC (cf. MobibNFCReader.swift), donc plus aucune
+	     référence CoreNFC → NFCReaderUsageDescription + select-identifiers ne
+	     sont plus requis. À restaurer avec le flag quand la feature MoBIB sortira
+	     (avec la vidéo démo) : NFCReaderUsageDescription, select-identifiers
+	     (AID 315449432E494341 / A0000004040125009101 / 334D54520010 /
+	     D2760000850100) + l'entitlement nfc.readersession.formats. -->
 	<key>OneSignalAppID</key>
 	<string>c572317d-1a24-49fa-9631-b6556438ae34</string>
 	<key>CFBundleURLTypes</key>

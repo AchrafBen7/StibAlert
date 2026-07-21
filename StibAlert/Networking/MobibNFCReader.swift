@@ -1,5 +1,14 @@
 import Foundation
-#if canImport(CoreNFC)
+// NFC MoBIB DÉSACTIVÉ AU LANCEMENT (App Review 2026-07-21, Guideline 2.1) :
+// l'écran MoBIB était déjà masqué mais l'entitlement + CoreNFC restaient dans
+// le binaire → Apple exigeait une vidéo démo NFC. On sort donc CoreNFC du
+// binaire via le flag `MOBIB_NFC` (NON défini). `beginScan()` retombe sur le
+// stub `#else`. RIEN n'est supprimé : pour réactiver la lecture MoBIB, ajouter
+// `MOBIB_NFC` à SWIFT_ACTIVE_COMPILATION_CONDITIONS + remettre l'entitlement
+// `com.apple.developer.nfc.readersession.formats` et les clés NFC de l'Info.plist,
+// puis fournir la vidéo démo à Apple. Le décodeur `CalypsoIntercode` (bas du
+// fichier) reste compilé, il ne dépend pas de CoreNFC.
+#if MOBIB_NFC
 import CoreNFC
 #endif
 
@@ -11,12 +20,12 @@ final class MobibNFCReader: NSObject, ObservableObject {
     @Published private(set) var scanState: MobibScanState = .idle
     @Published private(set) var debugEvents: [MobibDebugEvent] = []
 
-#if canImport(CoreNFC)
+#if MOBIB_NFC
     private var session: NFCTagReaderSession?
 #endif
 
     func beginScan() {
-#if canImport(CoreNFC)
+#if MOBIB_NFC
         guard NFCTagReaderSession.readingAvailable else {
             errorMessage = "La lecture NFC n'est pas disponible sur cet iPhone."
             scanState = .error(errorMessage ?? "Lecture NFC indisponible.")
@@ -76,7 +85,7 @@ final class MobibNFCReader: NSObject, ObservableObject {
     }
 }
 
-#if canImport(CoreNFC)
+#if MOBIB_NFC
 extension MobibNFCReader: NFCTagReaderSessionDelegate {
     nonisolated func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {}
 
