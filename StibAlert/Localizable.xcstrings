@@ -35802,6 +35802,22 @@
           }
         }
       }
+    },
+    "a11y.destination": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destination"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestemming"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

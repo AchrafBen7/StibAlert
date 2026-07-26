@@ -116,10 +116,7 @@ struct HomeMapLayer: View {
 
         if let destinationCoordinate {
             Annotation("", coordinate: destinationCoordinate, anchor: .bottom) {
-                Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundStyle(DS.Color.info)
-                    .shadow(radius: 4)
+                DestinationFlagMarker()
             }
         }
     }
