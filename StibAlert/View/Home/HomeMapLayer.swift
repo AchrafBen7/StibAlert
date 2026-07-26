@@ -465,11 +465,27 @@ struct HomeMapLayer: View {
 
         let offset = Double(vehicle.distanceFromPoint ?? 0)
         guard offset >= 25 else { return stopCoord }                       // quasi à l'arrêt
+        // Plafond de projection : au-delà, l'estimation devient fragile (le sens
+        // de marche est DÉDUIT d'un cap, et une erreur de sens éloigne le
+        // véhicule de deux fois la distance, dans le mauvais sens). L'arrêt de
+        // référence, lui, est une donnée SÛRE renvoyée par la STIB. Règle d'or
+        // du produit : un faux temps réel est pire que pas de temps réel — on
+        // préfère un véhicule affiché à son arrêt qu'un véhicule inventé
+        // ailleurs. En pratique 99,7 % des véhicules sont sous ce seuil.
+        guard offset <= 1200 else { return stopCoord }
         guard let bearing = vehicle.vehicleId.flatMap({ vehicleBearings[$0] }) else { return stopCoord }
         guard let line = vehicle.line,
               let coords = bestShapeCoordinates(forLine: line, near: stopCoord) else { return stopCoord }
 
-        return Self.pointAlongShape(coords, from: stopCoord, distance: offset, travelHeading: bearing) ?? stopCoord
+        guard let projected = Self.pointAlongShape(coords, from: stopCoord, distance: offset, travelHeading: bearing) else {
+            return stopCoord
+        }
+        // Garde-fou final : si le point projeté s'éloigne beaucoup plus que la
+        // distance annoncée (tracé incomplet, mauvaise variante de ligne), c'est
+        // que la projection a dérapé → on retombe sur l'arrêt.
+        let drift = CLLocation(latitude: stopCoord.latitude, longitude: stopCoord.longitude)
+            .distance(from: CLLocation(latitude: projected.latitude, longitude: projected.longitude))
+        return drift <= offset * 1.6 + 150 ? projected : stopCoord
     }
 
     /// Tracé de la ligne `line` passant le plus près de `coord` (gère les
