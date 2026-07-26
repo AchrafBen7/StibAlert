@@ -2955,13 +2955,13 @@ struct HomeView: View {
 
     @MainActor
     private func searchSuggestions(for text: String) async {
-        // STIB stops d'abord (préfixe accepté → "del" → DELACROIX) puis
-        // MKLocalSearch pour les adresses / monuments. Avant on n'avait que
-        // MKLocalSearch et l'utilisateur tapait "delacroix" → résultats
-        // pourris ("Croix-Rouge", "Kathleen Dandoy"). Les arrêts STIB doivent
-        // dominer la liste pour une app de mobilité.
-        async let stibTask = NearbyStopService.topStopsByName(text, limit: 5)
-
+        // On ne propose plus les ARRÊTS STIB ici : c'est une recherche de
+        // DESTINATION (« Où vas-tu ? »). Les noms d'arrêts arrivaient en
+        // capitales avec un sous-titre vague (« TOUR ET TAXIS · België ») et
+        // passaient devant le vrai lieu, mieux situé (« Tour & Taxis ·
+        // Havenlaan, Brussel »). Les arrêts restent accessibles par la carte,
+        // l'onglet Lignes et la recherche d'arrêt des favoris.
+        //
         // Géocodage Google (backend) EN PLUS de MapKit : Apple trouve très mal
         // les adresses FR en Belgique ("Rue de Lombartzyde" → résultats au
         // hasard), alors que Google les résout. On ne l'appelle qu'à partir de
@@ -2977,29 +2977,16 @@ struct HomeView: View {
         )
         async let mkTask = (try? await MKLocalSearch(request: req).start())?.mapItems ?? []
 
-        let (stibStops, googleResult, mkItems) = await (stibTask, googleTask, mkTask)
+        let (googleResult, mkItems) = await (googleTask, mkTask)
 
         var merged: [MKMapItem] = []
         var seen = Set<String>()
 
-        // 1) STIB stops en tête, convertis en MKMapItem pour rester compatibles
-        //    avec le picker existant.
-        for stop in stibStops {
-            let placemark = MKPlacemark(coordinate: stop.coordinate)
-            let item = MKMapItem(placemark: placemark)
-            item.name = stop.name
-            let key = "stib|\(stop.name)"
-            if seen.insert(key).inserted {
-                merged.append(item)
-            }
-        }
-
-        // 2) Résultat Google (adresse réelle) JUSTE après les arrêts STIB :
-        //    c'est lui qui fait remonter l'adresse FR que MapKit ne trouve pas.
+        // 1) Résultat du géocodeur (adresse réelle) en tête : c'est lui qui fait
+        //    remonter l'adresse FR que MapKit ne trouve pas.
         if let g = googleResult {
             let displayName = g.name.isEmpty ? g.formattedAddress : g.name
             if !displayName.isEmpty,
-               !stibStops.contains(where: { $0.name.compare(displayName, options: .caseInsensitive) == .orderedSame }),
                seen.insert("geo|\(displayName.lowercased())").inserted {
                 let item = MKMapItem(placemark: MKPlacemark(coordinate: g.coordinate))
                 item.name = displayName
@@ -3007,14 +2994,10 @@ struct HomeView: View {
             }
         }
 
-        // 3) MKLocalSearch en dessous, en évitant de re-suggérer un arrêt déjà
-        //    proposé en tête (ou l'adresse Google déjà ajoutée).
+        // 2) MKLocalSearch en dessous, en évitant de re-suggérer l'adresse du
+        //    géocodeur déjà ajoutée en tête.
         for item in rankedSearchMapItems(mkItems, query: text, limit: 8) {
             let key = "\(item.name ?? "")|\(item.placemark.title ?? "")"
-            // Skip si le nom est déjà dans la liste STIB (case-insensitive).
-            if stibStops.contains(where: { $0.name.compare(item.name ?? "", options: .caseInsensitive) == .orderedSame }) {
-                continue
-            }
             // Skip si c'est la même adresse que le résultat Google déjà en tête.
             if let g = googleResult,
                (item.name ?? "").compare(g.name.isEmpty ? g.formattedAddress : g.name, options: .caseInsensitive) == .orderedSame {
