@@ -400,12 +400,34 @@ extension SignalementDTO {
         return max(Int(Date().timeIntervalSince(dateSignalement) / 60), 0)
     }
 
+    /// Vrai quand l'item vient d'un communiqué OFFICIEL de l'opérateur, pas
+    /// d'un humain. Le backend convertit les communiqués STIB en signalements
+    /// (`source: "stib_officiel"`, sans `utilisateurId`) : les afficher comme
+    /// « Signalé il y a 6 min » laissait croire qu'une personne l'avait
+    /// signalé — trompeur, et manifestement faux quand aucun utilisateur n'a
+    /// rien signalé. On ne s'attribue jamais un signalement qui n'existe pas.
+    var isFromOfficialSource: Bool {
+        let raw = (source ?? "").lowercased()
+        return raw.contains("officiel") || raw.contains("official")
+            || raw.contains("stib") || raw.contains("mivb")
+    }
+
     var freshnessLabel: String {
         // S4 — Ne JAMAIS inventer une fraîcheur quand la date est inconnue.
         // Avant : nil → "Signalé à l'instant" = fausse confiance. Désormais
         // on est honnête : "Date inconnue".
         guard let minutes = effectiveFreshnessMinutes else {
             return AppLocalizer.string("report.freshness.unknown", defaultValue: "Date inconnue")
+        }
+        // Source officielle → « Publié par STIB », jamais « Signalé ».
+        if isFromOfficialSource {
+            if minutes < 60 {
+                return AppLocalizer.format("report.official.minutes", defaultValue: "Publié par STIB il y a %lld min", minutes)
+            }
+            if minutes < 1440 {
+                return AppLocalizer.format("report.official.hours", defaultValue: "Publié par STIB il y a %lld h", minutes / 60)
+            }
+            return AppLocalizer.format("report.official.days", defaultValue: "Publié par STIB il y a %lld j", minutes / 1440)
         }
         if minutes < 1 { return AppLocalizer.string("report.freshness.now", defaultValue: "Signalé à l'instant") }
         if minutes < 60 {

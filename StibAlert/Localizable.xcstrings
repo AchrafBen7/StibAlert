@@ -35662,6 +35662,54 @@
           }
         }
       }
+    },
+    "report.official.minutes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publié par STIB il y a %lld min"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Door MIVB gepubliceerd, %lld min geleden"
+          }
+        }
+      }
+    },
+    "report.official.hours": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publié par STIB il y a %lld h"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Door MIVB gepubliceerd, %lld u geleden"
+          }
+        }
+      }
+    },
+    "report.official.days": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Publié par STIB il y a %lld j"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Door MIVB gepubliceerd, %lld d geleden"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
