@@ -163,9 +163,26 @@ struct HomeStopMiniHeaderCard: View {
                     .foregroundStyle(DS.Color.inkMute)
             }
         } else if lineDepartures.isEmpty {
-            Text(AppLocalizer.string("Aucun passage prévu", defaultValue: "Aucun passage prévu"))
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(DS.Color.inkMute)
+            // « Aucun passage prévu » tout court laissait croire que l'ARRÊT est
+            // mort, alors que seule la ligne SÉLECTIONNÉE n'a rien : à Suzan
+            // Daniel (ligne 20 choisie) un bus 46 passait dans 3 min sans être
+            // annoncé. On nomme donc la ligne, et on montre les autres lignes
+            // qui, elles, passent — avec leur attente.
+            VStack(alignment: .leading, spacing: 4) {
+                Text(emptyDeparturesText)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(DS.Color.inkMute)
+                if !otherLinesSummary.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(otherLinesSummary)
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(DS.Color.ink.opacity(0.75))
+                }
+            }
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 // Toutes les directions réelles de la ligne (en pratique 2),
@@ -179,6 +196,42 @@ struct HomeStopMiniHeaderCard: View {
                 }
             }
         }
+    }
+
+    /// « Aucun passage prévu » NOMME la ligne concernée : sans ça, l'utilisateur
+    /// croit que l'arrêt entier est mort alors qu'une autre ligne y passe.
+    private var emptyDeparturesText: String {
+        guard let selectedLine, !selectedLine.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return AppLocalizer.string("Aucun passage prévu", defaultValue: "Aucun passage prévu")
+        }
+        return AppLocalizer.format(
+            "stopcard.no_departure_for_line",
+            defaultValue: "Aucun passage prévu pour la ligne %@",
+            selectedLine
+        )
+    }
+
+    /// Les AUTRES lignes de l'arrêt qui, elles, ont un passage annoncé — avec la
+    /// plus proche attente de chacune (2 max). Rend l'arrêt lisible d'un coup
+    /// d'œil quand la ligne choisie est vide.
+    private var otherLinesSummary: String {
+        let normalizedSelected = selectedLine.map(normalize)
+        var earliest: [String: Int] = [:]
+        var order: [String] = []
+        for departure in nextDepartures {
+            let key = normalize(departure.line)
+            guard !key.isEmpty, key != normalizedSelected else { continue }
+            if earliest[key] == nil {
+                order.append(departure.line)
+                earliest[key] = departure.minutes
+            } else if let current = earliest[key], departure.minutes < current {
+                earliest[key] = departure.minutes
+            }
+        }
+        guard !order.isEmpty else { return "" }
+        return order.prefix(2)
+            .map { "\($0) · \(minutesText(for: earliest[normalize($0)] ?? 0))" }
+            .joined(separator: "   ")
     }
 
     /// Vrai quand la ligne n'a QUE des passages théoriques (temps réel vide) :

@@ -35630,6 +35630,38 @@
           }
         }
       }
+    },
+    "vehicle.heading_to": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direction %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richting %@"
+          }
+        }
+      }
+    },
+    "stopcard.no_departure_for_line": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun passage prévu pour la ligne %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen doorkomst gepland voor lijn %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

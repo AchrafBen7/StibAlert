@@ -106,15 +106,23 @@ struct VehicleDetailSheet: View {
                         .foregroundStyle(DS.Color.inkMute)
                 }
                 if let destinationLabel {
+                    // Terminus annoncé explicitement (« Direction Hunderenveld »
+                    // / « Richting … ») plutôt qu'une simple flèche : le mot dit
+                    // ce que la flèche laissait deviner, comme la ligne
+                    // « Prochain arrêt » juste en dessous.
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 13, weight: .black))
                             .foregroundStyle(lineColor)
-                        Text(destinationLabel)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(DS.Color.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                        Text(AppLocalizer.format(
+                            "vehicle.heading_to",
+                            defaultValue: "Direction %@",
+                            destinationLabel
+                        ))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     }
                 } else {
                     Text("En circulation")
