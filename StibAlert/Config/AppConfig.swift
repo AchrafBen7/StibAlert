@@ -2,7 +2,12 @@ import Foundation
 
 enum AppConfig {
     static let isBackendEnabled = true
-    static let backendBaseURL = "https://stib-alert-backend.onrender.com"
+    /// Domaine À NOUS devant le backend (CNAME api → Render). L'app ne connaît
+    /// plus l'hébergeur : on peut changer de région (ex. Oregon → Frankfurt) ou
+    /// d'hébergeur en re-pointant ce seul CNAME, SANS republier l'app — y
+    /// compris pour les versions déjà installées. Avant, l'URL Render était en
+    /// dur : toute migration aurait cassé les apps existantes.
+    static let backendBaseURL = "https://api.blayse.app"
 
     static let teamID = "SLUL8PUP37"
     static let bundleID = "com.ehb.StibAlert"

@@ -1,7 +1,8 @@
 import WidgetKit
 import SwiftUI
 
-private let backendBaseURL = "https://stib-alert-backend.onrender.com"
+// Domaine à nous (CNAME api → Render) : voir AppConfig.backendBaseURL.
+private let backendBaseURL = "https://api.blayse.app"
 private let appGroupID = "group.com.ehb.StibAlert"
 private let favoriteLinesKey = "favoriteLines"
 

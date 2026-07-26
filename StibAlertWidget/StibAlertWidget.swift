@@ -4,7 +4,9 @@ import SwiftUI
 // MARK: - Shared config
 
 private let appGroupID = "group.com.ehb.StibAlert"
-private let backendBaseURL = "https://stib-alert-backend.onrender.com"
+// Domaine à nous (CNAME api → Render) : changer de région ou d'hébergeur ne
+// demande plus de republier le widget. À garder aligné sur AppConfig.
+private let backendBaseURL = "https://api.blayse.app"
 private let nearbyLinesKey = "widget_nearby_lines"
 private let favoriteLinesKey = "favoriteLines"
 
