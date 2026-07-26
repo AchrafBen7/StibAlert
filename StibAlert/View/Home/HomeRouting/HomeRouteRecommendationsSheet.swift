@@ -187,7 +187,10 @@ struct RouteRecommendationsSheet: View {
                             } else {
                                 backendUnreachableBanner
                                 transitUnavailableBanner
-                                rerouteBanner
+                                // `rerouteBanner` retiré de la recherche d'itinéraire
+                                // (décision produit) : l'utilisateur veut son trajet,
+                                // pas un encart sur ce qui est évité. La vue reste
+                                // définie plus bas si on veut la remettre ailleurs.
                                 recommendedSection
                                 optionsHeader
                                 otherOptionsList
