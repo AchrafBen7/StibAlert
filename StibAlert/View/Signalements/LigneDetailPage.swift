@@ -948,42 +948,85 @@ struct LigneDetailPage: View {
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
+    /// Carte « En cours » alignée sur la densité des cartes officielles :
+    /// bandeau de source (STIB vs communauté — indispensable car le backend
+    /// convertit les communiqués STIB en signalements), titre, lieu, ligne,
+    /// description, et compteur de confirmations pour les vrais signalements.
     private func communityIncidentRow(_ signalement: SignalementDTO) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.bubble.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(DS.Color.community)
-                .frame(width: 28, height: 28)
-                .background(DS.Color.community.opacity(0.14))
-                .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 2) {
+        let isOfficial = signalement.isFromOfficialSource
+        let accent = isOfficial ? DS.Color.statusMajor : DS.Color.community
+
+        return VStack(alignment: .leading, spacing: 8) {
+            // En-tête : source explicite + fraîcheur
+            HStack(spacing: 6) {
+                Image(systemName: isOfficial ? "checkmark.seal.fill" : "exclamationmark.bubble.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text(isOfficial
+                     ? AppLocalizer.string("source.stib", defaultValue: "SOURCE OFFICIELLE")
+                     : AppLocalizer.string("source.community", defaultValue: "COMMUNAUTÉ"))
+                    .font(.system(size: 9.5, weight: .black))
+                    .tracking(1.3)
+                Spacer(minLength: 0)
+                Text(signalement.freshnessLabel)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(accent)
+
+            // Titre + ligne concernée
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(signalement.displayTypeProbleme)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
-                if case .populated(let arret) = signalement.arretId {
+                if !signalement.ligne.isEmpty {
+                    LineBadge(line: signalement.ligne, size: .sm)
+                }
+                Spacer(minLength: 0)
+            }
+
+            if case .populated(let arret) = signalement.arretId {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin")
+                        .font(.system(size: 9.5))
                     Text(arret.nom.uppercased())
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1.0)
-                        .foregroundStyle(DS.Color.inkMute)
+                        .lineLimit(1)
                 }
-                Text(signalement.freshnessLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Color.inkMute)
+                .foregroundStyle(DS.Color.inkMute)
             }
-            Spacer(minLength: 0)
-            if let confirmations = signalement.community?.confirmations, confirmations > 0 {
-                Text("\(confirmations)×")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(DS.Color.community)
+
+            if !signalement.description.isEmpty {
+                Text(signalement.description)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Confirmations : n'a de sens que pour un VRAI signalement humain
+            // (un communiqué officiel n'est pas « confirmé » par la communauté).
+            if !isOfficial, let confirmations = signalement.community?.confirmations, confirmations > 0 {
+                HStack(spacing: 5) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text(AppLocalizer.format("report.confirmed_by",
+                                             defaultValue: "Confirmé par %lld personne(s)",
+                                             confirmations))
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(DS.Color.community)
             }
         }
-        .padding(12)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(DS.Color.paper)
         .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(accent.opacity(0.22), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     /// Le texte officiel est décomposé (cause / effet / période / conseil) au lieu

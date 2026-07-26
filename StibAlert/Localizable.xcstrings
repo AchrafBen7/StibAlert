@@ -27017,18 +27017,17 @@
       }
     },
     "source.community": {
-      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Communauté"
+            "value": "COMMUNAUTÉ"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Community"
+            "value": "COMMUNITY"
           }
         }
       }
@@ -27170,18 +27169,17 @@
       }
     },
     "source.stib": {
-      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Source STIB"
+            "value": "SOURCE OFFICIELLE"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "MIVB-bron"
+            "value": "OFFICIËLE BRON"
           }
         }
       }
@@ -35707,6 +35705,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Door MIVB gepubliceerd, %lld d geleden"
+          }
+        }
+      }
+    },
+    "report.confirmed_by": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirmé par %lld personne(s)"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bevestigd door %lld persoon/personen"
           }
         }
       }
