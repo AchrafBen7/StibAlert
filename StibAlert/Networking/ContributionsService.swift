@@ -50,16 +50,31 @@ struct ContributionItem: Decodable, Identifiable {
     }
 
     /// Libellé + couleur du statut vivant pour le badge "Tes signalements".
+    /// Libellés LOCALISÉS : ils étaient codés en dur en français et
+    /// s'affichaient tels quels dans l'app néerlandaise (« Terminé » au milieu
+    /// d'un écran NL, vu dans Profiel → Recente activiteit).
     var statusBadge: (label: String, systemColor: String)? {
-        if liveStatus == "resolved" { return ("Résolu", "ok") }
-        if liveStatus == "archived" { return ("Terminé", "mute") }
+        if liveStatus == "resolved" {
+            return (AppLocalizer.string("status.resolved", defaultValue: "Résolu"), "ok")
+        }
+        if liveStatus == "archived" {
+            return (AppLocalizer.string("status.archived", defaultValue: "Terminé"), "mute")
+        }
         switch confidenceStatus {
-        case "confirmed": return ("Confirmé\(reportCount.map { " (\($0))" } ?? "")", "primary")
-        case "likely": return ("Probable", "warning")
-        case "unverified": return ("À vérifier", "mute")
+        case "confirmed":
+            let base = AppLocalizer.string("status.confirmed", defaultValue: "Confirmé")
+            return (base + (reportCount.map { " (\($0))" } ?? ""), "primary")
+        case "likely":
+            return (AppLocalizer.string("status.likely", defaultValue: "Probable"), "warning")
+        case "unverified":
+            return (AppLocalizer.string("status.unverified", defaultValue: "À vérifier"), "mute")
         default:
-            if liveStatus == "active" { return ("Actif", "primary") }
-            if liveStatus == "unpublished" { return ("En attente", "mute") }
+            if liveStatus == "active" {
+                return (AppLocalizer.string("status.active", defaultValue: "Actif"), "primary")
+            }
+            if liveStatus == "unpublished" {
+                return (AppLocalizer.string("status.pending", defaultValue: "En attente"), "mute")
+            }
             return nil
         }
     }

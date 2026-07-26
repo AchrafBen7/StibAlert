@@ -774,11 +774,19 @@ struct ProfileView: View {
                 .background(tint.opacity(0.12))
                 .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(activityTitle(for: item))
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                // La ligne s'affiche avec son VRAI badge coloré (comme partout
+                // ailleurs dans l'app) au lieu du texte « · Ligne 63 » : on
+                // reconnaît un 63 d'un coup d'œil, pas en lisant.
+                HStack(spacing: 6) {
+                    Text(item.roleLabel)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(1)
+                    if let ligne = item.ligne, !ligne.isEmpty {
+                        LineBadge(line: ligne, size: .sm)
+                    }
+                }
                 Text(activitySubtitle(for: item))
                     .font(.system(size: 11.5))
                     .foregroundStyle(DS.Color.inkMute)

@@ -27574,7 +27574,6 @@
       }
     },
     "status.confirmed": {
-      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -27659,7 +27658,6 @@
       }
     },
     "status.likely": {
-      "extractionState": "stale",
       "localizations": {
         "fr": {
           "stringUnit": {
@@ -35721,6 +35719,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bevestigd door %lld persoon/personen"
+          }
+        }
+      }
+    },
+    "status.resolved": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Résolu"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opgelost"
+          }
+        }
+      }
+    },
+    "status.archived": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afgesloten"
+          }
+        }
+      }
+    },
+    "status.unverified": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À vérifier"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te verifiëren"
+          }
+        }
+      }
+    },
+    "status.active": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actif"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actief"
+          }
+        }
+      }
+    },
+    "status.pending": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In afwachting"
           }
         }
       }
