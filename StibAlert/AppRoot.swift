@@ -146,6 +146,11 @@ struct AppRoot: View {
                 if !hasSeenOnboarding {
                     OnboardingView {
                         hasSeenOnboarding = true
+                        // On sort TOUJOURS de l'onboarding sur la CARTE (y
+                        // compris via « Je découvre d'abord ») : c'est le cœur
+                        // du produit. Sans ça, on héritait de l'onglet courant
+                        // et l'utilisateur pouvait atterrir sur le Profil.
+                        nav.currentPage = .home
                     }
                 } else {
                     HomeView()
@@ -157,6 +162,7 @@ struct AppRoot: View {
                 if !hasSeenOnboarding {
                     OnboardingView {
                         hasSeenOnboarding = true
+                        nav.currentPage = .home   // idem : on arrive sur la carte
                     }
                 } else {
                     HomeView()

@@ -300,16 +300,15 @@ struct SignUpView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
             HStack(spacing: 12) {
-                if let url = URL(string: "\(AppConfig.backendBaseURL)/terms") {
+                if let url = URL(string: "https://blayse.app/terms") {
                     Link(destination: url) {
                         Text("Conditions d’utilisation")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(DS.Color.statusMajor)
                     }
                 }
-                // Site public blayse.app (URL déclarée dans App Store Connect),
-                // pas l'URL du backend. NB : /terms n'existe pas encore sur
-                // blayse.app, ce lien-là reste servi par le backend.
+                // Site public blayse.app (URLs déclarées dans App Store Connect),
+                // jamais l'URL du backend (c'est l'API).
                 if let url = URL(string: "https://blayse.app/privacy") {
                     Link(destination: url) {
                         Text(AppLocalizer.string("Politique de confidentialité", defaultValue: "Politique de confidentialité"))

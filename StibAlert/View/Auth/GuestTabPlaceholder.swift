@@ -284,7 +284,11 @@ private extension GuestAuthReason {
         case .profile:
             return [
                 .init(icon: "person.crop.circle", title: "Ton compte", subtitle: "Historique, préférences et identité centralisés"),
-                .init(icon: "creditcard", title: "Carte MoBIB", subtitle: "Associe ta carte et retrouve ses infos au même endroit"),
+                // La carte MoBIB était annoncée ici alors que la lecture NFC a
+                // été RETIRÉE du binaire (App Review 2.1, build 40) : on ne
+                // promet pas une fonctionnalité absente. Remplacée par les
+                // favoris, qui existent vraiment et sont synchronisés au compte.
+                .init(icon: "heart.fill", title: "Tes favoris partout", subtitle: "Arrêts et lignes suivis, synchronisés sur tes appareils"),
                 .init(icon: "rosette", title: "Karma", subtitle: "Retrouve tes signalements et confirmations")
             ]
         case .report:
