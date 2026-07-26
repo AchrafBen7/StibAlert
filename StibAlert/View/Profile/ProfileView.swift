@@ -344,10 +344,8 @@ struct ProfileView: View {
                         // pattern pour la viralité organique. Texte du lien
                         // pré-rempli avec accroche FR.
                         profileGroup(title: "Communauté") {
-                            // B3 — URL extraite dans AppConfig.shareAppURL.
-                            // Pointe vers /support tant qu'on n'a pas l'App
-                            // Store ID (page publique stable). Remplacer la
-                            // constante dans AppConfig dès attribution.
+                            // B3 — URL dans AppConfig.shareAppURL : désormais la
+                            // fiche App Store (ID attribué à l'approbation).
                             ShareLink(
                                 item: AppConfig.shareAppURL,
                                 message: Text(AppLocalizer.string("Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :", defaultValue: "Tu prends les transports à Bruxelles ? Avec Blayse je vois les perturbations en temps réel sur STIB, SNCB, De Lijn et TEC. Essaye :"))
@@ -386,14 +384,13 @@ struct ProfileView: View {
                                 selectedSubpage = .support
                             }
                             profileDivider
-                            // P4 : "support@blayse.app" hardcodé (qui ne
-                            // résolvait rien) remplacé par l'URL Support
-                            // publique servie depuis le backend. La page
-                            // affiche l'email de contact + FAQ + redirige
-                            // si on clique l'email. URL parité avec le
-                            // Support URL App Store Connect.
+                            // P4 : page Support PUBLIQUE sur blayse.app (email de
+                            // contact + FAQ). On n'ouvre plus l'URL du backend
+                            // (`…onrender.com`) : c'est l'API, pas un site pour
+                            // les utilisateurs. Parité avec le Support URL
+                            // déclaré dans App Store Connect.
                             profileRow(icon: "bubble.left", label: "Contacter l'équipe") {
-                                if let url = URL(string: "\(AppConfig.backendBaseURL)/support") {
+                                if let url = URL(string: "https://blayse.app/support") {
                                     openURL(url)
                                 }
                             }
@@ -2315,7 +2312,9 @@ private struct PrivacySettingsView: View {
     // ce réglage ici — avant, rien ne le lisait.
     @AppStorage(AppStorageKeys.analyticsOptIn) private var analyticsOptIn: Bool = false
 
-    private let privacyPolicyURL = URL(string: "https://stib-alert-backend.onrender.com/privacy")!
+    // Site PUBLIC (blayse.app), pas l'URL du backend : c'est aussi celle
+    // déclarée dans App Store Connect.
+    private let privacyPolicyURL = URL(string: "https://blayse.app/privacy")!
 
     var body: some View {
         ProfileSubpageScaffold(

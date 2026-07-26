@@ -8,9 +8,10 @@ enum AppConfig {
     static let bundleID = "com.ehb.StibAlert"
     static let appGroupID = "group.com.ehb.StibAlert"
 
-    /// URL partagée par "Inviter un ami". Tant que l'App Store ID n'est pas
-    /// attribué (post-submission), on partage la page support publique
-    /// (lien stable et utile au destinataire). Dès qu'on a l'ID, remplacer
-    /// par `https://apps.apple.com/app/id<ID>`.
-    static let shareAppURL = URL(string: "\(backendBaseURL)/support")!
+    /// URL partagée par "Inviter un ami" → la fiche App Store (ID attribué le
+    /// 2026-07-22 à l'approbation). Avant, on partageait `<backend>/support` :
+    /// un ami recevait l'URL TECHNIQUE de l'API sur une page d'aide, au lieu
+    /// d'un lien pour installer l'app. Le backend ne doit jamais être exposé
+    /// aux utilisateurs — le site public, c'est blayse.app.
+    static let shareAppURL = URL(string: "https://apps.apple.com/app/id6772360018")!
 }

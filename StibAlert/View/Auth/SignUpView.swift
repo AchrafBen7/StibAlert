@@ -307,7 +307,10 @@ struct SignUpView: View {
                             .foregroundColor(DS.Color.statusMajor)
                     }
                 }
-                if let url = URL(string: "\(AppConfig.backendBaseURL)/privacy") {
+                // Site public blayse.app (URL déclarée dans App Store Connect),
+                // pas l'URL du backend. NB : /terms n'existe pas encore sur
+                // blayse.app, ce lien-là reste servi par le backend.
+                if let url = URL(string: "https://blayse.app/privacy") {
                     Link(destination: url) {
                         Text(AppLocalizer.string("Politique de confidentialité", defaultValue: "Politique de confidentialité"))
                             .font(.system(size: 11, weight: .semibold))
