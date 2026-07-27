@@ -101,10 +101,33 @@ struct RouteRecommendationsSheet: View {
         return min(max(base - dragTranslation, 80), maxH)
     }
 
+    /// Trié par HEURE D'ARRIVÉE, pas par durée.
+    ///
+    /// Ce qui compte pour un voyageur qui part maintenant, c'est « j'arrive
+    /// quand ? », pas « combien de temps dure le trajet ». Le tri par durée
+    /// produisait des classements absurdes, observés en conditions réelles :
+    ///   • option A — 20:26 → 20:45 (31 min), affichée « la plus rapide »
+    ///   • option B — 20:14 → 20:34 (32 min), affichée « +1 min »
+    /// B arrive ONZE minutes plus tôt et part plus tôt : elle est strictement
+    /// meilleure, mais une minute de durée en plus la reléguait au second rang.
+    /// Le backend classe déjà par heure d'arrivée (routeScoringService) ; ce tri
+    /// local écrasait son travail.
+    ///
+    /// Repli sur la durée quand aucune heure d'arrivée n'est connue (marche /
+    /// vélo, ou trajet sans données horaires).
     private var filteredOptions: [HomeRouteOption] {
         let subset = options.filter { $0.primaryModeKey == selectedModeKey }
         let base = subset.isEmpty ? options : subset
-        return base.sorted { $0.totalDurationMinutes < $1.totalDurationMinutes }
+        return base.sorted { lhs, rhs in
+            switch (lhs.effectiveArrivalDate, rhs.effectiveArrivalDate) {
+            case let (l?, r?):
+                if l != r { return l < r }
+                return lhs.totalDurationMinutes < rhs.totalDurationMinutes
+            case (nil, _?): return false   // sans horaire → après ceux qui en ont
+            case (_?, nil): return true
+            default: return lhs.totalDurationMinutes < rhs.totalDurationMinutes
+            }
+        }
     }
 
     /// Vrai quand l'utilisateur regarde le mode Transport mais qu'AUCUNE option

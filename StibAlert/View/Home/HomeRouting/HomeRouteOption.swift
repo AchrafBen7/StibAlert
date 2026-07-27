@@ -604,8 +604,20 @@ struct HomeRouteOption: Identifiable {
         }
     }
 
+    /// Écart affiché face à l'option recommandée, mesuré sur l'HEURE D'ARRIVÉE.
+    ///
+    /// Comparer les durées mentait : une option 20:14 → 20:34 s'affichait
+    /// « +1 min » face à une 20:26 → 20:45, alors qu'elle arrive onze minutes
+    /// PLUS TÔT. Ce qui intéresse le voyageur, c'est l'écart d'arrivée, pas
+    /// l'écart de durée. Repli sur la durée si une des deux options n'a pas
+    /// d'horaire (marche / vélo).
     func deltaText(comparedTo base: HomeRouteOption?) -> String? {
         guard let base else { return nil }
+        if let mine = effectiveArrivalDate, let theirs = base.effectiveArrivalDate {
+            let minutes = Int((mine.timeIntervalSince(theirs) / 60).rounded())
+            guard minutes > 0 else { return nil }
+            return "+\(minutes) min"
+        }
         let delta = totalDurationMinutes - base.totalDurationMinutes
         guard delta > 0 else { return nil }
         return "+\(delta) min"
