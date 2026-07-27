@@ -1,9 +1,17 @@
 import SwiftUI
 
-/// Véhicule temps réel sur la carte, dessiné comme un VRAI véhicule vu du
-/// dessus (façon De Lijn) et orienté dans son sens de marche, au lieu d'une
-/// pastille ronde générique. La silhouette change selon le mode : un tram/métro
-/// est long et rectangulaire, un bus plus court et arrondi.
+/// Véhicule temps réel sur la carte.
+///
+/// Deux couches superposées, et c'est volontaire :
+///  • la CAISSE (colorée, allongée, nez blanc) **tourne** selon le cap → elle
+///    dit où va le véhicule ;
+///  • le PICTOGRAMME du mode (tram / bus / métro) **ne tourne pas** → il reste
+///    lisible à l'endroit et dit ce que c'est.
+///
+/// Une silhouette seule ne suffit pas : à 30 px, un rectangle arrondi se lit
+/// comme un téléphone, quels que soient les détails ajoutés (vitres,
+/// rétroviseurs…). C'est le pictogramme qui lève l'ambiguïté ; la forme et le
+/// nez donnent le sens de marche.
 struct VehicleMarker: View {
     let vehicle: TransportVehicleDTO
     var bearing: Double? = nil
@@ -15,85 +23,67 @@ struct VehicleMarker: View {
         return TransitLinePalette.fill(for: line)
     }
 
-    /// Dimensions de la caisse, en points. Un tram est nettement plus long
-    /// qu'un bus : c'est ce qui rend les deux reconnaissables d'un coup d'œil,
-    /// même sans lire l'icône.
-    private var body_size: CGSize {
+    private var lineTextColor: Color {
+        guard let line = vehicle.line else { return .white }
+        return TransitLinePalette.foreground(for: line)
+    }
+
+    /// Un tram/métro est long, un bus plus trapu.
+    private var size: CGSize {
         switch mode {
-        case .metro: return CGSize(width: 15, height: 34)
-        case .tram:  return CGSize(width: 14, height: 32)
-        case .bus:   return CGSize(width: 14, height: 25)
+        case .metro: return CGSize(width: 22, height: 32)
+        case .tram:  return CGSize(width: 22, height: 31)
+        case .bus:   return CGSize(width: 21, height: 26)
         }
     }
 
     var body: some View {
         ZStack {
-            // Halo pulsé : signale que le véhicule est VIVANT (temps réel) et
-            // le distingue des pins d'arrêt statiques de la même couleur.
             PulsingHalo(color: lineColor)
-                .frame(width: 52, height: 52)
+                .frame(width: 54, height: 54)
 
-            vehicleBody
-                // Le cap oriente la caisse : le véhicule "regarde" là où il va.
-                // Sans cap connu, on le laisse droit plutôt que d'inventer une
-                // direction (un sens faux est pire que pas de sens).
+            // Caisse orientée
+            chassis
                 .rotationEffect(.degrees(bearing ?? 0))
                 .animation(.easeInOut(duration: 0.45), value: bearing)
+
+            // Pictogramme TOUJOURS à l'endroit, même quand la caisse pivote.
+            Image(systemName: mode.sfSymbol)
+                .font(.system(size: 12, weight: .black))
+                .foregroundStyle(lineTextColor)
+                .shadow(color: lineColor.opacity(0.9), radius: 1)
         }
-        .frame(width: 52, height: 52)
+        .frame(width: 54, height: 54)
         .accessibilityElement()
         .accessibilityLabel(AppLocalizer.format("a11y.vehicle_line", defaultValue: "Véhicule ligne %@", vehicle.line ?? "?"))
     }
 
-    /// Caisse blanche cerclée de la couleur de la ligne, avec pare-brise et
-    /// feux — les repères qui font lire « véhicule » plutôt que « pastille ».
-    private var vehicleBody: some View {
-        let size = body_size
-        let radius: CGFloat = mode == .bus ? 5 : 4
+    private var chassis: some View {
+        let w = size.width
+        let h = size.height
 
         return ZStack {
-            // Ombre portée : décolle le véhicule du fond de carte.
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(Color.black.opacity(0.22))
-                .frame(width: size.width, height: size.height)
+            RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
+                .fill(Color.black.opacity(0.25))
+                .frame(width: w, height: h)
                 .offset(y: 1.5)
                 .blur(radius: 1.5)
 
-            // Caisse
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(Color.white)
-                .frame(width: size.width, height: size.height)
+            RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
+                .fill(lineColor)
+                .frame(width: w, height: h)
                 .overlay(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .stroke(lineColor, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
+                        .stroke(Color.white, lineWidth: 2)
                 )
 
-            VStack(spacing: 0) {
-                // Pare-brise avant (vers l'avant du véhicule = haut)
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(lineColor.opacity(0.85))
-                    .frame(width: size.width - 6, height: 4)
-                    .padding(.top, 2.5)
-
-                Spacer(minLength: 0)
-
-                // Bande arrière (feux) : donne l'avant/arrière au premier coup d'œil
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(lineColor.opacity(0.5))
-                    .frame(width: size.width - 8, height: 2.5)
-                    .padding(.bottom, 2.5)
-            }
-            .frame(width: size.width, height: size.height)
-
-            // Pointe de direction : petite flèche à l'avant, hors de la caisse.
-            if bearing != nil {
-                Image(systemName: "triangle.fill")
-                    .font(.system(size: 7, weight: .black))
-                    .foregroundStyle(lineColor)
-                    .offset(y: -(size.height / 2) - 4)
-            }
+            // Nez blanc : marque l'avant sans dépendre d'une flèche externe.
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Color.white)
+                .frame(width: w * 0.5, height: 3.5)
+                .offset(y: -h * 0.32)
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: w, height: h)
     }
 }
 
