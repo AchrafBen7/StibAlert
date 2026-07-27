@@ -1,17 +1,21 @@
 import SwiftUI
 
-/// Véhicule temps réel sur la carte.
+/// Véhicule temps réel sur la carte, dans l'esprit De Lijn : une PETITE caisse
+/// blanche étroite, cerclée d'un trait fin sombre, posée dans un HALO doux à la
+/// couleur de la ligne.
 ///
-/// Deux couches superposées, et c'est volontaire :
-///  • la CAISSE (colorée, allongée, nez blanc) **tourne** selon le cap → elle
-///    dit où va le véhicule ;
-///  • le PICTOGRAMME du mode (tram / bus / métro) **ne tourne pas** → il reste
-///    lisible à l'endroit et dit ce que c'est.
+/// Trois essais ont été nécessaires pour arriver là, et la leçon vaut d'être
+/// écrite :
+///  1. une caisse blanche large avec vitres et rétroviseurs → se lisait comme
+///     un TÉLÉPHONE (rectangle arrondi de ce format = écran) ;
+///  2. une caisse pleine avec pictogramme par-dessus → lisible, mais l'effet
+///     « temps réel » avait disparu ;
+///  3. la bonne réponse : ce n'est pas le DÉTAIL du véhicule qui fait l'effet,
+///     c'est sa PETITESSE + le halo lumineux. Un véhicule doit être discret sur
+///     la carte ; c'est la lueur qui attire l'œil et dit « ça bouge, là,
+///     maintenant ».
 ///
-/// Une silhouette seule ne suffit pas : à 30 px, un rectangle arrondi se lit
-/// comme un téléphone, quels que soient les détails ajoutés (vitres,
-/// rétroviseurs…). C'est le pictogramme qui lève l'ambiguïté ; la forme et le
-/// nez donnent le sens de marche.
+/// Le repère coloré à l'avant donne le sens de marche sans flèche ajoutée.
 struct VehicleMarker: View {
     let vehicle: TransportVehicleDTO
     var bearing: Double? = nil
@@ -23,39 +27,40 @@ struct VehicleMarker: View {
         return TransitLinePalette.fill(for: line)
     }
 
-    private var lineTextColor: Color {
-        guard let line = vehicle.line else { return .white }
-        return TransitLinePalette.foreground(for: line)
-    }
-
-    /// Un tram/métro est long, un bus plus trapu.
+    /// Petit et ÉTROIT — c'est ce qui empêche la lecture « téléphone » et donne
+    /// la silhouette d'un véhicule vu du dessus. Le bus est plus court.
     private var size: CGSize {
         switch mode {
-        case .metro: return CGSize(width: 22, height: 32)
-        case .tram:  return CGSize(width: 22, height: 31)
-        case .bus:   return CGSize(width: 21, height: 26)
+        case .metro: return CGSize(width: 9, height: 22)
+        case .tram:  return CGSize(width: 9, height: 21)
+        case .bus:   return CGSize(width: 9, height: 17)
         }
     }
 
     var body: some View {
         ZStack {
-            PulsingHalo(color: lineColor)
-                .frame(width: 54, height: 54)
-
-            // Caisse orientée
+            glow
             chassis
+                // Sans cap connu, la caisse reste droite : un sens inventé
+                // serait pire que pas de sens.
                 .rotationEffect(.degrees(bearing ?? 0))
                 .animation(.easeInOut(duration: 0.45), value: bearing)
-
-            // Pictogramme TOUJOURS à l'endroit, même quand la caisse pivote.
-            Image(systemName: mode.sfSymbol)
-                .font(.system(size: 12, weight: .black))
-                .foregroundStyle(lineTextColor)
-                .shadow(color: lineColor.opacity(0.9), radius: 1)
         }
-        .frame(width: 54, height: 54)
+        .frame(width: 46, height: 46)
         .accessibilityElement()
         .accessibilityLabel(AppLocalizer.format("a11y.vehicle_line", defaultValue: "Véhicule ligne %@", vehicle.line ?? "?"))
+    }
+
+    /// Halo doux : trois cercles concentriques flous, pas une pastille nette.
+    /// C'est LUI l'effet « temps réel » — il respire lentement pour montrer que
+    /// la donnée est vivante, sans agiter la carte.
+    private var glow: some View {
+        ZStack {
+            Circle().fill(lineColor.opacity(0.16)).frame(width: 40, height: 40).blur(radius: 7)
+            Circle().fill(lineColor.opacity(0.26)).frame(width: 28, height: 28).blur(radius: 5)
+            Circle().fill(lineColor.opacity(0.38)).frame(width: 19, height: 19).blur(radius: 3)
+        }
+        .modifier(BreathingGlow())
     }
 
     private var chassis: some View {
@@ -63,43 +68,37 @@ struct VehicleMarker: View {
         let h = size.height
 
         return ZStack {
-            RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
-                .fill(Color.black.opacity(0.25))
-                .frame(width: w, height: h)
-                .offset(y: 1.5)
-                .blur(radius: 1.5)
-
-            RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
-                .fill(lineColor)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white)
                 .frame(width: w, height: h)
                 .overlay(
-                    RoundedRectangle(cornerRadius: w * 0.34, style: .continuous)
-                        .stroke(Color.white, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.85), lineWidth: 0.9)
                 )
+                .shadow(color: .black.opacity(0.22), radius: 1.5, x: 0, y: 1)
 
-            // Nez blanc : marque l'avant sans dépendre d'une flèche externe.
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Color.white)
-                .frame(width: w * 0.5, height: 3.5)
-                .offset(y: -h * 0.32)
+            // Repère avant à la couleur de la ligne = avant du véhicule.
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(lineColor)
+                .frame(width: w - 3, height: 3)
+                .offset(y: -h / 2 + 3.2)
         }
         .frame(width: w, height: h)
     }
 }
 
-private struct PulsingHalo: View {
-    let color: Color
-    @State private var scale: CGFloat = 0.6
-    @State private var opacity: Double = 0.55
+/// Respiration lente du halo (1,8 s) : signale une donnée vivante sans créer
+/// l'agitation d'une animation rapide quand plusieurs véhicules sont visibles.
+private struct BreathingGlow: ViewModifier {
+    @State private var pulse = false
 
-    var body: some View {
-        Circle()
-            .fill(color.opacity(opacity))
-            .scaleEffect(scale)
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(pulse ? 1.12 : 0.92)
+            .opacity(pulse ? 1 : 0.75)
             .onAppear {
-                withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
-                    scale = 1.1
-                    opacity = 0
+                withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                    pulse = true
                 }
             }
     }
