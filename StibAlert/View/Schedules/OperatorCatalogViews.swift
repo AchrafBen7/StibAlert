@@ -515,6 +515,24 @@ struct OperatorDisruptionsList: View {
         return [OperatorLineZone(key: OperatorLineZone.allKey, label: AppLocalizer.string("Toutes zones", defaultValue: "Toutes zones"), count: lineIssues.count)] + concreteZones
     }
 
+    /// Lignes du CATALOGUE COMPLET (675 chez De Lijn) correspondant à la
+    /// recherche — y compris celles qui n'ont aucune perturbation, donc
+    /// absentes de `lineIssues` (200 seulement). Sert à répondre « cette ligne
+    /// roule normalement » au lieu de « ligne introuvable ».
+    private var matchingCatalogLines: [OperatorLine] {
+        let needle = searchQuery
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+        guard !needle.isEmpty else { return [] }
+        return lines.filter {
+            "\($0.shortName) \($0.longName)"
+                .folding(options: .diacriticInsensitive, locale: .current)
+                .lowercased()
+                .contains(needle)
+        }
+    }
+
     private var filteredIssues: [OperatorLineIssue] {
         let needle = searchQuery
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -566,7 +584,14 @@ struct OperatorDisruptionsList: View {
                     }
                 )
             } else {
-            networkHeader
+                // `networkHeader` retiré (décision produit) : ce bandeau
+                // ÉTAT / LIGNES TOUCHÉES / SOURCE prenait beaucoup de place
+                // pour peu de valeur, et son compteur « lignes touchées »
+                // affichait `filteredIssues.count` — donc il changeait avec la
+                // RECHERCHE (200 lignes touchées, puis 0 dès qu'on tapait un
+                // numéro). Un chiffre qui bouge selon un filtre de recherche ne
+                // peut pas se lire comme un état du réseau. La vue reste
+                // définie plus bas si on veut la reprendre autrement.
                 searchAndZoneFilters
                 content
             }
@@ -754,17 +779,36 @@ struct OperatorDisruptionsList: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
         } else if filteredIssues.isEmpty {
+            // Cette liste ne contient QUE les lignes perturbées. Chercher une
+            // ligne qui roule bien (ex. « R90 ») renvoyait donc « Aucune ligne
+            // trouvée » — l'utilisateur croyait que sa ligne n'existait pas,
+            // alors qu'elle va parfaitement bien. On distingue les deux cas :
+            // ligne connue du catalogue → on annonce qu'elle circule
+            // normalement (une info utile) ; sinon seulement, « introuvable ».
+            let matched = matchingCatalogLines
             HStack(spacing: 12) {
-                Image(systemName: "magnifyingglass")
+                Image(systemName: matched.isEmpty ? "magnifyingglass" : "checkmark.seal.fill")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(DS.Color.inkMute)
+                    .foregroundStyle(matched.isEmpty ? DS.Color.inkMute : DS.Color.statusOK)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(AppLocalizer.string("Aucune ligne trouvée", defaultValue: "Aucune ligne trouvée"))
-                        .font(DS.Font.bodyBold)
-                        .foregroundStyle(DS.Color.ink)
-                    Text(AppLocalizer.string("Essaie un numéro de ligne ou une autre zone.", defaultValue: "Essaie un numéro de ligne ou une autre zone."))
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
+                    if let line = matched.first {
+                        Text(AppLocalizer.format("opcat.line_no_disruption",
+                                                 defaultValue: "Ligne %@ · aucune perturbation",
+                                                 line.shortName))
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        Text(line.longName)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(2)
+                    } else {
+                        Text(AppLocalizer.string("Aucune ligne trouvée", defaultValue: "Aucune ligne trouvée"))
+                            .font(DS.Font.bodyBold)
+                            .foregroundStyle(DS.Color.ink)
+                        Text(AppLocalizer.string("Essaie un numéro de ligne ou une autre zone.", defaultValue: "Essaie un numéro de ligne ou une autre zone."))
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                    }
                 }
                 Spacer(minLength: 0)
             }

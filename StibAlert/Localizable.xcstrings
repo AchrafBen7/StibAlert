@@ -35882,6 +35882,22 @@
           }
         }
       }
+    },
+    "opcat.line_no_disruption": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ · aucune perturbation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ · geen verstoring"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
