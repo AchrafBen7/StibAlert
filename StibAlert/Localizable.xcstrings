@@ -35818,6 +35818,70 @@
           }
         }
       }
+    },
+    "vehicle.towards": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vers %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naar %@"
+          }
+        }
+      }
+    },
+    "vehicle.running": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EN CIRCULATION"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "IN DIENST"
+          }
+        }
+      }
+    },
+    "vehicle.in_service": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En circulation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In dienst"
+          }
+        }
+      }
+    },
+    "vehicle.at_distance": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "à %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "op %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

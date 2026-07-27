@@ -48,6 +48,24 @@ struct VehicleDetailSheet: View {
         (vehicle.distanceFromPoint ?? 0) > 0
     }
 
+    /// « Buissonnets · à 250 m ».
+    ///
+    /// On affiche la DISTANCE, pas un temps d'arrivée. La STIB ne fournit
+    /// aucune ETA pour un véhicule : la déduire d'une vitesse moyenne
+    /// reviendrait à inventer un « 2 min » qui se trompe dès le premier feu
+    /// rouge — exactement le faux temps réel qu'on s'interdit. La distance,
+    /// elle, est une donnée réelle et répond à « il est où ? ».
+    private var nextStopValue: String {
+        let stop = vehicle.stopNom?.capitalized ?? "—"
+        guard isHeadingToStop, let metres = vehicle.distanceFromPoint, metres > 0 else {
+            return stop
+        }
+        let distance = metres >= 1000
+            ? String(format: "%.1f km", Double(metres) / 1000)
+            : "\(metres) m"
+        return "\(stop) · \(AppLocalizer.format("vehicle.at_distance", defaultValue: "à %@", distance))"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerRow
@@ -63,7 +81,7 @@ struct VehicleDetailSheet: View {
                     label: isHeadingToStop
                         ? AppLocalizer.string("vehicle.next_stop", defaultValue: "Prochain arrêt")
                         : AppLocalizer.string("vehicle.current_stop", defaultValue: "Arrêt actuel"),
-                    value: vehicle.stopNom?.capitalized ?? "—"
+                    value: nextStopValue
                 )
             }
             .padding(.horizontal, 18)
@@ -79,71 +97,58 @@ struct VehicleDetailSheet: View {
         .padding(.horizontal, 16)
     }
 
+    /// En-tête : le NUMÉRO DE LIGNE domine.
+    ///
+    /// Avant, un gros rond coloré portait l'icône du mode : on lisait « tram »
+    /// avant « ligne 7 », alors que le voyageur cherche d'abord son numéro. Et
+    /// la couleur forte représentait le mode, pas la ligne — lien impossible à
+    /// faire. Désormais c'est le badge de ligne (même composant que partout
+    /// ailleurs dans l'app), donc la couleur EST celle de la ligne.
     private var headerRow: some View {
-        HStack(alignment: .center, spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(lineColor)
-                    .shadow(color: lineColor.opacity(0.45), radius: 8, x: 0, y: 3)
-                Image(systemName: mode.sfSymbol)
-                    .font(.system(size: 20, weight: .black))
-                    .foregroundStyle(lineForegroundColor)
-            }
-            .frame(width: 52, height: 52)
+        HStack(alignment: .center, spacing: 12) {
+            LineBadge(line: vehicle.line ?? "?", size: .lg)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(mode.label.uppercased())
                         .font(.system(size: 9, weight: .bold))
                         .tracking(1.2)
-                        .foregroundStyle(DS.Color.inkMute)
                     Text("·")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(DS.Color.inkMute)
-                    Text("LIGNE \(vehicle.line ?? "?")")
+                    Text(AppLocalizer.string("vehicle.running", defaultValue: "EN CIRCULATION"))
                         .font(.system(size: 9, weight: .bold))
                         .tracking(1.2)
-                        .foregroundStyle(DS.Color.inkMute)
                 }
+                .foregroundStyle(DS.Color.inkMute)
+
                 if let destinationLabel {
-                    // Terminus annoncé explicitement (« Direction Hunderenveld »
-                    // / « Richting … ») plutôt qu'une simple flèche : le mot dit
-                    // ce que la flèche laissait deviner, comme la ligne
-                    // « Prochain arrêt » juste en dessous.
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 13, weight: .black))
-                            .foregroundStyle(lineColor)
-                        Text(AppLocalizer.format(
-                            "vehicle.heading_to",
-                            defaultValue: "Direction %@",
-                            destinationLabel
-                        ))
-                        .font(.system(size: 18, weight: .bold))
+                    // « Vers Heysel » plutôt que « Direction Heysel » : plus
+                    // court, plus naturel à lire, et ça dit la même chose.
+                    Text(AppLocalizer.format("vehicle.towards", defaultValue: "Vers %@", destinationLabel))
+                        .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    }
+                        .minimumScaleFactor(0.75)
                 } else {
-                    Text("En circulation")
-                        .font(.system(size: 18, weight: .bold))
+                    Text(AppLocalizer.string("vehicle.in_service", defaultValue: "En circulation"))
+                        .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(DS.Color.ink)
                         .lineLimit(1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            // Croix volontairement DISCRÈTE : elle attirait presque autant
+            // l'œil que l'information principale.
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                    .frame(width: 32, height: 32)
-                    .background(DS.Color.paper2)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Fermer")
+            .accessibilityLabel(AppLocalizer.string("Fermer", defaultValue: "Fermer"))
         }
     }
 

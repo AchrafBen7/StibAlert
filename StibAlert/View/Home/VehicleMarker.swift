@@ -88,14 +88,15 @@ struct VehicleMarker: View {
                 )
                 .shadow(color: .black.opacity(0.22), radius: 1.5, x: 0, y: 1)
 
-            // Repère avant = sens de marche, affiché UNIQUEMENT si la direction
-            // est réellement connue. Sinon la caisse reste neutre : on ne
-            // prétend pas savoir où va le véhicule.
+            // FLÈCHE DE DIRECTION, à l'intérieur de la caisse et calée en haut :
+            // elle pointe le terminus. Affichée UNIQUEMENT si la direction est
+            // réellement connue — sinon la caisse reste neutre, on ne prétend
+            // pas savoir où va le véhicule.
             if bearing != nil {
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(lineColor)
-                    .frame(width: w - 3, height: 3)
-                    .offset(y: -h / 2 + 3.2)
+                Image(systemName: "arrowtriangle.up.fill")
+                    .font(.system(size: w - 3.5, weight: .black))
+                    .foregroundStyle(lineColor)
+                    .offset(y: -h / 2 + (w - 3.5) * 0.62)
             }
         }
         .frame(width: w, height: h)
