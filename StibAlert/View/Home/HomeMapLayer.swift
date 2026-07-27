@@ -4,6 +4,9 @@ import CoreLocation
 
 struct HomeMapLayer: View {
     @Binding var mapPosition: MapCameraPosition
+    /// Cap actuel de la carte (0 = nord en haut). Sert à réorienter les
+    /// véhicules quand l'utilisateur fait pivoter la carte.
+    @State private var mapHeading: Double = 0
     let visibleLineShapes: [LineShape]
     let selectedStopLineShapes: [LineShape]
     let displayCoordinate: CLLocationCoordinate2D
@@ -69,6 +72,12 @@ struct HomeMapLayer: View {
         .ignoresSafeArea()
         .onMapCameraChange(frequency: .onEnd) { ctx in
             onCameraChanged(ctx.region)
+            // Cap de la caméra : les annotations SwiftUI restent alignées à
+            // l'ÉCRAN, elles ne pivotent pas avec la carte. Sans retrancher ce
+            // cap, un véhicule orienté plein nord continuerait de pointer vers
+            // le haut de l'écran après une rotation de la carte — donc vers une
+            // direction fausse. Voir VehicleMarker.
+            mapHeading = ctx.camera.heading
         }
     }
 
@@ -434,13 +443,93 @@ struct HomeMapLayer: View {
                     } label: {
                         VehicleMarker(
                             vehicle: vehicle,
-                            bearing: vehicle.vehicleId.flatMap { vehicleBearings[$0] }
+                            bearing: displayBearing(for: vehicle),
+                            mapHeading: mapHeading
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
+    }
+
+    /// Orientation affichée d'un véhicule, vers son terminus.
+    ///
+    /// Le cap brut mesuré entre deux relevés suffit à donner le SENS, mais il
+    /// est bruité : la STIB cale les véhicules sur les arrêts, donc deux
+    /// relevés successifs donnent un cap « en escalier » qui peut pointer de
+    /// travers par rapport à la rue. On s'aligne donc sur le TRACÉ de la ligne
+    /// (le véhicule suit forcément ses rails / son itinéraire), et le cap
+    /// mesuré ne sert plus qu'à choisir LEQUEL des deux sens du tracé — celui
+    /// qui va vers le terminus.
+    ///
+    /// Sans cap mesuré (véhicule qui vient d'apparaître, ou à l'arrêt), on
+    /// renvoie nil : le marqueur n'affiche alors aucune direction plutôt que
+    /// d'en inventer une. Avant, `bearing ?? 0` faisait pointer tous ces
+    /// véhicules plein NORD, ce qui était faux la plupart du temps.
+    private func displayBearing(for vehicle: TransportVehicleDTO) -> Double? {
+        let measured = vehicle.vehicleId.flatMap { vehicleBearings[$0] }
+        let terminus = terminusCoordinate(for: vehicle)
+        // Ni terminus connu ni déplacement observé → aucune direction affichée
+        // (plutôt qu'un sens inventé).
+        guard measured != nil || terminus != nil else { return nil }
+
+        guard let lat = vehicle.latitude, let lng = vehicle.longitude,
+              let line = vehicle.line else { return measured }
+        let coord = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        guard let coords = bestShapeCoordinates(forLine: line, near: coord),
+              coords.count >= 2 else { return measured }
+
+        // Sommet du tracé le plus proche du véhicule.
+        let here = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        var anchor = 0
+        var best = Double.greatestFiniteMagnitude
+        for (i, c) in coords.enumerated() {
+            let d = here.distance(from: CLLocation(latitude: c.latitude, longitude: c.longitude))
+            if d < best { best = d; anchor = i }
+        }
+        // Trop loin du tracé (mauvaise variante de ligne) → on garde le mesuré.
+        guard best <= 120 else { return measured }
+
+        let forward = Self.tangentBearing(coords, at: anchor, forward: true)
+        let backward = Self.tangentBearing(coords, at: anchor, forward: false)
+
+        // PRIORITÉ AU TERMINUS : c'est la direction que l'app AFFICHE quand on
+        // tape le véhicule (« Direction Hunderenveld »). On avance de quelques
+        // sommets dans chaque sens et on garde celui qui RAPPROCHE du terminus.
+        // Avantage sur le cap mesuré : ça marche dès la première apparition du
+        // véhicule, même immobile.
+        if let terminus {
+            let t = CLLocation(latitude: terminus.latitude, longitude: terminus.longitude)
+            let ahead = coords[min(anchor + 3, coords.count - 1)]
+            let behind = coords[max(anchor - 3, 0)]
+            let dAhead = t.distance(from: CLLocation(latitude: ahead.latitude, longitude: ahead.longitude))
+            let dBehind = t.distance(from: CLLocation(latitude: behind.latitude, longitude: behind.longitude))
+            if abs(dAhead - dBehind) > 1 {
+                return dAhead < dBehind ? forward : backward
+            }
+        }
+
+        // Sinon, le déplacement observé départage les deux sens du tracé.
+        guard let measured else { return nil }
+        return Self.angularDelta(forward, measured) <= Self.angularDelta(backward, measured)
+            ? forward
+            : backward
+    }
+
+    /// Coordonnée du TERMINUS d'un véhicule, retrouvée en cherchant son nom
+    /// (`vehicle.destination`, celui affiché dans la fiche véhicule) parmi les
+    /// arrêts connus de la carte. nil si le terminus n'est pas dans les arrêts
+    /// chargés — on retombe alors sur le cap mesuré.
+    private func terminusCoordinate(for vehicle: TransportVehicleDTO) -> CLLocationCoordinate2D? {
+        let raw = (vehicle.destination ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !raw.isEmpty else { return nil }
+        let match = mapStops.first { stop in
+            let name = stop.name.uppercased()
+            return name == raw || name.hasPrefix(raw) || raw.hasPrefix(name)
+        }
+        guard let match, let lat = match.latitude, let lng = match.longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
     // MARK: - Vehicle positioning along the tracé

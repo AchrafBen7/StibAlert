@@ -18,7 +18,14 @@ import SwiftUI
 /// Le repère coloré à l'avant donne le sens de marche sans flèche ajoutée.
 struct VehicleMarker: View {
     let vehicle: TransportVehicleDTO
+    /// Cap VERS LE TERMINUS (0 = nord), calculé par HomeMapLayer en alignant le
+    /// véhicule sur le tracé de sa ligne. nil = direction inconnue → on n'en
+    /// affiche aucune plutôt que d'en inventer une.
     var bearing: Double? = nil
+    /// Cap de la carte : les annotations restent alignées à l'écran, il faut
+    /// donc le retrancher pour que le véhicule pointe la bonne direction RÉELLE
+    /// même quand l'utilisateur fait pivoter la carte.
+    var mapHeading: Double = 0
 
     private var mode: TransitLineMode { TransitLineMode.mode(for: vehicle.line) }
 
@@ -41,10 +48,14 @@ struct VehicleMarker: View {
         ZStack {
             glow
             chassis
-                // Sans cap connu, la caisse reste droite : un sens inventé
-                // serait pire que pas de sens.
-                .rotationEffect(.degrees(bearing ?? 0))
+                // On retranche le cap de la carte : sinon un véhicule orienté
+                // plein nord continuerait de pointer vers le haut de l'ÉCRAN
+                // après une rotation de la carte, donc vers une fausse
+                // direction. Sans cap connu, la caisse reste droite ET son
+                // repère avant est masqué (cf. chassis).
+                .rotationEffect(.degrees((bearing ?? 0) - mapHeading))
                 .animation(.easeInOut(duration: 0.45), value: bearing)
+                .animation(.easeInOut(duration: 0.3), value: mapHeading)
         }
         .frame(width: 46, height: 46)
         .accessibilityElement()
@@ -77,11 +88,15 @@ struct VehicleMarker: View {
                 )
                 .shadow(color: .black.opacity(0.22), radius: 1.5, x: 0, y: 1)
 
-            // Repère avant à la couleur de la ligne = avant du véhicule.
-            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(lineColor)
-                .frame(width: w - 3, height: 3)
-                .offset(y: -h / 2 + 3.2)
+            // Repère avant = sens de marche, affiché UNIQUEMENT si la direction
+            // est réellement connue. Sinon la caisse reste neutre : on ne
+            // prétend pas savoir où va le véhicule.
+            if bearing != nil {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(lineColor)
+                    .frame(width: w - 3, height: 3)
+                    .offset(y: -h / 2 + 3.2)
+            }
         }
         .frame(width: w, height: h)
     }
