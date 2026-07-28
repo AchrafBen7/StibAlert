@@ -495,6 +495,29 @@ struct OperatorDisruptionsList: View {
     @State private var selectedZone: String = OperatorLineZone.allKey
     @State private var isLoading = true
 
+    /// Index de recherche PRÉCALCULÉ : « code + nom » normalisé une seule fois
+    /// par ligne, à l'arrivée du catalogue.
+    ///
+    /// Avant, chaque frappe refaisait `folding(.diacriticInsensitive)` +
+    /// `lowercased()` sur les 675 lignes De Lijn — l'opération la plus coûteuse
+    /// qui soit sur une chaîne, répétée à chaque caractère. D'où la saisie qui
+    /// ramait. Ici on ne fait plus qu'un `contains` sur des chaînes déjà prêtes.
+    @State private var searchIndex: [String] = []
+
+    private func rebuildSearchIndex() {
+        searchIndex = lines.map {
+            "\($0.shortName) \($0.longName)"
+                .folding(options: .diacriticInsensitive, locale: .current)
+                .lowercased()
+        }
+    }
+
+    private static func normalizedNeedle(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+    }
+
     private static let modeOrder = ["tram", "metro", "trolleybus", "bus"]
 
     private var zones: [OperatorLineZone] {
@@ -520,17 +543,19 @@ struct OperatorDisruptionsList: View {
     /// absentes de `lineIssues` (200 seulement). Sert à répondre « cette ligne
     /// roule normalement » au lieu de « ligne introuvable ».
     private var matchingCatalogLines: [OperatorLine] {
-        let needle = searchQuery
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: .diacriticInsensitive, locale: .current)
-            .lowercased()
+        let needle = Self.normalizedNeedle(searchQuery)
         guard !needle.isEmpty else { return [] }
-        return lines.filter {
-            "\($0.shortName) \($0.longName)"
-                .folding(options: .diacriticInsensitive, locale: .current)
-                .lowercased()
-                .contains(needle)
+        // On lit l'index précalculé ; si jamais il n'est pas encore construit
+        // (catalogue qui vient d'arriver), on retombe sur l'ancien chemin.
+        guard searchIndex.count == lines.count else {
+            return lines.filter {
+                "\($0.shortName) \($0.longName)"
+                    .folding(options: .diacriticInsensitive, locale: .current)
+                    .lowercased()
+                    .contains(needle)
+            }
         }
+        return lines.indices.compactMap { searchIndex[$0].contains(needle) ? lines[$0] : nil }
     }
 
     private var filteredIssues: [OperatorLineIssue] {
@@ -607,6 +632,9 @@ struct OperatorDisruptionsList: View {
             disruptions = loadedDisruptions
             lineIssues = Self.buildLineIssues(lines: loadedLines, disruptions: loadedDisruptions)
             selectedZone = OperatorLine.preferredZoneKey(for: op, userCoordinate: userCoordinate, in: loadedLines)
+            // Une seule normalisation des 675 lignes, ici — au lieu d'une par
+            // caractère tapé (cf. searchIndex).
+            rebuildSearchIndex()
             isLoading = false
         }
     }

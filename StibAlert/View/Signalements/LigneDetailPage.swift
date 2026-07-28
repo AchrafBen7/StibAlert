@@ -720,12 +720,35 @@ struct LigneDetailPage: View {
         // juste en dessous. Une seule vérité par écran.
         trafficSubtabSwitcher
 
-        switch selectedTrafficSubtab {
-        case .live:
-            communityIncidentsList
-        case .upcoming:
-            officialIncidentsList
+        // Pendant le chargement on montre un SQUELETTE, pas l'état vide.
+        // Avant, l'écran affichait « Aucun signalement de la communauté »
+        // AVANT même d'avoir reçu la réponse : un verdict affirmé sur des
+        // données qu'on n'avait pas encore. L'utilisateur voyait du vide, puis
+        // le contenu apparaissait — impression d'app cassée.
+        if viewModel.isLoading && viewModel.lineSignalements.isEmpty && mergedOfficialIncidents.isEmpty {
+            trafficLoadingSkeleton
+        } else {
+            switch selectedTrafficSubtab {
+            case .live:
+                communityIncidentsList
+            case .upcoming:
+                officialIncidentsList
+            }
         }
+    }
+
+    /// Cartes grises pulsées qui préfigurent la mise en page à venir : l'œil
+    /// comprend « ça arrive » au lieu de lire un verdict prématuré.
+    private var trafficLoadingSkeleton: some View {
+        VStack(spacing: 8) {
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .fill(DS.Color.ink.opacity(0.06))
+                    .frame(height: 74)
+            }
+        }
+        .modifier(SkeletonPulse())
+        .accessibilityLabel(AppLocalizer.string("common.loading", defaultValue: "Chargement…"))
     }
 
     /// Three-chip segmented control for the Infos trafic sub-filters.
@@ -1516,3 +1539,20 @@ private struct LigneStopDetailSheet: View {
     }
 }
 #endif
+
+/// Pulsation douce des blocs de chargement (skeleton). Volontairement lente
+/// (1,1 s) : une pulsation rapide donne une impression de nervosité alors
+/// qu'on veut juste dire « patiente, ça arrive ».
+private struct SkeletonPulse: ViewModifier {
+    @State private var dim = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(dim ? 0.55 : 1)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    dim = true
+                }
+            }
+    }
+}

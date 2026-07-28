@@ -34,13 +34,15 @@ struct VehicleMarker: View {
         return TransitLinePalette.fill(for: line)
     }
 
-    /// Petit et ÉTROIT — c'est ce qui empêche la lecture « téléphone » et donne
-    /// la silhouette d'un véhicule vu du dessus. Le bus est plus court.
+    /// Assez large pour porter le PICTOGRAMME du mode, assez étroit pour rester
+    /// une silhouette de véhicule. À 9 pt (version précédente) ni la flèche ni
+    /// l'accent coloré n'étaient visibles : il ne restait qu'une gélule blanche
+    /// illisible. Le bus reste plus court que le tram / métro.
     private var size: CGSize {
         switch mode {
-        case .metro: return CGSize(width: 9, height: 22)
-        case .tram:  return CGSize(width: 9, height: 21)
-        case .bus:   return CGSize(width: 9, height: 17)
+        case .metro: return CGSize(width: 16, height: 27)
+        case .tram:  return CGSize(width: 16, height: 26)
+        case .bus:   return CGSize(width: 16, height: 22)
         }
     }
 
@@ -79,25 +81,41 @@ struct VehicleMarker: View {
         let h = size.height
 
         return ZStack {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            RoundedRectangle(cornerRadius: 4.5, style: .continuous)
                 .fill(Color.white)
                 .frame(width: w, height: h)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .stroke(DS.Color.ink.opacity(0.85), lineWidth: 0.9)
+                    RoundedRectangle(cornerRadius: 4.5, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.85), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.22), radius: 1.5, x: 0, y: 1)
 
-            // FLÈCHE DE DIRECTION, à l'intérieur de la caisse et calée en haut :
-            // elle pointe le terminus. Affichée UNIQUEMENT si la direction est
-            // réellement connue — sinon la caisse reste neutre, on ne prétend
-            // pas savoir où va le véhicule.
+            // NEZ COLORÉ en haut = l'avant du véhicule. Une bande pleine se lit
+            // mieux qu'une petite flèche flottante, qui encombrait la caisse.
+            // Masqué si la direction est inconnue : on ne prétend pas savoir
+            // où va le véhicule.
             if bearing != nil {
-                Image(systemName: "arrowtriangle.up.fill")
-                    .font(.system(size: w - 3.5, weight: .black))
-                    .foregroundStyle(lineColor)
-                    .offset(y: -h / 2 + (w - 3.5) * 0.62)
+                VStack(spacing: 0) {
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 3.5, bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0, topTrailingRadius: 3.5,
+                        style: .continuous
+                    )
+                    .fill(lineColor)
+                    .frame(width: w - 2, height: h * 0.26)
+                    Spacer(minLength: 0)
+                }
+                .frame(width: w, height: h)
+                .padding(.top, 1)
             }
+
+            // PICTOGRAMME DU MODE, centré sous le nez : sans lui, la caisse
+            // blanche se lisait comme une simple gélule. C'est ce qui dit
+            // « tram » ou « bus » d'un coup d'œil.
+            Image(systemName: mode.sfSymbol)
+                .font(.system(size: 9.5, weight: .black))
+                .foregroundStyle(DS.Color.ink)
+                .offset(y: bearing != nil ? h * 0.14 : 0)
         }
         .frame(width: w, height: h)
     }
