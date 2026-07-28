@@ -60,10 +60,25 @@ struct RouteRecommendationsSheet: View {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
                 let raw = value.translation.height
-                // Résistance au-delà du plus grand cran : on peut tirer un peu
-                // plus haut, mais ça freine (comme un sheet iOS natif).
-                if raw < 0, currentHeight >= SheetDetent.large.height(in: availableHeight) {
-                    dragTranslation = raw * 0.25
+                let base = detent.height(in: availableHeight)
+                let maxH = SheetDetent.large.height(in: availableHeight)
+                // Hauteur que le doigt demande, AVANT amortissement.
+                let target = base - raw
+
+                // Résistance au-delà du plus grand cran (comme un sheet iOS
+                // natif), appliquée au seul DÉPASSEMENT.
+                //
+                // ⚠️ L'ancienne version testait `currentHeight`, qui se calcule
+                // à partir de `dragTranslation`… que ce même bloc écrit. Boucle
+                // de rétroaction : au franchissement du seuil la valeur passait
+                // brutalement de 100 % à 25 %, ce qui repassait sous le seuil,
+                // ce qui la renvoyait à 100 % — le sheet oscillait tout seul
+                // pendant un glissement lent. Ici le calcul ne dépend que de
+                // `detent` et du doigt, et il est CONTINU au seuil (dépassement
+                // nul ⇒ même valeur des deux côtés) : plus de saut.
+                if target > maxH {
+                    let damped = maxH + (target - maxH) * 0.25
+                    dragTranslation = base - damped
                 } else {
                     dragTranslation = raw
                 }
@@ -753,9 +768,15 @@ private struct RouteOptionCard: View {
                     RouteLinesStrip(chips: option.legChips)
                 }
 
-                if let nextDeparture = option.nextDepartureInsight {
-                    RouteNextDepartureLine(insight: nextDeparture)
-                }
+                // Ligne « Prochain [10] · dans 20 min » RETIRÉE.
+                //
+                // Elle affichait l'heure d'embarquement de CE trajet-ci, pas le
+                // prochain passage à l'arrêt — deux choses que le libellé ne
+                // distinguait pas. L'utilisateur lisait « prochain 10 dans
+                // 20 min » alors qu'un 10 passait bien plus tôt, et concluait
+                // (légitimement) que l'app mentait. Or l'en-tête donne déjà
+                // « 07:05 – 07:24 » : l'info d'embarquement y est, sans
+                // ambiguïté. Une seule vérité par carte.
             }
         }
         .padding(.horizontal, 14)
@@ -1021,7 +1042,15 @@ private struct InlineRouteStepRow: View {
                             .lineLimit(1)
                     }
                     HStack(spacing: 6) {
-                        if let op = operatorType {
+                        // Badge opérateur affiché SEULEMENT hors STIB.
+                        //
+                        // « STIB » sur chaque étape occupait de la place sans
+                        // rien apprendre : c'est l'opérateur par défaut à
+                        // Bruxelles, et la couleur de la ligne le dit déjà.
+                        // En revanche « De Lijn », « TEC » ou « SNCB » sont une
+                        // vraie information — on change de réseau, donc de
+                        // titre de transport possible. On garde donc ceux-là.
+                        if let op = operatorType, op != .stib {
                             Text(op.mapLabel)
                                 .font(.system(size: 9, weight: .black))
                                 .tracking(0.3)
