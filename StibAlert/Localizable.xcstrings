@@ -35898,6 +35898,38 @@
           }
         }
       }
+    },
+    "Tes favoris partout": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes favoris partout"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je favorieten overal"
+          }
+        }
+      }
+    },
+    "Arrêts et lignes suivis, synchronisés sur tes appareils": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêts et lignes suivis, synchronisés sur tes appareils"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gevolgde haltes en lijnen, gesynchroniseerd op je toestellen"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
