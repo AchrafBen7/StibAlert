@@ -831,7 +831,9 @@ private struct RouteLinesStrip: View {
     let chips: [RouteLegChip]
 
     var body: some View {
-        HStack(spacing: 4) {
+        // Flux au lieu d'une seule ligne tronquée : sur un trajet à plusieurs
+        // correspondances, les derniers badges étaient coupés en plein milieu.
+        RouteFlowLayout(spacing: 4, lineSpacing: 6) {
             ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
                 if index > 0 {
                     Image(systemName: "chevron.right")
@@ -858,7 +860,6 @@ private struct RouteLinesStrip: View {
                 }
             }
         }
-        .lineLimit(1)
     }
 }
 

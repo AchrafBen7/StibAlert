@@ -3177,6 +3177,10 @@ struct HomeView: View {
     ) async {
         isRouting = true
         defer { isRouting = false }
+        // Un itinéraire remplace tout ce qui était ouvert sur la carte. Sans ça,
+        // la fiche d'un véhicule (ou d'un arrêt) consultée AVANT la recherche
+        // restait affichée par-dessus les résultats et les masquait.
+        dismissOtherBottomDetails(except: .none)
         lastRoutedSource = source
         lastRoutedDestination = destination
         lastRoutedOriginName = originName
@@ -3290,7 +3294,9 @@ struct HomeView: View {
 
             let durationText: String
             if let backendMatch {
-                durationText = "\(backendMatch.totalDurationMinutes) min"
+                // Au-delà d'une heure on parle en heures : « 1 h 14 » plutôt que
+                // « 74 min », qui obligeait à faire le calcul soi-même.
+                durationText = RouteDurationFormat.compact(backendMatch.totalDurationMinutes)
             } else if let optionMatch {
                 durationText = optionMatch.durationText
             } else {

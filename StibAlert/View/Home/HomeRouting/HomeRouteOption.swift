@@ -42,7 +42,7 @@ struct HomeRouteOption: Identifiable {
             backendAlternative: backendAlternative,
             originName: originName,
             destinationName: destinationName,
-            durationText: "\(durationMinutes) min",
+            durationText: RouteDurationFormat.compact(durationMinutes),
             transitSummary: transitSummary,
             walkingSummary: walkingSummary,
             reliabilityText: reliabilityText
