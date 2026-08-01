@@ -407,18 +407,17 @@ private struct OnboardingLinesHeader: View {
                     .foregroundStyle(DS.Color.inkMute)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Tes lignes importantes.")
-                    .font(DesignSystem.Typography.display)
-                    .foregroundStyle(DS.Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text("Choisis jusqu’à 4 lignes. On te prévient quand une perturbation officielle ou un signalement fiable touche ton réseau.")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            // Paragraphe d'introduction SUPPRIMÉ. L'écran répétait trois fois la
+            // même consigne (« choisis tes lignes »), et celui-ci se contredisait
+            // avec le reste : il annonçait « jusqu'à 4 lignes » alors que
+            // `maxSelection` vaut 6 et que la carte juste en dessous affiche
+            // « 0/6 ». Restent le titre, puis la carte qui explique le bénéfice
+            // (« des alertes utiles, pas du bruit ») et la consigne d'action au
+            // dessus de la grille : une idée par bloc, aucune redite.
+            Text("Tes lignes importantes.")
+                .font(DesignSystem.Typography.display)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
