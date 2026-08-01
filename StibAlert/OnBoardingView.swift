@@ -152,7 +152,10 @@ private struct OnboardingLinesStep: View {
                 .padding(.bottom, 154)
             }
 
-            VStack(spacing: 10) {
+            // 18 pt entre le bouton principal et « Je découvre d'abord » : à 10
+            // le lien semblait collé au bouton et se lisait comme sa légende
+            // plutôt que comme une porte de sortie distincte.
+            VStack(spacing: 18) {
                 continueButton
                 skipButton
             }
@@ -565,15 +568,23 @@ private struct OnboardingLineButton: View {
                 OnboardingOperatorLineBadge(candidate: candidate, size: 42)
                     .opacity(isDisabled ? 0.32 : 1)
 
-                Text(isSelected ? "Choisie" : candidate.subtitle)
-                    .font(DS.Font.labelSmall)
-                    .tracking(0.8)
-                    .foregroundStyle(isSelected ? DS.Color.primary : DS.Color.inkMute)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                // Le libellé « Métro / Tram / Bus » sous CHAQUE pastille
+                // n'apprenait rien : la forme et la couleur du badge disent déjà
+                // le mode, et répété quarante fois il transformait la grille en
+                // mur de texte. On ne le garde que pour la SNCB, où il porte une
+                // vraie distinction (Réseau S, InterCity, Omnibus, Heure de
+                // pointe) impossible à deviner autrement.
+                if candidate.operatorType == .sncb {
+                    Text(candidate.subtitle)
+                        .font(DS.Font.labelSmall)
+                        .tracking(0.8)
+                        .foregroundStyle(isSelected ? DS.Color.primary : DS.Color.inkMute)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 78)
+            .frame(height: candidate.operatorType == .sncb ? 78 : 62)
             // Aucun cadre quand la ligne n'est PAS choisie : les pastilles sont
             // déjà des formes colorées, les encadrer toutes créait une grille de
             // boîtes grises qui écrasait les couleurs des lignes. La sélection,
