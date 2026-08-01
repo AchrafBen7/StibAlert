@@ -2,7 +2,12 @@ import SwiftUI
 
 // MARK: - Entry point
 
-/// Onboarding en 3 écrans : lignes → routine → notifications.
+/// Onboarding en 2 écrans : lignes → notifications.
+///
+/// L'écran « routine » (heure de départ habituelle) a été retiré : il réclamait
+/// un réglage précis avant que l'usager ait seulement vu la carte. Il se
+/// configure désormais dans Profil → Mon trajet quotidien, quand on sait à quoi
+/// il sert.
 ///
 /// Un 4ᵉ écran (« Choisis tes arrêts favoris ») ouvrait autrefois le parcours. Il a
 /// été retiré : il exigeait la localisation dès la première seconde, et sans elle il
@@ -23,15 +28,9 @@ struct OnboardingView: View {
                 OnboardingLinesStep(
                     onContinue: { lines in
                         savedLines = lines
-                        step = .routine
+                        step = .push
                     },
                     onSkip: onFinish
-                )
-                .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-            case .routine:
-                OnboardingRoutineStep(
-                    onContinue: { step = .push },
-                    onSkip: { step = .push }
                 )
                 .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
             case .push:
@@ -45,7 +44,13 @@ struct OnboardingView: View {
         .animation(.spring(response: 0.38, dampingFraction: 0.88), value: step)
     }
 
-    private enum OnboardingStep { case lines, routine, push }
+    /// L'étape « routine » (heure de départ habituelle + point de départ) a été
+    /// RETIRÉE du parcours : elle demandait un réglage précis avant même que
+    /// l'utilisateur ait vu la carte, pour un bénéfice invisible à ce moment-là.
+    /// La fonctionnalité, elle, reste entière : elle se configure dans
+    /// Profil → Mon trajet quotidien. `OnboardingRoutineStep` n'est plus
+    /// instanciée mais reste dans le dépôt, prête à être réutilisée là-bas.
+    private enum OnboardingStep { case lines, push }
 }
 
 // MARK: - Step 1 — Lignes
@@ -394,7 +399,7 @@ private struct OnboardingLinesHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text("ÉTAPE 1 / 3")
+                Text("ÉTAPE 1 / 2")
                     .font(DS.Font.label)
                     .tracking(2.4)
                     .foregroundStyle(DS.Color.inkMute)
@@ -790,7 +795,7 @@ private struct OnboardingPushStep: View {
 
     private var pushHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ÉTAPE 3 / 3")
+            Text("ÉTAPE 2 / 2")
                 .font(DS.Font.label)
                 .tracking(2)
                 .foregroundStyle(DS.Color.inkMute)

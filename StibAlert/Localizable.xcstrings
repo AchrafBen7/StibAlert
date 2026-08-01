@@ -36266,6 +36266,38 @@
           }
         }
       }
+    },
+    "ÉTAPE 1 / 2": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÉTAPE 1 / 2"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STAP 1 / 2"
+          }
+        }
+      }
+    },
+    "ÉTAPE 2 / 2": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ÉTAPE 2 / 2"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STAP 2 / 2"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
