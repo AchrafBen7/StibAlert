@@ -1,15 +1,16 @@
 import SwiftUI
-import AuthenticationServices
 
-struct SignUpView: View {
+/// Formulaire d'inscription seul. Comme `SignInFormSection`, il vit à
+/// l'intérieur de `AuthPage` : l'email et le mot de passe sont des `@Binding`
+/// partagés, donc se tromper d'onglet ne fait plus perdre la saisie.
+struct SignUpFormSection: View {
     @EnvironmentObject private var session: AuthSession
+    @Binding var email: String
+    @Binding var motDePasse: String
     let onRequireActivation: () -> Void
     var onGoToSignIn: () -> Void = {}
-    var onClose: () -> Void = {}
 
     @State private var nom = ""
-    @State private var email = ""
-    @State private var motDePasse = ""
     @State private var showPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -53,10 +54,10 @@ struct SignUpView: View {
         return !trimmed.isEmpty && !Self.isValidEmail(trimmed)
     }
 
-    /// RFC-light pragmatic regex : letters/digits/_.-+ before @, then domain
-    /// with at least one dot and a 2+ char TLD. Catches "a@", "a@b", "a@b.c"
-    /// before the request hits the backend (which used to return a cryptic
-    /// 5-second-late error).
+    /// Regex pragmatique : lettres/chiffres/_.-+ avant @, puis un domaine avec
+    /// au moins un point et un TLD de 2+ caractères. Attrape « a@ », « a@b »,
+    /// « a@b.c » avant l'aller-retour serveur (qui répondait une erreur obscure
+    /// 5 secondes trop tard).
     static func isValidEmail(_ candidate: String) -> Bool {
         let pattern = #"^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$"#
         return candidate.trimmingCharacters(in: .whitespaces)
@@ -64,88 +65,38 @@ struct SignUpView: View {
     }
 
     var body: some View {
-        AuthEditorialScaffold(mode: .signup, onClose: onClose) {
-            hero
-            modeSwitch
-            socialSection
-            AuthDivider()
-            formSection
+        VStack(spacing: DS.Spacing.lg) {
+            formFields
             termsBlock
-            guestLink
         }
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            (
-                Text(AppLocalizer.string("signup.hero.prefix", defaultValue: "Le réseau, "))
-                    .foregroundColor(DS.Color.ink)
-                + Text(AppLocalizer.string("signup.hero.emphasis", defaultValue: "à toi"))
-                    .font(.system(size: 36, weight: .bold, design: .serif))
-                    .italic()
-                    .foregroundColor(DS.Color.primary)
-                + Text(".")
-                    .foregroundColor(DS.Color.ink)
-            )
-            .font(.system(size: 36, weight: .bold))
-            .tracking(-1.2)
-
-            Text("Quelques secondes pour personnaliser tes alertes et synchroniser tes favoris.")
-                .font(.system(size: 13.5))
-                .foregroundColor(DS.Color.inkSoft)
-                .frame(maxWidth: 280, alignment: .leading)
-                .padding(.top, 6)
-        }
-    }
-
-    private var modeSwitch: some View {
-        AuthModeSwitch(mode: .signup, onSelectSignIn: onGoToSignIn, onSelectSignUp: {})
-    }
-
-    private var socialSection: some View {
-        AppleSignInButtonView { result in
-            handleAppleSignIn(result)
-        }
-        .padding(.bottom, 12)
-    }
-
-    private func handleAppleSignIn(_ result: Result<AppleSignInPayload, Error>) {
-        switch result {
-        case .success(let payload):
-            isLoading = true
-            errorMessage = nil
-            Task {
-                do {
-                    try await session.signInWithApple(
-                        identityToken: payload.identityToken,
-                        fullName: payload.fullName
-                    )
-                } catch {
-                    errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
-                }
-                isLoading = false
-            }
-        case .failure(let error):
-            let nsErr = error as NSError
-            if nsErr.domain == ASAuthorizationError.errorDomain,
-               nsErr.code == ASAuthorizationError.canceled.rawValue {
-                return
-            }
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private var formSection: some View {
+    private var formFields: some View {
         VStack(spacing: 14) {
-            AuthField(label: AppLocalizer.string("field.first_name_caps", defaultValue: "PRÉNOM"), icon: "person", text: $nom, isSecure: false)
-                .focused($focusedField, equals: .nom)
+            AuthField(
+                label: AppLocalizer.string("field.first_name_caps", defaultValue: "PRÉNOM"),
+                icon: "person",
+                placeholder: AppLocalizer.string("auth.placeholder.first_name", defaultValue: "Ton prénom"),
+                text: $nom,
+                isSecure: false,
+                isFocused: focusedField == .nom
+            )
+            .focused($focusedField, equals: .nom)
 
             VStack(alignment: .leading, spacing: 4) {
-                AuthField(label: "EMAIL", icon: "envelope", text: $email, isSecure: false, keyboard: .emailAddress)
-                    .focused($focusedField, equals: .email)
+                AuthField(
+                    label: AppLocalizer.string("auth.field.email", defaultValue: "EMAIL"),
+                    icon: "envelope",
+                    placeholder: AppLocalizer.string("auth.placeholder.email", defaultValue: "ton@email.be"),
+                    text: $email,
+                    isSecure: false,
+                    keyboard: .emailAddress,
+                    isFocused: focusedField == .email
+                )
+                .focused($focusedField, equals: .email)
 
                 if hasInvalidEmail && focusedField != .email {
-                    Text("Format d'email invalide")
+                    Text(AppLocalizer.string("auth.error.invalid_email_format", defaultValue: "Format d'email invalide"))
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(DS.Color.statusMajor)
                         .padding(.horizontal, 2)
@@ -155,10 +106,12 @@ struct SignUpView: View {
             .animation(.easeOut(duration: 0.18), value: hasInvalidEmail)
 
             AuthField(
-                label: "MOT DE PASSE",
+                label: AppLocalizer.string("auth.field.password", defaultValue: "MOT DE PASSE"),
                 icon: "lock",
+                placeholder: AppLocalizer.string("auth.placeholder.new_password", defaultValue: "8 caractères minimum"),
                 text: $motDePasse,
                 isSecure: !showPassword,
+                isFocused: focusedField == .password,
                 trailing: AnyView(
                     Button { showPassword.toggle() } label: {
                         Image(systemName: showPassword ? "eye.slash" : "eye")
@@ -166,6 +119,9 @@ struct SignUpView: View {
                             .foregroundColor(DS.Color.inkMute)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(showPassword
+                        ? AppLocalizer.string("auth.password.hide", defaultValue: "Masquer le mot de passe")
+                        : AppLocalizer.string("auth.password.show", defaultValue: "Afficher le mot de passe"))
                 )
             )
             .focused($focusedField, equals: .password)
@@ -185,11 +141,11 @@ struct SignUpView: View {
                         .font(.system(size: 12))
                         .foregroundColor(DS.Color.statusMajor)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    // D — Si l'email est déjà utilisé, on propose direct un
-                    // CTA "Se connecter à la place" plutôt que de laisser
-                    // l'utilisateur naviguer manuellement vers Sign In.
+                    // Si l'email est déjà pris, on propose directement de
+                    // basculer côté connexion plutôt que de laisser chercher.
                     if errorMessage.lowercased().contains("déjà utilisé") ||
-                       errorMessage.lowercased().contains("already") {
+                       errorMessage.lowercased().contains("already") ||
+                       errorMessage.lowercased().contains("al in gebruik") {
                         Button {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             onGoToSignIn()
@@ -214,7 +170,7 @@ struct SignUpView: View {
                             .progressViewStyle(.circular)
                             .tint(DS.Color.primaryForeground)
                     } else {
-                        Text("Recevoir mon code")
+                        Text(AppLocalizer.string("auth.action.send_code", defaultValue: "Recevoir mon code"))
                             .font(.system(size: 14, weight: .bold))
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .bold))
@@ -239,8 +195,8 @@ struct SignUpView: View {
     private var passwordCriteria: some View {
         VStack(alignment: .leading, spacing: 4) {
             criterionRow(label: AppLocalizer.string("password.min_length", defaultValue: "8 caractères minimum"), satisfied: hasMinLength, required: true)
-            criterionRow(label: "Une majuscule", satisfied: hasUppercase, required: false)
-            criterionRow(label: "Un chiffre", satisfied: hasDigit, required: false)
+            criterionRow(label: AppLocalizer.string("password.one_uppercase", defaultValue: "Une majuscule"), satisfied: hasUppercase, required: false)
+            criterionRow(label: AppLocalizer.string("password.one_digit", defaultValue: "Un chiffre"), satisfied: hasDigit, required: false)
         }
         .padding(.horizontal, 2)
         .animation(.easeOut(duration: 0.18), value: motDePasse)
@@ -272,7 +228,7 @@ struct SignUpView: View {
                         .frame(height: 4)
                 }
             }
-            Text("FORCE : \(strengthLabel.uppercased())")
+            Text(AppLocalizer.format("password.strength", defaultValue: "FORCE : %@", strengthLabel.uppercased()))
                 .font(DS.Font.label.weight(.bold))
                 .foregroundColor(DS.Color.inkMute)
                 .tracking(1)
@@ -289,7 +245,13 @@ struct SignUpView: View {
     }
 
     private var strengthLabel: String {
-        ["très faible", "faible", "correct", "fort", "excellent"][min(passwordScore, 4)]
+        [
+            AppLocalizer.string("password.strength.very_weak", defaultValue: "très faible"),
+            AppLocalizer.string("password.strength.weak", defaultValue: "faible"),
+            AppLocalizer.string("password.strength.fair", defaultValue: "correct"),
+            AppLocalizer.string("password.strength.strong", defaultValue: "fort"),
+            AppLocalizer.string("password.strength.excellent", defaultValue: "excellent"),
+        ][min(passwordScore, 4)]
     }
 
     private var termsBlock: some View {
@@ -302,7 +264,7 @@ struct SignUpView: View {
             HStack(spacing: 12) {
                 if let url = URL(string: "https://blayse.app/terms") {
                     Link(destination: url) {
-                        Text("Conditions d’utilisation")
+                        Text(AppLocalizer.string("legal.terms", defaultValue: "Conditions d’utilisation"))
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(DS.Color.statusMajor)
                     }
@@ -319,23 +281,7 @@ struct SignUpView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 20)
-    }
-
-    private var guestLink: some View {
-        HStack {
-            Spacer()
-            Button {
-                onClose()
-            } label: {
-                Text("CONTINUER EN TANT QU’INVITÉ →")
-                    .font(DS.Font.label.weight(.bold))
-                    .foregroundColor(DS.Color.inkMute)
-                    .tracking(1.5)
-            }
-            Spacer()
-        }
-        .padding(.top, 24)
+        .padding(.top, DS.Spacing.lg)
     }
 
     private func submit() {

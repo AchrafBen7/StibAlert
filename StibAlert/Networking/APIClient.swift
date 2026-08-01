@@ -98,6 +98,16 @@ struct APIClient {
                 iso8601.formatOptions = [.withInternetDateTime]
                 if let date = iso8601.date(from: s) { return date }
 
+                // Heure locale SANS fuseau ("2024-09-02T00:00:00"), telle que
+                // De Lijn date ses déviations. Ce n'est pas de l'ISO complet,
+                // donc les deux formateurs ci-dessus la refusent — et comme
+                // JSONDecoder abandonne tout le document à la première erreur,
+                // une seule de ces dates faisait échouer /transport/overview
+                // en entier (bandeau réseau de l'accueil + résumé signalements).
+                // On l'interprète à Bruxelles, ce qu'elle veut dire.
+                if let date = APIClient.naiveDateFormatter.date(from: s) { return date }
+                if let date = APIClient.naiveDayFormatter.date(from: s) { return date }
+
                 throw DecodingError.dataCorruptedError(
                     in: container,
                     debugDescription: "Unable to decode date string: \(s)"
@@ -140,6 +150,26 @@ struct APIClient {
         return d
     }()
     private let encoder = JSONEncoder()
+
+    /// Heure locale bruxelloise sans fuseau, telle que De Lijn publie ses
+    /// périodes de déviation. `nonisolated(unsafe)` : `DateFormatter` est
+    /// thread-safe en lecture seule, et on ne fait que `date(from:)`.
+    nonisolated(unsafe) fileprivate static let naiveDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Europe/Brussels")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return f
+    }()
+
+    /// Même chose pour une date seule ("2024-09-02"), calée à minuit.
+    nonisolated(unsafe) fileprivate static let naiveDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Europe/Brussels")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
 
     /// - Parameter timeout: dépassement propre à CETTE requête. Le défaut de la
     ///   session (8 s) convient aux appels simples, mais pas au calcul
