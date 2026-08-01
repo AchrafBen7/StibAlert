@@ -129,6 +129,10 @@ struct HomeView: View {
     @AppStorage(AppStorageKeys.mapLayerShowSncbStations) private var showSncbStations = true
     @State private var selectedVilloStation: VilloStation?
     @State private var selectedSncbStation: SNCBStation?
+    /// Visite guidée « coach marks » de la Home (voir CoachMarks.swift).
+    @AppStorage(AppStorageKeys.hasSeenHomeCoachMarks) private var hasSeenHomeCoachMarks = false
+    @State private var showCoachMarks = false
+    @State private var coachMarkIndex = 0
     /// Gare dont on affiche la page détaillée (GareDetailPage) en plein écran,
     /// ouverte depuis le bouton « Voir la gare en détail » du sheet carte.
     @State private var sncbStationDetail: SNCBStation?
@@ -921,6 +925,26 @@ struct HomeView: View {
         .overlay(alignment: .bottom) { clusterDetailOverlay }
         .overlay(alignment: .bottom) { vehicleDetailOverlay }
         .overlay(alignment: .bottom) { bottomChromeOverlay }
+        // Visite guidée « coach marks » : lue APRÈS tous les overlays pour que
+        // les ancres (bouton signaler, onglets, légende) soient déjà publiées,
+        // et posée par-dessus tout le reste pour que le voile assombrisse
+        // réellement l'interface.
+        .overlayPreferenceValue(CoachMarkAnchorKey.self) { anchors in
+            GeometryReader { proxy in
+                if showCoachMarks {
+                    CoachMarksOverlay(
+                        steps: CoachMarkTour.steps(isGuest: !session.isSignedIn),
+                        anchors: anchors,
+                        proxy: proxy,
+                        index: $coachMarkIndex,
+                        onFinish: {
+                            withAnimation(.easeInOut(duration: 0.25)) { showCoachMarks = false }
+                            hasSeenHomeCoachMarks = true
+                        }
+                    )
+                }
+            }
+        }
         .guestAuthGate(
             isPresented: $showReportAuthGate,
             reason: guestGateReason,
@@ -1088,6 +1112,7 @@ struct HomeView: View {
             realtimeSignalements.connect()
             vehicleTracker.start(lines: trackedVehicleLineNumbers)
             syncFavoritesToWidget(widgetFavoriteLineNumbers)
+            maybeStartCoachMarks()
         }
         .onDisappear {
             realtimeSignalements.disconnect()
@@ -1378,6 +1403,33 @@ struct HomeView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Lance la visite guidée à la première arrivée sur la carte.
+    ///
+    /// Garde-fous : on ne surgit pas par-dessus une feuille déjà ouverte, ni
+    /// pendant l'onboarding ou l'authentification, ni si l'utilisateur est
+    /// ailleurs que sur la carte. Un léger délai laisse la carte se dessiner
+    /// et les ancres se publier, sinon le projecteur viserait le vide.
+    @MainActor
+    private func maybeStartCoachMarks() {
+        guard !hasSeenHomeCoachMarks, !showCoachMarks else { return }
+        guard nav.currentPage == .home, !nav.showReportSheet, !nav.showAuthFlow else { return }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            // On re-teste APRÈS l'attente : l'utilisateur a pu ouvrir une
+            // feuille ou changer d'onglet entre-temps.
+            guard !hasSeenHomeCoachMarks,
+                  nav.currentPage == .home,
+                  !nav.showReportSheet,
+                  !nav.showAuthFlow,
+                  selectedMapStopPreview == nil,
+                  selectedClusterIndex == nil,
+                  !isMapSearchActive else { return }
+            coachMarkIndex = 0
+            withAnimation(.easeInOut(duration: 0.3)) { showCoachMarks = true }
         }
     }
 

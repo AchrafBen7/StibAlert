@@ -6,6 +6,12 @@ enum AppStorageKeys {
     /// Mis à true à la fin du tour OU sur skip. Réinitialisable depuis
     /// Profil → Aide → "Revoir la visite guidée".
     static let hasSeenFeatureTour = "hasSeenFeatureTour"
+    /// Visite « coach marks » sur la carte : l'écran s'assombrit et met en
+    /// valeur les VRAIS boutons (signaler, onglets, légende) à la première
+    /// ouverture de la Home. Clé DISTINCTE de `hasSeenFeatureTour` : ce sont
+    /// deux visites différentes, et avoir vu l'ancienne ne doit pas priver de
+    /// celle-ci. Mise à true à la fin ou sur « Passer ».
+    static let hasSeenHomeCoachMarks = "hasSeenHomeCoachMarks"
     static let hasLaunchedBefore = "hasLaunchedBefore"
     static let lastUpdateDate = "lastUpdateDate"
     static let onboardingFavoriteLines = "onboardingFavoriteLines"

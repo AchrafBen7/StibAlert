@@ -88,7 +88,7 @@ private struct OnboardingLinesStep: View {
         case .sncb:
             return Self.sncbCandidates
         case .delijn:
-            return delijnLines.map {
+            return Self.dedupedByCode(delijnLines).map {
                 OnboardingLineCandidate(
                     storageKey: "DELIJN:\($0.shortName)",
                     displayCode: $0.shortName,
@@ -100,7 +100,7 @@ private struct OnboardingLinesStep: View {
                 )
             }
         case .tec:
-            return tecLines.map {
+            return Self.dedupedByCode(tecLines).map {
                 OnboardingLineCandidate(
                     storageKey: "TEC:\($0.shortName)",
                     displayCode: $0.shortName,
@@ -329,6 +329,37 @@ private struct OnboardingLinesStep: View {
         return number >= 50 ? bus : tram
     }
 
+    /// Une seule entrée par NUMÉRO de ligne.
+    ///
+    /// De Lijn et le TEC réutilisent les mêmes numéros d'une région à l'autre
+    /// (un bus « 1 » à Anvers et un autre à Gand). Or l'identité d'une carte est
+    /// `"DELIJN:\(shortName)"` : deux éléments partageaient donc le même `id`
+    /// dans le `ForEach`, et SwiftUI les plaçait n'importe où — d'où les trous
+    /// en escalier dans la grille. On garde la première occurrence de chaque
+    /// numéro, ce qui correspond d'ailleurs au choix de l'utilisateur : il
+    /// sélectionne « la ligne 7 », pas « la ligne 7 de telle ville ».
+    private static func dedupedByCode(_ lines: [OperatorLine]) -> [OperatorLine] {
+        var seen = Set<String>()
+        return lines.filter { line in
+            let key = line.shortName.trimmingCharacters(in: .whitespaces).uppercased()
+            guard !key.isEmpty else { return false }
+            return seen.insert(key).inserted
+        }
+    }
+
+    /// Sous-titre SNCB : le TYPE de train, pas « SNCB · Bruxelles » répété
+    /// treize fois. C'est la seule distinction utile au moment de choisir, et
+    /// elle est exacte — on n'invente pas de destinations qu'on n'a pas.
+    private static func sncbSubtitle(for code: String) -> String {
+        if code.hasPrefix("S") { return AppLocalizer.string("sncb.kind.s", defaultValue: "Réseau S") }
+        switch code {
+        case "IC": return AppLocalizer.string("sncb.kind.ic", defaultValue: "InterCity")
+        case "L":  return AppLocalizer.string("sncb.kind.l", defaultValue: "Omnibus")
+        case "P":  return AppLocalizer.string("sncb.kind.p", defaultValue: "Heure de pointe")
+        default:   return AppLocalizer.string("sncb.kind.train", defaultValue: "Train")
+        }
+    }
+
     private static let sncbCandidates: [OnboardingLineCandidate] = [
         "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "IC", "L", "P"
     ].map {
@@ -336,7 +367,7 @@ private struct OnboardingLinesStep: View {
             storageKey: "SNCB:\($0)",
             displayCode: $0,
             title: $0.hasPrefix("S") ? "Train suburbain \($0)" : "Train \($0)",
-            subtitle: "SNCB · Bruxelles",
+            subtitle: sncbSubtitle(for: $0),
             operatorType: .sncb,
             colorHex: nil,
             textHex: nil
@@ -543,11 +574,18 @@ private struct OnboardingLineButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 78)
-            .background(isSelected ? DS.Color.primary.opacity(0.10) : DS.Color.paper2.opacity(0.78))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            // Aucun cadre quand la ligne n'est PAS choisie : les pastilles sont
+            // déjà des formes colorées, les encadrer toutes créait une grille de
+            // boîtes grises qui écrasait les couleurs des lignes. La sélection,
+            // elle, reste franche (fond teinté + contour épais), donc lisible
+            // d'un coup d'œil au milieu des non-sélectionnées.
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? DS.Color.primary.opacity(0.12) : Color.clear)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? DS.Color.primary : DS.Color.border, lineWidth: isSelected ? 1.6 : 1)
+                    .stroke(isSelected ? DS.Color.primary : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

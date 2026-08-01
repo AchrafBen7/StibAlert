@@ -30,6 +30,7 @@ struct HomeBottomChromeOverlay: View {
                     VStack(spacing: 10) {
                         LocationFloatingButton(action: onRecenter)
                         HomeReportFloatingButton(action: onOpenReportSheet)
+                            .coachMarkAnchor(.reportButton)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -47,6 +48,7 @@ struct HomeBottomChromeOverlay: View {
                     set: onSelectTab
                 ))
                 .transition(.opacity)
+                .coachMarkAnchor(.tabBar)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Barre de navigation")
             }

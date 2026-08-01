@@ -60,6 +60,7 @@ struct HomeSearchHeaderOverlay: View {
                         .shadow(DS.Shadow.floating)
                 }
                 .buttonStyle(.plain)
+                .coachMarkAnchor(.legendButton)
             }
             .padding(.horizontal, 18)
 

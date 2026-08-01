@@ -35930,6 +35930,294 @@
           }
         }
       }
+    },
+    "coach.report.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaler ce que tu vois"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meld wat je ziet"
+          }
+        }
+      }
+    },
+    "coach.report.body": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tram bloqué, bus bondé, contrôle : préviens les autres voyageurs en deux taps. Plus il y a de signalements, plus le réseau devient lisible."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geblokkeerde tram, volle bus, controle: verwittig de andere reizigers met twee tikken. Hoe meer meldingen, hoe duidelijker het netwerk wordt."
+          }
+        }
+      }
+    },
+    "coach.report.body.guest": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tram bloqué, bus bondé, contrôle : préviens les autres voyageurs en deux taps. Pas besoin de compte pour signaler."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geblokkeerde tram, volle bus, controle: verwittig de andere reizigers met twee tikken. Je hebt geen account nodig om te melden."
+          }
+        }
+      }
+    },
+    "coach.tabs.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes cinq espaces"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je vijf ruimtes"
+          }
+        }
+      }
+    },
+    "coach.tabs.body": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carte pour voir autour de toi, Lignes pour les horaires, Alertes pour les perturbations en cours, Favoris pour tes arrêts épinglés, Profil pour tes réglages."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaart om rondom je te kijken, Lijnen voor de dienstregeling, Meldingen voor lopende verstoringen, Favorieten voor je vastgezette haltes, Profiel voor je instellingen."
+          }
+        }
+      }
+    },
+    "coach.map.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêts et signalements"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haltes en meldingen"
+          }
+        }
+      }
+    },
+    "coach.map.body": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque pastille colorée est un arrêt avec ses prochains passages. Les pastilles bleues sont les signalements de la communauté, les rouges les perturbations officielles. Touche un arrêt pour voir le détail."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elke gekleurde stip is een halte met haar volgende doorkomsten. De blauwe stippen zijn meldingen van de community, de rode zijn officiële verstoringen. Tik op een halte voor de details."
+          }
+        }
+      }
+    },
+    "coach.legend.title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir ce qui s'affiche"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiezen wat je ziet"
+          }
+        }
+      }
+    },
+    "coach.legend.body": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche ou masque la STIB, la SNCB, De Lijn, le TEC, les vélos partagés et les signalements. À toi de garder seulement ce qui te sert."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toon of verberg MIVB, NMBS, De Lijn, TEC, deelfietsen en meldingen. Hou alleen over wat je nodig hebt."
+          }
+        }
+      }
+    },
+    "coach.legend.body.guest": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche ou masque la STIB, la SNCB, De Lijn, le TEC et les signalements. Crée un compte pour retrouver tes favoris sur tous tes appareils."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toon of verberg MIVB, NMBS, De Lijn, TEC en meldingen. Maak een account om je favorieten op al je toestellen terug te vinden."
+          }
+        }
+      }
+    },
+    "coach.skip": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passer"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overslaan"
+          }
+        }
+      }
+    },
+    "coach.next": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivant"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volgende"
+          }
+        }
+      }
+    },
+    "coach.done": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C'est parti"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aan de slag"
+          }
+        }
+      }
+    },
+    "sncb.kind.s": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réseau S"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S-net"
+          }
+        }
+      }
+    },
+    "sncb.kind.ic": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InterCity"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "InterCity"
+          }
+        }
+      }
+    },
+    "sncb.kind.l": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omnibus"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoptrein"
+          }
+        }
+      }
+    },
+    "sncb.kind.p": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heure de pointe"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piekuur"
+          }
+        }
+      }
+    },
+    "sncb.kind.train": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Train"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trein"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
