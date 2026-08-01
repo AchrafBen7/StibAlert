@@ -944,6 +944,11 @@ struct HomeView: View {
                     )
                 }
             }
+            // C'est le GeometryReader qui couvre tout l'écran, encoche comprise :
+            // les rectangles lus via `proxy[anchor]` et le voile dessiné par-dessus
+            // partagent ainsi le MÊME repère. Sinon le projecteur se décalait vers
+            // le haut de la hauteur de la zone sûre.
+            .ignoresSafeArea()
         }
         .guestAuthGate(
             isPresented: $showReportAuthGate,

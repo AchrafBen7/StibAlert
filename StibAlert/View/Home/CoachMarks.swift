@@ -139,7 +139,14 @@ struct CoachMarksOverlay: View {
             spotlightRing
             bubble
         }
-        .ignoresSafeArea()
+        // ⚠️ PAS de `.ignoresSafeArea()` ici. Les rectangles viennent de
+        // `proxy[anchor]`, donc de l'espace du GeometryReader ; dessiner dans un
+        // calque qui ignore la zone sûre décalait tout vers le haut de la
+        // hauteur de l'encoche : le projecteur visait le bouton de recentrage au
+        // lieu de « signaler », la bannière invité au lieu des onglets, et le
+        // vide au-dessus de la légende. C'est le GeometryReader lui-même qui
+        // ignore désormais la zone sûre (cf. HomeView), pour que le calcul et le
+        // dessin partagent le même repère.
         .transition(.opacity)
         .animation(.easeInOut(duration: 0.28), value: index)
     }

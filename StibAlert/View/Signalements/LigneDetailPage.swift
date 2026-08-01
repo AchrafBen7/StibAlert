@@ -357,7 +357,14 @@ struct LigneDetailPage: View {
 
     @State private var selectedStopForDetail: LigneDetailViewModel.StopSnapshot?
     @State private var selectedTab: DetailTab
-    @State private var selectedTrafficSubtab: TrafficSubtab = .live
+    /// On ouvre sur « Officiel », pas sur « En cours ».
+    ///
+    /// « En cours » ne contient que les signalements de la communauté : tant
+    /// qu'il y a peu d'utilisateurs, il est vide la plupart du temps, et la page
+    /// s'ouvrait donc sur « Aucun signalement de la communauté » alors que
+    /// l'onglet d'à côté annonçait huit perturbations officielles. On montre
+    /// d'abord ce qui a de l'information.
+    @State private var selectedTrafficSubtab: TrafficSubtab = .upcoming
     @State private var favoriteInFlight = false
     @Namespace private var tabUnderlineNamespace
 

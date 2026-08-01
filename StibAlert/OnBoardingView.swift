@@ -698,6 +698,11 @@ private struct OnboardingPushStep: View {
         let tabIcon: String
         let tabLabel: String
         let badgeColor: Color
+        /// Titre PROPRE à chaque scénario. Il était codé en dur sur
+        /// « Perturbation réseau » pour les trois : en touchant « Tout roule »,
+        /// l'aperçu annonçait donc une panne au-dessus d'un message disant que
+        /// tout allait bien.
+        let title: String
         let body: String
     }
 
@@ -711,6 +716,7 @@ private struct OnboardingPushStep: View {
                 tabIcon: "exclamationmark.triangle.fill",
                 tabLabel: AppLocalizer.string("Alerte", defaultValue: "Alerte"),
                 badgeColor: Color(hex: "#FF6B3D"),
+                title: AppLocalizer.format("push.title.alert", defaultValue: "Ligne %@ interrompue", primaryLineLabel),
                 body: AppLocalizer.format("push.scenario.alert",
                                           defaultValue: "Incident à Ixelles · ligne %@ perturbée dès 8h40. Envisage un départ avant 8h25.",
                                           primaryLineLabel)
@@ -720,6 +726,7 @@ private struct OnboardingPushStep: View {
                 tabIcon: "checkmark.circle.fill",
                 tabLabel: AppLocalizer.string("Tout roule", defaultValue: "Tout roule"),
                 badgeColor: Color(hex: "#73F0D2"),
+                title: AppLocalizer.format("push.title.ok", defaultValue: "Ligne %@ · rien à signaler", primaryLineLabel),
                 body: AppLocalizer.format("push.scenario.ok",
                                           defaultValue: "Ligne %@ · 8h07 · Trafic normal ce matin. Prochain départ dans 4 min.",
                                           primaryLineLabel)
@@ -729,6 +736,7 @@ private struct OnboardingPushStep: View {
                 tabIcon: "clock.badge.fill",
                 tabLabel: AppLocalizer.string("Retard", defaultValue: "Retard"),
                 badgeColor: Color(hex: "#B5CFF8"),
+                title: AppLocalizer.format("push.title.delay", defaultValue: "Ligne %@ en retard", primaryLineLabel),
                 body: AppLocalizer.format("push.scenario.delay",
                                           defaultValue: "Ligne %@ retardée de 8 min. Prochain départ depuis ton arrêt dans 11 min.",
                                           primaryLineLabel)
@@ -876,15 +884,14 @@ private struct OnboardingPushStep: View {
     private var notifBody: some View {
         let scenario = scenarios[selectedScenario]
         return HStack(alignment: .top, spacing: 12) {
-            Image(systemName: scenario.tabIcon)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(scenario.badgeColor)
-                .frame(width: 42, height: 42)
-                .background(scenario.badgeColor.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            // Le VRAI badge de la ligne choisie, aux couleurs officielles du
+            // réseau, plutôt qu'un pictogramme d'alerte générique : l'aperçu
+            // ressemble ainsi à la notification que l'utilisateur recevra
+            // vraiment, et il reconnaît SA ligne au premier coup d'œil.
+            OnboardingStoredLineBadge(storedLine: primaryLine, size: 42)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Ligne \(primaryLineLabel) · Perturbation réseau")
+                Text(scenario.title)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
 

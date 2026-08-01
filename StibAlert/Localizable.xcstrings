@@ -36298,6 +36298,54 @@
           }
         }
       }
+    },
+    "push.title.alert": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ interrompue"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ onderbroken"
+          }
+        }
+      }
+    },
+    "push.title.ok": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ · rien à signaler"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ · niets te melden"
+          }
+        }
+      }
+    },
+    "push.title.delay": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne %@ en retard"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lijn %@ heeft vertraging"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
