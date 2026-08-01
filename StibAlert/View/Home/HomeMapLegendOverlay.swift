@@ -15,67 +15,103 @@ struct MapLegendOverlay: View {
     @Binding var signalsFavoritesOnly: Bool
     let onDismiss: () -> Void
 
+    /// Distance sous le haut de la zone sûre : le panneau pend juste sous la
+    /// rangée de puces (Itinéraires / Favoris / Alertes).
+    private static let topOffset: CGFloat = 122
+    /// Place laissée en bas pour ne jamais recouvrir la barre d'onglets.
+    private static let bottomReserve: CGFloat = 104
+
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.opacity(0.12)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
+        // Le `GeometryReader` accepte exactement la taille proposée par le
+        // parent : il ne peut donc plus la gonfler. C'était toute l'origine du
+        // bug — la liste, sans hauteur maximale ni défilement, mesurait ~750 pt
+        // et débordait de l'écran. Comme la ZStack racine prend la taille de son
+        // plus grand enfant, elle grandissait avec le panneau, et les
+        // `.overlay(alignment: .top / .bottom)` suivaient : la barre de
+        // recherche remontait dans la barre d'état, la barre d'onglets
+        // descendait hors écran, et le bas de la liste était coupé.
+        GeometryReader { proxy in
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.12)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onDismiss)
 
-            VStack(alignment: .leading, spacing: 0) {
-                legendHeader
+                VStack(alignment: .leading, spacing: 0) {
+                    legendHeader
 
-                legendSubheader(AppLocalizer.string("layers.operators", defaultValue: "OPÉRATEURS"))
-                operatorToggleRow(asset: "operator-stib", title: "STIB-MIVB", isOn: $showStibStops)
-                operatorToggleRow(asset: "operator-sncb", title: "SNCB", isOn: $showSncbStations)
-                // S1 — De Lijn / TEC activés maintenant que le live multi-op
-                // marche (commits c42fb27 De Lijn live + 0ae65db TEC live).
-                operatorToggleRow(asset: "operator-delijn", title: "De Lijn", isOn: $showDelijnStops)
-                operatorToggleRow(asset: "operator-tec", title: "TEC", isOn: $showTecStops)
+                    ScrollView(.vertical, showsIndicators: true) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            legendSubheader(AppLocalizer.string("layers.operators", defaultValue: "OPÉRATEURS"))
+                            operatorToggleRow(asset: "operator-stib", title: "STIB-MIVB", isOn: $showStibStops)
+                            operatorToggleRow(asset: "operator-sncb", title: "SNCB", isOn: $showSncbStations)
+                            // S1 — De Lijn / TEC activés maintenant que le live multi-op
+                            // marche (commits c42fb27 De Lijn live + 0ae65db TEC live).
+                            operatorToggleRow(asset: "operator-delijn", title: "De Lijn", isOn: $showDelijnStops)
+                            operatorToggleRow(asset: "operator-tec", title: "TEC", isOn: $showTecStops)
 
-                legendSubheader(AppLocalizer.string("layers.signalements", defaultValue: "SIGNALEMENTS"))
-                symbolToggleRow(systemImage: "exclamationmark.bubble.fill", fill: DS.Color.warning,
-                                title: AppLocalizer.string("layers.community_signals", defaultValue: "Communauté"),
-                                isOn: $showCommunitySignals)
-                symbolToggleRow(systemImage: "exclamationmark.triangle.fill", fill: DS.Color.info,
-                                title: AppLocalizer.string("layers.official_signals", defaultValue: "Officiel"),
-                                isOn: $showOfficialSignals)
-                symbolToggleRow(systemImage: "star.fill", fill: DS.Color.primary,
-                                title: AppLocalizer.string("layers.my_lines_only", defaultValue: "Mes lignes seulement"),
-                                isOn: $signalsFavoritesOnly)
+                            legendSubheader(AppLocalizer.string("layers.signalements", defaultValue: "SIGNALEMENTS"))
+                            symbolToggleRow(systemImage: "exclamationmark.bubble.fill", fill: DS.Color.warning,
+                                            title: AppLocalizer.string("layers.community_signals", defaultValue: "Communauté"),
+                                            isOn: $showCommunitySignals)
+                            symbolToggleRow(systemImage: "exclamationmark.triangle.fill", fill: DS.Color.info,
+                                            title: AppLocalizer.string("layers.official_signals", defaultValue: "Officiel"),
+                                            isOn: $showOfficialSignals)
+                            symbolToggleRow(systemImage: "star.fill", fill: DS.Color.primary,
+                                            title: AppLocalizer.string("layers.my_lines_only", defaultValue: "Mes lignes seulement"),
+                                            isOn: $signalsFavoritesOnly)
 
-                legendSubheader(AppLocalizer.string("layers.others", defaultValue: "AUTRES"))
-                iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)
-                iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: AppLocalizer.string("scope.events", defaultValue: "Événements"), isOn: $showEventImpacts)
+                            legendSubheader(AppLocalizer.string("layers.others", defaultValue: "AUTRES"))
+                            iconToggleRow(letter: "V", fill: Color(hex: "#2E8B57"), title: "Villo!", isOn: $showVilloStations)
+                            iconToggleRow(letter: "E", fill: Color(hex: "#8E2AD1"), title: AppLocalizer.string("scope.events", defaultValue: "Événements"), isOn: $showEventImpacts)
 
-                // S4 — Preset rapide "Vue épurée" : cache Villo + événements
-                // + véhicules pour ne garder que STIB + SNCB + perturbations.
-                // Réduit la saturation visuelle de ~63 marqueurs à ~40.
-                cleanViewPresetRow
+                            // S4 — Preset rapide "Vue épurée" : cache Villo + événements
+                            // + véhicules pour ne garder que STIB + SNCB + perturbations.
+                            // Réduit la saturation visuelle de ~63 marqueurs à ~40.
+                            cleanViewPresetRow
+                        }
+                    }
+                }
+                .frame(width: 268, alignment: .leading)
+                .frame(
+                    maxHeight: max(240, proxy.size.height - Self.topOffset - Self.bottomReserve),
+                    alignment: .top
+                )
+                .background(DS.Color.paper)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
+                )
+                .shadow(color: DS.Color.ink.opacity(0.16), radius: 18, y: 10)
+                .padding(.top, Self.topOffset)
+                .padding(.trailing, 18)
             }
-            .frame(width: 268, alignment: .leading)
-            .background(DS.Color.paper)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1.5)
-            )
-            .shadow(color: DS.Color.ink.opacity(0.16), radius: 18, y: 10)
-            .padding(.top, 122)
-            .padding(.trailing, 18)
         }
     }
 
     private var legendHeader: some View {
         HStack {
+            // Chaîne littérale volontaire : déjà extraite et traduite
+            // (« LAGEN » en néerlandais). Une clé sémantique repartirait de zéro.
             Text("CALQUES")
             Spacer()
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 14, weight: .bold))
+            // Était une icône de réglages purement décorative, à l'endroit
+            // exact où l'on cherche une croix. C'en est une maintenant.
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Color.paper)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppLocalizer.string("common.close", defaultValue: "Fermer"))
         }
         .font(DS.Font.label.weight(.bold))
         .tracking(2)
         .foregroundStyle(DS.Color.paper)
-        .padding(.horizontal, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
         .frame(height: 42)
         .background(DS.Color.ink)
     }
