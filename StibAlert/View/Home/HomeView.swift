@@ -843,11 +843,18 @@ struct HomeView: View {
 
     var shouldShowPulseBar: Bool {
         // Masque les boutons flottants (micro / IA / position / +) quand une
-        // sheet de cluster OU la légende des calques est ouverte : sinon ils
-        // recouvrent le bas de ces panneaux — la légende devenait illisible,
-        // ses derniers items (Villo, Évènements, Vue épurée) passant sous les
-        // boutons.
+        // sheet de cluster, la fiche d'un véhicule OU la légende des calques
+        // est ouverte : sinon ils recouvrent le bas de ces panneaux — la
+        // légende devenait illisible, ses derniers items (Villo, Évènements,
+        // Vue épurée) passant sous les boutons.
+        //
+        // La fiche véhicule manquait à cette liste. Le cas se produisait après
+        // avoir fermé l'aperçu d'un arrêt en gardant un tram sélectionné : la
+        // vue redevenait `.mapIdle`, les boutons réapparaissaient, et le bouton
+        // de recentrage se posait pile sur la croix de fermeture. La fiche
+        // devenait impossible à fermer.
         homeSurfaceMode == .mapIdle && selectedClusterIndex == nil && !showLegend
+            && selectedVehicle == nil
             && searchSuggestions.isEmpty
     }
 
