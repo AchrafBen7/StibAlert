@@ -58,7 +58,11 @@ struct HomeStopMiniHeaderCard: View {
         var order: [String] = []
         var bucket: [String: [TransportDepartureDTO]] = [:]
         for departure in lineDepartures {
-            let key = (departure.destination?.uppercased()).flatMap { $0.isEmpty ? nil : $0 } ?? "—"
+            // La direction n'est pas toujours résolue (la STIB ne donne qu'un
+            // identifiant de terminus). Un « — » nu ne veut rien dire pour le
+            // voyageur : on le nomme.
+            let key = (departure.destination?.uppercased()).flatMap { $0.isEmpty ? nil : $0 }
+                ?? AppLocalizer.string("departure.unknown_direction", defaultValue: "DIRECTION INCONNUE")
             if bucket[key] == nil {
                 order.append(key)
             }
@@ -284,7 +288,7 @@ struct HomeStopMiniHeaderCard: View {
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(DS.Color.inkMute)
             }
-            Text(minutesText(for: departure.minutes))
+            Text(departure.departureLabel)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(DS.Color.ink)
         }
@@ -295,10 +299,9 @@ struct HomeStopMiniHeaderCard: View {
         .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
     }
 
+    /// Résumé des autres lignes : elles n'ont qu'une attente, sans heure absolue.
     private func minutesText(for minutes: Int) -> String {
-        // « now » en dur → suivait la langue de l'app (« maintenant » / « nu »).
-        if minutes <= 0 { return AppLocalizer.string("realtime.now", defaultValue: "maintenant") }
-        return "\(minutes) min"
+        DepartureTimeFormat.label(minutes: minutes)
     }
 
     /// Full-width row at the bottom that opens the standalone ArretDetailPage

@@ -932,23 +932,17 @@ struct ArretDetailPage: View {
         }
     }
 
-    /// Converts raw minutes to a display string.
-    /// < 60 min → "X min" ; ≥ 60 min → actual arrival time "HH:mm".
+    /// Règle commune à la fiche compacte et à cette page (`DepartureTimeFormat`) :
+    /// attente en minutes en dessous d'une heure, heure de passage au-delà.
+    /// Les deux écrans dupliquaient cette logique et avaient fini par diverger.
     private func formatPassageMinutes(_ minutes: Int) -> String {
-        guard minutes > 0 else { return "‹1 min" }
-        guard minutes < 60 else {
-            let arrival = Calendar.current.date(byAdding: .minute, value: minutes, to: Date()) ?? Date()
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm"
-            return f.string(from: arrival)
-        }
-        return "\(minutes) min"
+        DepartureTimeFormat.label(minutes: minutes)
     }
 
     private func passageRow(_ group: GroupedStopPassage) -> some View {
         let next = group.departures.first
         let imminent = (next?.minutes ?? 99) <= 1
-        let isFarAway = (next?.minutes ?? 0) >= 60
+        let isFarAway = DepartureTimeFormat.isFarAway(minutes: next?.minutes ?? 0)
 
         return HStack(spacing: 12) {
             LineBadge(line: group.line, size: .lg)
