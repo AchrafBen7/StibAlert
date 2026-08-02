@@ -37242,6 +37242,29 @@
           }
         }
       }
+    },
+    "error.server_status": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur a répondu %lld."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server responded %lld."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De server antwoordde %lld."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

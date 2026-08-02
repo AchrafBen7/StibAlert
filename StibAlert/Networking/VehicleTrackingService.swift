@@ -21,6 +21,57 @@ nonisolated(unsafe) private let vehicleISO8601Plain: ISO8601DateFormatter = {
     return f
 }()
 
+/// Session dédiée aux positions de véhicules.
+///
+/// `URLSession.shared` traîne un délai par défaut de 60 s, alors que le reste
+/// de l'app abandonne à 8 s : sur une connexion instable ces appels restaient
+/// suspendus bien après que l'écran ait renoncé — et comme ils se répètent
+/// toutes les 15 s, les requêtes mortes s'empilaient.
+nonisolated(unsafe) private let vehicleSession: URLSession = {
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = 8
+    configuration.timeoutIntervalForResource = 15
+    configuration.waitsForConnectivity = false
+    return URLSession(configuration: configuration)
+}()
+
+/// Le serveur a répondu, mais pas un 2xx.
+struct VehicleEndpointError: LocalizedError {
+    let statusCode: Int
+    var errorDescription: String? {
+        AppLocalizer.format(
+            "error.server_status",
+            defaultValue: "Le serveur a répondu %lld.",
+            statusCode
+        )
+    }
+}
+
+/// Décode la réponse APRÈS avoir vérifié le code HTTP.
+///
+/// Avant, le code HTTP était jeté (`let (data, _) = ...`). Quand l'hébergeur
+/// renvoyait une erreur de passerelle (502/503/504), son **corps HTML** partait
+/// dans le décodeur JSON, qui échouait sur « les données ne sont pas dans le bon
+/// format ». Un incident réseau était donc rapporté comme une incompatibilité de
+/// données : diagnostic faux, et illisible dans les logs.
+private func decodeVehicles(data: Data, response: URLResponse) throws -> [TransportVehicleDTO] {
+    if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+        throw VehicleEndpointError(statusCode: http.statusCode)
+    }
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .custom { dec in
+        let container = try dec.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
+        if let date = vehicleISO8601Plain.date(from: raw) { return date }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unrecognised ISO-8601 date: \(raw)"
+        )
+    }
+    return try decoder.decode(VehiclePositionsResponse.self, from: data).items
+}
+
 @MainActor
 final class VehicleTrackingService: ObservableObject {
     @Published private(set) var vehicles: [TransportVehicleDTO] = []
@@ -133,20 +184,8 @@ final class VehicleTrackingService: ObservableObject {
         guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib/vehicle-positions-map?\(params)") else { return [] }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .custom { dec in
-                let container = try dec.singleValueContainer()
-                let raw = try container.decode(String.self)
-                if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
-                if let date = vehicleISO8601Plain.date(from: raw) { return date }
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Unrecognised ISO-8601 date: \(raw)"
-                )
-            }
-            return try decoder.decode(VehiclePositionsResponse.self, from: data)
-                .items
+            let (data, response) = try await vehicleSession.data(from: url)
+            return try decodeVehicles(data: data, response: response)
                 .filter { $0.latitude != nil && $0.longitude != nil }
         } catch {
             ErrorReporting.capture(error, tag: "vehicleTracking.snapshot")
@@ -173,25 +212,14 @@ final class VehicleTrackingService: ObservableObject {
         guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/stib/vehicle-positions-map?\(params)") else { return }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let decoder = JSONDecoder()
-            // Backend ships `updatedAt` as `2026-05-19T11:09:09.651Z`. The
-            // stock `.iso8601` strategy doesn't accept fractional seconds, so
-            // we install a custom decoder that tries both forms.
-            decoder.dateDecodingStrategy = .custom { dec in
-                let container = try dec.singleValueContainer()
-                let raw = try container.decode(String.self)
-                if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
-                if let date = vehicleISO8601Plain.date(from: raw) { return date }
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Unrecognised ISO-8601 date: \(raw)"
-                )
-            }
-            let response = try decoder.decode(VehiclePositionsResponse.self, from: data)
-            let fresh = response.items.filter { $0.latitude != nil && $0.longitude != nil }
+            // `updatedAt` arrive en `2026-05-19T11:09:09.651Z` : la stratégie
+            // `.iso8601` standard refuse les fractions de seconde, d'où le
+            // décodeur maison partagé (qui vérifie aussi le code HTTP).
+            let (data, response) = try await vehicleSession.data(from: url)
+            let items = try decodeVehicles(data: data, response: response)
+            let fresh = items.filter { $0.latitude != nil && $0.longitude != nil }
             #if DEBUG
-            print("[VehicleTracker] \(url.absoluteString) → \(response.items.count) raw, \(fresh.count) with coords")
+            print("[VehicleTracker] \(url.absoluteString) → \(items.count) raw, \(fresh.count) with coords")
             #endif
 
             // Réattribue des identités stables (cf. TrackedVehicle) et calcule

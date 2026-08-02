@@ -190,10 +190,6 @@ final class LigneDetailViewModel: ObservableObject {
         async let baseTask: TransportLineDTO? = try? await TransportService.line(id: line.line)
         async let stopsTask: [ArretDTO]? = try? await SignalementService.arretsParLigne(line.line)
         async let signalementsTask: [SignalementDTO]? = try? await SignalementService.liste()
-        // Fallback: if the global overview lists this line under
-        // `affectedLines`, surface its summary in the "Officiel" tab even
-        // when `activeLine.activeIncidents` is empty.
-        async let overviewTask: TransportOverviewDTO? = try? await TransportService.overview()
         // Live vehicle snapshot — the enriched map endpoint is the only one
         // that returns `stopNom`, so we use it (not `activeLine.vehicles`).
         async let vehiclesTask: [TransportVehicleDTO] = VehicleTrackingService.snapshot(lines: [line.line])
@@ -217,7 +213,15 @@ final class LigneDetailViewModel: ObservableObject {
         stopCatalog = await stopsTask ?? []
         lineVehicles = await vehiclesTask
 
-        if let overview = await overviewTask {
+        // L'état global du réseau ne sert QU'À un repli d'affichage dans
+        // l'onglet Officiel, mais c'est l'appel le plus lourd de l'écran
+        // (il agrège six arrêts). Lancé en parallèle des trois variantes de
+        // tracé, il leur disputait la bande passante : sur une connexion
+        // instable les six requêtes simultanées se bloquaient mutuellement,
+        // les trois variantes expiraient à 8 s, et la page affichait
+        // « Impossible de charger le tracé » alors que le serveur répondait
+        // en moins d'une seconde. On l'exécute donc APRÈS, hors chemin critique.
+        if let overview = try? await TransportService.overview() {
             let normalisedLineGlobal = line.line.uppercased()
             if let summary = overview.perturbationSummary,
                summary.affectedLines.contains(where: { $0.uppercased() == normalisedLineGlobal }) {
