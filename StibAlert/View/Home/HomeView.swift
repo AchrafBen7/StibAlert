@@ -2656,7 +2656,8 @@ struct HomeView: View {
     /// même perturbation (ligne + arrêt + type) ne redéclenchera plus la carte,
     /// même après un re-fetch qui change son clusterIndex.
     private func proactiveClusterKey(_ cluster: ClusterDTO) -> String {
-        "\(cluster.ligne.uppercased())|\(cluster.arretId ?? "")|\(cluster.typeProbleme)"
+        // `arretId` n'est pas optionnel : le `?? ""` d'origine était du code mort.
+        "\(cluster.ligne.uppercased())|\(cluster.arretId)|\(cluster.typeProbleme)"
     }
 
     /// « Ça passe quand même » — sur un communiqué OFFICIEL uniquement.

@@ -565,19 +565,30 @@ struct SignalementDetailView: View {
 
         Task {
             do {
-                try await SignalementService.voter(signalementId: latest.id, vote: apiValue)
+                // Le signalement renvoyé n'est pas exploité : l'affichage des
+                // compteurs est déjà mis à jour de façon optimiste au-dessus.
+                // `_ =` rend cet abandon explicite plutôt qu'accidentel.
+                _ = try await SignalementService.voter(signalementId: latest.id, vote: apiValue)
                 // Success notification haptic + texte de confirmation
                 // discret qui disparaît après 2.5 s (toast inline géré par
                 // le `feedback` state + auto-clear).
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 if next != .none {
-                    feedback = next == .up
-                        ? "Merci, on garde l'alerte active."
-                        : "Merci, on marque la situation comme résolue."
-                    // Auto-clear discret après 2.5 s, sans bloquer le user.
+                    let confirmation = next == .up
+                        ? AppLocalizer.string("vote.kept_active", defaultValue: "Merci, on garde l'alerte active.")
+                        : AppLocalizer.string("vote.marked_resolved", defaultValue: "Merci, on marque la situation comme résolue.")
+                    feedback = confirmation
+                    // Auto-effacement après 2,5 s.
+                    //
+                    // La condition testait `feedback?.contains("enregistré")`,
+                    // or AUCUN des messages posés ici ne contient ce mot : elle
+                    // était donc toujours fausse et le message de confirmation
+                    // restait affiché indéfiniment. On compare désormais au
+                    // message qu'on vient d'écrire — ce qui évite au passage
+                    // d'effacer une erreur survenue entre-temps.
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 2_500_000_000)
-                        if feedback?.contains("enregistré") == true {
+                        if feedback == confirmation {
                             feedback = nil
                         }
                     }

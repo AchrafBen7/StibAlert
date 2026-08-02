@@ -37265,6 +37265,52 @@
           }
         }
       }
+    },
+    "vote.kept_active": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanks, we are keeping the alert active."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci, on garde l'alerte active."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedankt, we houden de melding actief."
+          }
+        }
+      }
+    },
+    "vote.marked_resolved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanks, we are marking the situation as resolved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci, on marque la situation comme résolue."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedankt, we markeren de situatie als opgelost."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

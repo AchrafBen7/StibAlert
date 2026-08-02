@@ -722,7 +722,8 @@ struct ProfileView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    @ViewBuilder
+    // Pas de `@ViewBuilder` : le `return` explicite le désactivait de toute
+    // façon (une seule expression est renvoyée), l'attribut n'était que du bruit.
     private func miniStat(label: String, value: String) -> some View {
         // Localise le label (mot) AVANT interpolation, sinon il reste en FR.
         let localizedLabel = AppLocalizer.string(label)

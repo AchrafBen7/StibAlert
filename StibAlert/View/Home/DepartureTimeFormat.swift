@@ -14,7 +14,7 @@ enum DepartureTimeFormat {
 
     /// Heure locale de l'appareil : on suit les réglages régionaux (24 h en
     /// Belgique, 12 h ailleurs) plutôt que d'imposer un format.
-    nonisolated(unsafe) private static let clock: DateFormatter = {
+    private static let clock: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale.autoupdatingCurrent
         formatter.timeStyle = .short

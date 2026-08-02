@@ -152,9 +152,9 @@ struct APIClient {
     private let encoder = JSONEncoder()
 
     /// Heure locale bruxelloise sans fuseau, telle que De Lijn publie ses
-    /// périodes de déviation. `nonisolated(unsafe)` : `DateFormatter` est
-    /// thread-safe en lecture seule, et on ne fait que `date(from:)`.
-    nonisolated(unsafe) fileprivate static let naiveDateFormatter: DateFormatter = {
+    /// périodes de déviation. `DateFormatter` est thread-safe en lecture seule,
+    /// et on ne fait que `date(from:)`.
+    fileprivate static let naiveDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone(identifier: "Europe/Brussels")
@@ -163,7 +163,7 @@ struct APIClient {
     }()
 
     /// Même chose pour une date seule ("2024-09-02"), calée à minuit.
-    nonisolated(unsafe) fileprivate static let naiveDayFormatter: DateFormatter = {
+    fileprivate static let naiveDayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone(identifier: "Europe/Brussels")

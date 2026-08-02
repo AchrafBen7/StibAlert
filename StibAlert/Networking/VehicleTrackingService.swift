@@ -27,7 +27,7 @@ nonisolated(unsafe) private let vehicleISO8601Plain: ISO8601DateFormatter = {
 /// de l'app abandonne à 8 s : sur une connexion instable ces appels restaient
 /// suspendus bien après que l'écran ait renoncé — et comme ils se répètent
 /// toutes les 15 s, les requêtes mortes s'empilaient.
-nonisolated(unsafe) private let vehicleSession: URLSession = {
+private let vehicleSession: URLSession = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = 8
     configuration.timeoutIntervalForResource = 15
