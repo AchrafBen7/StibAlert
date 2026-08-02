@@ -465,7 +465,10 @@ struct GareDetailPage: View {
 
     @ViewBuilder
     private var trafficTabContent: some View {
-        trafficStatusBanner
+        // Pas de bandeau de résumé ici : il répétait une information déjà portée
+        // par la pastille de l'onglet « Infos trafic », et occupait le haut de
+        // l'écran pour dire qu'il n'y avait rien à dire. Le même bandeau avait
+        // déjà été retiré côté ligne STIB ; la gare SNCB était restée en arrière.
         trafficSubtabSwitcher
 
         switch selectedTrafficSubtab {
@@ -474,35 +477,6 @@ struct GareDetailPage: View {
         }
 
         reportButton
-    }
-
-    private var trafficStatusBanner: some View {
-        let isOK = !hasActiveTrafficIssue
-        return HStack(spacing: 14) {
-            Image(systemName: isOK ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                .font(.system(size: 22, weight: .black))
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
-                .background(Circle().fill(isOK ? DS.Color.statusOK : DS.Color.statusMajor))
-                .shadow(color: (isOK ? DS.Color.statusOK : DS.Color.statusMajor).opacity(0.35), radius: 8, y: 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(isOK ? "Trafic normal" : "Perturbations en cours")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(DS.Color.ink)
-                Text(bannerSubtitle(isOK: isOK))
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkMute)
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(DS.Color.ink.opacity(0.10), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
     }
 
     private var trafficSubtabSwitcher: some View {
@@ -825,16 +799,6 @@ struct GareDetailPage: View {
     // MARK: - Derived data
 
     private var hasActiveTrafficIssue: Bool { !signalements.isEmpty || officialCount > 0 }
-
-    private func bannerSubtitle(isOK: Bool) -> String {
-        if isOK { return AppLocalizer.string("station.no_disruption_dot", defaultValue: "Aucune perturbation à cette gare.") }
-        var parts: [String] = []
-        if !signalements.isEmpty { parts.append("communauté") }
-        if officialCount > 0 { parts.append("SNCB") }
-        let total = signalements.count + officialCount
-        let infos = AppLocalizer.format("plural.infos", defaultValue: "%lld infos", total)
-        return "\(infos) · \(parts.joined(separator: " + "))"
-    }
 
     // MARK: Real-time (iRail)
 
