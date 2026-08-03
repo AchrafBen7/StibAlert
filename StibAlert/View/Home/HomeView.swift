@@ -2250,18 +2250,37 @@ struct HomeView: View {
                 // same name within 80 m and merge their nextDepartures so
                 // the mini-card shows both directions.
                 let siblingIds = self.siblingStopIds(for: stop)
-                async let primary = TransportService.stop(id: lookupId)
-                let siblings = await withTaskGroup(of: [TransportDepartureDTO].self) { group in
+
+                // ⚠️ UN SEUL primitif de concurrence dans cette portée.
+                //
+                // Il y avait ici un `async let primary` suivi d'un
+                // `withTaskGroup`, le `async let` n'étant attendu qu'APRÈS le
+                // groupe. Or Swift alloue les tâches sur une PILE : libérer
+                // hors ordre déclenche un abandon dans `swift_task_dealloc`
+                // (« freed pointer was not the last allocation »), visible dans
+                // la pile via `asyncLet_finish_after_task_completion`.
+                //
+                // Tant qu'il n'y avait aucun quai voisin, le groupe ne créait
+                // aucune tâche et le défaut restait invisible. En portant le
+                // rayon de regroupement de 150 à 350 m, de vrais voisins sont
+                // apparus — et le crash avec eux, à chaque tap sur un arrêt.
+                let fetched = await withTaskGroup(of: (Bool, TransportStopDTO?).self) { group in
+                    group.addTask { (true, try? await TransportService.stop(id: lookupId)) }
                     for sid in siblingIds {
-                        group.addTask {
-                            (try? await TransportService.stop(id: sid))?.nextDepartures ?? []
-                        }
+                        group.addTask { (false, try? await TransportService.stop(id: sid)) }
                     }
-                    var all: [TransportDepartureDTO] = []
-                    for await deps in group { all.append(contentsOf: deps) }
+                    var all: [(Bool, TransportStopDTO?)] = []
+                    for await result in group { all.append(result) }
                     return all
                 }
-                let primaryDetail = try await primary
+
+                guard let primaryDetail = fetched.first(where: { $0.0 })?.1 else {
+                    throw StopDetailUnavailable()
+                }
+                let siblings = fetched
+                    .filter { !$0.0 }
+                    .compactMap { $0.1 }
+                    .flatMap { $0.nextDepartures }
                 let merged = Self.mergeDepartures(
                     primaryDetail.nextDepartures + siblings
                 )
@@ -2366,6 +2385,17 @@ struct HomeView: View {
             guard backendId != stop.id, backendId != stop.stopId else { return nil }
             let distance = origin.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
             return distance <= Self.siblingQuayRadiusMeters ? backendId : nil
+        }
+    }
+
+    /// Le détail de l'arrêt principal n'a pas pu être chargé. Type dédié pour
+    /// que le repli hors ligne (horaires en cache) puisse quand même s'appliquer.
+    struct StopDetailUnavailable: LocalizedError {
+        var errorDescription: String? {
+            AppLocalizer.string(
+                "error.network.unstable",
+                defaultValue: "Connexion instable. Vérifie ton réseau puis réessaie."
+            )
         }
     }
 

@@ -471,9 +471,12 @@ struct HomeOperatorStopSheet: View {
         // annoncé » alors que son bus partait du quai d'à côté. On interroge
         // les quais voisins de même nom et on fusionne leurs passages.
         let quayIds = await siblingQuayIds()
-        async let info = OperatorRealtimeService.delijnStopInfo(stop.id)
-        async let disruptions = OperatorRealtimeService.delijnStopDisruptions(stop.id)
 
+        // ⚠️ Pas de `async let` ouvert autour de ce `withTaskGroup` : Swift
+        // alloue les tâches sur une pile, et mélanger les deux primitives dans
+        // la même portée fait libérer hors ordre — abandon dans
+        // `swift_task_dealloc`. Le groupe d'abord, les deux appels annexes
+        // ensuite, chacun dans sa portée.
         let replies = await withTaskGroup(of: OperatorRealtimeReply?.self) { group in
             for id in quayIds {
                 group.addTask { await OperatorRealtimeService.delijnStop(id) }
@@ -484,8 +487,10 @@ struct HomeOperatorStopSheet: View {
             }
             return collected
         }
-
         reply = Self.merge(replies, fallbackStopId: stop.id)
+
+        async let info = OperatorRealtimeService.delijnStopInfo(stop.id)
+        async let disruptions = OperatorRealtimeService.delijnStopDisruptions(stop.id)
         stopInfo = await info
         stopDisruptions = await disruptions
     }
