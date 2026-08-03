@@ -743,18 +743,29 @@ struct LigneDetailPage: View {
         // juste en dessous. Une seule vérité par écran.
         trafficSubtabSwitcher
 
-        // Pendant le chargement on montre un SQUELETTE, pas l'état vide.
-        // Avant, l'écran affichait « Aucun signalement de la communauté »
-        // AVANT même d'avoir reçu la réponse : un verdict affirmé sur des
-        // données qu'on n'avait pas encore. L'utilisateur voyait du vide, puis
-        // le contenu apparaissait — impression d'app cassée.
-        if viewModel.isLoading && viewModel.lineSignalements.isEmpty && mergedOfficialIncidents.isEmpty {
-            trafficLoadingSkeleton
-        } else {
-            switch selectedTrafficSubtab {
-            case .live:
+        // Pendant le chargement on montre un SQUELETTE, pas l'état vide : un
+        // « aucune info » affirmé avant d'avoir la réponse est un verdict sur
+        // des données qu'on n'a pas.
+        //
+        // Chaque sous-onglet attend SA PROPRE source, et c'est indispensable :
+        // les deux ne reviennent pas en même temps. `lineSignalements` est
+        // affecté tôt dans `fetch()` (pour que la communauté s'affiche vite),
+        // alors que l'officiel vient de `activeLine`, résolu après. Avec une
+        // condition commune, l'arrivée des signalements levait le squelette et
+        // l'onglet Officiel annonçait « Pas d'info officielle sur cette ligne »
+        // pendant les secondes où la ligne n'était pas encore chargée — puis se
+        // contredisait tout seul.
+        switch selectedTrafficSubtab {
+        case .live:
+            if viewModel.isLoading && viewModel.lineSignalements.isEmpty {
+                trafficLoadingSkeleton
+            } else {
                 communityIncidentsList
-            case .upcoming:
+            }
+        case .upcoming:
+            if viewModel.isLoading && viewModel.activeLine == nil && mergedOfficialIncidents.isEmpty {
+                trafficLoadingSkeleton
+            } else {
                 officialIncidentsList
             }
         }
