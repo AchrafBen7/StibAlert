@@ -52,23 +52,26 @@ struct HomeStopMiniHeaderCard: View {
         return nextDepartures.filter { normalize($0.line) == normalized }
     }
 
-    /// Departures grouped by destination so the user can see at a glance
-    /// which trams go which way. Preserves backend order within each group.
-    private var departuresByDestination: [(destination: String, items: [TransportDepartureDTO])] {
-        var order: [String] = []
-        var bucket: [String: [TransportDepartureDTO]] = [:]
-        for departure in lineDepartures {
-            // La direction n'est pas toujours résolue (la STIB ne donne qu'un
-            // identifiant de terminus). Un « — » nu ne veut rien dire pour le
-            // voyageur : on le nomme.
-            let key = (departure.destination?.uppercased()).flatMap { $0.isEmpty ? nil : $0 }
+    /// Un passage par couple (ligne, direction), TOUTES lignes confondues,
+    /// classé par heure — comme l'app officielle STIB.
+    ///
+    /// Avant, la fiche n'affichait que la ligne sélectionnée : il fallait
+    /// toucher chaque badge un par un pour savoir ce qui passe à cet arrêt.
+    /// Le détail était pourtant déjà chargé pour toutes les lignes. Le choix
+    /// d'une ligne ne sert donc plus qu'à mettre son tracé en avant sur la
+    /// carte, sans plus rien cacher ici.
+    private var upcomingByLineAndDirection: [TransportDepartureDTO] {
+        var seen = Set<String>()
+        var rows: [TransportDepartureDTO] = []
+        for departure in nextDepartures.sorted(by: { $0.minutes < $1.minutes }) {
+            let destination = (departure.destination?.uppercased())
+                .flatMap { $0.isEmpty ? nil : $0 }
                 ?? AppLocalizer.string("departure.unknown_direction", defaultValue: "DIRECTION INCONNUE")
-            if bucket[key] == nil {
-                order.append(key)
-            }
-            bucket[key, default: []].append(departure)
+            let key = "\(normalize(departure.line))|\(destination)"
+            guard seen.insert(key).inserted else { continue }
+            rows.append(departure)
         }
-        return order.map { ($0, bucket[$0] ?? []) }
+        return rows
     }
 
     var body: some View {
@@ -159,89 +162,113 @@ struct HomeStopMiniHeaderCard: View {
 
     @ViewBuilder
     private var departuresRow: some View {
-        if isLoading && lineDepartures.isEmpty {
+        if isLoading && nextDepartures.isEmpty {
             HStack(spacing: 6) {
                 ProgressView().scaleEffect(0.7)
                 Text(AppLocalizer.string("Chargement des prochains passages…", defaultValue: "Chargement des prochains passages…"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(DS.Color.inkMute)
             }
-        } else if lineDepartures.isEmpty {
-            // « Aucun passage prévu » tout court laissait croire que l'ARRÊT est
-            // mort, alors que seule la ligne SÉLECTIONNÉE n'a rien : à Suzan
-            // Daniel (ligne 20 choisie) un bus 46 passait dans 3 min sans être
-            // annoncé. On nomme donc la ligne, et on montre les autres lignes
-            // qui, elles, passent — avec leur attente.
-            VStack(alignment: .leading, spacing: 4) {
-                Text(emptyDeparturesText)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(DS.Color.inkMute)
-                if !otherLinesSummary.isEmpty {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.triangle.branch")
-                            .font(.system(size: 9, weight: .bold))
-                        Text(otherLinesSummary)
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(DS.Color.ink.opacity(0.75))
-                }
-            }
+        } else if nextDepartures.isEmpty {
+            // Maintenant que TOUTES les lignes sont listées, un vide veut dire
+            // que l'arrêt entier n'a rien d'annoncé — plus besoin de nommer la
+            // ligne sélectionnée ni de résumer « les autres lignes ».
+            Text(AppLocalizer.string("Aucun passage prévu", defaultValue: "Aucun passage prévu"))
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(DS.Color.inkMute)
         } else {
-            VStack(alignment: .leading, spacing: 6) {
-                // Toutes les directions réelles de la ligne (en pratique 2),
-                // chacune avec ses 3 prochains passages — plafond à 3 sens par
-                // sécurité contre un cas dégénéré.
-                ForEach(Array(departuresByDestination.prefix(3)), id: \.destination) { group in
-                    directionRow(destination: group.destination, items: Array(group.items.prefix(3)))
+            VStack(alignment: .leading, spacing: 0) {
+                // Toutes les lignes de l'arrêt, une rangée par direction.
+                ForEach(Array(upcomingByLineAndDirection.prefix(8).enumerated()), id: \.offset) { index, departure in
+                    departureRow(departure)
+                    if index < min(upcomingByLineAndDirection.count, 8) - 1 {
+                        Rectangle()
+                            .fill(DS.Color.ink.opacity(0.06))
+                            .frame(height: 1)
+                    }
                 }
                 if lineDeparturesAllScheduled {
                     scheduledCaption
+                        .padding(.top, 6)
                 }
             }
         }
     }
 
-    /// « Aucun passage prévu » NOMME la ligne concernée : sans ça, l'utilisateur
-    /// croit que l'arrêt entier est mort alors qu'une autre ligne y passe.
-    private var emptyDeparturesText: String {
-        guard let selectedLine, !selectedLine.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return AppLocalizer.string("Aucun passage prévu", defaultValue: "Aucun passage prévu")
+    /// `[7] VANDERKINDERE ............ 1 min`
+    private func departureRow(_ departure: TransportDepartureDTO) -> some View {
+        let mode = TransitLineMode.mode(for: departure.line)
+        let destination = (departure.destination?.uppercased())
+            .flatMap { $0.isEmpty ? nil : $0 }
+            ?? AppLocalizer.string("departure.unknown_direction", defaultValue: "DIRECTION INCONNUE")
+        let isSelected = selectedLine.map(normalize) == normalize(departure.line)
+
+        return HStack(spacing: 9) {
+            Image(systemName: mode.sfSymbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(DS.Color.inkMute)
+                .frame(width: 14)
+
+            LineBadge(line: departure.line, size: .sm)
+
+            Text(destination)
+                .font(.system(size: 11.5, weight: .semibold))
+                .tracking(0.3)
+                .foregroundStyle(DS.Color.ink)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 6)
+
+            departureTimeLabel(departure)
         }
-        return AppLocalizer.format(
-            "stopcard.no_departure_for_line",
-            defaultValue: "Aucun passage prévu pour la ligne %@",
-            selectedLine
-        )
+        .padding(.vertical, 6)
+        .opacity(selectedLine == nil || isSelected ? 1 : 0.55)
     }
 
-    /// Les AUTRES lignes de l'arrêt qui, elles, ont un passage annoncé — avec la
-    /// plus proche attente de chacune (2 max). Rend l'arrêt lisible d'un coup
-    /// d'œil quand la ligne choisie est vide.
-    private var otherLinesSummary: String {
-        let normalizedSelected = selectedLine.map(normalize)
-        var earliest: [String: Int] = [:]
-        var order: [String] = []
-        for departure in nextDepartures {
-            let key = normalize(departure.line)
-            guard !key.isEmpty, key != normalizedSelected else { continue }
-            if earliest[key] == nil {
-                order.append(departure.line)
-                earliest[key] = departure.minutes
-            } else if let current = earliest[key], departure.minutes < current {
-                earliest[key] = departure.minutes
+    /// Imminent → double chevron, comme l'app STIB : plus court qu'un mot, et
+    /// il se lit dans n'importe quelle langue.
+    @ViewBuilder
+    private func departureTimeLabel(_ departure: TransportDepartureDTO) -> some View {
+        HStack(spacing: 4) {
+            if departure.source == "realtime" {
+                Circle()
+                    .fill(DS.Color.statusOK)
+                    .frame(width: 5, height: 5)
+            } else {
+                Image(systemName: "clock")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(DS.Color.inkMute)
+            }
+
+            if departure.minutes <= 0 {
+                // Deux flèches composées plutôt qu'un symbole SF unique : la
+                // double flèche « à quai » de l'app STIB n'a pas d'équivalent
+                // garanti dans le catalogue système, et un nom invalide ne
+                // dessine rien du tout.
+                HStack(spacing: -1) {
+                    Image(systemName: "arrow.down")
+                    Image(systemName: "arrow.down")
+                }
+                .font(.system(size: 11, weight: .black))
+                .foregroundStyle(DS.Color.statusOK)
+                .accessibilityLabel(AppLocalizer.string("realtime.now", defaultValue: "maintenant"))
+            } else {
+                Text(departure.departureLabel)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
             }
         }
-        guard !order.isEmpty else { return "" }
-        return order.prefix(2)
-            .map { "\($0) · \(minutesText(for: earliest[normalize($0)] ?? 0))" }
-            .joined(separator: "   ")
     }
 
-    /// Vrai quand la ligne n'a QUE des passages théoriques (temps réel vide) :
+    /// Vrai quand l'arrêt n'a QUE des passages théoriques (temps réel vide) :
     /// on l'annonce pour ne pas laisser croire que ce sont des horaires live.
+    ///
+    /// Le résumé « les autres lignes qui, elles, passent » a disparu avec cette
+    /// refonte : il compensait le fait que la fiche ne montrait qu'une ligne à
+    /// la fois. Toutes les lignes étant listées, il n'a plus d'objet.
     private var lineDeparturesAllScheduled: Bool {
-        !lineDepartures.isEmpty && lineDepartures.allSatisfy { $0.source == "scheduled" }
+        !nextDepartures.isEmpty && nextDepartures.allSatisfy { $0.source == "scheduled" }
     }
 
     private var scheduledCaption: some View {
@@ -252,56 +279,6 @@ struct HomeStopMiniHeaderCard: View {
                 .font(.system(size: 10, weight: .semibold))
         }
         .foregroundStyle(DS.Color.inkMute)
-    }
-
-    private func directionRow(destination: String, items: [TransportDepartureDTO]) -> some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 9, weight: .bold))
-                Text(destination)
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(0.5)
-                    .lineLimit(1)
-            }
-            .foregroundStyle(DS.Color.inkMute)
-            .frame(minWidth: 90, alignment: .leading)
-
-            ForEach(Array(items.enumerated()), id: \.offset) { _, departure in
-                departurePill(departure)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func departurePill(_ departure: TransportDepartureDTO) -> some View {
-        let isRealtime = departure.source == "realtime"
-        return HStack(spacing: 3) {
-            if isRealtime {
-                Circle()
-                    .fill(DS.Color.statusOK)
-                    .frame(width: 5, height: 5)
-            } else {
-                // Passage théorique (horaire GTFS) quand le temps réel est vide :
-                // une petite horloge le distingue clairement d'un passage live.
-                Image(systemName: "clock")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            Text(departure.departureLabel)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(DS.Color.ink)
-        }
-        .padding(.horizontal, 7)
-        .frame(height: 22)
-        .background(DS.Color.paper2.opacity(0.7))
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(DS.Color.ink.opacity(0.10), lineWidth: 1))
-    }
-
-    /// Résumé des autres lignes : elles n'ont qu'une attente, sans heure absolue.
-    private func minutesText(for minutes: Int) -> String {
-        DepartureTimeFormat.label(minutes: minutes)
     }
 
     /// Full-width row at the bottom that opens the standalone ArretDetailPage

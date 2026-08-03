@@ -2319,9 +2319,22 @@ struct HomeView: View {
             guard let coord = ns.coordinate, let backendId = ns.backendId else { return nil }
             guard backendId != stop.id, backendId != stop.stopId else { return nil }
             let distance = origin.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
-            return distance <= 150 ? backendId : nil
+            return distance <= Self.siblingQuayRadiusMeters ? backendId : nil
         }
     }
+
+    /// Rayon de regroupement des quais d'un même arrêt.
+    ///
+    /// 150 m ne suffisait pas. Mesuré sur DOCKS BRUXSEL, que la STIB découpe en
+    /// trois entrées : lignes 7/35/56/58 au point de référence, la 58 seule à
+    /// 140 m, et la **10 seule à 309 m**. Avec l'ancien rayon, toucher l'arrêt
+    /// n'affichait pas le tram 10 — alors que l'app officielle STIB présente
+    /// bien les cinq lignes sous un seul « Docks Bruxsel ».
+    ///
+    /// 350 m couvre ces découpages sans fusionner deux arrêts distincts : à
+    /// Bruxelles, deux arrêts de MÊME NOM à moins de 350 m sont toujours les
+    /// quais d'un même lieu.
+    private static let siblingQuayRadiusMeters: CLLocationDistance = 350
 
     /// Strip parenthetical qualifiers and accented characters so two quays of
     /// the same physical stop collapse to a single key even when STIB labels
