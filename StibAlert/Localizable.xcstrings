@@ -9668,6 +9668,29 @@
         }
       }
     },
+    "departure.in_minutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
     "departure.minutes": {
       "extractionState": "stale",
       "localizations": {
@@ -9749,6 +9772,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "gepland"
+          }
+        }
+      }
+    },
+    "departure.unknown_direction": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UNKNOWN DIRECTION"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DIRECTION INCONNUE"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ONBEKENDE RICHTING"
           }
         }
       }
@@ -11015,6 +11061,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Onstabiele verbinding. Controleer je netwerk en probeer opnieuw."
+          }
+        }
+      }
+    },
+    "error.server_status": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server responded %lld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le serveur a répondu %lld."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De server antwoordde %lld."
           }
         }
       }
@@ -33263,6 +33332,7 @@
       }
     },
     "Trafic normal": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -36748,6 +36818,52 @@
         }
       }
     },
+    "vote.kept_active": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanks, we are keeping the alert active."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci, on garde l'alerte active."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedankt, we houden de melding actief."
+          }
+        }
+      }
+    },
+    "vote.marked_resolved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanks, we are marking the situation as resolved."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci, on marque la situation comme résolue."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedankt, we markeren de situatie als opgelost."
+          }
+        }
+      }
+    },
     "vote.resolved": {
       "extractionState": "stale",
       "localizations": {
@@ -37197,117 +37313,25 @@
         }
       }
     },
-    "departure.in_minutes": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min"
-          }
-        }
-      }
-    },
-    "departure.unknown_direction": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "UNKNOWN DIRECTION"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DIRECTION INCONNUE"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ONBEKENDE RICHTING"
-          }
-        }
-      }
-    },
-    "error.server_status": {
+    "tour.replay_subtitle": {
       "extractionState": "manual",
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le serveur a répondu %lld."
+            "value": "Sur la carte, les fonctions sont montrées une par une"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The server responded %lld."
+            "value": "On the map, features are highlighted one by one"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De server antwoordde %lld."
-          }
-        }
-      }
-    },
-    "vote.kept_active": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thanks, we are keeping the alert active."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Merci, on garde l'alerte active."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bedankt, we houden de melding actief."
-          }
-        }
-      }
-    },
-    "vote.marked_resolved": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thanks, we are marking the situation as resolved."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Merci, on marque la situation comme résolue."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bedankt, we markeren de situatie als opgelost."
+            "value": "Op de kaart worden de functies één voor één getoond"
           }
         }
       }

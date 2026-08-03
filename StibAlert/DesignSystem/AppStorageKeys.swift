@@ -2,15 +2,14 @@ import Foundation
 
 enum AppStorageKeys {
     static let hasSeenOnboarding = "hasSeenOnboarding"
-    /// Tour 3-cards montré APRÈS l'onboarding (carte → signalement → voix).
-    /// Mis à true à la fin du tour OU sur skip. Réinitialisable depuis
-    /// Profil → Aide → "Revoir la visite guidée".
-    static let hasSeenFeatureTour = "hasSeenFeatureTour"
     /// Visite « coach marks » sur la carte : l'écran s'assombrit et met en
     /// valeur les VRAIS boutons (signaler, onglets, légende) à la première
-    /// ouverture de la Home. Clé DISTINCTE de `hasSeenFeatureTour` : ce sont
-    /// deux visites différentes, et avoir vu l'ancienne ne doit pas priver de
-    /// celle-ci. Mise à true à la fin ou sur « Passer ».
+    /// ouverture de la Home. Mise à true à la fin ou sur « Passer », remise à
+    /// zéro au logout et depuis Profil → Support → « Revoir la visite guidée ».
+    ///
+    /// C'est désormais la SEULE visite : l'ancien tour plein écran
+    /// (`hasSeenFeatureTour`) racontait la même chose sur des cartons
+    /// abstraits, en français codé en dur, et s'ouvrait juste avant.
     static let hasSeenHomeCoachMarks = "hasSeenHomeCoachMarks"
     static let hasLaunchedBefore = "hasLaunchedBefore"
     static let lastUpdateDate = "lastUpdateDate"

@@ -3,10 +3,11 @@ import SwiftUI
 /// Visite guidée "coach marks" : l'écran s'assombrit, un trou lumineux met en
 /// valeur un VRAI élément de l'interface, et une bulle explique à quoi il sert.
 ///
-/// Différence avec `FeatureTourView` (l'ancienne visite) : celle-ci recouvrait
-/// la carte de trois cartons plein écran, donc l'utilisateur apprenait sur des
-/// captures et devait ensuite retrouver les boutons tout seul. Ici il regarde
-/// son propre écran, à sa place, dès la première ouverture.
+/// Remplace l'ancienne visite plein écran, désormais supprimée : elle recouvrait
+/// la carte de cartons abstraits, donc l'utilisateur apprenait sur des
+/// illustrations puis devait retrouver les boutons tout seul. Son contenu était
+/// en plus codé en dur en français, ce qui donnait un écran entier en français
+/// aux néerlandophones. Ici l'utilisateur regarde son propre écran, à sa place.
 ///
 /// Volontairement SANS icône ni tiret cadratin dans les textes.
 

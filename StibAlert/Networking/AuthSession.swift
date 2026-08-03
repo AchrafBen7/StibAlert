@@ -173,13 +173,16 @@ final class AuthSession: ObservableObject {
     }
 
     /// B2 — reset des @AppStorage liés à l'onboarding au logout / delete.
-    /// Le tour `hasSeenFeatureTour` est aussi réinitialisé pour que le
-    /// prochain compte voie les 3 cards d'explication.
+    ///
+    /// C'est `hasSeenHomeCoachMarks` qu'on réinitialise, pour que le prochain
+    /// compte ait droit à la visite. La liste ne remettait à zéro que l'ANCIEN
+    /// tour plein écran (`hasSeenFeatureTour`, supprimé depuis) : sans ce
+    /// changement, un nouveau compte n'aurait plus eu aucune visite du tout.
     private static func clearOnboardingState() {
         let defaults = UserDefaults.standard
         let keysToWipe: [String] = [
             AppStorageKeys.hasSeenOnboarding,
-            AppStorageKeys.hasSeenFeatureTour,
+            AppStorageKeys.hasSeenHomeCoachMarks,
             AppStorageKeys.onboardingFavoriteLines,
             AppStorageKeys.onboardingStibFavoriteStops,
             AppStorageKeys.onboardingHomeLabel,

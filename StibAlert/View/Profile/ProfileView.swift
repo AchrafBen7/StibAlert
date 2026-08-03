@@ -2505,7 +2505,8 @@ private struct SupportSettingsView: View {
     let onBack: () -> Void
     let onClose: () -> Void
 
-    @State private var showFeatureTour = false
+    @EnvironmentObject private var nav: AppNavigation
+    @AppStorage(AppStorageKeys.hasSeenHomeCoachMarks) private var hasSeenHomeCoachMarks = false
 
     var body: some View {
         ProfileSubpageScaffold(
@@ -2514,15 +2515,16 @@ private struct SupportSettingsView: View {
             onBack: onBack,
             onClose: onClose
         ) {
-            // Nouvelle section "Démarrage" — rejouer le tour 3-cards explique
-            // carte/signalement/voix. Visible AVANT "Aide & contact" parce
-            // qu'on a constaté que les nouveaux utilisateurs qui skippent
-            // l'onboarding initial cherchent souvent ces explications dans
-            // le profil.
+            // « Démarrage » : rejouer la visite. Elle ouvrait l'ancien tour
+            // plein écran ; elle relance désormais les coach marks, qui
+            // désignent les vrais boutons sur la carte au lieu de les décrire
+            // sur des cartons. On remet donc le drapeau à zéro et on renvoie
+            // l'utilisateur sur la carte, où la visite se déclenche seule.
             ProfileSettingsSection(title: "Démarrage") {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    showFeatureTour = true
+                    hasSeenHomeCoachMarks = false
+                    nav.currentPage = .home
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "play.circle.fill")
@@ -2533,7 +2535,7 @@ private struct SupportSettingsView: View {
                             Text(AppLocalizer.string("Revoir la visite guidée", defaultValue: "Revoir la visite guidée"))
                                 .font(.system(size: 13.5, weight: .semibold))
                                 .foregroundColor(DS.Color.ink)
-                            Text(AppLocalizer.string("3 cartes : carte, signalement, favoris", defaultValue: "3 cartes : carte, signalement, favoris"))
+                            Text(AppLocalizer.string("tour.replay_subtitle", defaultValue: "Sur la carte, les fonctions sont montrées une par une"))
                                 .font(.system(size: 11.5))
                                 .foregroundColor(DS.Color.inkMute)
                         }
@@ -2585,12 +2587,6 @@ private struct SupportSettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
             }
-        }
-        .fullScreenCover(isPresented: $showFeatureTour) {
-            // À la demande — n'écrit PAS hasSeenFeatureTour : si l'utilisateur
-            // l'a déjà vu une fois, c'est juste un replay manuel ; pas
-            // besoin de toucher au flag global.
-            FeatureTourView { showFeatureTour = false }
         }
     }
 }

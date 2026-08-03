@@ -4,7 +4,6 @@ struct AppRoot: View {
     @StateObject private var nav = AppNavigation()
     @StateObject private var session = AuthSession()
     @AppStorage(AppStorageKeys.hasSeenOnboarding) private var hasSeenOnboarding = false
-    @AppStorage(AppStorageKeys.hasSeenFeatureTour) private var hasSeenFeatureTour = false
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
     @AppStorage(AppStorageKeys.hasAcceptedPrivacyConsent) private var hasAcceptedPrivacyConsent = false
     @AppStorage(AppStorageKeys.privacyConsentVersion) private var privacyConsentVersion = ""
@@ -23,13 +22,13 @@ struct AppRoot: View {
                 AuthFlowView(initialRoute: nav.authInitialRoute)
                     .environmentObject(session)
             }
-            // Visite guidée 3-cards montrée UNE FOIS quand l'utilisateur a
-            // fini son onboarding (favoris, etc.) mais n'a pas encore vu
-            // les explications produit (carte / signalement / voix). Cf.
-            // FeatureTourView. Réinitialisable depuis Profil.
-            .fullScreenCover(isPresented: shouldShowFeatureTour) {
-                FeatureTourView { hasSeenFeatureTour = true }
-            }
+            // L'ancienne visite plein écran (`FeatureTourView`) est supprimée.
+            // Elle s'ouvrait juste après la connexion, AVANT les coach marks,
+            // pour raconter la même chose sur des cartons abstraits — et tout
+            // son contenu était codé en dur en français, si bien qu'un
+            // utilisateur néerlandophone recevait un écran entier en français
+            // avec un seul bouton « Overslaan » traduit. Les coach marks
+            // montrent la vraie interface, à sa place, et sont traduits.
             .onChange(of: session.isSignedIn) { _, signedIn in
                 guard signedIn else { return }
                 if session.activationSuccessVisible {
@@ -100,26 +99,6 @@ struct AppRoot: View {
 
     private var needsPrivacyConsent: Bool {
         !hasAcceptedPrivacyConsent || privacyConsentVersion != PrivacyConsent.currentVersion
-    }
-
-    /// Tour produit (3 cards) — montré uniquement quand l'utilisateur est
-    /// arrivé sur Home après tous les preliminary screens, et qu'il ne l'a
-    /// pas encore vu. Évite de l'afficher pendant la phase de chargement /
-    /// pendant l'AuthFlow.
-    private var shouldShowFeatureTour: Binding<Bool> {
-        Binding(
-            get: {
-                hasAcceptedPrivacyConsent
-                && privacyConsentVersion == PrivacyConsent.currentVersion
-                && hasSeenOnboarding
-                && !hasSeenFeatureTour
-                && !nav.showAuthFlow
-                && session.isSignedIn
-            },
-            set: { newValue in
-                if !newValue { hasSeenFeatureTour = true }
-            }
-        )
     }
 
     @ViewBuilder
