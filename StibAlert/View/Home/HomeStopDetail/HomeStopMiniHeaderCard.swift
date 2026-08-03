@@ -18,6 +18,10 @@ struct HomeStopMiniHeaderCard: View {
     let onShowDetail: () -> Void
     let onRefresh: () -> Void
 
+    /// Fiche repliée : seuls le nom de l'arrêt et les badges de ligne restent,
+    /// pour dégager la carte et voir le tracé de la ligne choisie.
+    @State private var isCollapsed = false
+
     /// Nombre de passages TEMPS RÉEL de la ligne sélectionnée À CET ARRÊT.
     ///
     /// L'ancien badge « N live » comptait les VÉHICULES de la ligne suivis sur la
@@ -105,6 +109,32 @@ struct HomeStopMiniHeaderCard: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Ouvre les détails complets de l'arrêt")
 
+                // Replier / déplier.
+                //
+                // Depuis que la fiche liste TOUTES les lignes, elle est haute
+                // et recouvre la carte — donc le tracé de la ligne qu'on vient
+                // de sélectionner, qui est justement ce qu'on veut regarder.
+                // Repliée, il ne reste que le nom de l'arrêt et les badges de
+                // ligne : on garde le choix de la ligne tout en dégageant la vue.
+                Button {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        isCollapsed.toggle()
+                    }
+                } label: {
+                    Image(systemName: isCollapsed ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.ink)
+                        .frame(width: 32, height: 32)
+                        .background(DS.Color.paper2)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(DS.Color.ink.opacity(0.14), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isCollapsed
+                    ? AppLocalizer.string("stopcard.expand", defaultValue: "Déplier la fiche")
+                    : AppLocalizer.string("stopcard.collapse", defaultValue: "Replier la fiche"))
+
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
                     onRefresh()
@@ -135,6 +165,8 @@ struct HomeStopMiniHeaderCard: View {
                 .accessibilityLabel(AppLocalizer.string("Fermer le détail", defaultValue: "Fermer le détail"))
             }
 
+            // Les badges de ligne restent visibles même repliée : c'est par eux
+            // qu'on choisit le tracé à faire ressortir sur la carte.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(displayedLines, id: \.self) { line in
@@ -143,9 +175,10 @@ struct HomeStopMiniHeaderCard: View {
                 }
             }
 
-            departuresRow
-
-            detailButton
+            if !isCollapsed {
+                departuresRow
+                detailButton
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

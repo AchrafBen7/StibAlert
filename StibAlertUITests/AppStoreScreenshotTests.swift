@@ -27,7 +27,14 @@ final class AppStoreScreenshotTests: XCTestCase {
         let labels = Self.tabs[language] ?? Self.tabs["fr"]!
 
         let app = XCUIApplication()
+        // DEUX réglages, pas un seul. `appLanguageOverride` ne couvre que les
+        // textes passant par `AppLocalizer` ; la majorité de l'interface est
+        // faite de littéraux SwiftUI, résolus par `Bundle.main` selon la langue
+        // SYSTÈME. Sans `-AppleLanguages`, la capture « nl » sortait
+        // entièrement en français.
         app.launchArguments += [
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", language == "nl" ? "nl_BE" : "fr_BE",
             "-appLanguageOverride", language,
             "-hasSeenOnboarding", "YES",
             "-hasLaunchedBefore", "YES",
