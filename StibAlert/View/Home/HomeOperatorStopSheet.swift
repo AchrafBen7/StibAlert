@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 /// Sheet shown when tapping a De Lijn / TEC stop on the map.
 ///
@@ -463,12 +464,83 @@ struct HomeOperatorStopSheet: View {
             reply = await OperatorRealtimeService.tecStop(lat: stop.lat, lng: stop.lng)
             return
         }
-        async let realtime = OperatorRealtimeService.delijnStop(stop.id)
+        // De Lijn découpe un arrêt en QUAIS distincts : « Brussel De Wand »
+        // existe quatre fois, à quelques dizaines de mètres, et deux de ces
+        // quais n'ont aucun service. Un voyageur qui touchait « Brussel De
+        // Wand » avait donc une chance sur deux de lire « aucun passage
+        // annoncé » alors que son bus partait du quai d'à côté. On interroge
+        // les quais voisins de même nom et on fusionne leurs passages.
+        let quayIds = await siblingQuayIds()
         async let info = OperatorRealtimeService.delijnStopInfo(stop.id)
         async let disruptions = OperatorRealtimeService.delijnStopDisruptions(stop.id)
-        reply = await realtime
+
+        let replies = await withTaskGroup(of: OperatorRealtimeReply?.self) { group in
+            for id in quayIds {
+                group.addTask { await OperatorRealtimeService.delijnStop(id) }
+            }
+            var collected: [OperatorRealtimeReply] = []
+            for await result in group {
+                if let result { collected.append(result) }
+            }
+            return collected
+        }
+
+        reply = Self.merge(replies, fallbackStopId: stop.id)
         stopInfo = await info
         stopDisruptions = await disruptions
+    }
+
+    /// Identifiants des quais portant le MÊME nom, à moins de 150 m. Le quai
+    /// touché vient toujours en tête, si bien qu'un échec de la recherche
+    /// laisse le comportement d'avant plutôt qu'une fiche vide.
+    private func siblingQuayIds() async -> [String] {
+        let delta = 0.0025 // ~275 m : de quoi couvrir tous les quais d'un arrêt
+        let nearby = await OperatorStopService.stops(
+            operator: stop.op,
+            minLat: stop.lat - delta, maxLat: stop.lat + delta,
+            minLng: stop.lng - delta, maxLng: stop.lng + delta,
+            limit: 60
+        )
+        let origin = CLLocation(latitude: stop.lat, longitude: stop.lng)
+        let siblings = nearby
+            .filter { $0.name.caseInsensitiveCompare(stop.name) == .orderedSame }
+            .filter { CLLocation(latitude: $0.lat, longitude: $0.lng).distance(from: origin) <= 150 }
+            .map(\.id)
+
+        var ids = [stop.id]
+        for id in siblings where !ids.contains(id) { ids.append(id) }
+        return ids
+    }
+
+    /// Fusionne les réponses des quais : passages mis bout à bout, dédoublonnés
+    /// (ligne + destination + heure) et reclassés chronologiquement.
+    private static func merge(
+        _ replies: [OperatorRealtimeReply],
+        fallbackStopId: String
+    ) -> OperatorRealtimeReply? {
+        guard !replies.isEmpty else { return nil }
+
+        var seen = Set<String>()
+        var passages: [OperatorRealtimePassage] = []
+        for passage in replies.flatMap(\.passages) {
+            let key = [
+                passage.line,
+                passage.destination,
+                passage.effectiveTime.map { String(Int($0.timeIntervalSince1970)) } ?? "",
+            ].joined(separator: "|")
+            if seen.insert(key).inserted { passages.append(passage) }
+        }
+        passages.sort { ($0.effectiveTime ?? .distantFuture) < ($1.effectiveTime ?? .distantFuture) }
+
+        return OperatorRealtimeReply(
+            stopId: replies.first?.stopId ?? fallbackStopId,
+            entity: replies.first?.entity,
+            live: replies.contains { $0.live },
+            fetchedAt: replies.compactMap(\.fetchedAt).max(),
+            passages: passages,
+            error: passages.isEmpty ? replies.compactMap(\.error).first : nil,
+            scheduledFallback: replies.contains { $0.scheduledFallback == true }
+        )
     }
 
     @MainActor

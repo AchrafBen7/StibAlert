@@ -472,13 +472,32 @@ struct OperatorStopDirectory: View {
         var found = await fetch(0.02)
         if found.isEmpty { found = await fetch(0.06) }
         let originLoc = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
-        stops = found
-            .sorted {
-                originLoc.distance(from: CLLocation(latitude: $0.lat, longitude: $0.lng))
-                    < originLoc.distance(from: CLLocation(latitude: $1.lat, longitude: $1.lng))
+        let sorted = found.sorted {
+            originLoc.distance(from: CLLocation(latitude: $0.lat, longitude: $0.lng))
+                < originLoc.distance(from: CLLocation(latitude: $1.lat, longitude: $1.lng))
+        }
+        stops = Array(Self.mergedQuays(sorted).prefix(50))
+    }
+
+    /// Un arrêt par NOM, pas un par quai.
+    ///
+    /// De Lijn découpe un arrêt en quais séparés : « Brussel De Wand »
+    /// apparaissait quatre fois dans la liste, à quelques dizaines de mètres,
+    /// sans rien pour les distinguer — et deux de ces quais n'ont aucun
+    /// service, si bien qu'un tap sur deux tombait sur « aucun passage
+    /// annoncé ». On ne garde que le quai le plus proche de chaque nom ; la
+    /// fiche, elle, fusionne les passages de tous les quais voisins.
+    static func mergedQuays(_ sortedByDistance: [OperatorMapStop]) -> [OperatorMapStop] {
+        var kept: [OperatorMapStop] = []
+        for stop in sortedByDistance {
+            let alreadyKept = kept.contains { existing in
+                existing.name.caseInsensitiveCompare(stop.name) == .orderedSame
+                && CLLocation(latitude: existing.lat, longitude: existing.lng)
+                    .distance(from: CLLocation(latitude: stop.lat, longitude: stop.lng)) <= 150
             }
-            .prefix(50)
-            .map { $0 }
+            if !alreadyKept { kept.append(stop) }
+        }
+        return kept
     }
 }
 
