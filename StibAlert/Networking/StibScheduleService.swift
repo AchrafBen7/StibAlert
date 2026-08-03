@@ -7,7 +7,9 @@ import Foundation
 ///
 /// Utilisé par l'onglet "Horaires" de `ArretDetailPage` pour atteindre la
 /// parité avec `GareDetailPage` SNCB (qui avait déjà ce picker).
-struct StibScheduleLine: Decodable, Identifiable, Hashable {
+/// `Codable` et non seulement `Decodable` : ces horaires sont aussi RÉÉCRITS
+/// sur le disque par `StibScheduleCache`, pour survivre à une panne serveur.
+struct StibScheduleLine: Codable, Identifiable, Hashable {
     let line: String
     let destination: String?
     let dayTypes: [String: [String]]
@@ -21,7 +23,7 @@ struct StibScheduleLine: Decodable, Identifiable, Hashable {
     }
 }
 
-struct StibStopSchedule: Decodable {
+struct StibStopSchedule: Codable {
     let stopId: String
     let lines: [StibScheduleLine]
 }
@@ -38,9 +40,26 @@ enum StibScheduleService {
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 return nil
             }
-            return try? JSONDecoder().decode(StibStopSchedule.self, from: data)
+            let schedule = try? JSONDecoder().decode(StibStopSchedule.self, from: data)
+            // Conservé sur l'appareil : c'est ce qui permettra d'afficher des
+            // passages quand le serveur sera injoignable.
+            if let schedule { StibScheduleCache.save(schedule) }
+            return schedule
         } catch {
             return nil
+        }
+    }
+
+    /// Récupère et met en cache les horaires d'un arrêt et de ses quais
+    /// voisins, sans bloquer l'appelant ni remonter d'erreur : c'est une
+    /// préparation opportuniste, son échec ne doit rien casser.
+    static func warmCache(stopIds: [String]) {
+        let missing = stopIds.filter { StibScheduleCache.load(stopId: $0) == nil }
+        guard !missing.isEmpty else { return }
+        Task.detached(priority: .background) {
+            for stopId in missing {
+                _ = await fetch(stopId: stopId)
+            }
         }
     }
 

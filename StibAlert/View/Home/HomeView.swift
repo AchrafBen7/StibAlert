@@ -2288,13 +2288,53 @@ struct HomeView: View {
                         learnDirectionTerminus(for: detail)
                     }
                 }
+                // Le serveur a répondu : on profite de l'occasion pour garder
+                // l'horaire théorique de cet arrêt sur l'appareil. C'est ce qui
+                // permettra d'afficher quelque chose la prochaine fois qu'il ne
+                // répondra pas.
+                StibScheduleService.warmCache(stopIds: Self.gtfsStopIds(from: primaryDetail, fallback: stop))
             } catch {
                 ErrorReporting.capture(error, tag: "home.stopDetail")
+
+                // Repli HORS LIGNE : les horaires théoriques étaient calculés
+                // côté serveur, donc ils disparaissaient exactement quand ils
+                // servaient — pendant une panne. On les relit depuis le disque.
+                let cachedIds = Self.gtfsStopIds(from: nil, fallback: stop)
+                let cached = StibScheduleCache.departures(forStopIds: cachedIds)
+
                 await MainActor.run {
                     let matchesPreview = selectedMapStopPreview?.id == stop.id
                     let matchesDetail = selectedMapStopSummary?.id == stop.id
-                    if matchesPreview || matchesDetail {
+                    guard matchesPreview || matchesDetail else { return }
+
+                    if cached.isEmpty {
                         mapStopDetailError = error.localizedDescription
+                    } else {
+                        // `realtimeStatus: "unavailable"` et `source: "scheduled"`
+                        // sur chaque passage : la fiche affiche déjà sa mention
+                        // « Horaires théoriques », rien n'est présenté comme live.
+                        selectedMapStopDetail = TransportStopDTO(
+                            stop: TransportStopSummaryDTO(
+                                id: stop.id,
+                                stopId: stop.stopId,
+                                name: stop.name,
+                                latitude: stop.latitude,
+                                longitude: stop.longitude,
+                                lines: stop.lines
+                            ),
+                            severity: "unknown",
+                            confidence: 0,
+                            realtimeStatus: "unavailable",
+                            officialDataStatus: "unavailable",
+                            officialDataMessage: nil,
+                            perturbationSummary: nil,
+                            label: nil,
+                            color: nil,
+                            activeIncidents: [],
+                            nextDepartures: cached,
+                            recommendedAlternatives: []
+                        )
+                        selectDefaultStopLineIfNeeded(from: selectedMapStopDetail!)
                     }
                 }
             }
@@ -2326,6 +2366,22 @@ struct HomeView: View {
             let distance = origin.distance(from: CLLocation(latitude: coord.latitude, longitude: coord.longitude))
             return distance <= Self.siblingQuayRadiusMeters ? backendId : nil
         }
+    }
+
+    /// Identifiants GTFS servant à lire les horaires théoriques.
+    ///
+    /// L'endpoint d'horaires est indexé par `stop_id` GTFS, PAS par l'identifiant
+    /// Mongo — vérifié en prod : `/api/stib/schedule/<_id Mongo>` renvoie une
+    /// liste vide, `/api/stib/schedule/2096` renvoie les 265 passages.
+    private static func gtfsStopIds(
+        from detail: TransportStopDTO?,
+        fallback: TransportStopSummaryDTO
+    ) -> [String] {
+        var ids: [String] = []
+        for candidate in [detail?.stop.stopId, fallback.stopId] {
+            if let candidate, !candidate.isEmpty, !ids.contains(candidate) { ids.append(candidate) }
+        }
+        return ids
     }
 
     /// Rayon de regroupement des quais d'un même arrêt.
