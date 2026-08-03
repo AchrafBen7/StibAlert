@@ -2428,6 +2428,8 @@ private struct AddFavoriteSheet: View {
     @State private var searchQuery = ""
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var userCoordinate: CLLocationCoordinate2D? = nil
+    /// Réseau affiché. Même sélecteur que l'onboarding et l'écran Horaires.
+    @State private var selectedOperator: TransitOperator = .stib
 
     let existingIds: Set<String>
     let onClose: () -> Void
@@ -2439,9 +2441,17 @@ private struct AddFavoriteSheet: View {
     /// Sans recherche : les arrêts proches (STIB + SNCB + De Lijn + TEC). Avec
     /// recherche : STIB & SNCB par nom sur tout le réseau + De Lijn / TEC filtrés
     /// dans les arrêts déjà chargés (pas d'endpoint « nom » pour ces deux réseaux).
+    ///
+    /// Le filtre par opérateur n'est pas décoratif, il est indispensable : la
+    /// liste fusionnée était triée par distance puis coupée, et à Bruxelles les
+    /// arrêts STIB sont si denses qu'ils prenaient TOUTES les places. Les gares
+    /// SNCB et les arrêts De Lijn / TEC étaient bien chargés, mais jamais
+    /// visibles — alors que le sous-titre de l'écran les annonce.
     private var displayedStops: [UnifiedFavoriteStop] {
-        trimmedQuery.isEmpty ? nearbyStops : searchResults
+        let base = trimmedQuery.isEmpty ? nearbyStops : searchResults
+        return base.filter { $0.op == selectedOperator }
     }
+
 
     var body: some View {
         ZStack {
@@ -2489,6 +2499,19 @@ private struct AddFavoriteSheet: View {
                             scheduleSearch(for: newValue)
                         }
 
+                        // Même sélecteur que l'onboarding : on choisit d'abord
+                        // le réseau, puis l'arrêt. Sans lui, les arrêts STIB
+                        // (bien plus denses) masquaient totalement les trois
+                        // autres réseaux annoncés juste au-dessus.
+                        TransitOperatorRow(
+                            activeOperator: selectedOperator,
+                            enabledOperators: [.stib, .sncb, .delijn, .tec],
+                            onSelect: { op in
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                withAnimation(.easeOut(duration: 0.18)) { selectedOperator = op }
+                            }
+                        )
+
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.system(size: 12.5, weight: .semibold))
@@ -2514,7 +2537,15 @@ private struct AddFavoriteSheet: View {
                                 Image(systemName: trimmedQuery.isEmpty ? "mappin.slash" : "magnifyingglass")
                                     .font(.system(size: 32, weight: .light))
                                     .foregroundStyle(DS.Color.inkMute)
-                                Text(trimmedQuery.isEmpty ? AppLocalizer.string("favorites.empty.no_stop_nearby", defaultValue: "Aucun arrêt trouvé à proximité") : AppLocalizer.string("favorites.empty.no_stop_found", defaultValue: "Aucun arrêt trouvé"))
+                                // Le message NOMME le réseau : sans ça, « aucun
+                                // arrêt à proximité » laissait croire qu'il n'y
+                                // a rien du tout, alors qu'un autre onglet est
+                                // peut-être plein.
+                                Text(AppLocalizer.format(
+                                    "favorites.add.empty_for_operator",
+                                    defaultValue: "Aucun arrêt %@ ici",
+                                    selectedOperator.mapLabel
+                                ))
                                     .font(.system(size: 13.5, weight: .semibold))
                                     .foregroundStyle(DS.Color.ink)
                                 Text(trimmedQuery.isEmpty
@@ -2584,16 +2615,6 @@ private struct AddFavoriteSheet: View {
         }
     }
 
-    @ViewBuilder
-    private func operatorChip(_ op: TransitOperator) -> some View {
-        Text(op.mapLabel)
-            .font(.system(size: 9, weight: .bold))
-            .tracking(0.4)
-            .foregroundStyle(op.brandTextColor)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(op.brandColor))
-    }
 
     private func isFavorited(_ stop: UnifiedFavoriteStop) -> Bool {
         switch stop.op {
@@ -2609,13 +2630,13 @@ private struct AddFavoriteSheet: View {
 
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    operatorChip(stop.op)
-                    Text(stop.name)
-                        .font(.system(size: 14.5, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                }
+                // Plus de pastille d'opérateur : le réseau est déjà choisi
+                // au-dessus, la répéter sur chaque rangée n'apprenait rien et
+                // repoussait le nom de l'arrêt, la seule information utile ici.
+                Text(stop.name)
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
 
                 if !stop.lines.isEmpty {
                     HStack(spacing: 6) {
@@ -2733,11 +2754,14 @@ private struct AddFavoriteSheet: View {
         let sncb = await sncbStops
         let delijn = await delijnStops
         let tec = await tecStops
-        let merged = stib + sncb + delijn + tec
-        nearbyStops = merged
-            .sorted { $0.distanceMeters < $1.distanceMeters }
-            .prefix(40)
-            .map { $0 }
+        // Plafond PAR RÉSEAU, pas global. Un `prefix(40)` sur la liste fusionnée
+        // triée par distance donnait 40 arrêts STIB à Bruxelles, et supprimait
+        // purement et simplement les gares SNCB et les arrêts De Lijn / TEC
+        // pourtant déjà chargés.
+        func nearest(_ stops: [UnifiedFavoriteStop], _ limit: Int) -> [UnifiedFavoriteStop] {
+            stops.sorted { $0.distanceMeters < $1.distanceMeters }.prefix(limit).map { $0 }
+        }
+        nearbyStops = nearest(stib, 25) + nearest(sncb, 10) + nearest(delijn, 15) + nearest(tec, 15)
     }
 
     private func loadStibNearby(_ origin: CLLocationCoordinate2D) async -> [UnifiedFavoriteStop] {

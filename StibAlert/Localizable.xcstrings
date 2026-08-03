@@ -37335,6 +37335,29 @@
           }
         }
       }
+    },
+    "favorites.add.empty_for_operator": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun arrêt %@ ici"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No %@ stop here"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen %@-halte hier"
+          }
+        }
+      }
     }
   },
   "version": "1.1"
