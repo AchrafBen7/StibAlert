@@ -4789,6 +4789,12 @@
             "state": "translated",
             "value": "Ongeldig e-mailformaat"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format d'email invalide"
+          }
         }
       }
     },
@@ -5197,6 +5203,12 @@
             "state": "translated",
             "value": "Een cijfer"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un chiffre"
+          }
         }
       }
     },
@@ -5213,6 +5225,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Minstens 8 tekens"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "8 caractères minimum"
           }
         }
       }
@@ -5231,6 +5249,12 @@
             "state": "translated",
             "value": "· aanbevolen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· recommandé"
+          }
         }
       }
     },
@@ -5247,6 +5271,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Een hoofdletter"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une majuscule"
           }
         }
       }
@@ -5540,6 +5570,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "In plaats daarvan inloggen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se connecter à la place"
           }
         }
       }
@@ -14463,6 +14499,12 @@
             "state": "translated",
             "value": "Aanmaken"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créer"
+          }
         }
       }
     },
@@ -14480,6 +14522,12 @@
             "state": "translated",
             "value": "Maak een account voor favorieten + meldingen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crée un compte pour tes favoris + les alertes"
+          }
         }
       }
     },
@@ -14496,6 +14544,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gastmodus"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mode invité"
           }
         }
       }
@@ -18726,6 +18780,12 @@
             "state": "translated",
             "value": "Wanneer een cluster een van je favoriete lijnen treft"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand un incident touche une de tes lignes favorites"
+          }
         }
       }
     },
@@ -18742,6 +18802,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lijn 92 verstoord aan Bailli — 3 bevestigingen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne 92 perturbée à Bailli — 3 confirmations."
           }
         }
       }
@@ -18760,6 +18826,12 @@
             "state": "translated",
             "value": "Communitymeldingen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alertes communauté"
+          }
         }
       }
     },
@@ -18776,6 +18848,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "15 min voor je gewoonlijke vertrek, een bruikbaar oordeel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 min avant ton départ habituel, un verdict clair"
           }
         }
       }
@@ -18794,6 +18872,12 @@
             "state": "translated",
             "value": "Lijn 92 OK vanochtend — gewoonlijk vertrek 8u40 aangeraden."
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ligne 92 OK ce matin — départ habituel de 8h40 conseillé."
+          }
         }
       }
     },
@@ -18810,6 +18894,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pre-trip briefing"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point avant départ"
           }
         }
       }
@@ -18828,6 +18918,12 @@
             "state": "translated",
             "value": "Geen meldingen tijdens deze uren, behalve kritieke noodgevallen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune notification pendant ces heures, sauf urgence critique"
+          }
         }
       }
     },
@@ -18844,6 +18940,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ongeval blokkeert lijn 92 vannacht (noodgeval — uitzondering stilte)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un accident bloque la ligne 92 ce soir (urgence — exception au silence)."
           }
         }
       }
@@ -18862,6 +18964,12 @@
             "state": "translated",
             "value": "Stille periode"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures silencieuses"
+          }
         }
       }
     },
@@ -18878,6 +18986,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wanneer je melding andere reizigers helpt"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand ton signalement aide d'autres voyageurs"
           }
         }
       }
@@ -18896,6 +19010,12 @@
             "state": "translated",
             "value": "Bedankt! 12 reizigers zagen je melding."
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci ! 12 voyageurs ont vu ton signalement."
+          }
         }
       }
     },
@@ -18913,6 +19033,12 @@
             "state": "translated",
             "value": "Bedankjes"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remerciements"
+          }
         }
       }
     },
@@ -18929,6 +19055,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nooit marketing — enkel vervoersgebeurtenissen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais de publicité — uniquement des événements transport."
           }
         }
       }
@@ -19232,6 +19364,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ik ontdek het zelf"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je découvre par moi-même"
           }
         }
       }
@@ -19537,6 +19675,12 @@
             "state": "translated",
             "value": "Ik ontdek eerst"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je découvre d'abord"
+          }
         }
       }
     },
@@ -19553,6 +19697,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ik ontdek met 3 centrumhaltes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découvrir avec 3 arrêts du centre"
           }
         }
       }
@@ -22728,6 +22878,12 @@
             "state": "translated",
             "value": "Mijn account verwijderen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer mon compte"
+          }
         }
       }
     },
@@ -22745,6 +22901,12 @@
             "state": "translated",
             "value": "Definitief verwijderen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer définitivement"
+          }
         }
       }
     },
@@ -22761,6 +22923,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deze actie is onomkeerbaar. Je account en al je gegevens worden verwijderd."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action est irréversible. Ton compte et toutes tes données seront supprimés."
           }
         }
       }
@@ -22864,6 +23032,12 @@
             "state": "translated",
             "value": "Wijzigen"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier"
+          }
         }
       }
     },
@@ -22880,6 +23054,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stille periode"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heures silencieuses"
           }
         }
       }
@@ -24593,6 +24773,12 @@
             "state": "translated",
             "value": "Beschrijf de situatie"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décris la situation"
+          }
         }
       }
     },
@@ -24609,6 +24795,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "· +5 ptn"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· +5 pts"
           }
         }
       }
@@ -24627,6 +24819,12 @@
             "state": "translated",
             "value": "Optioneel — beschrijven in 1 regel levert +5 ptn op"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facultatif — décrire en 1 ligne rapporte +5 pts"
+          }
         }
       }
     },
@@ -24643,6 +24841,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Optioneel"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facultatif"
           }
         }
       }
@@ -24661,6 +24865,12 @@
             "state": "translated",
             "value": "Bv.: Tram al 5 min geblokkeerd aan licht Bailli, veel volk op het perron"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ex. : tram bloqué 5 min au feu de Bailli, quai bondé"
+          }
         }
       }
     },
@@ -24677,6 +24887,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bedankt, je feedback helpt iedereen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merci, ton retour aide tout le monde"
           }
         }
       }
@@ -24695,6 +24911,12 @@
             "state": "translated",
             "value": "Eén regel beschrijven (« Geblokkeerd aan licht Bailli ») levert je +5 ptn op je communityscore de volgende keer."
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décrire en une ligne (« Bloqué au feu de Bailli ») rapporte +5 pts sur ton score communauté la prochaine fois."
+          }
         }
       }
     },
@@ -24711,6 +24933,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dopaminetip"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Astuce"
           }
         }
       }
@@ -24848,6 +25076,12 @@
             "state": "translated",
             "value": "Melden"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaler"
+          }
         }
       }
     },
@@ -24864,6 +25098,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Verstuurd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyé"
           }
         }
       }
@@ -24916,6 +25156,12 @@
             "state": "translated",
             "value": "« Nog steeds geblokkeerd » als het probleem aanhoudt, « Weer in orde » als het is opgelost."
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Toujours bloqué » si le problème persiste, « Revenu à la normale » si c'est réglé."
+          }
         }
       }
     },
@@ -24932,6 +25178,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ben je ter plaatse?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu es sur place ?"
           }
         }
       }
@@ -24950,6 +25202,12 @@
             "state": "translated",
             "value": "Weer in orde"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revenu à la normale"
+          }
         }
       }
     },
@@ -24966,6 +25224,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nog steeds geblokkeerd"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours bloqué"
           }
         }
       }

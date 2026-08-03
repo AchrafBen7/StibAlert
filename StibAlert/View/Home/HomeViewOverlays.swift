@@ -241,7 +241,7 @@ extension HomeView {
               !nav.showReportSheet, routeOptions.isEmpty,
               proactiveAlertCluster == nil else { return false }
         let hasRoutine = (user.routine?.enabled == true)
-        let hasFavorites = !(user.favoriteLines ?? []).isEmpty || !favoriteStopIds.isEmpty
+        let hasFavorites = !session.effectiveFavoriteLines.isEmpty || !favoriteStopIds.isEmpty
         return !hasRoutine && hasFavorites
     }
 

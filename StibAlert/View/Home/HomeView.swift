@@ -284,13 +284,14 @@ struct HomeView: View {
     /// (même règle de pertinence que l'alerte proactive). Sans favoris ni routine,
     /// on ne filtre RIEN (sinon la carte se viderait et le mode paraîtrait cassé).
     private func clustersOnMyLines(_ clusters: [ClusterDTO]) -> [ClusterDTO] {
-        guard let user = session.currentUser else { return clusters }
-        let favoriteLines = Set((user.favoriteLines ?? []).compactMap { raw -> String? in
+        // Plus de `guard let user` : un invité a lui aussi des lignes choisies
+        // à l'onboarding, elles doivent filtrer la carte comme pour un compte.
+        let favoriteLines = Set(session.effectiveFavoriteLines.compactMap { raw -> String? in
             let normalized = raw.uppercased()
             return normalized.contains(":") ? nil : normalized
         })
-        let homeStopId = user.routine?.homeStopId
-        let workStopId = user.routine?.workStopId
+        let homeStopId = session.currentUser?.routine?.homeStopId
+        let workStopId = session.currentUser?.routine?.workStopId
         guard !favoriteLines.isEmpty || homeStopId != nil || workStopId != nil else { return clusters }
         return clusters.filter { cluster in
             if favoriteLines.contains(cluster.ligne.uppercased()) { return true }
@@ -313,9 +314,7 @@ struct HomeView: View {
 
     private var visibleLineNumbers: Set<String> {
         var numbers = Set<String>()
-        if let favs = session.currentUser?.favoriteLines {
-            numbers.formUnion(favs)
-        }
+        numbers.formUnion(session.effectiveFavoriteLines)
         numbers.formUnion(remoteSignalements.map(\.ligne))
         if let selectedRouteOption {
             numbers.formUnion(selectedRouteOption.displayLineCodes)
@@ -324,7 +323,7 @@ struct HomeView: View {
     }
 
     private var widgetFavoriteLineNumbers: Set<String> {
-        Set(session.currentUser?.favoriteLines ?? [])
+        Set(session.effectiveFavoriteLines)
     }
 
     private var trackedVehicleLineNumbers: Set<String> {
@@ -1452,12 +1451,13 @@ struct HomeView: View {
               nav.currentPage == .home,
               !nav.showReportSheet else { return }
 
-        guard let user = session.currentUser else { return }
-        let favoriteLines = Set((user.favoriteLines ?? []).compactMap { rawLine -> String? in
+        // Une alerte proactive vaut aussi pour un invité : ses lignes viennent
+        // de l'onboarding plutôt que d'un profil.
+        let favoriteLines = Set(session.effectiveFavoriteLines.compactMap { rawLine -> String? in
             let normalized = rawLine.uppercased()
             return normalized.contains(":") ? nil : normalized
         })
-        let hasRoutine = user.routine?.enabled == true
+        let hasRoutine = session.currentUser?.routine?.enabled == true
         guard !favoriteLines.isEmpty || hasRoutine else { return }
 
         // Proximité : on ne réveille la carte « confirme si c'est encore bloqué »
@@ -1467,13 +1467,18 @@ struct HomeView: View {
         // l'ancien comportement basé sur les favoris / arrêts domicile-travail.
         let userLoc = locationManager.userCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) }
         let maxDistanceMeters = 1500.0
+        // Extraits hors de la closure : l'invité n'a pas de routine, et laisser
+        // ces deux accès optionnels dans l'expression la rendait trop lourde
+        // pour le vérificateur de types.
+        let homeStopId = session.currentUser?.routine?.homeStopId
+        let workStopId = session.currentUser?.routine?.workStopId
         let affectedCluster = activeClusters.first { cluster in
             // « Pas passé par là » : ne plus jamais representer cette perturbation.
             guard (dismissedProactiveClusterKeys[proactiveClusterKey(cluster)] ?? 0) < Date().timeIntervalSince1970 else { return false }
             let line = cluster.ligne.uppercased()
-            let isRelevant = favoriteLines.contains(line)
-                || (user.routine?.homeStopId).map { cluster.arretId == $0 } == true
-                || (user.routine?.workStopId).map { cluster.arretId == $0 } == true
+            var isRelevant = favoriteLines.contains(line)
+            if !isRelevant, let homeStopId { isRelevant = cluster.arretId == homeStopId }
+            if !isRelevant, let workStopId { isRelevant = cluster.arretId == workStopId }
             guard isRelevant else { return false }
             guard let userLoc, let lat = cluster.latitude, let lng = cluster.longitude else { return true }
             return userLoc.distance(from: CLLocation(latitude: lat, longitude: lng)) <= maxDistanceMeters
@@ -2176,8 +2181,8 @@ struct HomeView: View {
     }
 
     var favoriteAffectedCount: Int {
-        guard let favoriteLines = session.currentUser?.favoriteLines, !favoriteLines.isEmpty else { return 0 }
-        let lines = Set(favoriteLines)
+        let lines = Set(session.effectiveFavoriteLines)
+        guard !lines.isEmpty else { return 0 }
         return remoteSignalements.filter { $0.status != "resolved" && lines.contains($0.ligne) }.count
     }
 

@@ -53,6 +53,24 @@ final class AuthSession: ObservableObject {
         return nil
     }
 
+    /// Lignes favorites RÉELLEMENT en vigueur, compte ou pas.
+    ///
+    /// L'onboarding fait choisir jusqu'à 6 lignes AVANT toute création de
+    /// compte. Ces choix étaient bien enregistrés localement, mais
+    /// `applyOnboardingPreferencesIfNeeded` commence par
+    /// `guard let user = session.currentUser` : sans compte, ils n'étaient
+    /// jamais appliqués. Et tout le reste de l'app lisait
+    /// `currentUser?.favoriteLines`. Résultat pour un invité : il choisit
+    /// 6 lignes, et l'app se comporte comme s'il n'en avait aucune — carte non
+    /// filtrée, aucune alerte ciblée, compteur à zéro.
+    ///
+    /// Les préférences locales ne servent QUE de repli : dès qu'un compte
+    /// existe, c'est lui qui fait foi (il se synchronise entre appareils).
+    var effectiveFavoriteLines: [String] {
+        if let lines = currentUser?.favoriteLines, !lines.isEmpty { return lines }
+        return OnboardingPreferenceStore.load().favoriteLines
+    }
+
     func bootstrap() async {
         guard AppConfig.isBackendEnabled else {
             state = .signedOut
