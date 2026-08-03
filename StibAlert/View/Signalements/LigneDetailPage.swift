@@ -34,6 +34,10 @@ final class LigneDetailViewModel: ObservableObject {
         /// reported at (or approaching) this stop — drives the filled
         /// timeline dot + "à quai" indicator.
         let vehiclePresent: Bool
+        /// Les AUTRES lignes qui desservent cet arrêt, ligne courante exclue.
+        /// C'est la correspondance : savoir qu'on peut sauter sur un 25 ici
+        /// vaut souvent plus que l'attente de la ligne qu'on regarde.
+        let connectingLines: [String]
     }
 
     let line: LineStatusItem
@@ -329,6 +333,13 @@ final class LigneDetailViewModel: ObservableObject {
         // `occupiedKeys` so we don't rescan the vehicle list per stop).
         let vehiclePresent = occupiedKeys.contains(stop.name.normalizedStopKey)
 
+        // Correspondances : les autres lignes de l'arrêt. La ligne qu'on
+        // consulte est retirée — l'app STIB fait pareil, elle est implicite.
+        let currentLine = lineDetail.line.lineId.uppercased()
+        let connectingLines = (catalog?.lignesDesservies ?? [])
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0.uppercased() != currentLine }
+
         return StopSnapshot(
             id: stop.stopId ?? stop.id,
             backendId: catalog?.id ?? stop.id,
@@ -341,7 +352,8 @@ final class LigneDetailViewModel: ObservableObject {
             disruptionSeverity: incidents.first?.severity,
             reportsCount: incidents.count,
             delayMinutes: catalog?.delayMinutes,
-            vehiclePresent: vehiclePresent
+            vehiclePresent: vehiclePresent,
+            connectingLines: connectingLines
         )
     }
 }
@@ -1277,6 +1289,60 @@ private struct LigneTimelineRow: View {
         (stop.delayMinutes ?? 0) > 10
     }
 
+    /// Correspondances de l'arrêt, groupées par mode (métro, tram, bus) comme
+    /// dans l'app STIB : une pastille de mode, puis les numéros de ligne.
+    ///
+    /// C'est souvent l'information la plus utile de la liste — savoir qu'on
+    /// peut sauter sur un 25 à Gare du Nord vaut plus que l'attente de la
+    /// ligne qu'on est en train de regarder.
+    @ViewBuilder
+    private var connectionsView: some View {
+        let grouped = Self.groupedByMode(stop.connectingLines)
+        if !grouped.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(grouped, id: \.mode) { group in
+                    HStack(spacing: 5) {
+                        Image(systemName: group.mode.sfSymbol)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(DS.Color.paper)
+                            .frame(width: 17, height: 17)
+                            .background(Circle().fill(DS.Color.statusMajor))
+
+                        ForEach(group.lines, id: \.self) { line in
+                            LineBadge(line: line, size: .sm)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.top, 1)
+        }
+    }
+
+    /// Métro d'abord, puis tram, puis bus — l'ordre de l'app STIB. Les numéros
+    /// sont triés numériquement (2, 10, 25 et non 10, 2, 25).
+    private static func groupedByMode(_ lines: [String]) -> [(mode: TransitLineMode, lines: [String])] {
+        var buckets: [TransitLineMode: [String]] = [:]
+        for line in lines {
+            buckets[TransitLineMode.mode(for: line), default: []].append(line)
+        }
+        let order: [TransitLineMode] = [.metro, .tram, .bus]
+        var result: [(mode: TransitLineMode, lines: [String])] = []
+        for mode in order {
+            guard let bucket = buckets[mode], !bucket.isEmpty else { continue }
+            let sorted = bucket.sorted { left, right in
+                let leftNumber = Int(left.filter(\.isNumber))
+                let rightNumber = Int(right.filter(\.isNumber))
+                if let leftNumber, let rightNumber, leftNumber != rightNumber {
+                    return leftNumber < rightNumber
+                }
+                return left.localizedStandardCompare(right) == .orderedAscending
+            }
+            result.append((mode, sorted))
+        }
+        return result
+    }
+
     private var segmentColor: Color {
         guard stop.disruption != nil || nextStopDisrupted || hasSignificantDelay else {
             return DS.Color.ink.opacity(0.2)
@@ -1398,6 +1464,8 @@ private struct LigneTimelineRow: View {
                                 .foregroundStyle(DS.Color.inkMute)
                         }
                     }
+
+                    connectionsView
 
                     if let disruption = stop.disruption, !disruption.isEmpty {
                         HStack(alignment: .top, spacing: 6) {
