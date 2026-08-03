@@ -1444,8 +1444,23 @@ struct HomeView: View {
         }
     }
 
+    /// Carte proactive « Perturbation sur ta ligne » — DÉSACTIVÉE.
+    ///
+    /// Elle surgissait d'elle-même pour demander de confirmer une perturbation,
+    /// mais se déclenchait trop souvent à tort : sur des communiqués qui ne
+    /// concernent pas vraiment le trajet en cours, ou pour un arrêt où
+    /// l'utilisateur n'est pas passé. Une question posée à tort coûte plus cher
+    /// que l'information qu'elle rapporte — et elle abîme la confiance dans
+    /// tout le reste de l'écran.
+    ///
+    /// Le code est conservé intact : remettre cette constante à `true` la
+    /// réactive entièrement, une fois la pertinence du déclenchement revue
+    /// (proximité réelle, ligne réellement empruntée, fraîcheur du communiqué).
+    private static let proactiveAlertEnabled = false
+
     @MainActor
     private func considerAutoShowDecision() async {
+        guard Self.proactiveAlertEnabled else { return }
         guard !hasAutoShownDecision,
               proactiveAlertCluster == nil,
               nav.currentPage == .home,
