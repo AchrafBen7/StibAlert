@@ -14,13 +14,18 @@ enum DepartureTimeFormat {
 
     /// Heure locale de l'appareil : on suit les réglages régionaux (24 h en
     /// Belgique, 12 h ailleurs) plutôt que d'imposer un format.
-    private static let clock: DateFormatter = {
+    ///
+    /// Construit à chaque appel plutôt que partagé : `DateFormatter` n'est pas
+    /// sûr en accès concurrent, et rien ne garantit que ce libellé ne sera
+    /// jamais demandé hors du fil principal. Quelques rangées par fiche, le
+    /// coût est invisible.
+    private static func makeClock() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale.autoupdatingCurrent
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter
-    }()
+    }
 
     /// - Parameters:
     ///   - minutes: attente annoncée par le serveur.
@@ -35,7 +40,7 @@ enum DepartureTimeFormat {
             return AppLocalizer.format("departure.in_minutes", defaultValue: "%lld min", minutes)
         }
         let date = absoluteDate ?? now.addingTimeInterval(TimeInterval(minutes) * 60)
-        return clock.string(from: date)
+        return makeClock().string(from: date)
     }
 
     /// Vrai quand le passage est si loin qu'on affiche une heure, pas une attente.

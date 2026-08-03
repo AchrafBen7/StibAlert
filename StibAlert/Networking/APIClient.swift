@@ -105,8 +105,16 @@ struct APIClient {
                 // une seule de ces dates faisait échouer /transport/overview
                 // en entier (bandeau réseau de l'accueil + résumé signalements).
                 // On l'interprète à Bruxelles, ce qu'elle veut dire.
-                if let date = APIClient.naiveDateFormatter.date(from: s) { return date }
-                if let date = APIClient.naiveDayFormatter.date(from: s) { return date }
+                //
+                // ⚠️ Formateurs construits ICI, jamais partagés. `DateFormatter`
+                // n'est pas sûr en accès concurrent, et ce décodeur tourne sur
+                // plusieurs threads à la fois : `loadStopDetail` décode les
+                // quais voisins d'un arrêt en parallèle. Des instances statiques
+                // partagées corrompaient le tas (SIGABRT, « freed pointer was
+                // not the last allocation »). Le coût d'allocation est
+                // négligeable face au décodage JSON lui-même.
+                if let date = APIClient.makeNaiveFormatter("yyyy-MM-dd'T'HH:mm:ss").date(from: s) { return date }
+                if let date = APIClient.makeNaiveFormatter("yyyy-MM-dd").date(from: s) { return date }
 
                 throw DecodingError.dataCorruptedError(
                     in: container,
@@ -151,25 +159,19 @@ struct APIClient {
     }()
     private let encoder = JSONEncoder()
 
-    /// Heure locale bruxelloise sans fuseau, telle que De Lijn publie ses
-    /// périodes de déviation. `DateFormatter` est thread-safe en lecture seule,
-    /// et on ne fait que `date(from:)`.
-    fileprivate static let naiveDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "Europe/Brussels")
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        return f
-    }()
-
-    /// Même chose pour une date seule ("2024-09-02"), calée à minuit.
-    fileprivate static let naiveDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(identifier: "Europe/Brussels")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
+    /// Formateur d'heure locale bruxelloise SANS fuseau, tel que De Lijn
+    /// publie ses périodes de déviation.
+    ///
+    /// Construit à chaque appel, jamais mis en cache : voir le commentaire dans
+    /// la stratégie de décodage. Une instance partagée entre threads corrompait
+    /// le tas.
+    fileprivate static func makeNaiveFormatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Europe/Brussels")
+        formatter.dateFormat = format
+        return formatter
+    }
 
     /// - Parameter timeout: dépassement propre à CETTE requête. Le défaut de la
     ///   session (8 s) convient aux appels simples, mais pas au calcul

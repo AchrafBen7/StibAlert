@@ -2313,7 +2313,7 @@ struct HomeView: View {
                         // `realtimeStatus: "unavailable"` et `source: "scheduled"`
                         // sur chaque passage : la fiche affiche déjà sa mention
                         // « Horaires théoriques », rien n'est présenté comme live.
-                        selectedMapStopDetail = TransportStopDTO(
+                        let offlineDetail = TransportStopDTO(
                             stop: TransportStopSummaryDTO(
                                 id: stop.id,
                                 stopId: stop.stopId,
@@ -2334,7 +2334,8 @@ struct HomeView: View {
                             nextDepartures: cached,
                             recommendedAlternatives: []
                         )
-                        selectDefaultStopLineIfNeeded(from: selectedMapStopDetail!)
+                        selectedMapStopDetail = offlineDetail
+                        selectDefaultStopLineIfNeeded(from: offlineDetail)
                     }
                 }
             }

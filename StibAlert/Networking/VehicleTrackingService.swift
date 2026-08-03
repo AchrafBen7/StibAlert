@@ -6,20 +6,21 @@ private struct VehiclePositionsResponse: Decodable {
     let items: [TransportVehicleDTO]
 }
 
-// ISO-8601 parsers au niveau fichier (donc NON isolés MainActor) : référencés
-// depuis la closure Sendable du JSONDecoder qui tourne hors du main actor.
-// ISO8601DateFormatter est thread-safe en lecture (date(from:)).
-nonisolated(unsafe) private let vehicleISO8601WithMillis: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f
-}()
-
-nonisolated(unsafe) private let vehicleISO8601Plain: ISO8601DateFormatter = {
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime]
-    return f
-}()
+/// Analyseurs ISO-8601 construits À CHAQUE DÉCODAGE, jamais partagés.
+///
+/// Ils étaient auparavant statiques, au motif que « ISO8601DateFormatter est
+/// thread-safe en lecture » — ce qu'Apple ne garantit nulle part. Or ce
+/// décodage tourne sur plusieurs threads simultanément (poll des véhicules +
+/// instantanés des écrans de détail). Un formateur partagé est le genre d'état
+/// qui finit en corruption de tas. L'allocation est négligeable : une par
+/// réponse réseau, pas une par date.
+private func makeVehicleDateParsers() -> (withMillis: ISO8601DateFormatter, plain: ISO8601DateFormatter) {
+    let withMillis = ISO8601DateFormatter()
+    withMillis.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let plain = ISO8601DateFormatter()
+    plain.formatOptions = [.withInternetDateTime]
+    return (withMillis, plain)
+}
 
 /// Session dédiée aux positions de véhicules.
 ///
@@ -58,12 +59,13 @@ private func decodeVehicles(data: Data, response: URLResponse) throws -> [Transp
     if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
         throw VehicleEndpointError(statusCode: http.statusCode)
     }
+    let parsers = makeVehicleDateParsers()
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .custom { dec in
         let container = try dec.singleValueContainer()
         let raw = try container.decode(String.self)
-        if let date = vehicleISO8601WithMillis.date(from: raw) { return date }
-        if let date = vehicleISO8601Plain.date(from: raw) { return date }
+        if let date = parsers.withMillis.date(from: raw) { return date }
+        if let date = parsers.plain.date(from: raw) { return date }
         throw DecodingError.dataCorruptedError(
             in: container,
             debugDescription: "Unrecognised ISO-8601 date: \(raw)"
