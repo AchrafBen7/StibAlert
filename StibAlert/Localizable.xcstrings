@@ -37669,6 +37669,29 @@
           }
         }
       }
+    },
+    "event.brussels_label": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Événement Bruxelles"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brussels event"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evenement Brussel"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

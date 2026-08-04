@@ -127,7 +127,7 @@ struct HomeEventImpactSheet: View {
                 }
             }
 
-            if let notes = event.notesFr, !notes.isEmpty {
+            if let notes = event.localizedNotes, !notes.isEmpty {
                 Text(notes)
                     .font(DS.Font.body)
                     .foregroundStyle(DS.Color.inkSoft)

@@ -979,12 +979,24 @@ struct TransportEventImpactDTO: Codable, Equatable, Identifiable {
     let expectedAttendance: Int?
     let impactLevel: String?
     let notesFr: String?
+    /// Optionnel : les réponses encore en cache et les anciennes versions du
+    /// serveur ne portent pas ce champ.
+    let notesNl: String?
     let impactedLines: [String]
     let impactedStops: [String]
     let impactedStopDetails: [TransportEventImpactedStopDTO]?
     let confidence: Double?
     let soldOut: Bool?
     let url: String?
+
+    /// Note du lieu dans la langue de l'app, avec repli sur le français.
+    ///
+    /// Sans ça, un néerlandophone lisait « Tram 82, bus 50. Saturé après
+    /// concerts. » en plein milieu d'une interface en néerlandais.
+    var localizedNotes: String? {
+        if AppLocale.languageCode == "nl", let nl = notesNl, !nl.isEmpty { return nl }
+        return notesFr
+    }
 }
 
 struct TransportEventImpactedStopDTO: Codable, Equatable, Identifiable {

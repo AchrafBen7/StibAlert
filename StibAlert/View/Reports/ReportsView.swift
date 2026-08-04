@@ -251,7 +251,7 @@ struct ReportsView: View {
                 id: "event-\(event.id)",
                 type: .event,
                 title: event.title,
-                body: event.notesFr ?? event.venue ?? event.zoneLabel,
+                body: event.localizedNotes ?? event.venue ?? event.zoneLabel,
                 timeLabel: eventTimeLabel(for: event),
                 lines: event.impactedLines,
                 location: event.address ?? event.venue ?? event.zoneLabel,
@@ -1583,8 +1583,15 @@ struct ReportsView: View {
 
         switch (lhs.event?.startsAt, rhs.event?.startsAt, lhs.report?.dateSignalement, rhs.report?.dateSignalement) {
         case let (l?, r?, _, _):
-            return l > r
+            // ÉVÉNEMENTS : ordre CROISSANT, le plus proche en tête.
+            //
+            // Ils étaient triés comme les signalements, en décroissant. C'est
+            // juste pour un signalement (le plus récent d'abord), mais absurde
+            // pour un événement, dont la date est À VENIR : on obtenait le plus
+            // LOINTAIN en premier et la liste se lisait à rebours.
+            return l < r
         case let (_, _, l?, r?):
+            // SIGNALEMENTS : ordre décroissant, le plus récent d'abord.
             return l > r
         default:
             return lhs.title < rhs.title
@@ -2646,7 +2653,7 @@ private struct EditorialTypeMeta {
         case .mixed:
             return .init(label: "Officiel + confirmé", iconSystemName: "exclamationmark.triangle.fill", stripe: AnyShapeStyle(LinearGradient(colors: [DS.Color.statusMajor, DS.Color.community], startPoint: .top, endPoint: .bottom)), stripeWidth: 6, accent: DS.Color.statusMajor)
         case .event:
-            return .init(label: "Événement Bruxelles", iconSystemName: "ticket.fill", stripe: AnyShapeStyle(DS.Color.event), stripeWidth: 4, accent: DS.Color.event)
+            return .init(label: AppLocalizer.string("event.brussels_label", defaultValue: "Événement Bruxelles"), iconSystemName: "ticket.fill", stripe: AnyShapeStyle(DS.Color.event), stripeWidth: 4, accent: DS.Color.event)
         }
     }
 }
@@ -2755,7 +2762,7 @@ private struct EventImpactDetailSheet: View {
                 heroStat(icon: "map", label: "ARRÊTS", value: "\(canonicalStopRows.count)")
             }
 
-            if let note = event.notesFr, !note.isEmpty {
+            if let note = event.localizedNotes, !note.isEmpty {
                 Rectangle()
                     .fill(DS.Color.ink.opacity(0.12))
                     .frame(height: 1)
