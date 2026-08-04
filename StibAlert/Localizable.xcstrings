@@ -37692,6 +37692,29 @@
           }
         }
       }
+    },
+    "gare.disruptions_section": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PERTURBATIONS · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DISRUPTIONS · %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "STORINGEN · %@"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

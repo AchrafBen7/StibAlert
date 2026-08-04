@@ -24,7 +24,13 @@ struct GareDetailPage: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedTab: DetailTab
-    @State private var selectedTrafficSubtab: TrafficSubtab = .live
+    /// On ouvre sur OFFICIEL, comme la page d'une ligne STIB.
+    ///
+    /// « Lopend » ne contient que les signalements communautaires : il est
+    /// presque toujours vide tant qu'il y a peu d'utilisateurs, si bien que
+    /// l'écran s'ouvrait sur « aucun signalement » alors que l'onglet voisin
+    /// annonçait 10 perturbations officielles.
+    @State private var selectedTrafficSubtab: TrafficSubtab = .official
     @State private var selectedDay: SNCBDayType = .weekday
     @State private var schedule: SNCBSchedule?
     @State private var isLoadingSchedule = true
@@ -566,7 +572,15 @@ struct GareDetailPage: View {
 
                 if !gareDisr.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        sectionLabel("PERTURBATIONS · \(station.displayName.uppercased())", count: gareDisr.count, tint: DS.Color.statusMinor)
+                        sectionLabel(
+                            AppLocalizer.format(
+                                "gare.disruptions_section",
+                                defaultValue: "PERTURBATIONS · %@",
+                                station.displayName.uppercased()
+                            ),
+                            count: gareDisr.count,
+                            tint: DS.Color.statusMinor
+                        )
                         VStack(spacing: 8) {
                             ForEach(gareDisr) { disruptionRow($0) }
                         }

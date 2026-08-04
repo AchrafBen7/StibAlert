@@ -287,7 +287,12 @@ enum SNCBStationService {
     static func realtime(stationId: String) async -> SNCBRealtime? {
         guard AppConfig.isBackendEnabled else { return nil }
         let encoded = stationId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? stationId
-        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/sncb/realtime?stationId=\(encoded)") else { return nil }
+        // On transmet la langue : iRail renvoie les noms de gares ET les textes
+        // de perturbation dans la langue demandée. Sans ce paramètre, un
+        // néerlandophone lisait « Louvain » et « Retards » plutôt que
+        // « Leuven » et « Vertragingen ».
+        let lang = AppLocale.languageCode
+        guard let url = URL(string: "\(AppConfig.backendBaseURL)/api/sncb/realtime?stationId=\(encoded)&lang=\(lang)") else { return nil }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             return try JSONDecoder().decode(SNCBRealtime.self, from: data)
