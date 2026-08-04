@@ -523,9 +523,27 @@ struct OperatorDisruptionsList: View {
     /// ramait. Ici on ne fait plus qu'un `contains` sur des chaînes déjà prêtes.
     @State private var searchIndex: [String] = []
 
+    /// Même index, mais pour les lignes PERTURBÉES — et c'est celui qui
+    /// manquait.
+    ///
+    /// `filteredIssues` concaténait, à chaque frappe et pour les 205 lignes, le
+    /// nom, la zone, l'aperçu ET le texte intégral de chaque communiqué, avant
+    /// de replier les accents sur le tout. Des dizaines de milliers de
+    /// caractères passés dans ICU par caractère tapé, sur le fil principal :
+    /// la saisie devenait inutilisable et finissait par tuer l'app.
+    @State private var issueSearchIndex: [String] = []
+
     private func rebuildSearchIndex() {
         searchIndex = lines.map {
             "\($0.shortName) \($0.longName)"
+                .folding(options: .diacriticInsensitive, locale: .current)
+                .lowercased()
+        }
+        issueSearchIndex = lineIssues.map { issue in
+            let disruptionText = issue.disruptions
+                .map { "\($0.header) \($0.description)" }
+                .joined(separator: " ")
+            return "\(issue.line.shortName) \(issue.line.longName) \(issue.line.zoneLabel(for: op)) \(issue.previewText) \(disruptionText)"
                 .folding(options: .diacriticInsensitive, locale: .current)
                 .lowercased()
         }
@@ -578,26 +596,27 @@ struct OperatorDisruptionsList: View {
     }
 
     private var filteredIssues: [OperatorLineIssue] {
-        let needle = searchQuery
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: .diacriticInsensitive, locale: .current)
-            .lowercased()
+        let needle = Self.normalizedNeedle(searchQuery)
 
-        let zoneFiltered = selectedZone == OperatorLineZone.allKey
-            ? lineIssues
-            : lineIssues.filter { $0.line.zoneKey(for: op) == selectedZone }
+        guard !needle.isEmpty else {
+            return selectedZone == OperatorLineZone.allKey
+                ? lineIssues
+                : lineIssues.filter { $0.line.zoneKey(for: op) == selectedZone }
+        }
 
-        let scopedIssues = needle.isEmpty ? zoneFiltered : lineIssues
-        guard !needle.isEmpty else { return scopedIssues }
-
-        return scopedIssues.filter { issue in
-            let disruptionText = issue.disruptions
-                .map { "\($0.header) \($0.description)" }
-                .joined(separator: " ")
-            return "\(issue.line.shortName) \(issue.line.longName) \(issue.line.zoneLabel(for: op)) \(issue.previewText) \(disruptionText)"
-                .folding(options: .diacriticInsensitive, locale: .current)
-                .lowercased()
-                .contains(needle)
+        // Index précalculé : plus qu'un `contains` sur des chaînes déjà
+        // normalisées. Repli sur l'ancien chemin si l'index n'est pas encore
+        // aligné (données qui viennent d'arriver).
+        guard issueSearchIndex.count == lineIssues.count else {
+            return lineIssues.filter {
+                "\($0.line.shortName) \($0.line.longName)"
+                    .folding(options: .diacriticInsensitive, locale: .current)
+                    .lowercased()
+                    .contains(needle)
+            }
+        }
+        return lineIssues.indices.compactMap {
+            issueSearchIndex[$0].contains(needle) ? lineIssues[$0] : nil
         }
     }
 
