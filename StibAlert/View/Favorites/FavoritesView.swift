@@ -8,6 +8,8 @@ struct FavoritesView: View {
     @State private var query = ""
     @State private var selectedOperator: TransitOperator = .stib
     @State private var selectedGareForDetail: SNCBStation?
+    /// Arrêt De Lijn / TEC ouvert depuis la liste des favoris.
+    @State private var selectedOperatorFavorite: OperatorMapStop?
     @ObservedObject private var gareFavorites = SNCBGareFavorites.shared
     @ObservedObject private var operatorFavorites = OperatorStopFavorites.shared
     @State private var selectedItem: FavoriteTransitItem?
@@ -140,6 +142,17 @@ struct FavoritesView: View {
                         GareDetailPage(station: gare, initialTab: .schedule, onReport: { _ in
                             selectedGareForDetail = nil
                             // Feuille de signalement rendue seulement sur la Home.
+                            nav.currentPage = .home
+                            nav.showReportSheet = true
+                        })
+                        .environmentObject(session)
+                        .environmentObject(nav)
+                    }
+                    // Même fiche que sur la carte : passages temps réel du quai
+                    // et de ses voisins, lignes desservies, perturbations.
+                    .sheet(item: $selectedOperatorFavorite) { stop in
+                        HomeOperatorStopSheet(stop: stop, onReport: {
+                            selectedOperatorFavorite = nil
                             nav.currentPage = .home
                             nav.showReportSheet = true
                         })
@@ -344,15 +357,40 @@ struct FavoritesView: View {
 
     private func operatorFavoriteRow(_ fav: FavoriteOperatorStop) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(fav.operatorType.brandColor).frame(width: 40, height: 40)
-                Image(systemName: "bus.fill").font(.system(size: 14, weight: .black)).foregroundStyle(fav.operatorType.brandTextColor)
+            // La rangée entière ouvre la fiche de l'arrêt.
+            //
+            // Elle n'avait AUCUNE action : seule l'étoile réagissait, donc un
+            // arrêt De Lijn ou TEC mis en favori était un cul-de-sac. La rangée
+            // SNCB, elle, ouvrait bien sa gare — deux comportements pour le même
+            // geste, dans la même liste.
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                selectedOperatorFavorite = OperatorMapStop(
+                    id: fav.stopId,
+                    name: fav.name,
+                    lat: fav.lat,
+                    lng: fav.lng,
+                    op: fav.operatorType
+                )
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(fav.operatorType.brandColor).frame(width: 40, height: 40)
+                        Image(systemName: "bus.fill").font(.system(size: 14, weight: .black)).foregroundStyle(fav.operatorType.brandTextColor)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(fav.name).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink).lineLimit(1)
+                        Text(AppLocalizer.format("favorites.operator_stop", defaultValue: "Arrêt %@", fav.operatorType.mapLabel)).font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Color.inkMute)
+                }
+                .contentShape(Rectangle())
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(fav.name).font(DS.Font.bodyBold).foregroundStyle(DS.Color.ink).lineLimit(1)
-                Text(AppLocalizer.format("favorites.operator_stop", defaultValue: "Arrêt %@", fav.operatorType.mapLabel)).font(DS.Font.bodySmall).foregroundStyle(DS.Color.inkMute)
-            }
-            Spacer()
+            .buttonStyle(.plain)
+
             Button {
                 operatorFavorites.remove(fav)
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
