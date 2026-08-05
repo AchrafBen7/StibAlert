@@ -463,13 +463,16 @@ extension SignalementDTO {
 
     var confidenceLabel: String? {
         guard let confiance else { return nil }
+        // Ces trois libellés étaient codés en dur en français, alors que
+        // `confidenceExplanation` juste en dessous était bien traduit : la
+        // pastille restait donc en français dans l'app néerlandaise.
         switch confiance.lowercased() {
         case "haute", "high":
-            return "Confiance haute"
+            return AppLocalizer.string("confidence.label.high", defaultValue: "Confiance haute")
         case "moyenne", "medium":
-            return "Confiance moyenne"
+            return AppLocalizer.string("confidence.label.medium", defaultValue: "Confiance moyenne")
         case "basse", "low":
-            return "Confiance basse"
+            return AppLocalizer.string("confidence.label.low", defaultValue: "Confiance basse")
         default:
             return nil
         }

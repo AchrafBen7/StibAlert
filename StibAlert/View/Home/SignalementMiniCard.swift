@@ -5,11 +5,8 @@ struct SignalementMiniCard: View {
     let signalement: SignalementDTO
     let arretName: String?
     let onClose: () -> Void
-    let onStillBlocked: () async -> Void
-    let onResolved: () async -> Void
 
     @State private var isSubmitting = false
-    @State private var userAction: String?
     @State private var feedback: String?
     @State private var showConfidenceExplanation = false
     @State private var reportedFake = false
@@ -124,23 +121,13 @@ struct SignalementMiniCard: View {
                     .padding(.top, 10)
             }
 
-            HStack(spacing: 10) {
-                actionButton(
-                    label: AppLocalizer.string("vote.still_blocked", defaultValue: "Toujours bloqué"),
-                    icon: "exclamationmark.circle.fill",
-                    tint: DS.Color.statusMinor,
-                    isActive: userAction == "stillBlocked",
-                    action: triggerStillBlocked
-                )
-                actionButton(
-                    label: AppLocalizer.string("vote.its_resolved", defaultValue: "C'est résolu"),
-                    icon: "checkmark.circle.fill",
-                    tint: DS.Color.statusOK,
-                    isActive: userAction == "resolved",
-                    action: triggerResolved
-                )
-            }
-            .padding(.top, 14)
+            // Les deux boutons « Toujours bloqué » / « C'est résolu » ont été
+            // retirés de cette carte. Elle s'ouvre au tap sur une pastille de
+            // la carte, y compris sur un communiqué OFFICIEL de la STIB : y
+            // demander à l'usager de confirmer n'avait pas de sens, puisque
+            // l'information ne vient pas de la communauté et qu'un vote ne
+            // pouvait rien y changer. Le geste reste disponible sur le détail
+            // d'un signalement communautaire, là où il sert vraiment.
 
             Button(action: { showReportOptions = true }) {
                 HStack(spacing: 5) {
@@ -202,62 +189,6 @@ struct SignalementMiniCard: View {
 
     private var confidenceIcon: String { ReportFreshness.level(signalement.liveConfidence).icon }
 
-    private func actionButton(
-        label: String,
-        icon: String,
-        tint: Color,
-        isActive: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if isSubmitting && isActive {
-                    ProgressView().tint(DS.Color.ink)
-                } else {
-                    Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(label)
-                        .font(DS.Font.bodyBold)
-                }
-            }
-            .foregroundStyle(DS.Color.ink)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(isActive ? tint.opacity(0.24) : tint.opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: DS.Radius.lg, style: .continuous)
-                    .stroke(isActive ? tint.opacity(0.7) : tint.opacity(0.35), lineWidth: 1.2)
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(isSubmitting || userAction != nil)
-        .opacity(userAction != nil && !isActive ? 0.5 : 1)
-    }
-
-    private func triggerStillBlocked() {
-        guard !isSubmitting && userAction == nil else { return }
-        isSubmitting = true
-        userAction = "stillBlocked"
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        Task {
-            await onStillBlocked()
-            feedback = "Merci, la communauté en est informée."
-            isSubmitting = false
-        }
-    }
-
-    private func triggerResolved() {
-        guard !isSubmitting && userAction == nil else { return }
-        isSubmitting = true
-        userAction = "resolved"
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        Task {
-            await onResolved()
-            feedback = "Merci, le signalement est marqué résolu."
-            isSubmitting = false
-        }
-    }
 
     /// Signale un contenu offensant/spam à la MODÉRATION (endpoint /flag),
     /// distinct du vote communautaire « faux » — exigé par Apple 1.2 (report

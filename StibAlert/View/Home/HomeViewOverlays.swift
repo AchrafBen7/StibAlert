@@ -329,12 +329,6 @@ extension HomeView {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                         selectedSignalementPreview = nil
                     }
-                },
-                onStillBlocked: {
-                    await reportStillBlocked(id: preview.id)
-                },
-                onResolved: {
-                    await reportResolved(id: preview.id)
                 }
             )
             .padding(.horizontal, 18)
