@@ -52,6 +52,13 @@ struct HomeView: View {
     @State private var currentRouteCoordinates: [CLLocationCoordinate2D] = []
     @State private var destinationCoord: CLLocationCoordinate2D? = nil
     @State private var routeOverlayRevision = 0
+    /// Avancement du dessin du tracé (0 = rien, 1 = complet).
+    ///
+    /// Volontairement SÉPARÉ de `routeOverlayRevision` : celle-ci porte le
+    /// `.id` de la carte, la changer reconstruit toute la Map. L'animer
+    /// soixante fois par seconde reconstruirait la carte entière à chaque
+    /// image. Ici seules les polylignes de l'itinéraire sont recalculées.
+    @State private var routeRevealProgress: Double = 1
     // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
     // n'affiche pas la card si une route est déjà sélectionnée).
     @State var routeOptions: [HomeRouteOption] = []
@@ -692,7 +699,8 @@ struct HomeView: View {
         return routeOptions.first
     }
 
-    private var routeMapSegments: [RouteMapSegment] {
+    /// Tracé complet, sans animation.
+    private var fullRouteMapSegments: [RouteMapSegment] {
         guard let selectedRouteOption else { return [] }
 
         if let backendAlternative = selectedRouteOption.backendAlternative,
@@ -741,6 +749,73 @@ struct HomeView: View {
                 lineWidth: 5
             )
         ]
+    }
+
+    /// Tracé tel qu'il est DESSINÉ : il pousse depuis le départ ET depuis
+    /// l'arrivée, et les deux moitiés se rejoignent au milieu.
+    ///
+    /// C'est une transition, pas une mesure : aucun chiffre n'est affiché, on
+    /// ne prétend pas montrer un algorithme. Le trajet dessiné est le vrai, le
+    /// seul retenu — seule son APPARITION est mise en scène.
+    private var routeMapSegments: [RouteMapSegment] {
+        Self.revealed(fullRouteMapSegments, progress: routeRevealProgress)
+    }
+
+    /// Ne garde que le début et la fin du tracé, chacun à hauteur de
+    /// `progress`. À 1 on renvoie les segments d'origine tels quels, pour que
+    /// l'état final soit strictement identique à l'absence d'animation.
+    static func revealed(_ segments: [RouteMapSegment], progress: Double) -> [RouteMapSegment] {
+        guard progress < 1 else { return segments }
+        guard progress > 0 else { return [] }
+        let total = segments.reduce(0) { $0 + $1.coordinates.count }
+        guard total > 1 else { return segments }
+
+        // Une polyligne a besoin d'au moins 2 points pour exister.
+        let budget = max(2, Int((Double(total) * progress / 2).rounded()))
+
+        var head: [RouteMapSegment] = []
+        var remaining = budget
+        for segment in segments {
+            if remaining <= 0 { break }
+            if segment.coordinates.count <= remaining {
+                head.append(segment)
+                remaining -= segment.coordinates.count
+            } else {
+                if remaining >= 2 {
+                    head.append(RouteMapSegment(
+                        id: segment.id + "-head",
+                        coordinates: Array(segment.coordinates.prefix(remaining)),
+                        color: segment.color,
+                        lineWidth: segment.lineWidth
+                    ))
+                }
+                remaining = 0
+            }
+        }
+
+        var tail: [RouteMapSegment] = []
+        remaining = budget
+        for segment in segments.reversed() {
+            if remaining <= 0 { break }
+            if segment.coordinates.count <= remaining {
+                tail.insert(segment, at: 0)
+                remaining -= segment.coordinates.count
+            } else {
+                if remaining >= 2 {
+                    tail.insert(RouteMapSegment(
+                        id: segment.id + "-tail",
+                        coordinates: Array(segment.coordinates.suffix(remaining)),
+                        color: segment.color,
+                        lineWidth: segment.lineWidth
+                    ), at: 0)
+                }
+                remaining = 0
+            }
+        }
+
+        // Les deux moitiés se recouvrent en fin d'animation : on dédoublonne.
+        var seen = Set<String>()
+        return (head + tail).filter { seen.insert($0.id).inserted }
     }
 
     private var mapVilloStations: [VilloStation] {
@@ -3789,6 +3864,12 @@ struct HomeView: View {
         selectedRouteID = option.id
         routeOverlayRevision += 1
         enterInteractionMode(.routePreview)
+
+        // Le tracé pousse depuis le départ ET depuis l'arrivée, et se referme
+        // au milieu. Le trajet dessiné est le vrai : on met en scène son
+        // apparition, on n'invente pas de calcul.
+        routeRevealProgress = 0
+        withAnimation(.easeOut(duration: 0.9)) { routeRevealProgress = 1 }
 
         withAnimation(.easeOut(duration: 0.35)) {
             mapPosition = .rect(routeFramingRect(for: option))
