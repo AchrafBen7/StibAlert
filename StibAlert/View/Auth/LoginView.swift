@@ -140,8 +140,18 @@ struct SignInFormSection: View {
                     motDePasse: motDePasse
                 )
             } catch {
-                if case let APIError.server(status, message) = error, status == 401 {
-                    errorMessage = message ?? AppLocalizer.string("auth.error.bad_credentials", defaultValue: "Email ou mot de passe incorrect.")
+                if case APIError.server(let status, _) = error, status == 401 {
+                    // On IGNORE volontairement le message du serveur.
+                    //
+                    // Le backend répond « Email ou mot de passe incorrect. » en
+                    // français en dur ; comme on le préférait à notre propre
+                    // texte, l'erreur restait française dans l'app néerlandaise.
+                    // Pour un 401 de connexion, notre libellé traduit dit
+                    // exactement la même chose — le serveur n'ajoute rien.
+                    errorMessage = AppLocalizer.string(
+                        "auth.error.bad_credentials",
+                        defaultValue: "Email ou mot de passe incorrect."
+                    )
                 } else {
                     errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 }
