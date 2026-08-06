@@ -117,21 +117,29 @@ struct HomeMapLayer: View {
 
     @MapContentBuilder
     private var routeOverlays: some MapContent {
-        // Sonde de recherche : deux traits qui poussent du départ et de
-        // l'arrivée l'un vers l'autre, en boucle, le temps du calcul. Tracé
-        // volontairement ABSTRAIT (un arc, pas les rues) pour qu'on ne le
-        // confonde pas avec l'itinéraire.
+        // Exploration du réseau pendant le calcul : deux fronts poussent du
+        // départ et de l'arrivée le long des lignes, bifurquent aux
+        // croisements et se rejoignent au milieu. Voir `SearchFrontier`.
+        //
+        // Une seule teinte, comme la référence : deux couleurs se liraient
+        // comme deux itinéraires concurrents alors qu'il n'y a qu'une
+        // recherche. Le halo large sous le trait fin donne la lueur — c'est
+        // lui qui fait l'effet, un trait plat se confondrait avec une ligne.
         if let searchProbe {
-            MapPolyline(coordinates: searchProbe.head)
-                .stroke(
-                    DS.Color.primary.opacity(0.55),
-                    style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [2, 10])
-                )
-            MapPolyline(coordinates: searchProbe.tail)
-                .stroke(
-                    DS.Color.primary.opacity(0.55),
-                    style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [2, 10])
-                )
+            ForEach(searchProbe.branches) { branch in
+                MapPolyline(coordinates: branch.coordinates)
+                    .stroke(
+                        DS.Color.primary.opacity(0.18 * searchProbe.opacity),
+                        style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round)
+                    )
+            }
+            ForEach(searchProbe.branches) { branch in
+                MapPolyline(coordinates: branch.coordinates)
+                    .stroke(
+                        DS.Color.primary.opacity(0.9 * searchProbe.opacity),
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                    )
+            }
         }
 
         ForEach(routeMapSegments) { segment in

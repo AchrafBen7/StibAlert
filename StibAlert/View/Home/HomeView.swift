@@ -60,18 +60,22 @@ struct HomeView: View {
     /// image. Ici seules les polylignes de l'itinéraire sont recalculées.
     @State private var routeRevealProgress: Double = 1
 
-    /// Sonde de recherche affichée PENDANT le calcul d'itinéraire.
+    /// Exploration du réseau affichée PENDANT le calcul d'itinéraire.
     ///
     /// L'attente était un vide : la carte ne bougeait pas, rien n'indiquait
-    /// qu'un calcul était en cours. Deux traits partent maintenant du départ
-    /// et de l'arrivée et se rejoignent, en boucle, jusqu'à l'arrivée des
-    /// résultats.
+    /// qu'un calcul était en cours. Deux fronts partent maintenant du départ et
+    /// de l'arrivée, se propagent le long des lignes en bifurquant à chaque
+    /// croisement, et se rejoignent au milieu — en boucle, jusqu'à l'arrivée
+    /// des résultats.
     ///
-    /// C'est un ARC ABSTRAIT, volontairement pas collé aux rues : il ne
-    /// prétend pas être un itinéraire, ni montrer une exploration. Le calcul a
-    /// lieu chez Transitous / ORS, pas sur le téléphone.
-    @State private var searchProbePath: [CLLocationCoordinate2D] = []
+    /// Les branches suivent les TRACÉS RÉELS des lignes (voir `SearchFrontier`),
+    /// donc les rues. Mais ce n'est pas la trace du solveur : le calcul tourne
+    /// chez Transitous / ORS, pas sur le téléphone. D'où l'absence de tout
+    /// chiffre — aucun nombre affiché ici ne correspondrait à une mesure.
+    @State private var searchFrontier: SearchFrontier? = nil
     @State private var searchProbeProgress: Double = 0
+    @State private var searchProbeOpacity: Double = 0
+    @State private var searchProbeTask: Task<Void, Never>? = nil
     // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
     // n'affiche pas la card si une route est déjà sélectionnée).
     @State var routeOptions: [HomeRouteOption] = []
@@ -832,56 +836,73 @@ struct HomeView: View {
     }
 
     struct SearchProbe {
-        let head: [CLLocationCoordinate2D]
-        let tail: [CLLocationCoordinate2D]
+        let branches: [SearchFrontier.GrownBranch]
+        let opacity: Double
     }
 
-    /// Les deux moitiés de la sonde, telles qu'elles doivent être dessinées.
+    /// L'état de l'exploration à cet instant, tel qu'il doit être dessiné.
     var searchProbe: SearchProbe? {
-        guard isRouting, searchProbePath.count > 3 else { return nil }
-        let reach = max(2, Int(Double(searchProbePath.count) * searchProbeProgress / 2))
-        return SearchProbe(
-            head: Array(searchProbePath.prefix(reach)),
-            tail: Array(searchProbePath.suffix(reach))
-        )
+        guard isRouting, searchProbeOpacity > 0.01, let frontier = searchFrontier else { return nil }
+        let branches = frontier.grown(to: searchProbeProgress)
+        guard !branches.isEmpty else { return nil }
+        return SearchProbe(branches: branches, opacity: searchProbeOpacity)
     }
 
-    /// Arc quadratique entre deux points. La courbure (12 % de l'écart) évite
-    /// la ligne droite, qu'on lirait comme « voilà le chemin ».
-    static func probeArc(
-        from start: CLLocationCoordinate2D,
-        to end: CLLocationCoordinate2D,
-        samples: Int = 48
-    ) -> [CLLocationCoordinate2D] {
-        let deltaLat = end.latitude - start.latitude
-        let deltaLng = end.longitude - start.longitude
-        let control = CLLocationCoordinate2D(
-            latitude: (start.latitude + end.latitude) / 2 - deltaLng * 0.12,
-            longitude: (start.longitude + end.longitude) / 2 + deltaLat * 0.12
-        )
-        return (0...samples).map { step in
-            let t = Double(step) / Double(samples)
-            let u = 1 - t
-            return CLLocationCoordinate2D(
-                latitude: u * u * start.latitude + 2 * u * t * control.latitude + t * t * end.latitude,
-                longitude: u * u * start.longitude + 2 * u * t * control.longitude + t * t * end.longitude
-            )
-        }
-    }
+    /// Durée d'un cycle complet d'exploration.
+    private static let searchProbeCycle: TimeInterval = 2.6
 
     private func startSearchProbe(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) {
-        searchProbePath = Self.probeArc(from: start, to: end)
-        searchProbeProgress = 0
-        withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: false)) {
-            searchProbeProgress = 1
+        searchProbeTask?.cancel()
+        // Un front qui rampe sur la carte est du mouvement : qui a demandé à en
+        // voir moins n'attend pas qu'on l'invente pour meubler une attente.
+        guard !reduceMotion else { return }
+        let networkPaths = lineShapesLoader.shapes.map(\.coordinates)
+
+        searchProbeTask = Task { @MainActor in
+            // Le graphe se construit HORS du fil principal : 15 à 55 ms selon la
+            // densité du réseau traversé, soit assez pour faire tressauter
+            // l'ouverture du panneau si on le calculait ici.
+            let frontier = await Task.detached(priority: .userInitiated) {
+                SearchFrontier.build(from: start, to: end, networkPaths: networkPaths)
+            }.value
+            guard !Task.isCancelled else { return }
+            searchFrontier = frontier.isEmpty
+                ? SearchFrontier.fallback(from: start, to: end)
+                : frontier
+
+            // Une vraie boucle d'images, et pas `withAnimation` : SwiftUI sait
+            // interpoler les attributs de rendu (opacité, position), pas des
+            // DONNÉES. Le corps de la vue lisait la valeur finale dès la
+            // première passe, et la sonde restait figée.
+            let began = Date()
+            while !Task.isCancelled {
+                let elapsed = Date().timeIntervalSince(began)
+                // Filet de sécurité : la boucle est normalement coupée par le
+                // `defer` de `buildRoute`. Si un chemin d'erreur le manquait,
+                // elle tournerait indéfiniment à redessiner la carte — batterie
+                // vidée sans que rien ne le signale.
+                guard elapsed < 30 else { break }
+                let phase = elapsed
+                    .truncatingRemainder(dividingBy: Self.searchProbeCycle) / Self.searchProbeCycle
+                // Croissance sur les 82 % du cycle, fondu sur le reste : la
+                // boucle repart à zéro alors que l'image est déjà transparente,
+                // donc sans clignotement.
+                searchProbeProgress = min(1, phase / 0.82)
+                searchProbeOpacity = min(
+                    min(1, phase / 0.05),
+                    phase <= 0.82 ? 1 : max(0, 1 - (phase - 0.82) / 0.18)
+                )
+                try? await Task.sleep(nanoseconds: 40_000_000)   // ~25 images/s
+            }
         }
     }
 
     private func stopSearchProbe() {
-        // `nil` coupe l'animation en cours avant de remettre à zéro : sans ça
-        // la répétition continuait de tourner sur une valeur figée.
-        withAnimation(nil) { searchProbeProgress = 0 }
-        searchProbePath = []
+        searchProbeTask?.cancel()
+        searchProbeTask = nil
+        searchFrontier = nil
+        searchProbeProgress = 0
+        searchProbeOpacity = 0
     }
 
     private var mapVilloStations: [VilloStation] {
