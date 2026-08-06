@@ -59,6 +59,19 @@ struct HomeView: View {
     /// soixante fois par seconde reconstruirait la carte entière à chaque
     /// image. Ici seules les polylignes de l'itinéraire sont recalculées.
     @State private var routeRevealProgress: Double = 1
+
+    /// Sonde de recherche affichée PENDANT le calcul d'itinéraire.
+    ///
+    /// L'attente était un vide : la carte ne bougeait pas, rien n'indiquait
+    /// qu'un calcul était en cours. Deux traits partent maintenant du départ
+    /// et de l'arrivée et se rejoignent, en boucle, jusqu'à l'arrivée des
+    /// résultats.
+    ///
+    /// C'est un ARC ABSTRAIT, volontairement pas collé aux rues : il ne
+    /// prétend pas être un itinéraire, ni montrer une exploration. Le calcul a
+    /// lieu chez Transitous / ORS, pas sur le téléphone.
+    @State private var searchProbePath: [CLLocationCoordinate2D] = []
+    @State private var searchProbeProgress: Double = 0
     // internal — utilisé par l'extension HomeViewOverlays (commuteOverlay
     // n'affiche pas la card si une route est déjà sélectionnée).
     @State var routeOptions: [HomeRouteOption] = []
@@ -818,6 +831,59 @@ struct HomeView: View {
         return (head + tail).filter { seen.insert($0.id).inserted }
     }
 
+    struct SearchProbe {
+        let head: [CLLocationCoordinate2D]
+        let tail: [CLLocationCoordinate2D]
+    }
+
+    /// Les deux moitiés de la sonde, telles qu'elles doivent être dessinées.
+    var searchProbe: SearchProbe? {
+        guard isRouting, searchProbePath.count > 3 else { return nil }
+        let reach = max(2, Int(Double(searchProbePath.count) * searchProbeProgress / 2))
+        return SearchProbe(
+            head: Array(searchProbePath.prefix(reach)),
+            tail: Array(searchProbePath.suffix(reach))
+        )
+    }
+
+    /// Arc quadratique entre deux points. La courbure (12 % de l'écart) évite
+    /// la ligne droite, qu'on lirait comme « voilà le chemin ».
+    static func probeArc(
+        from start: CLLocationCoordinate2D,
+        to end: CLLocationCoordinate2D,
+        samples: Int = 48
+    ) -> [CLLocationCoordinate2D] {
+        let deltaLat = end.latitude - start.latitude
+        let deltaLng = end.longitude - start.longitude
+        let control = CLLocationCoordinate2D(
+            latitude: (start.latitude + end.latitude) / 2 - deltaLng * 0.12,
+            longitude: (start.longitude + end.longitude) / 2 + deltaLat * 0.12
+        )
+        return (0...samples).map { step in
+            let t = Double(step) / Double(samples)
+            let u = 1 - t
+            return CLLocationCoordinate2D(
+                latitude: u * u * start.latitude + 2 * u * t * control.latitude + t * t * end.latitude,
+                longitude: u * u * start.longitude + 2 * u * t * control.longitude + t * t * end.longitude
+            )
+        }
+    }
+
+    private func startSearchProbe(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) {
+        searchProbePath = Self.probeArc(from: start, to: end)
+        searchProbeProgress = 0
+        withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: false)) {
+            searchProbeProgress = 1
+        }
+    }
+
+    private func stopSearchProbe() {
+        // `nil` coupe l'animation en cours avant de remettre à zéro : sans ça
+        // la répétition continuait de tourner sur une valeur figée.
+        withAnimation(nil) { searchProbeProgress = 0 }
+        searchProbePath = []
+    }
+
     private var mapVilloStations: [VilloStation] {
         guard !isFocusModeActive else { return [] }
         guard showVilloStations, cameraLatitudeDelta <= 0.03 else { return [] }
@@ -1346,6 +1412,7 @@ struct HomeView: View {
             displayCoordinate: locationManager.displayCoordinate,
             heading: locationManager.heading,
             routeMapSegments: routeMapSegments,
+            searchProbe: searchProbe,
             routeOverlayRevision: routeOverlayRevision,
             destinationCoordinate: destinationCoord,
             // Focus mode strips every overlay from the map so the only
@@ -3384,7 +3451,14 @@ struct HomeView: View {
         originName: String
     ) async {
         isRouting = true
-        defer { isRouting = false }
+        defer {
+            isRouting = false
+            stopSearchProbe()
+        }
+        startSearchProbe(
+            from: source.placemark.coordinate,
+            to: destination.placemark.coordinate
+        )
         // Un itinéraire remplace tout ce qui était ouvert sur la carte. Sans ça,
         // la fiche d'un véhicule (ou d'un arrêt) consultée AVANT la recherche
         // restait affichée par-dessus les résultats et les masquait.

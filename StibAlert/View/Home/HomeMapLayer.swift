@@ -12,6 +12,8 @@ struct HomeMapLayer: View {
     let displayCoordinate: CLLocationCoordinate2D
     let heading: Double
     let routeMapSegments: [HomeView.RouteMapSegment]
+    /// Sonde animée pendant le calcul d'itinéraire (nil le reste du temps).
+    let searchProbe: HomeView.SearchProbe?
     let routeOverlayRevision: Int
     let destinationCoordinate: CLLocationCoordinate2D?
     let officialSignalPoints: [HomeView.LiveSignalPoint]
@@ -115,6 +117,23 @@ struct HomeMapLayer: View {
 
     @MapContentBuilder
     private var routeOverlays: some MapContent {
+        // Sonde de recherche : deux traits qui poussent du départ et de
+        // l'arrivée l'un vers l'autre, en boucle, le temps du calcul. Tracé
+        // volontairement ABSTRAIT (un arc, pas les rues) pour qu'on ne le
+        // confonde pas avec l'itinéraire.
+        if let searchProbe {
+            MapPolyline(coordinates: searchProbe.head)
+                .stroke(
+                    DS.Color.primary.opacity(0.55),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [2, 10])
+                )
+            MapPolyline(coordinates: searchProbe.tail)
+                .stroke(
+                    DS.Color.primary.opacity(0.55),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, dash: [2, 10])
+                )
+        }
+
         ForEach(routeMapSegments) { segment in
             MapPolyline(coordinates: segment.coordinates)
                 .stroke(
