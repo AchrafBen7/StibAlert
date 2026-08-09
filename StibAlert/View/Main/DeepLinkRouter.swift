@@ -19,7 +19,15 @@ enum DeepLink: Equatable {
 enum DeepLinkRouter {
     static let scheme = "stibalert"
 
+    /// Domaine des liens partageables — voir `webLink(forSignalement:)`.
+    static let webHost = "blayse.app"
+
     static func parse(_ url: URL) -> DeepLink? {
+        // Un lien HTTPS partagé arrive par le MÊME `onOpenURL` que le schéma
+        // interne. Sans cette branche, le `guard` ci-dessous rejetait
+        // silencieusement toute ouverture depuis une conversation.
+        if let webLink = parseWebLink(url) { return webLink }
+
         guard url.scheme?.lowercased() == scheme else { return nil }
         let host = url.host?.lowercased() ?? ""
         let segments = url.path
@@ -60,6 +68,41 @@ enum DeepLinkRouter {
                   let toLat = q("toLat").flatMap(Double.init),
                   let toLng = q("toLng").flatMap(Double.init) else { return .home }
             return .route(fromName: fromName, fromLat: fromLat, fromLng: fromLng, toName: toName, toLat: toLat, toLng: toLng)
+        default:
+            return nil
+        }
+    }
+
+    /// Le lien qu'on met dans un message partagé.
+    ///
+    /// L'ancien `stibalert://signalement/{id}` était du **texte mort** pour qui
+    /// n'a pas l'app : un schéma privé, qu'aucune messagerie ni navigateur ne
+    /// sait ouvrir. Or c'est précisément aux non-utilisateurs que ce message
+    /// s'adresse. Une URL HTTPS ouvre l'app si elle est installée (Universal
+    /// Link) et, sinon, une page qui montre la perturbation et propose l'App
+    /// Store — et elle affiche un aperçu riche dans la conversation.
+    static func webLink(forSignalement id: String) -> URL? {
+        URL(string: "https://\(webHost)/s/\(id)")
+    }
+
+    /// Chemins déclarés dans l'`apple-app-site-association` du domaine. Y
+    /// ajouter un chemin ici SANS l'ajouter au fichier servi ne produit rien :
+    /// iOS ne consulte que le fichier.
+    private static func parseWebLink(_ url: URL) -> DeepLink? {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              host == webHost || host == "www.\(webHost)"
+        else { return nil }
+
+        let segments = url.path.split(separator: "/").map(String.init)
+        guard segments.count >= 2 else { return nil }
+
+        switch segments[0].lowercased() {
+        case "s", "signalement":
+            // ⚠️ Pas de `lowercased()` sur l'identifiant : un ObjectId Mongo est
+            // hexadécimal, mais un identifiant externe ne l'est pas forcément.
+            // Abaisser la casse ici casserait la recherche côté serveur.
+            return .signalementDetail(id: segments[1])
         default:
             return nil
         }

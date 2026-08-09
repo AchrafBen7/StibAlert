@@ -10,6 +10,12 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<!-- Le domaine PUBLIC d'abord : c'est lui qui apparaît dans les liens
+		     partagés. iOS n'ouvre l'app que pour un domaine listé ICI dont le
+		     fichier apple-app-site-association déclare le chemin. -->
+		<string>applinks:blayse.app</string>
+		<!-- Conservé : les liens déjà envoyés (pushs, anciens partages)
+		     pointent encore sur l'hôte Render. Le retirer les casserait. -->
 		<string>applinks:stib-alert-backend.onrender.com</string>
 	</array>
 	<key>com.apple.developer.siri</key>

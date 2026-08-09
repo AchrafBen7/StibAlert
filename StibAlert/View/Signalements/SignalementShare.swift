@@ -42,10 +42,15 @@ enum SignalementShare {
         // Call to action
         out += "\nÉvite la zone ou prends une alternative."
 
-        // Lien deep pour ouvrir l'app si installée. Les apps de messagerie
-        // n'affichent pas de preview riche pour les schemes custom, mais
-        // le texte reste lisible et le tap ouvre StibAlert si installée.
-        out += "\n\n📲 Blayse (app indépendante) — stibalert://signalement/\(s.id)"
+        // Lien HTTPS, plus `stibalert://` : ce message s'adresse à des gens qui
+        // n'ont PAS l'app, et un schéma privé n'est pour eux que du texte mort
+        // — aucune messagerie ni navigateur ne sait l'ouvrir, donc aucune
+        // installation possible. L'URL web ouvre l'app si elle est installée
+        // (Universal Link), montre sinon la perturbation avec un bouton App
+        // Store, et affiche un aperçu riche dans la conversation.
+        if let link = DeepLinkRouter.webLink(forSignalement: s.id) {
+            out += "\n\n📲 Blayse (app indépendante) — \(link.absoluteString)"
+        }
 
         return out
     }
