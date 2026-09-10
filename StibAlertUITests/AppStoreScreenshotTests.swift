@@ -59,15 +59,16 @@ final class AppStoreScreenshotTests: XCTestCase {
         // une coordonnée à l'aveugle rendait une capture identique à la carte.
         // La fiche d'arrêt sera photographiée à la main si besoin.
 
+        // ⚠️ ORDRE VOLONTAIRE : le détail d'une ligne s'ouvre en FEUILLE
+        // modale, par-dessus la barre d'onglets. Une fois dedans, `tapTab`
+        // ne trouve plus rien et renvoie false — les écrans suivants étaient
+        // donc sautés en silence, et le test « passait » avec 3 captures au
+        // lieu de 6. On visite tous les onglets d'abord, le détail en dernier.
+
         // 3 — Liste des lignes.
         if tapTab(app, labels[1]) {
             sleep(6)
             capture(app, "3_lines")
-
-            // 4 — Détail d'une ligne (première rangée de la liste).
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
-            sleep(7)
-            capture(app, "4_line_detail")
         }
 
         // 5 — Alertes.
@@ -80,6 +81,20 @@ final class AppStoreScreenshotTests: XCTestCase {
         if tapTab(app, labels[3]) {
             sleep(5)
             capture(app, "6_favorites")
+        }
+
+        // 7 — Profil.
+        if tapTab(app, labels[4]) {
+            sleep(4)
+            capture(app, "7_profile")
+        }
+
+        // 4 — Détail d'une ligne, EN DERNIER : la feuille bloque la navigation.
+        if tapTab(app, labels[1]) {
+            sleep(5)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+            sleep(7)
+            capture(app, "4_line_detail")
         }
     }
 

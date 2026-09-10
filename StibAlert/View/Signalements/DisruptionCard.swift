@@ -94,11 +94,16 @@ struct DisruptionCard: View {
     // MARK: - Effet : le titre
 
     private var effectTitle: some View {
-        Text(digest.effect)
-            .font(DS.Font.bodyBold)
-            .foregroundStyle(DS.Color.ink)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 10)
+        // Le texte vient de la STIB, qui ne publie qu'en FR et NL : pour un
+        // anglophone, c'est le seul endroit de l'app resté dans une autre
+        // langue. Voir `TranslatableText`.
+        TranslatableText(text: digest.effect) { shown in
+            Text(shown)
+                .font(DS.Font.bodyBold)
+                .foregroundStyle(DS.Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 10)
     }
 
     // MARK: - Faits : période + arrêt

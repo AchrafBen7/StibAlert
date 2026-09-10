@@ -9,6 +9,8 @@ struct ProfileView: View {
     @Environment(\.openURL) private var openURL
     @State private var selectedSubpage: SettingsSubpage?
     @State private var selectedLanguageCode = "FR"
+    /// Traduction des communiqués d'opérateur (voir `DisruptionTranslator`).
+    @ObservedObject private var translator = DisruptionTranslator.shared
     @State private var pushNotificationsEnabled = true
     /// État réel iOS du droit notifications (UNNotificationSettings).
     /// Si l'utilisateur a accepté côté backend mais bloqué côté système,
@@ -297,6 +299,21 @@ struct ProfileView: View {
                             profileDivider
                             profileRow(icon: "globe", label: "Langue", value: profileLanguageLabel) {
                                 selectedSubpage = .languages
+                            }
+                            // Rangée présente UNIQUEMENT quand la traduction a
+                            // été activée : sans ça, un francophone verrait un
+                            // réglage qui ne le concerne pas. Elle sert à
+                            // revenir en arrière — sans elle, le choix « une
+                            // fois accepté, on traduit tout » serait définitif.
+                            if translator.isOffered, translator.autoTranslate {
+                                profileDivider
+                                profileRow(
+                                    icon: "character.bubble",
+                                    label: AppLocalizer.string("translate.auto_label", defaultValue: "Traduction automatique"),
+                                    value: AppLocalizer.string("settings.enabled", defaultValue: "Activées")
+                                ) {
+                                    translator.disableAuto()
+                                }
                             }
                             profileDivider
                             // Smart Commute LITE — entrée vers les paramètres

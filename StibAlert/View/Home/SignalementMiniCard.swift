@@ -60,12 +60,14 @@ struct SignalementMiniCard: View {
                 .buttonStyle(.plain)
             }
 
-            Text(signalement.description)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.inkSoft)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 10)
+            TranslatableText(text: signalement.description) { shown in
+                Text(shown)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.inkSoft)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 10)
 
             HStack(spacing: 10) {
                 metaPill(icon: "clock", text: signalement.freshnessLabel)
