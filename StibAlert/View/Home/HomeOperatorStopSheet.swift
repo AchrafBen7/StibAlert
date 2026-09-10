@@ -228,15 +228,19 @@ struct HomeOperatorStopSheet: View {
                 VStack(spacing: 8) {
                     ForEach(items.prefix(3)) { item in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(item.title)
-                                .font(DS.Font.bodySmall.weight(.semibold))
-                                .foregroundStyle(DS.Color.ink)
-                                .lineLimit(2)
+                            TranslatableText(text: item.title, showsButton: false) { shown in
+                                Text(shown)
+                                    .font(DS.Font.bodySmall.weight(.semibold))
+                                    .foregroundStyle(DS.Color.ink)
+                                    .lineLimit(2)
+                            }
                             if !item.description.isEmpty {
-                                Text(item.description)
-                                    .font(DS.Font.labelSmall)
-                                    .foregroundStyle(DS.Color.inkMute)
-                                    .lineLimit(3)
+                                TranslatableText(text: item.description) { shown in
+                                    Text(shown)
+                                        .font(DS.Font.labelSmall)
+                                        .foregroundStyle(DS.Color.inkMute)
+                                        .lineLimit(3)
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

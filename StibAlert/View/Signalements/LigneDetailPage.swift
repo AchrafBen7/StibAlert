@@ -1055,11 +1055,13 @@ struct LigneDetailPage: View {
             }
 
             if !signalement.description.isEmpty {
-                Text(signalement.description)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.inkSoft)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                TranslatableText(text: signalement.description) { shown in
+                    Text(shown)
+                        .font(DS.Font.bodySmall)
+                        .foregroundStyle(DS.Color.inkSoft)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             // Confirmations : n'a de sens que pour un VRAI signalement humain

@@ -1351,10 +1351,12 @@ private struct OperatorLineDisruptionDetail: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(3)
                 if !disruption.description.isEmpty {
-                    Text(disruption.description)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(6)
+                    TranslatableText(text: disruption.description) { shown in
+                        Text(shown)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(6)
+                    }
                 }
                 if let url = URL(string: disruption.url), !disruption.url.isEmpty {
                     Link(destination: url) {

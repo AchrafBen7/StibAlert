@@ -146,7 +146,7 @@ struct RecentReportCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: AppTheme.Radius.sm, style: .continuous))
 
                 (
-                    Text(item.title + " ")
+                    Text(DisruptionTranslator.shared.display(item.title) + " ")
                         .font(AppTheme.Fonts.title3)
                     + Text(item.time)
                         .font(AppTheme.Fonts.captionStrong)

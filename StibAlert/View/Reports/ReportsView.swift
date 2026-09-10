@@ -2231,17 +2231,21 @@ struct EditorialFeedCard: View {
                     }
                 }
 
-                Text(item.title)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .multilineTextAlignment(.leading)
+                TranslatableText(text: item.title, showsButton: false) { shown in
+                    Text(shown)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .multilineTextAlignment(.leading)
+                }
 
                 if let body = item.body {
-                    Text(body)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkSoft)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    TranslatableText(text: body) { shown in
+                        Text(shown)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
 
                 if !item.lines.isEmpty || item.location != nil || item.url != nil {
@@ -3006,10 +3010,12 @@ private struct EventImpactDetailSheet: View {
                             .strikethrough()
                     }
                 }
-                Text(item.title)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundColor(DS.Color.ink)
-                    .lineLimit(1)
+                TranslatableText(text: item.title, showsButton: false) { shown in
+                    Text(shown)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundColor(DS.Color.ink)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 

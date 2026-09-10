@@ -703,15 +703,22 @@ struct GareDetailPage: View {
                 .background(DS.Color.statusMinor.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(d.title.isEmpty ? AppLocalizer.string("sncb.disruption", defaultValue: "Perturbation SNCB") : d.title)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(2)
+                TranslatableText(
+                    text: d.title.isEmpty ? AppLocalizer.string("sncb.disruption", defaultValue: "Perturbation SNCB") : d.title,
+                    showsButton: false
+                ) { shown in
+                    Text(shown)
+                        .font(DS.Font.bodyBold)
+                        .foregroundStyle(DS.Color.ink)
+                        .lineLimit(2)
+                }
                 if !d.description.isEmpty {
-                    Text(d.description)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(4)
+                    TranslatableText(text: d.description) { shown in
+                        Text(shown)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(4)
+                    }
                 }
                 if let link = d.link, let url = URL(string: link) {
                     Link(destination: url) {
@@ -745,10 +752,12 @@ struct GareDetailPage: View {
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                 if !signalement.description.isEmpty {
-                    Text(signalement.description)
-                        .font(DS.Font.bodySmall)
-                        .foregroundStyle(DS.Color.inkMute)
-                        .lineLimit(3)
+                    TranslatableText(text: signalement.description) { shown in
+                        Text(shown)
+                            .font(DS.Font.bodySmall)
+                            .foregroundStyle(DS.Color.inkMute)
+                            .lineLimit(3)
+                    }
                 }
                 Text(signalement.freshnessLabel)
                     .font(.system(size: 11))

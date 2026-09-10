@@ -667,13 +667,18 @@ struct ArretDetailPage: View {
             if let line = incident.line, !line.isEmpty {
                 LineBadge(line: line, size: .sm)
             }
-            Text(digest.effect.isEmpty
-                 ? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
-                 : digest.effect)
-                .font(DS.Font.bodySmall)
-                .foregroundStyle(DS.Color.ink)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            TranslatableText(
+                text: digest.effect.isEmpty
+                    ? AppLocalizer.string("disruption.network_info", defaultValue: "Info réseau")
+                    : digest.effect,
+                showsButton: false
+            ) { shown in
+                Text(shown)
+                    .font(DS.Font.bodySmall)
+                    .foregroundStyle(DS.Color.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
 
             Spacer(minLength: 8)
 

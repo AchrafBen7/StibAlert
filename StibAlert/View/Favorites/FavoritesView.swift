@@ -1953,14 +1953,18 @@ private struct IncidentCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(incident.title)
-                        .font(.custom("Montserrat-SemiBold", size: 18))
-                        .foregroundStyle(.black)
+                    TranslatableText(text: incident.title, showsButton: false) { shown in
+                        Text(shown)
+                            .font(.custom("Montserrat-SemiBold", size: 18))
+                            .foregroundStyle(.black)
+                    }
 
-                    Text(incident.body)
-                        .font(.custom("Montserrat-Regular", size: 12))
-                        .foregroundStyle(.black)
-                        .fixedSize(horizontal: false, vertical: true)
+                    TranslatableText(text: incident.body) { shown in
+                        Text(shown)
+                            .font(.custom("Montserrat-Regular", size: 12))
+                            .foregroundStyle(.black)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer(minLength: 8)
@@ -2048,14 +2052,18 @@ private struct FavoriteTransportIncidentCard: View {
                 LineBadge(line: incident.lineCode, size: .sm)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(incident.title)
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(DS.Color.ink)
+                    TranslatableText(text: incident.title, showsButton: false) { shown in
+                        Text(shown)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(DS.Color.ink)
+                    }
 
-                    Text(incident.body)
-                        .font(.system(size: 12))
-                        .foregroundStyle(DS.Color.inkSoft)
-                        .fixedSize(horizontal: false, vertical: true)
+                    TranslatableText(text: incident.body) { shown in
+                        Text(shown)
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Color.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     if let confidenceText = incident.confidenceText {
                         Text(confidenceText)

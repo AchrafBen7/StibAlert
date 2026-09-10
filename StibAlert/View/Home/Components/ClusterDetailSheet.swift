@@ -37,9 +37,11 @@ struct ClusterDetailSheet: View {
                     // LineBadge affiche un badge RÉSEAU quand `ligne` est un nom
                     // d'opérateur (perturbation réseau), pas un « STIB » incohérent.
                     LineBadge(line: cluster.ligne, size: .lg)
-                    Text(cluster.typeProbleme)
-                        .font(DS.Font.displayH3)
-                        .foregroundStyle(DS.Color.ink)
+                    TranslatableText(text: cluster.typeProbleme) { shown in
+                        Text(shown)
+                            .font(DS.Font.displayH3)
+                            .foregroundStyle(DS.Color.ink)
+                    }
                     confidenceLabel(for: cluster)
                 } else {
                     Text(AppLocalizer.string("cluster.community_alert", defaultValue: "Alerte communauté"))
@@ -264,10 +266,12 @@ struct ClusterDetailSheet: View {
                     .font(DS.Font.labelSmall.weight(.bold))
                     .tracking(1.5)
                     .foregroundStyle(DS.Color.primary)
-                Text(summary)
-                    .font(DS.Font.body)
-                    .foregroundStyle(DS.Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                TranslatableText(text: summary) { shown in
+                    Text(shown)
+                        .font(DS.Font.body)
+                        .foregroundStyle(DS.Color.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 0)
         }

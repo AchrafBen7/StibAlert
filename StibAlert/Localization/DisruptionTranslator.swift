@@ -63,6 +63,16 @@ final class DisruptionTranslator: ObservableObject {
         translations[Self.normalize(source)]
     }
 
+    /// Le texte à AFFICHER : la traduction si elle existe, l'original sinon.
+    ///
+    /// Réservé aux endroits où l'on ne peut pas insérer une vue — typiquement
+    /// deux `Text` concaténés par `+`, qui doivent rester des `Text` et non
+    /// devenir un conteneur. Ces endroits n'ont pas de bouton : ils profitent
+    /// des traductions faites ailleurs, puisque le cache est partagé.
+    func display(_ source: String) -> String {
+        translation(for: source) ?? source
+    }
+
     func isTranslating(_ source: String) -> Bool {
         inFlight.contains(Self.normalize(source))
     }

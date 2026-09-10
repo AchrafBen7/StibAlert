@@ -12,13 +12,18 @@ import Translation
 /// compilation pour la cible 17.6 de l'app.
 struct TranslatableText<Style: View>: View {
     let text: String
+    /// Faux sur les rangées COMPACTES (une ligne, tronquées) : un bouton y
+    /// casserait la mise en page. Elles profitent quand même de la traduction,
+    /// puisque le cache est partagé — dès que l'utilisateur a traduit une fois
+    /// où que ce soit, tout l'affiche.
+    var showsButton: Bool = true
     /// Le style est fourni par l'appelant : cette vue ne décide pas de
     /// l'apparence, seulement de la LANGUE affichée.
     @ViewBuilder var style: (String) -> Style
 
     var body: some View {
         if #available(iOS 18.0, *) {
-            TranslatableTextCore(text: text, style: style)
+            TranslatableTextCore(text: text, showsButton: showsButton, style: style)
         } else {
             style(text)
         }
@@ -28,6 +33,7 @@ struct TranslatableText<Style: View>: View {
 @available(iOS 18.0, *)
 private struct TranslatableTextCore<Style: View>: View {
     let text: String
+    let showsButton: Bool
     @ViewBuilder var style: (String) -> Style
 
     @ObservedObject private var translator = DisruptionTranslator.shared
@@ -49,7 +55,7 @@ private struct TranslatableTextCore<Style: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             style(displayed)
 
-            if translator.isOffered, !isTranslated, !text.isEmpty {
+            if showsButton, translator.isOffered, !isTranslated, !text.isEmpty {
                 translateButton
             }
         }

@@ -167,10 +167,12 @@ struct SignalementDetailView: View {
                     DS.Rule(thick: true)
                         .padding(.bottom, 16)
 
-                    Text(latest.description)
-                        .font(DS.Font.body)
-                        .foregroundStyle(DS.Color.ink)
-                        .lineSpacing(4)
+                    TranslatableText(text: latest.description) { shown in
+                        Text(shown)
+                            .font(DS.Font.body)
+                            .foregroundStyle(DS.Color.ink)
+                            .lineSpacing(4)
+                    }
 
                     voteCard
                     timelineSection
