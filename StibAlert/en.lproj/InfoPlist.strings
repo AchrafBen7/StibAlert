@@ -1,0 +1,7 @@
+"NSLocationWhenInUseUsageDescription" = "Blayse uses your location to show your starting point and your route in real time.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Blayse uses your location in the background to keep guidance running and recalculate your route if you go off course.";
+"NSCameraUsageDescription" = "Blayse uses the camera so you can attach a photo to your reports.";
+"NSPhotoLibraryUsageDescription" = "Blayse accesses your library so you can attach a photo to your reports.";
+"NSMicrophoneUsageDescription" = "Blayse uses the microphone to enable voice commands for Stibi.";
+"NFCReaderUsageDescription" = "Blayse uses NFC to link your MoBIB card to your profile and find your subscription more easily.";
+"NSSpeechRecognitionUsageDescription" = "Blayse uses speech recognition to transcribe your commands to Stibi.";

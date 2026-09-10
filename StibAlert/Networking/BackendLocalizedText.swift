@@ -25,6 +25,10 @@ private func trimmedOrNil(_ value: String?) -> String? {
 
 extension BackendLocalizedText {
     /// Texte dans la langue de l'app, avec repli sur l'autre langue.
+    ///
+    /// En anglais on retombe sur le français : la STIB ne publie ses
+    /// communiqués qu'en FR et NL, il n'existe donc AUCUNE source anglaise à
+    /// servir ici. Le français est le repli le plus lisible à Bruxelles.
     var localized: String? {
         AppLocale.languageCode == "nl"
             ? (trimmedOrNil(nl) ?? trimmedOrNil(fr))
@@ -33,11 +37,15 @@ extension BackendLocalizedText {
 }
 
 extension TransportLabelDTO: BackendLocalizedText {
-    /// `TransportLabelDTO` porte aussi un `en` : dernier recours seulement.
+    /// Celui-ci porte un vrai champ `en`. Il restait en DERNIER recours même
+    /// pour un anglophone, qui lisait donc du français alors que sa langue
+    /// était disponible dans la charge utile.
     var localized: String? {
-        AppLocale.languageCode == "nl"
-            ? (trimmedOrNil(nl) ?? trimmedOrNil(fr) ?? trimmedOrNil(en))
-            : (trimmedOrNil(fr) ?? trimmedOrNil(nl) ?? trimmedOrNil(en))
+        switch AppLocale.languageCode {
+        case "nl": return trimmedOrNil(nl) ?? trimmedOrNil(fr) ?? trimmedOrNil(en)
+        case "en": return trimmedOrNil(en) ?? trimmedOrNil(fr) ?? trimmedOrNil(nl)
+        default:   return trimmedOrNil(fr) ?? trimmedOrNil(nl) ?? trimmedOrNil(en)
+        }
     }
 }
 

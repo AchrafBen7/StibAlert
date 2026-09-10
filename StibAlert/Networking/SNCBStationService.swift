@@ -22,6 +22,9 @@ struct SNCBStation: Decodable, Identifiable, Equatable, Hashable {
         // pas diverger. L'annuaire embarqué a name == standardname partout
         // (vérifié : 0/591 divergent) ; si un futur import fournit les deux
         // formes, on suit la langue de l'app (fr → name, nl → standardname).
+        // L'anglais prend la branche `name` : « Bruxelles-Midi » est la forme
+        // qui figure sur la signalétique internationale et les billets
+        // Eurostar/Thalys. iRail ne fournit pas de libellé anglais.
         let preferred = AppLocale.languageCode == "nl" ? standardname : name
         let fallback = AppLocale.languageCode == "nl" ? name : standardname
         return preferred.isEmpty ? fallback : preferred

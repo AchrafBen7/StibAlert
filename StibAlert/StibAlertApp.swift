@@ -61,7 +61,10 @@ struct StibAlertApp: App {
     private func localeForCurrentOverride(_ override: String?) -> Locale {
         let code: String
         if let override = override?.lowercased(), !override.isEmpty {
-            code = override.hasPrefix("nl") ? "nl_BE" : "fr_BE"
+            // Même table que `AppLocale` : dupliquer le ternaire "nl sinon fr"
+            // ici avait pour effet qu'un override "en" retombait sur fr_BE,
+            // donc que l'environnement SwiftUI contredisait la langue choisie.
+            code = AppLocale.localeIdentifier(for: AppLocale.normalize(override))
         } else {
             code = AppLocale.localeIdentifier
         }

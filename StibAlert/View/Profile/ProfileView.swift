@@ -1547,7 +1547,8 @@ private enum LanguageMockData {
     static let items: [LanguageItem] = [
         // Langue et pays dans leur propre langue — jamais traduits.
         .init(code: "FR", title: "Français", subtitle: "Belgique"), // i18n:ignore
-        .init(code: "NL", title: "Nederlands", subtitle: "België")  // i18n:ignore
+        .init(code: "NL", title: "Nederlands", subtitle: "België"),  // i18n:ignore
+        .init(code: "EN", title: "English", subtitle: "Belgium")     // i18n:ignore
     ]
 }
 

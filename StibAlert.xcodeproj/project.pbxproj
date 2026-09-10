@@ -333,6 +333,7 @@
 			knownRegions = (
 				fr,
 				nl,
+				en,
 				Base,
 			);
 			mainGroup = 3831C0782D79C1D100452AA0;

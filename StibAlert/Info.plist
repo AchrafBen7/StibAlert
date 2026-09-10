@@ -10,6 +10,7 @@
 	<array>
 		<string>fr</string>
 		<string>nl</string>
+		<string>en</string>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
