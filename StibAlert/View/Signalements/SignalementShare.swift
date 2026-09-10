@@ -16,7 +16,7 @@ enum SignalementShare {
         if isSncb {
             out += "⚠️ \(kind) — SNCB\n"
         } else {
-            out += "⚠️ \(kind) — Ligne \(s.ligne)\n"
+            out += AppLocalizer.format("share.kind_line", defaultValue: "⚠️ %1$@ — Ligne %2$@", kind, s.ligne) + "\n"
         }
 
         // Ligne 2 — arrêt
@@ -25,7 +25,7 @@ enum SignalementShare {
         }
 
         // Ligne 3 — fraîcheur
-        out += "⏱️ Signalé \(s.freshnessLabel)\n"
+        out += AppLocalizer.format("share.reported_when", defaultValue: "⏱️ Signalé %@", s.freshnessLabel) + "\n"
 
         // Bloc description si distinct du type
         let desc = s.description.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,7 +40,7 @@ enum SignalementShare {
         }
 
         // Call to action
-        out += "\nÉvite la zone ou prends une alternative."
+        out += "\n" + AppLocalizer.string("share.avoid_area", defaultValue: "Évite la zone ou prends une alternative.")
 
         // Lien HTTPS, plus `stibalert://` : ce message s'adresse à des gens qui
         // n'ont PAS l'app, et un schéma privé n'est pour eux que du texte mort
@@ -49,7 +49,7 @@ enum SignalementShare {
         // (Universal Link), montre sinon la perturbation avec un bouton App
         // Store, et affiche un aperçu riche dans la conversation.
         if let link = DeepLinkRouter.webLink(forSignalement: s.id) {
-            out += "\n\n📲 Blayse (app indépendante) — \(link.absoluteString)"
+            out += "\n\n" + AppLocalizer.format("share.app_link", defaultValue: "📲 Blayse (app indépendante) — %@", link.absoluteString)
         }
 
         return out

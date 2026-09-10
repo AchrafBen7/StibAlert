@@ -7,7 +7,7 @@ func formatDurationForA11y(_ minutes: Int) -> String {
     if minutes <= 0 {
         return "Imminent"
     } else if minutes < 60 {
-        return "Dans \(minutes) minute\(minutes == 1 ? "" : "s")"
+        return AppLocalizer.format("plural.next_passage_minutes", defaultValue: "Prochain passage dans %lld minutes", minutes)
     } else {
         let hours = minutes / 60
         let mins = minutes % 60
@@ -42,7 +42,7 @@ struct StopCardAccessibilityLabel: View {
 
     private var lineInfo: String {
         lines.isEmpty
-            ? "Aucune ligne disponible"
+            ? AppLocalizer.string("a11y.no_line_available", defaultValue: "Aucune ligne disponible")
             : AppLocalizer.format("a11y.lines_list", defaultValue: "Lignes : %@", lines.joined(separator: ", "))
     }
 
@@ -75,7 +75,7 @@ struct StopCardAccessibilityLabel: View {
 func formatDepartureForA11y(line: String, destination: String?, minutesUntil: Int) -> String {
     let dest = destination ?? "direction"
     let time = formatDurationForA11y(minutesUntil)
-    return "Ligne \(line) vers \(dest), \(time)"
+    return AppLocalizer.format("a11y.line_to_time", defaultValue: "Ligne %1$@ vers %2$@, %3$@", line, dest, time)
 }
 
 // MARK: - Route Accessibility

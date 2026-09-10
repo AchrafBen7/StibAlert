@@ -16,6 +16,7 @@ final class AppStoreScreenshotTests: XCTestCase {
     private static let tabs: [String: [String]] = [
         "fr": ["Carte", "Lignes", "Alertes", "Favoris", "Profil"],
         "nl": ["Kaart", "Lijnen", "Meldingen", "Favorieten", "Profiel"],
+        "en": ["Map", "Lines", "Alerts", "Favourites", "Profile"],
     ]
 
     override func setUpWithError() throws {
@@ -34,11 +35,16 @@ final class AppStoreScreenshotTests: XCTestCase {
         // entièrement en français.
         app.launchArguments += [
             "-AppleLanguages", "(\(language))",
-            "-AppleLocale", language == "nl" ? "nl_BE" : "fr_BE",
+            "-AppleLocale", ["nl": "nl_BE", "en": "en_BE"][language] ?? "fr_BE",
             "-appLanguageOverride", language,
             "-hasSeenOnboarding", "YES",
             "-hasLaunchedBefore", "YES",
             "-hasAcceptedPrivacyConsent", "YES",
+            // ⚠️ Sans la VERSION, l'écran de consentement se réaffiche :
+            // `AppRoot` compare `privacyConsentVersion` à la version courante,
+            // pas seulement le booléen. Le test restait bloqué dessus et ne
+            // photographiait qu'un écran.
+            "-privacyConsentVersion", "v1-2026-05",
             "-hasSeenHomeCoachMarks", "YES",
             "-hasSeenFeatureTour", "YES",
         ]

@@ -44,6 +44,6 @@ struct MapClusterMarker: View {
                 .font(.system(size: count >= 100 ? 12 : 13, weight: .bold))
                 .foregroundStyle(.white)
         }
-        .accessibilityLabel("Groupe de \(count) signalements, majoritairement \(dominantType.lowercased())")
+        .accessibilityLabel(AppLocalizer.format("a11y.report_group", defaultValue: "Groupe de %1$lld signalements, majoritairement %2$@", count, dominantType.lowercased()))
     }
 }

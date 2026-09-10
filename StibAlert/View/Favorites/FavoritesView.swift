@@ -760,7 +760,7 @@ struct FavoritesView: View {
         EmptyStateView(
             iconSystemName: "magnifyingglass",
             title: AppLocalizer.string("favorites.empty.no_result", defaultValue: "Aucun résultat"),
-            body: "Rien ne correspond à « \(query) ». Essaie un autre nom d'arrêt ou de ligne."
+            body: AppLocalizer.format("search.no_match_stop_or_line", defaultValue: "Rien ne correspond à « %@ ». Essaie un autre nom d'arrêt ou de ligne.", query)
         )
         .padding(.top, 40)
     }
@@ -1255,8 +1255,8 @@ private struct FavoriteStopDetailView: View {
                     lineCode: departure.line,
                     lineColor: chip.color,
                     lineTextColor: chip.textColor,
-                    title: index == 0 ? label : "Passage suivant",
-                    subtitle: departure.destination.map { "Direction \($0)" } ?? "Passage surveillé en temps réel",
+                    title: index == 0 ? label : AppLocalizer.string("stop.next_passage", defaultValue: "Passage suivant"),
+                    subtitle: departure.destination.map { "Direction \($0)" } ?? AppLocalizer.string("stop.watched_realtime", defaultValue: "Passage surveillé en temps réel"),
                     nextPassage: departure.minutes <= 0 ? "<1 min" : "\(departure.minutes) min",
                     score: Int((transportStop.confidence * 100).rounded()),
                     barColor: statusBarColor(for: transportStop.severity),
@@ -1279,7 +1279,7 @@ private struct FavoriteStopDetailView: View {
                 lineColor: chip.color,
                 lineTextColor: chip.textColor,
                 title: incident.localizedType ?? TransportViewAdapters.localizedSeverityLabel(severity: incident.severity, fallback: nil),
-                body: incident.description ?? "Aucun détail terrain disponible.",
+                body: incident.description ?? AppLocalizer.string("stop.no_field_detail", defaultValue: "Aucun détail terrain disponible."),
                 background: incidentBackground(for: incident.severity),
                 dotColor: incidentDotColor(for: incident.severity),
                 confidenceText: incident.community.map(communitySummary(from:)) ?? confidenceLabel(for: incident.confidence),
@@ -1322,7 +1322,7 @@ private struct FavoriteStopDetailView: View {
                             .padding(.top, 16)
                     }
 
-                    detailSectionHeader("État en temps réel", icon: "dot.radiowaves.left.and.right")
+                    detailSectionHeader(AppLocalizer.string("stop.realtime_status", defaultValue: "État en temps réel"), icon: "dot.radiowaves.left.and.right")
                         .padding(.horizontal, 20)
                         .padding(.top, 24)
 
@@ -1332,7 +1332,7 @@ private struct FavoriteStopDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 24)
                     } else if liveStatuses.isEmpty {
-                        detailEmptyState("Aucune donnée disponible pour cet arrêt.")
+                        detailEmptyState(AppLocalizer.string("stop.no_data", defaultValue: "Aucune donnée disponible pour cet arrêt."))
                             .padding(.horizontal, 20)
                             .padding(.top, 12)
                     } else {
@@ -1355,7 +1355,7 @@ private struct FavoriteStopDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 24)
                     } else if incidents.isEmpty {
-                        detailEmptyState("Aucun incident signalé sur cet arrêt.")
+                        detailEmptyState(AppLocalizer.string("stop.no_incident", defaultValue: "Aucun incident signalé sur cet arrêt."))
                             .padding(.horizontal, 20)
                             .padding(.top, 12)
                     } else {
@@ -1543,7 +1543,7 @@ private struct FavoriteStopDetailView: View {
             transportStop = try await TransportService.stop(id: stopBackendId)
             stopLoadError = nil
         } catch {
-            stopLoadError = "Impossible de charger les données en temps réel."
+            stopLoadError = AppLocalizer.string("error.realtime_load", defaultValue: "Impossible de charger les données en temps réel.")
         }
     }
 
@@ -2364,7 +2364,7 @@ private struct FavoriteFollowedLineCard: View {
 
     private var accessibilityLabel: String {
         if let subtitle = line.subtitle, !subtitle.isEmpty {
-            return "Ligne \(line.code), \(subtitle)"
+            return AppLocalizer.format("a11y.line_subtitle", defaultValue: "Ligne %1$@, %2$@", line.code, subtitle)
         }
         return "Ligne \(line.code)"
     }

@@ -305,7 +305,7 @@ struct GareDetailPage: View {
             .background(DS.Color.paper2.opacity(0.55))
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
 
-            Text(isViewingToday ? "Aujourd’hui · \(visibleList.count) prochains départs" : "\(visibleList.count) départs")
+            Text(isViewingToday ? AppLocalizer.format("sncb.today_departures", defaultValue: "Aujourd’hui · %lld prochains départs", visibleList.count) : AppLocalizer.format("sncb.n_departures", defaultValue: "%lld départs", visibleList.count))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(DS.Color.inkMute)
         }
@@ -557,7 +557,7 @@ struct GareDetailPage: View {
                     emptyStateCard(
                         icon: "checkmark.seal.fill",
                         title: AppLocalizer.string("station.no_disruption", defaultValue: "Aucune perturbation à cette gare"),
-                        detail: "Pas de retard ni de suppression annoncés au départ de \(station.displayName)."
+                        detail: AppLocalizer.format("sncb.no_delay_at", defaultValue: "Pas de retard ni de suppression annoncés au départ de %@.", station.displayName)
                     )
                 }
 
@@ -703,7 +703,7 @@ struct GareDetailPage: View {
                 .background(DS.Color.statusMinor.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(d.title.isEmpty ? "Perturbation SNCB" : d.title)
+                Text(d.title.isEmpty ? AppLocalizer.string("sncb.disruption", defaultValue: "Perturbation SNCB") : d.title)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(2)

@@ -1203,7 +1203,7 @@ struct ReportsView: View {
             lineFilters: visibleLineFilters,
             segmentCounts: segmentCounts,
             helperText: scopeHelperText,
-            updatedText: lastUpdatedAt.map { "Mis à jour \(relativeTimeLabel(from: $0))" },
+            updatedText: lastUpdatedAt.map { AppLocalizer.format("common.updated_when", defaultValue: "Mis à jour %@", relativeTimeLabel(from: $0)) },
             onSelectSegment: { segment in
                 if segment == .events {
                     selectedScope = .events
@@ -2138,7 +2138,7 @@ struct EditorialLineGroupCard<NestedContent: View>: View {
                                 ReportsMetaBadge(title: "\(officialCount) officiel", tint: DS.Color.statusMajor.opacity(0.12))
                             }
                             if communityCount > 0 {
-                                ReportsMetaBadge(title: "\(communityCount) communauté", tint: DS.Color.community.opacity(0.12))
+                                ReportsMetaBadge(title: AppLocalizer.format("reports.n_community", defaultValue: "%lld communauté", communityCount), tint: DS.Color.community.opacity(0.12))
                             }
                         }
                     }
@@ -2670,7 +2670,7 @@ private struct EventImpactDetailSheet: View {
     @State private var isLoadingNearbyStops = false
 
     private var venueTitle: String {
-        event.venue ?? event.zoneLabel ?? "Lieu à Bruxelles"
+        event.venue ?? event.zoneLabel ?? AppLocalizer.string("event.place_brussels", defaultValue: "Lieu à Bruxelles")
     }
 
     private var addressLine: String {
@@ -3404,11 +3404,11 @@ private struct ReportsSummarySheet: View {
         lines.append(summary.localizedLongText)
 
         if !summary.affectedLines.isEmpty {
-            lines.append("Lignes touchées: \(summary.affectedLines.joined(separator: ", "))")
+            lines.append(AppLocalizer.format("summary.affected_lines", defaultValue: "Lignes touchées: %@", summary.affectedLines.joined(separator: ", ")))
         }
 
         if !summary.affectedStops.isEmpty {
-            lines.append("Zones clés: \(summary.affectedStops.joined(separator: ", "))")
+            lines.append(AppLocalizer.format("summary.key_areas", defaultValue: "Zones clés: %@", summary.affectedStops.joined(separator: ", ")))
         }
 
         if !summary.localizedBullets.isEmpty {

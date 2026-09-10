@@ -126,10 +126,12 @@ private struct HomePulseBar: View {
     private var titleText: String {
         if favoriteAffectedCount > 0 {
             return favoriteAffectedCount == 1
-                ? "1 incident sur tes lignes"
-                : "\(favoriteAffectedCount) incidents sur tes lignes"
+                ? AppLocalizer.string("home.one_incident_your_lines", defaultValue: "1 incident sur tes lignes")
+                : AppLocalizer.format("home.n_incidents_your_lines", defaultValue: "%lld incidents sur tes lignes", favoriteAffectedCount)
         }
-        return totalActive == 1 ? "1 signalement actif" : "\(totalActive) signalements actifs"
+        return totalActive == 1
+            ? AppLocalizer.string("home.one_active_report", defaultValue: "1 signalement actif")
+            : AppLocalizer.format("home.n_active_reports", defaultValue: "%lld signalements actifs", totalActive)
     }
 
     var body: some View {

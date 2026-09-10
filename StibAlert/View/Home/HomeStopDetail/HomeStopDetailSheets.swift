@@ -333,7 +333,7 @@ private struct HomeStopDetailSheet: View {
 
                         Text(TransportViewAdapters.localizedSeverityLabel(
                             severity: stopDetail?.severity ?? "minor",
-                            fallback: stopDetail?.label?.localized ?? "Arrêt surveillé"
+                            fallback: stopDetail?.label?.localized ?? AppLocalizer.string("stop.watched", defaultValue: "Arrêt surveillé")
                         ))
                         .font(.custom("Montserrat-SemiBold", size: 12))
                         .foregroundStyle(Color(hex: "#B5CFF8"))

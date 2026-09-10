@@ -498,7 +498,7 @@ struct QuickReportSheetView: View {
     private func stopCard(_ stop: NearbyStop) -> some View {
         let isSelected = selectedStop?.id == stop.id
         let primaryLine = stop.issueLines.first?.number ?? stop.lines.first?.number ?? "?"
-        let direction = stop.issueLines.first?.direction ?? "Direction à confirmer"
+        let direction = stop.issueLines.first?.direction ?? AppLocalizer.string("report.direction_tbc", defaultValue: "Direction à confirmer")
         let shouldUseOperatorLogo = selectedOperator == .sncb || selectedOperator == .delijn || selectedOperator == .tec
         let borderColor = isSelected ? DS.Color.primary : DS.Color.ink.opacity(0.08)
         let selectedFill = LinearGradient(
@@ -1372,7 +1372,7 @@ struct QuickReportSheetView: View {
 
         let trimmed = trimmedDescription
         let userDescribed = !trimmed.isEmpty
-        var finalDescription = userDescribed ? trimmed : "Signalement rapide — \(problem.title)"
+        var finalDescription = userDescribed ? trimmed : AppLocalizer.format("report.quick_prefix", defaultValue: "Signalement rapide — %@", problem.title)
         // SNCB: fold the chosen train into the description so the report stays
         // tied to a specific departure while `ligne` remains "SNCB".
         if selectedOperator == .sncb, let train = selectedSncbTrain {
@@ -1426,7 +1426,7 @@ struct QuickReportSheetView: View {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     withAnimation(.easeOut(duration: 0.25)) {
                         submitSuccess = true
-                        submitError = "Hors ligne. Envoi quand la connexion revient."
+                        submitError = AppLocalizer.string("error.offline_queued", defaultValue: "Hors ligne. Envoi quand la connexion revient.")
                     }
                     try? await Task.sleep(nanoseconds: 1_800_000_000)
                     handleClose()

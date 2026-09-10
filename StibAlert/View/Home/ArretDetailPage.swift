@@ -1322,8 +1322,8 @@ struct ArretDetailPage: View {
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(1)
                 Text(station.isOperational
-                     ? "\(station.availableBikes) vélos · \(station.availableBikeStands) places · \(distanceMeters) m"
-                     : "Fermée · \(distanceMeters) m")
+                     ? AppLocalizer.format("villo.bikes_stands_distance", defaultValue: "%1$lld vélos · %2$lld places · %3$lld m", station.availableBikes, station.availableBikeStands, distanceMeters)
+                     : AppLocalizer.format("villo.closed_distance", defaultValue: "Fermée · %lld m", distanceMeters))
                     .font(DS.Font.labelSmall)
                     .foregroundStyle(DS.Color.inkMute)
             }

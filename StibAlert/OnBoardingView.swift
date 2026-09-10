@@ -442,7 +442,7 @@ private struct OnboardingSelectedLinesCard: View {
                         .textCase(.uppercase)
                         .foregroundStyle(DS.Color.inkMute)
 
-                    Text("\(selectedLines.count)/\(maxSelection) lignes")
+                    Text(AppLocalizer.format("onboarding.n_of_m_lines", defaultValue: "%1$lld/%2$lld lignes", selectedLines.count, maxSelection))
                         .font(DesignSystem.Typography.title3)
                         .foregroundStyle(DS.Color.ink)
                 }

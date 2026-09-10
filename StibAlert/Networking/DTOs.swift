@@ -568,7 +568,7 @@ extension SignalementDTO {
     }
 
     var stalePromptLabel: String? {
-        isStale ? "Plus récent ?" : nil
+        isStale ? AppLocalizer.string("community.more_recent", defaultValue: "Plus récent ?") : nil
     }
 
     var sourceLabel: String {

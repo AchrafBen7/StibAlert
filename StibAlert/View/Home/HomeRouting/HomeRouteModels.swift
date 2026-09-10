@@ -24,8 +24,8 @@ struct RouteDepartureInsight {
 
     var detailText: String {
         let destinationPart = stopText.map { "vers \($0)" }
-        let arrivalPart = arrivalText.map { "arrivée \($0)" }
-        return [destinationPart, "départ \(departureText)", arrivalPart]
+        let arrivalPart = arrivalText.map { AppLocalizer.format("route.arrival_at", defaultValue: "arrivée %@", $0) }
+        return [destinationPart, AppLocalizer.format("route.departure_at", defaultValue: "départ %@", departureText), arrivalPart]
             .compactMap { $0 }
             .joined(separator: " · ")
     }

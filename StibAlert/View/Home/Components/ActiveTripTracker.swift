@@ -120,20 +120,20 @@ final class ActiveTripTracker: ObservableObject {
                     id: "final",
                     coordinate: coord,
                     triggerDistance: 90,
-                    announcement: "Tu es arrivé à destination."
+                    announcement: AppLocalizer.string("trip.arrived_destination", defaultValue: "Tu es arrivé à destination.")
                 ))
             } else if step.mode.lowercased() != "walking" {
-                let stopName = step.arrivalStopName ?? step.stopName ?? "ton arrêt"
+                let stopName = step.arrivalStopName ?? step.stopName ?? AppLocalizer.string("trip.your_stop", defaultValue: "ton arrêt")
                 let nextStep = index + 1 < steps.count ? steps[index + 1] : nil
                 let nextLine = nextStep?.line
                 let nextIsTransit = (nextStep?.mode.lowercased() ?? "walking") != "walking"
                 let announcement: String
                 if nextIsTransit, let nextLine, !nextLine.isEmpty {
-                    announcement = "Descends à \(stopName) et prends la ligne \(nextLine)."
+                    announcement = AppLocalizer.format("trip.get_off_take_line", defaultValue: "Descends à %1$@ et prends la ligne %2$@.", stopName, nextLine)
                 } else if nextStep?.mode.lowercased() == "walking" {
-                    announcement = "Descends à \(stopName), ensuite tu marches."
+                    announcement = AppLocalizer.format("trip.get_off_then_walk", defaultValue: "Descends à %@, ensuite tu marches.", stopName)
                 } else {
-                    announcement = "Prochain arrêt : \(stopName)."
+                    announcement = AppLocalizer.format("trip.next_stop", defaultValue: "Prochain arrêt : %@.", stopName)
                 }
                 out.append(Checkpoint(
                     id: "step-\(step.order)",

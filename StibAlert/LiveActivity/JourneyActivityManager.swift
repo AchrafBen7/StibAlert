@@ -58,7 +58,7 @@ final class JourneyActivityManager {
     func finish() {
         guard let activity else { return }
         let finalState = JourneyActivityAttributes.ContentState(
-            currentStepInstruction: "Vous êtes arrivé",
+            currentStepInstruction: AppLocalizer.string("trip.arrived", defaultValue: "Vous êtes arrivé"),
             arrivalMinutes: 0,
             currentLine: nil,
             isFinished: true

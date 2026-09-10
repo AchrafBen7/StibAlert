@@ -270,7 +270,7 @@ struct SignalementDetailView: View {
             }
             .padding(.bottom, 8)
 
-            Text("Ligne \(latest.ligne) · \(latest.displayTypeProbleme.lowercased())")
+            Text(AppLocalizer.format("report.line_dot_type", defaultValue: "Ligne %1$@ · %2$@", latest.ligne, latest.displayTypeProbleme.lowercased()))
                 .font(DS.Font.displayH2)
                 .foregroundStyle(DS.Color.ink)
                 .padding(.bottom, 8)

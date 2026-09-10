@@ -646,14 +646,14 @@ struct HomeRoutePlannerSheet: View {
             arrivalSuggestions = []
             pendingSavedPlace = kind
             focusedField = .arrival
-            errorMessage = "Recherche puis sélectionne ton \(kind.label.lowercased()) pour l’enregistrer."
+            errorMessage = AppLocalizer.format("route.search_then_select", defaultValue: "Recherche puis sélectionne ton %@ pour l’enregistrer.", kind.label.lowercased())
         }
     }
 
     private func saveSavedPlace(_ item: MKMapItem, kind: HomeRouteSavedPlaceKind) {
         savedPlaces[kind] = HomeRouteRecentPlace(item: item)
         HomeRouteSavedPlaceStore.save(savedPlaces)
-        errorMessage = "\(kind.label) enregistré."
+        errorMessage = AppLocalizer.format("route.saved", defaultValue: "%@ enregistré.", kind.label)
     }
 
     private func applySelectionChange(_ updates: () -> Void) {

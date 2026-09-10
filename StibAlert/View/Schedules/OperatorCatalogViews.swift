@@ -1346,7 +1346,7 @@ private struct OperatorLineDisruptionDetail: View {
                 .background(DS.Color.statusMinor.opacity(0.14))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 4) {
-                Text(disruption.header.isEmpty ? "Perturbation \(op.mapLabel)" : disruption.header)
+                Text(disruption.header.isEmpty ? AppLocalizer.format("operator.disruption", defaultValue: "Perturbation %@", op.mapLabel) : disruption.header)
                     .font(DS.Font.bodyBold)
                     .foregroundStyle(DS.Color.ink)
                     .lineLimit(3)

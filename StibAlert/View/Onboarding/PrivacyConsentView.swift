@@ -206,7 +206,7 @@ struct PrivacyPolicySheet: View {
                     - Cloudinary (UE)
                     """)
 
-                    sectionText(title: "4. Tes droits (RGPD)", body: """
+                    sectionText(title: AppLocalizer.string("privacy.your_rights", defaultValue: "4. Tes droits (RGPD)"), body: """
                     Vous pouvez à tout moment :
                     - Exporter vos données depuis Profil → Confidentialité
                     - Supprimer ton compte (anonymisation immédiate des signalements)

@@ -184,14 +184,14 @@ enum OperatorRealtimeService {
                             live: false,
                             fetchedAt: decoded.fetchedAt,
                             passages: decoded.passages,
-                            error: "Service temps réel temporairement indisponible."
+                            error: AppLocalizer.string("error.realtime_unavailable", defaultValue: "Service temps réel temporairement indisponible.")
                         )
                     }
                     return decoded
                 }
                 return OperatorRealtimeReply(
                     stopId: nil, entity: nil, live: false, fetchedAt: nil,
-                    passages: [], error: "Service temps réel temporairement indisponible."
+                    passages: [], error: AppLocalizer.string("error.realtime_unavailable", defaultValue: "Service temps réel temporairement indisponible.")
                 )
             default:
                 return nil

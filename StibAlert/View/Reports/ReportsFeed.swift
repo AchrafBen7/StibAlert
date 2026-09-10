@@ -38,7 +38,7 @@ struct ReportsFeedView: View {
             EmptyStateView(
                 iconSystemName: "checkmark.seal.fill",
                 title: AppLocalizer.string("feed.all_quiet", defaultValue: "Tout est calme"),
-                body: "Rien à signaler dans cette catégorie pour le moment. On te prévient dès qu'il y a du nouveau.",
+                body: AppLocalizer.string("reports.empty_category", defaultValue: "Rien à signaler dans cette catégorie pour le moment. On te prévient dès qu'il y a du nouveau."),
                 iconTint: DS.Color.statusOK,
                 iconWeight: .regular,
                 iconSize: 44

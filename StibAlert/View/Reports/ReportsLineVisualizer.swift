@@ -209,7 +209,7 @@ struct EditorialLineVisualizer: View {
             }
             Spacer()
             HStack {
-                Text("◣ \(hasRealStops ? stops.count : 7) ARRÊTS")
+                Text(AppLocalizer.format("reports.n_stops_marker", defaultValue: "◣ %lld ARRÊTS", hasRealStops ? stops.count : 7))
                     .font(.system(size: 8, weight: .semibold))
                     .tracking(1.6)
                     .foregroundStyle(DS.Color.inkMute)

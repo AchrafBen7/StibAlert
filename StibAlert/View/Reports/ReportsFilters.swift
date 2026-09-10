@@ -25,7 +25,7 @@ struct ReportsFilterDock: View {
             // signals the section.
             HStack {
                 Spacer()
-                Text("\(String(format: "%02d", totalCount)) dépêches")
+                Text(AppLocalizer.format("reports.n_dispatches", defaultValue: "%@ dépêches", String(format: "%02d", totalCount)))
                     .font(DS.Font.labelSmall.weight(.semibold))
                     .tracking(1.4)
                     .foregroundStyle(DS.Color.inkMute)

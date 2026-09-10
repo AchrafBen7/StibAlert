@@ -940,7 +940,7 @@ struct ProfileView: View {
         avatarError = nil
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
-            avatarError = "Impossible de lire l'image."
+            avatarError = AppLocalizer.string("error.image_read", defaultValue: "Impossible de lire l'image.")
             pickedItem = nil
             return
         }
@@ -959,7 +959,7 @@ struct ProfileView: View {
         } catch {
             if !Task.isCancelled {
                 avatarError = (error as? LocalizedError)?.errorDescription
-                    ?? "Upload impossible."
+                    ?? AppLocalizer.string("error.upload_failed", defaultValue: "Upload impossible.")
             }
         }
         isUploadingAvatar = false
@@ -2105,7 +2105,7 @@ private struct AccountSettingsView: View {
 
     private var handleText: String {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "COMPTE BLAYSE" : "@\(trimmed.uppercased())"
+        return trimmed.isEmpty ? AppLocalizer.string("profile.blayse_account_caps", defaultValue: "COMPTE BLAYSE") : "@\(trimmed.uppercased())"
     }
 }
 

@@ -45,6 +45,9 @@ struct SignalerArretIntent: AppIntent {
     @Parameter(title: "Type de problème", default: .retard)
     var typeProbleme: TypeProblemeIntentEnum
 
+    // ⚠️ `default:` doit être une CONSTANTE littérale (exigence d'App Intents) :
+    // impossible d'y appeler le localiseur. La traduction se fait à l'usage,
+    // là où la description part réellement au serveur.
     @Parameter(title: "Description", description: "Détails supplémentaires (optionnel)", default: "Signalé vocalement")
     var details: String
 
@@ -72,7 +75,7 @@ struct SignalerArretIntent: AppIntent {
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "nomArret": nomArret,
             "typeProbleme": typeProbleme.rawValue,
-            "description": details.isEmpty ? "Signalé vocalement" : details,
+            "description": details.isEmpty ? AppLocalizer.string("siri.reported_by_voice", defaultValue: "Signalé vocalement") : details,
         ])
 
         do {
@@ -92,9 +95,9 @@ struct SignalerArretIntent: AppIntent {
             switch http.statusCode {
             case 201:
                 let arret = body?.nomArret ?? nomArret
-                let ligne = body?.ligne.map { ", ligne \($0)" } ?? ""
-                return .result(dialog: IntentDialog(
-                    "Signalement \(typeProbleme.rawValue.lowercased()) créé pour \(arret)\(ligne). Merci !"
+                let ligne = body?.ligne.map { AppLocalizer.format("siri.comma_line", defaultValue: ", ligne %@", $0) } ?? ""
+                return .result(dialog: IntentDialog(stringLiteral:
+                    AppLocalizer.format("siri.report_created", defaultValue: "Signalement %1$@ créé pour %2$@%3$@. Merci !", typeProbleme.rawValue.lowercased(), arret, ligne)
                 ))
             case 401:
                 return .result(dialog: "Session expirée. Ouvre Blayse pour te reconnecter.")
@@ -155,14 +158,14 @@ struct NextPassageIntent: AppIntent {
                 let servedLines = stopLines(from: matchedStop, stopDetail: stopDetail)
                 if !servedLines.contains(line) {
                     let shownLines = servedLines.prefix(5).joined(separator: ", ")
-                    let suffix = shownLines.isEmpty ? "" : " Lignes connues à cet arrêt: \(shownLines)."
+                    let suffix = shownLines.isEmpty ? "" : " " + AppLocalizer.format("siri.known_lines", defaultValue: "Lignes connues à cet arrêt: %@.", shownLines)
                     return .result(dialog: "La ligne \(line) ne semble pas desservir \(matchedStop.nom).\(suffix)")
                 }
                 return .result(dialog: "Aucun passage fiable pour la ligne \(line) à \(matchedStop.nom) pour le moment.")
             }
 
-            let dest = first.destination.map { " vers \($0)" } ?? ""
-            let source = first.source == "scheduled" ? " selon l'horaire prévu" : ""
+            let dest = first.destination.map { AppLocalizer.format("siri.towards", defaultValue: " vers %@", $0) } ?? ""
+            let source = first.source == "scheduled" ? " " + AppLocalizer.string("siri.per_timetable", defaultValue: "selon l'horaire prévu") : ""
             if first.minutes == 0 {
                 return .result(dialog: "Le \(line)\(dest) est à \(matchedStop.nom) maintenant\(source).")
             }
@@ -296,7 +299,7 @@ struct LineHealthIntent: AppIntent {
             let nextDeparture = decoded.nextDepartures?.first
             let nextText: String = {
                 guard let next = nextDeparture else { return "" }
-                let dest = next.destination.map { " vers \($0)" } ?? ""
+                let dest = next.destination.map { AppLocalizer.format("siri.towards", defaultValue: " vers %@", $0) } ?? ""
                 if next.minutes == 0 { return " " + AppLocalizer.format("siri.next_at_platform", defaultValue: "Le prochain%@ est à quai.", dest) }
                 // Siri : le pluriel vient de la traduction, pas d'un « s » concaténé.
                 let passage = AppLocalizer.format("plural.next_passage_minutes",
@@ -307,13 +310,13 @@ struct LineHealthIntent: AppIntent {
             let statusSentence: String
             switch severity {
             case "high", "critical":
-                statusSentence = "La ligne \(line) est fortement perturbée. Vérifie les alternatives sur l'app."
+                statusSentence = AppLocalizer.format("siri.status_high", defaultValue: "La ligne %@ est fortement perturbée. Vérifie les alternatives sur l'app.", line)
             case "medium":
-                statusSentence = "La ligne \(line) est perturbée. Quelques signalements actifs."
+                statusSentence = AppLocalizer.format("siri.status_medium", defaultValue: "La ligne %@ est perturbée. Quelques signalements actifs.", line)
             case "low":
-                statusSentence = "La ligne \(line) circule, quelques signalements isolés."
+                statusSentence = AppLocalizer.format("siri.status_low", defaultValue: "La ligne %@ circule, quelques signalements isolés.", line)
             default:
-                statusSentence = "La ligne \(line) fonctionne normalement."
+                statusSentence = AppLocalizer.format("siri.status_normal", defaultValue: "La ligne %@ fonctionne normalement.", line)
             }
 
             return .result(dialog: IntentDialog(stringLiteral: statusSentence + nextText))

@@ -117,7 +117,7 @@ struct JourneyDynamicIslandExpandedView: View {
                 }
             }
 
-            Text(state.isFinished ? "Vous êtes arrivé !" : state.currentStepInstruction)
+            Text(state.isFinished ? AppLocalizer.string("trip.arrived_excl", defaultValue: "Vous êtes arrivé !") : state.currentStepInstruction)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)

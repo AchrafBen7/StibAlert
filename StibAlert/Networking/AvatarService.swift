@@ -57,11 +57,11 @@ enum AvatarService {
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else {
-            throw Error.http(0, "Réponse invalide.")
+            throw Error.http(0, AppLocalizer.string("error.invalid_response_plain", defaultValue: "Réponse invalide."))
         }
         guard (200..<300).contains(http.statusCode) else {
             let msg = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.message
-                ?? "Upload impossible (\(http.statusCode))."
+                ?? AppLocalizer.format("error.upload_failed_code", defaultValue: "Upload impossible (%lld).", http.statusCode)
             throw Error.http(http.statusCode, msg)
         }
         guard let parsed = try? JSONDecoder().decode(UploadResponse.self, from: data) else {
@@ -82,7 +82,7 @@ enum AvatarService {
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode) else {
-            throw Error.http((response as? HTTPURLResponse)?.statusCode ?? 0, "Suppression impossible.")
+            throw Error.http((response as? HTTPURLResponse)?.statusCode ?? 0, AppLocalizer.string("error.delete_failed", defaultValue: "Suppression impossible."))
         }
         guard let parsed = try? JSONDecoder().decode(UploadResponse.self, from: data) else {
             throw Error.decode

@@ -137,10 +137,10 @@ enum VilloStationService {
         let arrivalCoordinate = lastMeaningfulCoordinate(in: steps)
 
         var suggestions: [VilloNearbySuggestion] = []
-        if let departure = bestSuggestion(near: departureCoordinate, contextLabel: "Au départ", preferBikes: true) {
+        if let departure = bestSuggestion(near: departureCoordinate, contextLabel: AppLocalizer.string("villo.at_departure", defaultValue: "Au départ"), preferBikes: true) {
             suggestions.append(departure)
         }
-        if let arrival = bestSuggestion(near: arrivalCoordinate, contextLabel: "À l’arrivée", preferBikes: false),
+        if let arrival = bestSuggestion(near: arrivalCoordinate, contextLabel: AppLocalizer.string("villo.at_arrival", defaultValue: "À l’arrivée"), preferBikes: false),
            !suggestions.contains(where: { $0.station.id == arrival.station.id }) {
             suggestions.append(arrival)
         }

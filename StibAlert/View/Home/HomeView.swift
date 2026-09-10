@@ -496,7 +496,7 @@ struct HomeView: View {
                     TransportStopSummaryDTO(
                         id: $0,
                         stopId: stop.stopId,
-                        name: stop.name ?? "Arrêt STIB",
+                        name: stop.name ?? AppLocalizer.string("stop.stib_generic", defaultValue: "Arrêt STIB"),
                         latitude: latitude,
                         longitude: longitude,
                         lines: incident.line.map { [$0] } ?? []
@@ -2343,7 +2343,7 @@ struct HomeView: View {
             lastFetchedAt = Date()
             signalementLoadError = nil
         } catch {
-            signalementLoadError = "Impossible de charger les signalements."
+            signalementLoadError = AppLocalizer.string("error.reports_load", defaultValue: "Impossible de charger les signalements.")
         }
     }
 
@@ -2924,7 +2924,7 @@ struct HomeView: View {
             let response = try await SignalementService.toujoursBloque(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
         } catch {
-            signalementLoadError = "Impossible d'envoyer ton vote. Réessaie."
+            signalementLoadError = AppLocalizer.string("error.vote_send", defaultValue: "Impossible d'envoyer ton vote. Réessaie.")
         }
     }
 
@@ -3162,7 +3162,7 @@ struct HomeView: View {
             let response = try await SignalementService.resoudre(signalementId: id)
             applyCommunityUpdate(id: id, community: response.community, status: response.status)
         } catch {
-            signalementLoadError = "Impossible de marquer comme résolu. Réessaie."
+            signalementLoadError = AppLocalizer.string("error.mark_resolved", defaultValue: "Impossible de marquer comme résolu. Réessaie.")
         }
     }
 
@@ -4092,11 +4092,11 @@ private struct WazeMenuPanel: View {
                     .padding(.bottom, 36)
 
                 item("mappin.and.ellipse",   "Carte & trafic en direct")  { onNavigate(.home);         onClose() }
-                item("exclamationmark.circle","Signaler un arrêt")         { onReport() }
+                item("exclamationmark.circle", AppLocalizer.string("menu.report_stop", defaultValue: "Signaler un arrêt"))         { onReport() }
                 item("clock.arrow.circlepath","Lignes")                    { onNavigate(.schedules);    onClose() }
                 item("bubble.left.and.exclamationmark.bubble.right", "Alertes") { onNavigate(.reports); onClose() }
                 item("heart",                "Mes favoris")                { onNavigate(.favorites);    onClose() }
-                item("gearshape",            "Paramètres")                 { onNavigate(.profile);      onClose() }
+                item("gearshape",            AppLocalizer.string("menu.settings", defaultValue: "Paramètres"))                 { onNavigate(.profile);      onClose() }
                 item("questionmark.circle",  "Besoin d'aide ?")            { onNavigate(.profile);      onClose() }
 
                 Spacer()

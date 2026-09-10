@@ -225,8 +225,8 @@ struct ActivationView: View {
 
     private var resendLabel: String {
         if isResending { return "RENVOI…" }
-        if resendCooldown > 0 { return "RENVOYER LE CODE (\(resendCooldown)S)" }
-        return "RENVOYER LE CODE"
+        if resendCooldown > 0 { return AppLocalizer.format("auth.resend_code_wait", defaultValue: "RENVOYER LE CODE (%lldS)", resendCooldown) }
+        return AppLocalizer.string("auth.resend_code", defaultValue: "RENVOYER LE CODE")
     }
 
     private func submit() {

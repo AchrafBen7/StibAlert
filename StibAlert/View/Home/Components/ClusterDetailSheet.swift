@@ -327,7 +327,7 @@ struct ClusterDetailSheet: View {
         } catch {
             ErrorReporting.capture(error, tag: "cluster.detail.load", context: ["clusterIndex": clusterIndex])
             await MainActor.run {
-                self.errorMessage = "Impossible de charger les détails."
+                self.errorMessage = AppLocalizer.string("error.details_load", defaultValue: "Impossible de charger les détails.")
                 self.isLoading = false
             }
         }

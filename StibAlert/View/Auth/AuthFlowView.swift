@@ -70,15 +70,15 @@ private struct WelcomePage: View {
 
     private let tickerLines = ["1", "2", "5", "7", "81", "29", "71", "95", "N04"]
     private let tickerHeadlines = [
-        "Trafic interrompu · bus de remplacement",
-        "Service normal · fréquence respectée",
-        "Travaux Place Flagey · déviation",
-        "Bondé · 22h Forest National",
-        "Reprise progressive · contrôle terminé",
-        "Métro régulier · 4 min entre rames",
-        "Ralentissement Rogier",
-        "Service spécial Atomium ce soir",
-        "Noctis renforcé · weekend"
+        AppLocalizer.string("ticker.interrupted", defaultValue: "Trafic interrompu · bus de remplacement"),
+        AppLocalizer.string("ticker.normal", defaultValue: "Service normal · fréquence respectée"),
+        AppLocalizer.string("ticker.works_flagey", defaultValue: "Travaux Place Flagey · déviation"),
+        AppLocalizer.string("ticker.crowded", defaultValue: "Bondé · 22h Forest National"),
+        AppLocalizer.string("ticker.resuming", defaultValue: "Reprise progressive · contrôle terminé"),
+        AppLocalizer.string("ticker.metro_regular", defaultValue: "Métro régulier · 4 min entre rames"),
+        AppLocalizer.string("ticker.slowdown_rogier", defaultValue: "Ralentissement Rogier"),
+        AppLocalizer.string("ticker.atomium", defaultValue: "Service spécial Atomium ce soir"),
+        AppLocalizer.string("ticker.noctis", defaultValue: "Noctis renforcé · weekend")
     ]
 
     private let timer = Timer.publish(every: 2.2, on: .main, in: .common).autoconnect()
@@ -93,10 +93,10 @@ private struct WelcomePage: View {
     }
 
     private let tiles: [Tile] = [
-        .init(n: "01", icon: "mappin.and.ellipse", title: "Carte vivante", desc: "Tous les arrêts STIB, lignes, Villo! et événements en un coup d'œil.", accent: DS.Color.primary),
+        .init(n: "01", icon: "mappin.and.ellipse", title: AppLocalizer.string("auth.live_map", defaultValue: "Carte vivante"), desc: AppLocalizer.string("auth.live_map_desc", defaultValue: "Tous les arrêts STIB, lignes, Villo! et événements en un coup d'œil."), accent: DS.Color.primary),
         .init(n: "02", icon: "bell.fill", title: AppLocalizer.string("auth.targeted_alerts", defaultValue: "Alertes ciblées"), desc: AppLocalizer.string("auth.targeted_alerts_desc", defaultValue: "Notifié uniquement sur tes lignes, pas de bruit en plus."), accent: DS.Color.statusMajor),
         .init(n: "03", icon: "person.2.fill", title: AppLocalizer.string("source.community", defaultValue: "Communauté"), desc: AppLocalizer.string("auth.community_desc", defaultValue: "Signalements terrain confirmés en temps réel par les voyageurs."), accent: DS.Color.community),
-        .init(n: "04", icon: "bicycle", title: "Multimodal", desc: "Combine STIB, Villo! et marche, le plus rapide selon le trafic réel.", accent: DS.Color.villo)
+        .init(n: "04", icon: "bicycle", title: AppLocalizer.string("auth.multimodal", defaultValue: "Multimodal"), desc: AppLocalizer.string("auth.multimodal_desc", defaultValue: "Combine STIB, Villo! et marche, le plus rapide selon le trafic réel."), accent: DS.Color.villo)
     ]
 
     var body: some View {

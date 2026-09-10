@@ -175,8 +175,8 @@ struct RecentReportCard: View {
             if let community = effectiveCommunity {
                 HStack(spacing: 10) {
                     communityPill("\(community.confirmations ?? 0) confirm.", background: AppTheme.Palette.screen)
-                    communityPill("\(community.stillBlocked ?? 0) bloqué", background: AppTheme.Palette.warning, textColor: AppTheme.Palette.textOnBrand)
-                    communityPill("\(community.resolved ?? 0) résolu", background: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand)
+                    communityPill(AppLocalizer.format("community.n_blocked", defaultValue: "%lld bloqué", community.stillBlocked ?? 0), background: AppTheme.Palette.warning, textColor: AppTheme.Palette.textOnBrand)
+                    communityPill(AppLocalizer.format("community.n_resolved", defaultValue: "%lld résolu", community.resolved ?? 0), background: AppTheme.Palette.success, textColor: AppTheme.Palette.textOnBrand)
 
                     if let confidenceText {
                         Button {
@@ -202,7 +202,7 @@ struct RecentReportCard: View {
                     textColor: AppTheme.Palette.textOnBrand
                 )
                 if isStale {
-                    communityPill("Plus récent ?", background: AppTheme.Palette.surfaceMuted, textColor: AppTheme.Palette.textPrimary)
+                    communityPill(AppLocalizer.string("community.more_recent", defaultValue: "Plus récent ?"), background: AppTheme.Palette.surfaceMuted, textColor: AppTheme.Palette.textPrimary)
                 }
             }
 
@@ -312,7 +312,7 @@ struct RecentReportCard: View {
             status = response.status ?? status
             actionError = nil
         } catch {
-            actionError = "Action non envoyée. Réessaie."
+            actionError = AppLocalizer.string("error.action_not_sent", defaultValue: "Action non envoyée. Réessaie.")
         }
     }
 
