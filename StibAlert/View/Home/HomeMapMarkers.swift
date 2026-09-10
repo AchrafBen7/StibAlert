@@ -114,36 +114,6 @@ private struct DirectionConeShape: Shape {
     }
 }
 
-struct LiveSignalMarker: View {
-    let problemType: String
-
-    private var color: Color {
-        switch problemType {
-        case "Accident", "Agression": return DS.Color.danger
-        case "Retard", "Panne": return DS.Color.warning
-        case "Contrôle": return DS.Color.noctis      // violet = contrôle
-        case "Affluence": return DS.Color.statusMinor // ambre = affluence
-        case "Incivilité": return DS.Color.info
-        case "Propreté": return DS.Color.success
-        default: return DS.Color.primary
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color)
-                .frame(width: 18, height: 18)
-                .shadow(color: .black.opacity(0.35), radius: 2, x: 0, y: 1)
-            Circle()
-                .stroke(Color.white, lineWidth: 2)
-                .frame(width: 18, height: 18)
-        }
-        .accessibilityElement()
-        .accessibilityLabel("Signalement \(problemType)")
-        .accessibilityHint("Ouvre le détail du signalement")
-    }
-}
 
 struct OfficialSignalMarker: View {
     let problemType: String

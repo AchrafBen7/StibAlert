@@ -863,32 +863,6 @@ private struct RouteLinesStrip: View {
     }
 }
 
-/// Compact single-line replacement for the old big "PROCHAIN DÉPART" banner.
-/// Shows the next leg's line badge, when it leaves, and a realtime dot — no
-/// duplicate arrival/departure times since those already appear on the card
-/// above. Drops the visual weight of the original orange pill.
-private struct RouteNextDepartureLine: View {
-    let insight: RouteDepartureInsight
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if insight.isRealtime {
-                Circle()
-                    .fill(DS.Color.statusOK)
-                    .frame(width: 6, height: 6)
-            }
-            Text(L10n.Routing.next)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(DS.Color.inkMute)
-            RouteLineMiniBadge(line: insight.lineCode)
-                .frame(height: 22)
-                .fixedSize()
-            Text(insight.waitText)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(DS.Color.primary)
-        }
-    }
-}
 
 /// Onglet de mode, façon Google Maps : icône, un temps, le nom du mode — centré,
 /// sans-serif. L'ancienne version empilait un badge « ⚡ SNEL » (qui se posait sur

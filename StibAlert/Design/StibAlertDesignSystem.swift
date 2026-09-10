@@ -237,42 +237,7 @@ public extension DS {
         }
     }
 
-    struct SecondaryButtonStyle: ButtonStyle {
-        public init() {}
-        public func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DS.Color.ink)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(DS.Color.secondary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md)
-                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: DS.Stroke.hairline)
-                )
-                .cornerRadius(DS.Radius.md)
-                .scaleEffect(configuration.isPressed ? DS.Motion.tapScale : 1)
-                .animation(DS.Motion.easeIOS, value: configuration.isPressed)
-        }
-    }
 
-    struct PaperCard<Content: View>: View {
-        let content: () -> Content
-        public init(@ViewBuilder content: @escaping () -> Content) {
-            self.content = content
-        }
-
-        public var body: some View {
-            content()
-                .padding(DS.Spacing.lg)
-                .background(DS.Color.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.lg)
-                        .stroke(DS.Color.ink.opacity(0.15), lineWidth: DS.Stroke.hairline)
-                )
-                .cornerRadius(DS.Radius.lg)
-                .shadow(DS.Shadow.raised)
-        }
-    }
 
     enum StatusLevel {
         case ok, minor, major, critical
@@ -287,32 +252,6 @@ public extension DS {
         }
     }
 
-    struct StatusPill: View {
-        public let label: String
-        public let level: StatusLevel
-        public init(_ label: String, level: StatusLevel) {
-            self.label = label
-            self.level = level
-        }
-
-        public var body: some View {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(level.color)
-                    .frame(width: 6, height: 6)
-                Text(label)
-                    .font(.system(size: 10, weight: .bold))
-                    .tracking(1.0)
-                    .textCase(.uppercase)
-                    .foregroundColor(level.color)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(level.color.opacity(0.10))
-            .overlay(Capsule().stroke(level.color.opacity(0.40), lineWidth: DS.Stroke.thick))
-            .clipShape(Capsule())
-        }
-    }
 
     struct Rule: View {
         public var thick: Bool = false
@@ -327,14 +266,4 @@ public extension DS {
         }
     }
 
-    struct SheetHandle: View {
-        public init() {}
-        public var body: some View {
-            Capsule()
-                .fill(DS.Color.ink.opacity(0.5))
-                .frame(width: 36, height: 4)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-        }
-    }
 }

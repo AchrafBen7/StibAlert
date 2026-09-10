@@ -213,31 +213,3 @@ struct ReportsFilterDock: View {
     }
 }
 
-private struct EditorialSegmentChip: View {
-    let label: String
-    let count: Int
-    let active: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(label)
-                    .font(.system(size: 12, weight: .semibold))
-                Text("\(count)")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(active ? DS.Color.paper.opacity(0.7) : DS.Color.inkMute)
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .foregroundStyle(active ? DS.Color.paper : DS.Color.ink)
-            .background(active ? DS.Color.ink : DS.Color.paper)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(DS.Color.ink, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}

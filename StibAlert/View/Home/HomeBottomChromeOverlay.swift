@@ -116,54 +116,6 @@ struct HomeBottomChromeOverlay: View {
     }
 }
 
-private struct HomePulseBar: View {
-    let totalActive: Int
-    let favoriteAffectedCount: Int
-    let eventCount: Int
-    let refreshedAt: Date?
-    let onOpenReports: () -> Void
-
-    private var titleText: String {
-        if favoriteAffectedCount > 0 {
-            return favoriteAffectedCount == 1
-                ? AppLocalizer.string("home.one_incident_your_lines", defaultValue: "1 incident sur tes lignes")
-                : AppLocalizer.format("home.n_incidents_your_lines", defaultValue: "%lld incidents sur tes lignes", favoriteAffectedCount)
-        }
-        return totalActive == 1
-            ? AppLocalizer.string("home.one_active_report", defaultValue: "1 signalement actif")
-            : AppLocalizer.format("home.n_active_reports", defaultValue: "%lld signalements actifs", totalActive)
-    }
-
-    var body: some View {
-        Button(action: onOpenReports) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(favoriteAffectedCount > 0 ? DS.Color.statusMajor : DS.Color.statusMinor)
-                    .frame(width: 10, height: 10)
-
-                Text(titleText)
-                    .font(DS.Font.bodyBold)
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(1)
-
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(DS.Color.paper.opacity(0.98))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(DS.Color.ink.opacity(0.14), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(DS.Shadow.overlay)
-        }
-        .buttonStyle(.plain)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-}
 
 private struct HomeReportFloatingButton: View {
     let action: () -> Void

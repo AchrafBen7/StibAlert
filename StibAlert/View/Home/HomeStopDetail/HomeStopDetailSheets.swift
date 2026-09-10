@@ -484,49 +484,4 @@ private struct HomeStopDetailSheet: View {
     }
 }
 
-private struct HomeStopDetailOverlay: View {
-    let stopSummary: TransportStopSummaryDTO
-    let stopDetail: TransportStopDTO?
-    let isLoading: Bool
-    let nearbyVilloStations: [(station: VilloStation, distanceMeters: Int)]
-    let onDismiss: () -> Void
-    let onReport: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.52)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
-
-            VStack {
-                Spacer()
-
-                VStack(spacing: 0) {
-                    Capsule()
-                        .fill(DS.Color.border)
-                        .frame(width: 42, height: 5)
-                        .padding(.top, 10)
-                        .padding(.bottom, 12)
-
-                    HomeStopDetailSheet(
-                        stopSummary: stopSummary,
-                        stopDetail: stopDetail,
-                        isLoading: isLoading,
-                        nearbyVilloStations: nearbyVilloStations,
-                        onReport: onReport
-                    )
-                    .frame(maxHeight: 520)
-                }
-                .background(DS.Color.paper)
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(DS.Color.border, lineWidth: 1)
-                )
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 94)
-        }
-    }
-}
 

@@ -57,16 +57,6 @@ enum L10n {
         static var connectionLimited: String { AppLocalizer.string("errors.connection_limited", defaultValue: "Connexion limitée — données en cache") }
     }
 
-    enum EmptyStates {
-        static var noResults: String { AppLocalizer.string("empty.no_results", defaultValue: "Aucun résultat") }
-        static var noLineFound: String { AppLocalizer.string("empty.no_line_found", defaultValue: "Aucune ligne trouvée") }
-        static var noReports: String { AppLocalizer.string("empty.no_reports", defaultValue: "Aucun signalement") }
-        static var noFavorites: String { AppLocalizer.string("empty.no_favorites", defaultValue: "Aucun favori pour le moment") }
-        static var noStopsNearby: String { AppLocalizer.string("empty.no_stops_nearby", defaultValue: "Aucun arrêt à proximité") }
-        static var noTripPlanned: String { AppLocalizer.string("empty.no_trip_planned", defaultValue: "Aucun trajet planifié") }
-        static var resetSearchHint: String { AppLocalizer.string("empty.reset_search_hint", defaultValue: "Réinitialise la recherche pour voir tous les résultats.") }
-        static var seeAllLines: String { AppLocalizer.string("empty.see_all_lines", defaultValue: "Voir toutes les lignes") }
-    }
 
     enum Onboarding {
         static var page1Title: String { AppLocalizer.string("onboarding.page1.title") }
@@ -358,28 +348,6 @@ enum L10n {
         static var dopamineTipBody: String { AppLocalizer.string("reports.dopamine_tip.body") }
     }
 
-    enum Voice {
-        static var idle: String { AppLocalizer.string("voice.idle", defaultValue: "Parle à Mobi") }
-        static var listening: String { AppLocalizer.string("voice.listening", defaultValue: "Je t'écoute…") }
-        static var thinking: String { AppLocalizer.string("voice.thinking", defaultValue: "Je réfléchis…") }
-        static var speaking: String { AppLocalizer.string("voice.speaking", defaultValue: "Mobi") }
-        static var error: String { AppLocalizer.string("voice.error", defaultValue: "Oups") }
-        static var startSpeaking: String { AppLocalizer.string("voice.start_speaking", defaultValue: "Parler") }
-        static var stopSpeaking: String { AppLocalizer.string("voice.stop_speaking", defaultValue: "Arrêter") }
-        static var sendNow: String { AppLocalizer.string("voice.send_now", defaultValue: "Envoyer") }
-        static var retry: String { AppLocalizer.string("voice.retry", defaultValue: "Réessayer") }
-        static var switchToText: String { AppLocalizer.string("voice.switch_to_text", defaultValue: "Continuer en mode texte") }
-        static var setupMic: String { AppLocalizer.string("voice.setup_mic", defaultValue: "Régler le micro") }
-        static var micDeniedMessage: String {
-            AppLocalizer.string(
-                "voice.mic_denied_message",
-                defaultValue: "Autorise le micro et la reconnaissance vocale dans Réglages pour parler à Mobi — ou continue en mode texte."
-            )
-        }
-        static var seeRouteOnMap: String { AppLocalizer.string("voice.see_route_on_map", defaultValue: "Voir la route sur la carte") }
-        static var goAhead: String { AppLocalizer.string("voice.go_ahead", defaultValue: "Vas-y, parle…") }
-        static var askAgain: String { AppLocalizer.string("voice.ask_again", defaultValue: "Reparler") }
-    }
 
     enum Notifications {
         static var preTripTitle: String { AppLocalizer.string("notifications.pre_trip.title") }

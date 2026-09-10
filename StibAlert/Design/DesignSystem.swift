@@ -205,17 +205,6 @@ struct DesignSystem {
         static let bookingsHeroHeight: CGFloat = 220
     }
 
-    struct Shadows {
-        static let small = Shadow(color: Colors.shadow, radius: 4, offsetY: 2)
-        static let medium = Shadow(color: Colors.shadowMedium, radius: 8, offsetY: 4)
-        static let large = Shadow(color: Colors.shadowStrong, radius: 16, offsetY: 8)
-
-        struct Shadow {
-            let color: Color
-            let radius: CGFloat
-            let offsetY: CGFloat
-        }
-    }
 
     struct Animation {
         static let microFade = SwiftUI.Animation.easeInOut(duration: 0.15)

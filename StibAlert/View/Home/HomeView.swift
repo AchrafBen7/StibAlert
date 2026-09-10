@@ -4045,32 +4045,6 @@ struct HomeView: View {
 
 // MARK: - Waze overlay
 
-private struct WazeMenuOverlay: View {
-    @Binding var isShowing: Bool
-    let onNavigate: (AppPage) -> Void
-    let onReport: () -> Void
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Color.black.opacity(0.45)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { isShowing = false }
-                    }
-
-                WazeMenuPanel(
-                    onClose: { withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { isShowing = false } },
-                    onNavigate: onNavigate,
-                    onReport: onReport
-                )
-                .frame(width: geo.size.width * 0.72)
-                .transition(.move(edge: .leading))
-            }
-        }
-        .ignoresSafeArea()
-    }
-}
 
 private struct WazeMenuPanel: View {
     @EnvironmentObject private var session: AuthSession
@@ -4161,95 +4135,7 @@ private struct WazeMenuPanel: View {
 
 // MARK: - Top bar buttons
 
-private struct HamburgerButton: View {
-    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 48
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Circle()
-                .fill(AppTheme.Palette.screen)
-                .frame(width: buttonSize, height: buttonSize)
-                .overlay(VStack(spacing: 5) {
-                    ForEach(0..<3, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 1.5).fill(AppTheme.Palette.textPrimary).frame(width: 20, height: 2)
-                    }
-                })
-                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 2)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Ouvrir le menu")
-        .accessibilityHint("Affiche les sections principales de l’application")
-    }
-}
 
-struct HomeDecisionCard: View {
-    let data: TransportHomeDecisionData
-    let isLoading: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Recommandation")
-                        .font(.custom("Montserrat-SemiBold", size: 10))
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.white.opacity(0.48))
-
-                    Text(data.title)
-                        .font(AppTheme.Fonts.title3)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                }
-
-                Spacer()
-
-                if isLoading {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(0.85)
-                } else {
-                    Text(data.severityLabel)
-                        .font(AppTheme.Fonts.captionStrong)
-                        .foregroundStyle(AppTheme.Palette.textPrimary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(AppTheme.Palette.surfaceMuted)
-                        .clipShape(Capsule())
-                }
-            }
-
-            Text(data.subtitle)
-                .font(AppTheme.Fonts.body)
-                .foregroundStyle(AppTheme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 10) {
-                Text(data.nextDepartureSummary)
-                    .font(AppTheme.Fonts.bodyStrong)
-                    .foregroundStyle(AppTheme.Palette.info)
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "#141C2A"), AppTheme.Palette.screenElevated.opacity(0.98)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: "#B5CFF8").opacity(0.14), lineWidth: 1)
-        )
-    }
-}
 
 private struct HomeAlternativeDetailsSheet: View {
     let alternative: TransportAlternativeDTO

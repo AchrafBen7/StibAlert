@@ -2033,58 +2033,7 @@ struct ReportsView: View {
     }
 }
 
-private struct EditorialPingDot: View {
-    let color: Color
-    @State private var animate = false
 
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color.opacity(0.75))
-                .frame(width: 8, height: 8)
-                .scaleEffect(animate ? 2.2 : 1)
-                .opacity(animate ? 0 : 0.75)
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
-                animate = true
-            }
-        }
-    }
-}
-
-private struct EditorialNowCard: View {
-    let item: EditorialNowItem
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            LineBadge(line: item.line, size: .lg)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(AppLocalizer.string("Officiel STIB", defaultValue: "Officiel STIB"))
-                    .font(DS.Font.labelSmall)
-                    .tracking(1.4)
-                    .foregroundStyle(DS.Color.statusMajor)
-                Text(item.reason)
-                    .font(DS.Font.bodySmall)
-                    .foregroundStyle(DS.Color.ink)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .frame(width: 260, alignment: .topLeading)
-        .background(DS.Color.paper)
-        .overlay(
-            RoundedRectangle(cornerRadius: DS.Radius.md)
-                .stroke(DS.Color.ink, lineWidth: 1.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-    }
-}
 
 struct EditorialLineGroupCard<NestedContent: View>: View {
     let group: EditorialLineGroup
@@ -3493,40 +3442,6 @@ private struct SourceBreakdownRow: View {
 
 // MARK: - Editorial status HUD components
 
-private struct StatusCell: View {
-    let label: String
-    let value: String
-    var sublabel: String? = nil
-    var valueColor: Color = DS.Color.ink
-    var pulse: Bool = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                if pulse {
-                    ReportsPulsingDot(color: valueColor, size: 4)
-                }
-                Text(label.uppercased())
-                    .font(DS.Font.labelSmall.weight(.semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(DS.Color.inkMute)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(valueColor)
-                if let sublabel {
-                    Text(sublabel)
-                        .font(.system(size: 10))
-                        .foregroundStyle(DS.Color.inkMute)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-}
 
 struct ReportsPulsingDot: View {
     let color: Color

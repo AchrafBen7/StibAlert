@@ -543,7 +543,15 @@ struct ProfileView: View {
     }
 
     private var identityCard: some View {
-        VStack(spacing: 0) {
+        // ⚠️ Lu ICI, une seule fois, sur l'acteur principal.
+        //
+        // `PhotosPicker` et `.overlay` prennent des fermetures que Swift
+        // considère NON ISOLÉES : y lire `session.currentUser` directement
+        // était signalé comme un accès concurrent potentiel, pas comme un
+        // détail de style. Une `String?` traverse la frontière sans risque,
+        // un modèle observable non.
+        let avatarURLString = session.currentUser?.photoProfil
+        return VStack(spacing: 0) {
             HStack(spacing: 12) {
                 // P10 — Avatar circulaire. PhotosPicker au tap, AsyncImage
                 // si photoProfil présent, sinon initiale du prénom. Overlay
@@ -551,7 +559,7 @@ struct ProfileView: View {
                 // change". Spinner pendant l'upload.
                 PhotosPicker(selection: $pickedItem, matching: .images, photoLibrary: .shared()) {
                     ZStack {
-                        if let urlString = session.currentUser?.photoProfil,
+                        if let urlString = avatarURLString,
                            let url = URL(string: urlString) {
                             AsyncImage(url: url) { phase in
                                 switch phase {
@@ -585,7 +593,7 @@ struct ProfileView: View {
                             .foregroundStyle(DS.Color.primary)
                             .background(Circle().fill(DS.Color.paper))
                             .offset(x: 18, y: 18)
-                            .opacity(session.currentUser?.photoProfil == nil ? 1 : 0)
+                            .opacity(avatarURLString == nil ? 1 : 0)
                     )
                 }
                 .buttonStyle(.plain)
@@ -1323,128 +1331,8 @@ private struct ProfileSettingsSwitch: View {
     }
 }
 
-private struct ProfileSettingsToggleRow: View {
-    let label: String
-    var description: String? = nil
-    @Binding var value: Bool
-    var disabled: Bool = false
 
-    var body: some View {
-        Button {
-            guard !disabled else { return }
-            withAnimation(.easeInOut(duration: 0.15)) {
-                value.toggle()
-            }
-        } label: {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundColor(DS.Color.ink)
-                    if let description {
-                        Text(description)
-                            .font(.system(size: 11))
-                            .foregroundColor(DS.Color.inkMute)
-                    }
-                }
-                Spacer(minLength: 8)
-                ProfileSettingsSwitch(isOn: value)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .opacity(disabled ? 0.4 : 1)
-        }
-        .buttonStyle(ProfileRootRowPressableStyle())
-        .disabled(disabled)
-    }
-}
 
-private struct ProfileSettingsChoiceRow: View {
-    let label: String
-    let subtitle: String?
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundColor(DS.Color.ink)
-                    if let subtitle {
-                        Text(subtitle.uppercased())
-                            .font(DS.Font.label)
-                            .tracking(1)
-                            .foregroundColor(DS.Color.inkMute)
-                    }
-                }
-                Spacer()
-                if selected {
-                    ZStack {
-                        Circle().fill(DS.Color.ink).frame(width: 24, height: 24)
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundColor(DS.Color.paper)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(ProfileRootRowPressableStyle())
-    }
-}
-
-private struct ProfileSettingsActionRow: View {
-    let label: String
-    var description: String? = nil
-    var value: String? = nil
-    var danger: Bool = false
-    var inert: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(.system(size: 13.5, weight: .medium))
-                        .foregroundColor(danger ? DS.Color.destructive : DS.Color.ink)
-                    if let description {
-                        Text(description)
-                            .font(.system(size: 11))
-                            .foregroundColor(DS.Color.inkMute)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer()
-                if let value {
-                    Text(value)
-                        .font(DS.Font.label)
-                        .monospacedDigit()
-                        .foregroundColor(DS.Color.inkMute)
-                }
-                if !inert {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(DS.Color.inkMute.opacity(0.6))
-                        .padding(.top, 2)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(ProfileRootRowPressableStyle())
-        .disabled(inert)
-    }
-}
 
 private struct LanguageSettingsView: View {
     @Binding var selectedLanguage: String
