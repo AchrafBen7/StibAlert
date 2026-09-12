@@ -82,13 +82,69 @@ final class AuthSession: ObservableObject {
         }
         do {
             let user = try await AuthService.me()
+            cacheUser(user)
             state = .signedIn(user)
             PushNotificationManager.current?.loginOneSignal(userId: user.id)
             await registerForPushIfNeeded(using: user)
         } catch {
-            KeychainHelper.deleteToken()
-            state = .signedOut
+            // ⚠️ NE PAS supprimer le jeton sur n'importe quelle erreur.
+            //
+            // Cette branche faisait `KeychainHelper.deleteToken()` quoi qu'il
+            // arrive. Ouvrir l'app dans le métro, sans réseau, DÉCONNECTAIT
+            // donc l'utilisateur pour de bon : au retour du réseau il devait
+            // ressaisir son mot de passe, et entre-temps il perdait ses
+            // favoris, ses alertes et le signalement.
+            //
+            // Seul un refus explicite du serveur signifie « ce jeton est
+            // mort ». `APIError` distingue déjà les deux cas.
+            if Self.isAuthFailure(error) {
+                KeychainHelper.deleteToken()
+                KeychainHelper.deleteRefreshToken()
+                clearCachedUser()
+                state = .signedOut
+            } else if let cached = Self.cachedUser() {
+                // Réseau absent ou réponse illisible : on repart du dernier
+                // profil connu. Il sera remplacé dès que `/me` répondra.
+                state = .signedIn(cached)
+            } else {
+                // Jeton CONSERVÉ : le prochain lancement avec du réseau
+                // rétablira la session sans redemander le mot de passe.
+                state = .signedOut
+            }
         }
+    }
+
+    /// Seul un refus explicite du serveur (401/403) veut dire « jeton mort ».
+    /// Une coupure réseau, un DNS absent ou un champ inattendu n'en sont pas.
+    private static func isAuthFailure(_ error: Error) -> Bool {
+        switch error {
+        case APIError.unauthorized:
+            return true
+        case APIError.server(let status, _):
+            return status == 401 || status == 403
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Profil mis en cache (repli hors ligne)
+
+    private static let cachedUserKey = "blayse.cachedUser"
+
+    /// Le profil sert UNIQUEMENT d'affichage de repli au démarrage sans
+    /// réseau. Le jeton reste la seule preuve d'authentification.
+    private func cacheUser(_ user: UtilisateurDTO) {
+        guard let data = try? JSONEncoder().encode(user) else { return }
+        UserDefaults.standard.set(data, forKey: Self.cachedUserKey)
+    }
+
+    private static func cachedUser() -> UtilisateurDTO? {
+        guard let data = UserDefaults.standard.data(forKey: cachedUserKey) else { return nil }
+        return try? JSONDecoder().decode(UtilisateurDTO.self, from: data)
+    }
+
+    private func clearCachedUser() {
+        UserDefaults.standard.removeObject(forKey: Self.cachedUserKey)
     }
 
     func inscription(nom: String, email: String, motDePasse: String) async throws {
@@ -187,6 +243,7 @@ final class AuthSession: ObservableObject {
         activationSuccessVisible = false
         PushNotificationManager.current?.logoutOneSignal()
         Self.clearOnboardingState()
+        clearCachedUser()
         state = .signedOut
     }
 
@@ -216,6 +273,7 @@ final class AuthSession: ObservableObject {
         guard isSignedIn else { return }
         do {
             let user = try await UtilisateurService.me()
+            cacheUser(user)
             state = .signedIn(user)
         } catch {
             ErrorReporting.capture(error, tag: "auth.userRefresh")
