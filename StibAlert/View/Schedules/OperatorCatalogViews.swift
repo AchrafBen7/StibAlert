@@ -1087,17 +1087,21 @@ private extension OperatorLine {
             default: return AppLocalizer.string("zone.other", defaultValue: "Autres")
             }
         case .delijn:
+            // ⚠️ Ces libellés étaient renvoyés en FRANÇAIS BRUT, alors que la
+            // branche TEC juste au-dessus passe par `AppLocalizer` : un
+            // néerlandophone lisait « Anvers » et « Flandre orientale » dans
+            // un annuaire De Lijn, en néerlandais partout ailleurs.
             switch key {
-            case "brussels": return "Bruxelles / Rand"
-            case "vlaamsbrabant": return "Vlaams-Brabant"
-            case "antwerpen": return "Anvers"
-            case "limburg": return "Limbourg"
-            case "oostvlaanderen": return "Flandre orientale"
-            case "westvlaanderen": return "Flandre occidentale"
-            default: return "Autres"
+            case "brussels": return AppLocalizer.string("zone.delijn.brussels", defaultValue: "Bruxelles / Rand")
+            case "vlaamsbrabant": return AppLocalizer.string("zone.delijn.vlaamsbrabant", defaultValue: "Vlaams-Brabant")
+            case "antwerpen": return AppLocalizer.string("zone.delijn.antwerpen", defaultValue: "Anvers")
+            case "limburg": return AppLocalizer.string("zone.delijn.limburg", defaultValue: "Limbourg")
+            case "oostvlaanderen": return AppLocalizer.string("zone.delijn.oostvlaanderen", defaultValue: "Flandre orientale")
+            case "westvlaanderen": return AppLocalizer.string("zone.delijn.westvlaanderen", defaultValue: "Flandre occidentale")
+            default: return AppLocalizer.string("zone.other", defaultValue: "Autres")
             }
         case .stib, .sncb:
-            return "Toutes zones"
+            return AppLocalizer.string("Toutes zones", defaultValue: "Toutes zones")
         }
     }
 

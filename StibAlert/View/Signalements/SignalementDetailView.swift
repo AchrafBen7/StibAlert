@@ -663,10 +663,16 @@ struct SignalementDetailView: View {
     }
 
     private func freshnessStepLabel(offset: Int) -> String {
-        guard let minutes = latest.effectiveFreshnessMinutes else { return "il y a quelques min" }
+        // Trois chaînes françaises en dur : un NL/EN lisait « il y a 12 min »
+        // au milieu d'un écran traduit.
+        guard let minutes = latest.effectiveFreshnessMinutes else {
+            return AppLocalizer.string("freshness.some_minutes_ago", defaultValue: "il y a quelques min")
+        }
         let shifted = max(1, minutes - offset)
-        if shifted < 60 { return "il y a \(shifted) min" }
-        return "il y a \(shifted / 60) h"
+        if shifted < 60 {
+            return AppLocalizer.format("freshness.minutes_ago", defaultValue: "il y a %lld min", shifted)
+        }
+        return AppLocalizer.format("freshness.hours_ago", defaultValue: "il y a %lld h", shifted / 60)
     }
 }
 

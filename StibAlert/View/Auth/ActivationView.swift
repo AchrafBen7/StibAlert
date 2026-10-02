@@ -224,7 +224,7 @@ struct ActivationView: View {
     }
 
     private var resendLabel: String {
-        if isResending { return "RENVOI…" }
+        if isResending { return AppLocalizer.string("auth.resending", defaultValue: "RENVOI…") }
         if resendCooldown > 0 { return AppLocalizer.format("auth.resend_code_wait", defaultValue: "RENVOYER LE CODE (%lldS)", resendCooldown) }
         return AppLocalizer.string("auth.resend_code", defaultValue: "RENVOYER LE CODE")
     }
