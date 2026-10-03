@@ -806,49 +806,73 @@ struct FavoritesView: View {
             .padding(.top, 12)
             .padding(.bottom, 8)
 
-            Rectangle()
-                .fill(DS.Color.ink.opacity(0.12))
-                .frame(height: 1)
-                .padding(.horizontal, 16)
-
-            VStack(spacing: 10) {
-                HStack(alignment: .top, spacing: 10) {
+            // ⚠️ Une carte CALME se replie.
+            //
+            // `isAllQuiet` ne supprimait qu'UNE des trois répétitions du
+            // néant. Il en restait deux — la pastille « AUCUN INCIDENT ACTIF »
+            // puis le titre « Rien à signaler » — et surtout le MÊME poids
+            // visuel qu'un arrêt bloqué : trois arrêts sans incident
+            // remplissaient l'écran pour ne rien dire, et repoussaient
+            // « Lignes suivies » sous le pli.
+            //
+            // Le calme n'a pas besoin d'une carte : un nom, ses lignes, un
+            // point vert. La hauteur rendue fait ressortir les arrêts
+            // perturbés, seule raison d'ouvrir cet écran.
+            if item.isAllQuiet {
+                HStack(spacing: 10) {
                     HStack(spacing: 4) {
                         ForEach(item.detailLines.prefix(4)) { line in
                             LineBadge(line: line.code, size: .sm)
                         }
                     }
                     Spacer()
-                    severityMeta(for: item)
+                    Circle()
+                        .fill(item.cockpitAccent)
+                        .frame(width: 8, height: 8)
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            } else {
+                Rectangle()
+                    .fill(DS.Color.ink.opacity(0.12))
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
 
-                HStack(spacing: 8) {
-                    Text(item.cockpitHeadline)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(DS.Color.ink)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(item.nextPassage)
-                        .font(DS.Font.labelLarge.weight(.bold))
-                        .foregroundStyle(DS.Color.ink)
-                }
+                VStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
+                        HStack(spacing: 4) {
+                            ForEach(item.detailLines.prefix(4)) { line in
+                                LineBadge(line: line.code, size: .sm)
+                            }
+                        }
+                        Spacer()
+                        severityMeta(for: item)
+                    }
 
-                HStack(spacing: 8) {
-                    // Tout est calme → « Rien à signaler » (headline) suffit :
-                    // pas de 2e ligne « Aucun signalement actif » qui répète.
-                    if !item.isAllQuiet {
+                    HStack(spacing: 8) {
+                        Text(item.cockpitHeadline)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(DS.Color.ink)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(item.nextPassage)
+                            .font(DS.Font.labelLarge.weight(.bold))
+                            .foregroundStyle(DS.Color.ink)
+                    }
+
+                    HStack(spacing: 8) {
                         Text(item.activityLabel)
                             .font(.system(size: 11))
                             .foregroundStyle(DS.Color.inkMute)
+                        Spacer()
+                        Text(item.lastUpdatedLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.inkMute)
                     }
-                    Spacer()
-                    Text(item.lastUpdatedLabel)
-                        .font(.system(size: 11))
-                        .foregroundStyle(DS.Color.inkMute)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
         .background(DS.Color.paper)
         .overlay(
