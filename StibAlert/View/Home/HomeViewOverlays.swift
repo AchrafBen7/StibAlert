@@ -329,6 +329,15 @@ extension HomeView {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                         selectedSignalementPreview = nil
                     }
+                },
+                // Après un blocage, le serveur ne renverra plus les
+                // signalements de cet auteur : on ferme la carte et on
+                // recharge, sinon celui-ci resterait affiché.
+                onAuthorBlocked: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                        selectedSignalementPreview = nil
+                    }
+                    Task { await loadRemoteSignalements() }
                 }
             )
             .padding(.horizontal, 18)

@@ -11,6 +11,19 @@ struct SignalementMiniCard: View {
     @State private var showConfidenceExplanation = false
     @State private var reportedFake = false
     @State private var showReportOptions = false
+    @State private var showBlockConfirmation = false
+    @State private var blockNotice: String?
+
+    /// Appelé après un blocage réussi : l'appelant ferme la carte et recharge,
+    /// sinon le signalement de l'auteur qu'on vient de bloquer reste affiché.
+    var onAuthorBlocked: (() -> Void)?
+
+    /// On ne bloque que des comptes. Un signalement anonyme n'a pas d'auteur à
+    /// qui s'en prendre : le recours contre lui est le signalement de contenu.
+    private var blockableAuthorId: String? {
+        guard let id = signalement.utilisateurId, !id.isEmpty else { return nil }
+        return id
+    }
 
     private var accentColor: Color {
         // Logique couleur sur le type CANONIQUE (français stable), pas sur le
@@ -147,7 +160,23 @@ struct SignalementMiniCard: View {
                 Button("Contenu offensant ou inapproprié", role: .destructive) { reportContent(.offensive) }
                 Button("Spam") { reportContent(.spam) }
                 Button("Information erronée ou fausse") { triggerReportFake() }
+                // Bloquer agit sur l'AUTEUR, pas sur le contenu : l'entrée
+                // n'apparaît que s'il y en a un. Exigé par Apple 1.2.
+                if blockableAuthorId != nil {
+                    Button(AppLocalizer.string("block.user", defaultValue: "Bloquer cet utilisateur"), role: .destructive) {
+                        showBlockConfirmation = true
+                    }
+                }
                 Button("Annuler", role: .cancel) {}
+            }
+
+            // Le retour d'action. Sans lui, un échec réseau se présentait comme
+            // un succès : le geste semblait passé alors que rien n'était parti.
+            if let blockNotice {
+                Text(blockNotice)
+                    .font(DS.Font.caption)
+                    .foregroundStyle(DS.Color.inkMute)
+                    .padding(.top, 4)
             }
         }
         .padding(DS.Spacing.lg)
@@ -169,6 +198,20 @@ struct SignalementMiniCard: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(signalement.confidenceExplanation ?? AppLocalizer.string("confidence.gps_default", defaultValue: "Basée sur la proximité GPS observée au moment du signalement."))
+        }
+        .alert(
+            AppLocalizer.string("block.confirm_title", defaultValue: "Bloquer cet utilisateur ?"),
+            isPresented: $showBlockConfirmation
+        ) {
+            Button(AppLocalizer.string("block.user", defaultValue: "Bloquer cet utilisateur"), role: .destructive) {
+                blockAuthor()
+            }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text(AppLocalizer.string(
+                "block.confirm_body",
+                defaultValue: "Tu ne verras plus ses signalements. Tu pourras le débloquer depuis ton profil."
+            ))
         }
     }
 
@@ -203,7 +246,38 @@ struct SignalementMiniCard: View {
                 _ = try await ClusterService.flagSignalement(signalement.id, reason: reason)
                 reportedFake = true
             } catch {
-                // Silent fail — déjà signalé ou erreur réseau
+                // Un échec ne doit PAS passer pour un succès. L'ancien code
+                // avalait l'erreur en silence : le bouton restait actif, aucun
+                // message, et l'utilisateur croyait avoir signalé un contenu
+                // qui n'était jamais parti.
+                blockNotice = AppLocalizer.string(
+                    "report.failed",
+                    defaultValue: "Impossible d'envoyer le signalement. Réessaie."
+                )
+            }
+        }
+    }
+
+    /// Bloque l'auteur du signalement.
+    ///
+    /// Le filtrage est fait par le serveur : une fois le blocage posé, ses
+    /// signalements ne reviennent plus dans `/api/signalements`. Il faut donc
+    /// recharger, d'où `onAuthorBlocked`.
+    private func blockAuthor() {
+        guard let authorId = blockableAuthorId, !isSubmitting else { return }
+        isSubmitting = true
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Task {
+            do {
+                try await BlockService.block(userId: authorId)
+                isSubmitting = false
+                onAuthorBlocked?()
+            } catch {
+                isSubmitting = false
+                blockNotice = AppLocalizer.string(
+                    "block.failed",
+                    defaultValue: "Impossible de bloquer cet utilisateur. Réessaie."
+                )
             }
         }
     }

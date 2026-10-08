@@ -2330,7 +2330,9 @@ struct HomeView: View {
     }
 
     @MainActor
-    private func loadRemoteSignalements() async {
+    /// Interne, et non `private` : l'extension des surcouches
+    /// (`HomeViewOverlays.swift`) la rejoue après un blocage d'auteur.
+    func loadRemoteSignalements() async {
         guard AppConfig.isBackendEnabled else { hasLoadedSignalements = true; return }
         guard !isLoadingSignalements else { return }
         isLoadingSignalements = true

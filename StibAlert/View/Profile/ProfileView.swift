@@ -215,6 +215,12 @@ struct ProfileView: View {
                 onClose: closeToProfile
             )
             .transition(.move(edge: .trailing).combined(with: .opacity))
+        case .blockedUsers:
+            BlockedUsersView(
+                onBack: { selectedSubpage = nil },
+                onClose: closeToProfile
+            )
+            .transition(.move(edge: .trailing).combined(with: .opacity))
         case .support:
             SupportSettingsView(
                 onBack: { selectedSubpage = nil },
@@ -353,6 +359,15 @@ struct ProfileView: View {
                         profileGroup(title: "Confidentialité") {
                             profileRow(icon: "lock", label: "Données & confidentialité") {
                                 selectedSubpage = .privacy
+                            }
+                            // La sortie du blocage. Rangée ici et non dans
+                            // « Compte » : c'est de la confidentialité, et
+                            // c'est là qu'on la cherche.
+                            profileRow(
+                                icon: "nosign",
+                                label: AppLocalizer.string("block.list_title", defaultValue: "Utilisateurs bloqués")
+                            ) {
+                                selectedSubpage = .blockedUsers
                             }
                         }
 
@@ -1180,6 +1195,7 @@ private enum SettingsSubpage {
     case languages
     case notifications
     case privacy
+    case blockedUsers
     case support
     case transitPass
 }
@@ -1188,7 +1204,9 @@ private enum SettingsSubpage {
 // reliquat d'un ancien design de page Settings sous forme de tuiles, jamais
 // référencé après la migration vers le rootContent en liste (l. 175+).
 
-private struct ProfileSubpageScaffold<Content: View>: View {
+/// Interne, et non `private` : `BlockedUsersView` vit dans son propre
+/// fichier et réutilise la même ossature que les autres sous-pages.
+struct ProfileSubpageScaffold<Content: View>: View {
     let eyebrow: String
     let title: String
     let onBack: () -> Void
