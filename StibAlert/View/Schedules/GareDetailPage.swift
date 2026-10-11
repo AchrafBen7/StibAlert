@@ -70,7 +70,6 @@ struct GareDetailPage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .modifier(PaperGrainBackground())
-        .preferredColorScheme(.light)
         .toolbar(.hidden, for: .navigationBar)
         .task { await load() }
         .sheet(item: $selectedDeparture) { dep in

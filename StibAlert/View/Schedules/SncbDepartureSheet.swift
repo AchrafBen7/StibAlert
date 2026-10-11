@@ -121,6 +121,5 @@ struct SncbDepartureSheet: View {
         .background(DS.Color.paper.ignoresSafeArea())
         .presentationDetents([.height(340)])
         .presentationDragIndicator(.visible)
-        .preferredColorScheme(.light)
     }
 }

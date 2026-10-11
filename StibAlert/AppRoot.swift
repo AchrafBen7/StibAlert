@@ -15,7 +15,6 @@ struct AppRoot: View {
 
     var body: some View {
         content
-            .preferredColorScheme(.light)
             .environmentObject(nav)
             .environmentObject(session)
             .fullScreenCover(isPresented: $nav.showAuthFlow) {

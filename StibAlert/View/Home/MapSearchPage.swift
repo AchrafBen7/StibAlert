@@ -72,7 +72,6 @@ struct MapSearchPage: View {
             .scrollDismissesKeyboard(.immediately)
         }
         .background(DS.Color.paper.ignoresSafeArea())
-        .preferredColorScheme(.light)
         .onAppear {
             localText = query
             // Petit délai : laisse la transition se poser avant d'ouvrir le clavier

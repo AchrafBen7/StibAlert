@@ -27,7 +27,6 @@ struct AddSncbFavoriteSheet: View {
             }
         }
         .background(DS.Color.paper.ignoresSafeArea())
-        .preferredColorScheme(.light)
     }
 }
 
@@ -97,7 +96,6 @@ struct AddOperatorFavoriteSheet: View {
             }
         }
         .background(DS.Color.paper.ignoresSafeArea())
-        .preferredColorScheme(.light)
         .task { await load() }
     }
 

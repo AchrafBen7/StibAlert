@@ -98,7 +98,6 @@ struct HomeSncbStationSheet: View {
             .padding(.bottom, 24)
         }
         .background(DS.Color.paper.ignoresSafeArea())
-        .preferredColorScheme(.light)
         .task {
             async let depTask = SNCBStationService.departures(stationId: station.id, limit: 8)
             async let rtTask = SNCBStationService.realtime(stationId: station.id)

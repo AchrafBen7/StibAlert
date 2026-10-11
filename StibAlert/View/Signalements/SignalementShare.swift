@@ -173,7 +173,6 @@ struct ReportSharePromptSheet: View {
         .presentationDetents([.height(showDescriptionIncentive ? 540 : 440)])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(false)
-        .preferredColorScheme(.light)
     }
 
     private var descriptionIncentiveCard: some View {

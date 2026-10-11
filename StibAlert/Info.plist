@@ -14,8 +14,6 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Blayse utilise ta position pour afficher les arrêts proches et calculer ton itinéraire en temps réel.</string>
 	<key>UIBackgroundModes</key>
