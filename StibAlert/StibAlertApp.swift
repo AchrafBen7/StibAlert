@@ -24,6 +24,7 @@ struct StibAlertApp: App {
         // @AppStorage : sinon les installations existantes gardent les 4 calques
         // secondaires allumés et ne voient jamais le nouveau défaut.
         MapLayerDefaults.applyCalmDefaultIfNeeded()
+        LanguageChoiceMigration.applyIfNeeded()
         Analytics.start()
         // `App.opened` n'est PLUS émis ici : depuis l'init il ne comptait que le
         // démarrage à froid. La rétention (J+1/J+7) a besoin de CHAQUE retour au

@@ -55,11 +55,39 @@ enum AppStorageKeys {
     /// carte saturée et le nouveau défaut ne se voit jamais.
     static let mapLayersCalmDefaultApplied = "mapLayersCalmDefaultApplied.v1"
 
+    /// Choix de langue fait au PREMIER lancement, avant le consentement.
+    ///
+    /// Séparé de `appLanguageOverride` à dessein : l'override vaut nil quand
+    /// l'utilisateur garde la langue proposée, et on ne saurait alors pas
+    /// distinguer « n'a jamais vu l'écran » de « a confirmé la langue du
+    /// téléphone ». L'écran se rouvrirait à chaque démarrage.
+    static let hasChosenLanguage = "hasChosenLanguage"
+
     // RGPD / Privacy consent
     static let hasAcceptedPrivacyConsent = "hasAcceptedPrivacyConsent"
     static let privacyConsentAcceptedAt = "privacyConsentAcceptedAt"
     static let privacyConsentVersion = "privacyConsentVersion"
     static let analyticsOptIn = "analyticsOptIn"
+}
+
+/// Les installations EXISTANTES ne doivent pas se voir demander leur langue au
+/// premier lancement après mise à jour : elles utilisent déjà l'app, souvent
+/// depuis des mois, et un sélecteur plein écran ressemblerait à une
+/// réinitialisation. La question ne vaut que pour une première installation.
+enum LanguageChoiceMigration {
+    static func applyIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: AppStorageKeys.hasChosenLanguage) else { return }
+
+        let alreadyPicked = (defaults.string(forKey: AppLanguageStore.storageKey) ?? "").isEmpty == false
+        let alreadyOnboarded = defaults.bool(forKey: AppStorageKeys.hasSeenOnboarding)
+
+        // Doit tourner AVANT que `AppRoot` ne lise son @AppStorage, sinon
+        // l'écran s'affiche une fraction de seconde puis disparaît.
+        if alreadyPicked || alreadyOnboarded {
+            defaults.set(true, forKey: AppStorageKeys.hasChosenLanguage)
+        }
+    }
 }
 
 enum PrivacyConsent {

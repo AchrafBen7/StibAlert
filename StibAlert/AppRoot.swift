@@ -4,6 +4,7 @@ struct AppRoot: View {
     @StateObject private var nav = AppNavigation()
     @StateObject private var session = AuthSession()
     @AppStorage(AppStorageKeys.hasSeenOnboarding) private var hasSeenOnboarding = false
+    @AppStorage(AppStorageKeys.hasChosenLanguage) private var hasChosenLanguage = false
     @AppStorage(AppStorageKeys.onboardingPendingPushPermission) private var onboardingPendingPushPermission = false
     @AppStorage(AppStorageKeys.hasAcceptedPrivacyConsent) private var hasAcceptedPrivacyConsent = false
     @AppStorage(AppStorageKeys.privacyConsentVersion) private var privacyConsentVersion = ""
@@ -102,7 +103,19 @@ struct AppRoot: View {
 
     @ViewBuilder
     private var content: some View {
-        if needsPrivacyConsent {
+        // La langue AVANT tout le reste, consentement compris : l'écran RGPD
+        // est un mur de texte juridique, le lire dans la mauvaise langue n'est
+        // pas un consentement éclairé.
+        if !hasChosenLanguage {
+            LanguagePickerView { code in
+                // On pose TOUJOURS un override, même quand le code retenu est
+                // déjà celui du téléphone. Sans ça, changer son téléphone de
+                // langue changerait l'app sous les pieds de quelqu'un qui a
+                // explicitement choisi.
+                AppLanguageStore.shared.setOverride(code)
+                hasChosenLanguage = true
+            }
+        } else if needsPrivacyConsent {
             PrivacyConsentView { _ in
                 // AppStorage is auto-updated by PrivacyConsentView
             }
