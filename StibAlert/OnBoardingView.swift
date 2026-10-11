@@ -465,19 +465,19 @@ private struct OnboardingSelectedLinesCard: View {
                         Button {
                             onRemove(line)
                         } label: {
-                            HStack(spacing: 8) {
+                            // Pas de cadre autour de la pastille : le rectangle
+                            // gris qui l'entourait doublait une forme déjà
+                            // colorée et déjà lisible. La croix se suffit comme
+                            // affordance, dans un rond discret qui ne redessine
+                            // pas un carré derrière la ligne.
+                            HStack(spacing: 6) {
                                 OnboardingStoredLineBadge(storedLine: line, size: 34)
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 10, weight: .black))
+                                    .font(.system(size: 9, weight: .black))
                                     .foregroundStyle(DS.Color.inkMute)
+                                    .frame(width: 18, height: 18)
+                                    .background(Circle().fill(DS.Color.ink.opacity(0.08)))
                             }
-                            .padding(.trailing, 10)
-                            .background(DS.Color.paper2)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(DS.Color.border, lineWidth: 1)
-                            )
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Retirer la ligne \(line)")

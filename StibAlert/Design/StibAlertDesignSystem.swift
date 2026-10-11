@@ -4,9 +4,15 @@ public enum DS {}
 
 public extension DS {
     enum Color {
-        public static let background = hsl(38, 24, 93, dark: hsl(0, 0, 7))
-        public static let paper = hsl(36, 28, 95, dark: hsl(0, 0, 10))
-        public static let paper2 = hsl(36, 18, 88, dark: hsl(0, 0, 14))
+        // Les surfaces sombres portent la MÊME teinte chaude que la palette
+        // claire (34°, faible saturation). En gris neutre — ce qu'elles
+        // étaient — chaque fond secondaire se détachait en carré gris sale
+        // derrière les pastilles de ligne, et jurait avec l'orange de marque.
+        // La luminosité, elle, ne bouge quasiment pas : les contrastes sont
+        // ceux qui étaient déjà validés.
+        public static let background = hsl(38, 24, 93, dark: hsl(34, 14, 7))
+        public static let paper = hsl(36, 28, 95, dark: hsl(34, 13, 11))
+        public static let paper2 = hsl(36, 18, 88, dark: hsl(34, 12, 15))
         public static let card = paper
         public static let popover = paper
         public static let sheet = paper
@@ -16,7 +22,7 @@ public extension DS {
         public static let inkSoft = hsl(0, 0, 22, dark: hsl(36, 14, 78))
         public static let inkMute = hsl(30, 6, 42, dark: hsl(30, 6, 58))
         public static let mutedForeground = inkMute
-        public static let border = hsl(30, 8, 78, dark: hsl(0, 0, 24))
+        public static let border = hsl(30, 8, 78, dark: hsl(32, 10, 20))
         public static let input = border
 
         public static let primary = hsl(14, 82, 51, dark: hsl(14, 88, 56))
@@ -31,8 +37,8 @@ public extension DS {
         // `accent` qui jurait avec la palette orange/papier de l'app. Couleur
         // dédiée pour rester cohérent partout où l'assistant apparaît.
         public static let ai = foreground
-        public static let aiForeground = hsl(0, 0, 100, dark: hsl(0, 0, 8))
-        public static let secondary = hsl(36, 18, 88, dark: hsl(0, 0, 14))
+        public static let aiForeground = hsl(0, 0, 100, dark: hsl(34, 14, 8))
+        public static let secondary = hsl(36, 18, 88, dark: hsl(34, 12, 15))
         public static let secondaryForeground = hsl(0, 0, 6, dark: hsl(38, 24, 92))
         public static let muted = secondary
         public static let destructive = hsl(4, 72, 48)
