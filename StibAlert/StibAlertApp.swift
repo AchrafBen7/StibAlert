@@ -28,7 +28,11 @@ struct StibAlertApp: App {
         // `App.opened` n'est PLUS émis ici : depuis l'init il ne comptait que le
         // démarrage à froid. La rétention (J+1/J+7) a besoin de CHAQUE retour au
         // premier plan → émis sur scenePhase `.active` (cf. body).
-        UIWindow.appearance().overrideUserInterfaceStyle = .light
+        // Dernier verrou du mode clair, et le plus traître : posé sur le
+        // proxy d'apparence de UIWindow, il ne s'applique pas à la fenêtre
+        // créée par la scène SwiftUI — l'app rendait donc déjà en sombre
+        // malgré lui. Il aurait repris effet au premier changement de cycle
+        // de vie des fenêtres.
         UITextView.appearance().backgroundColor = .clear
         StibAlertShortcuts.updateAppShortcutParameters()
     }
