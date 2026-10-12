@@ -36,14 +36,13 @@ struct LanguagePickerView: View {
         /// « Néerlandais ». Un néerlandophone doit pouvoir trouver sa ligne
         /// sans lire un mot de français.
         let name: String
-        let sentence: String
         let cta: String
     }
 
     private let options = [
-        Option(code: "fr", name: "Français",   sentence: "Choisis ta langue.",      cta: "Continuer"),
-        Option(code: "nl", name: "Nederlands", sentence: "Kies je taal.",           cta: "Doorgaan"),
-        Option(code: "en", name: "English",    sentence: "Choose your language.",   cta: "Continue"),
+        Option(code: "fr", name: "Français", cta: "Continuer"),
+        Option(code: "nl", name: "Nederlands", cta: "Doorgaan"),
+        Option(code: "en", name: "English", cta: "Continue"),
     ]
 
     private var current: Option {
@@ -54,9 +53,10 @@ struct LanguagePickerView: View {
         ZStack {
             DS.Color.background.ignoresSafeArea()
 
+            // L'en-tête reste EN HAUT et les trois choix au centre. Les
+            // laisser flotter ensemble, comme le faisait la version à titre,
+            // creusait un vide démesuré au-dessus dès que le titre a sauté.
             VStack(alignment: .leading, spacing: 0) {
-                Spacer(minLength: 24)
-
                 HStack {
                     Text("BLAYSE")
                         .font(DS.Font.label)
@@ -69,37 +69,25 @@ struct LanguagePickerView: View {
                         .foregroundStyle(DS.Color.inkMute)
                 }
 
-                // La consigne est écrite trois fois, et la ligne de la langue
-                // retenue est la seule en pleine encre. C'est ce qui dit, sans
-                // texte supplémentaire, que le choix a été pris en compte.
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(options, id: \.code) { option in
-                        Text(option.sentence)
-                            // `display` (32 pt) faisait passer « Choose your
-                            // language. » sur deux lignes : le bloc tombait à
-                            // quatre lignes pour trois phrases, et on ne lisait
-                            // plus une liste. 24 pt tient sur une ligne partout.
-                            .font(DesignSystem.Typography.title1)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .foregroundStyle(option.code == selected ? DS.Color.ink : DS.Color.inkMute.opacity(0.45))
-                    }
-                }
-                .padding(.top, 20)
-                .animation(.easeOut(duration: 0.18), value: selected)
+                // Pas de titre. Une première version écrivait la consigne
+                // dans les trois langues, les deux non retenues en gris : ça
+                // se lisait comme un bégaiement, et le texte éteint ressemblait
+                // à une erreur d'affichage. Les trois lignes ci-dessous disent
+                // déjà « Français / Nederlands / English » — rien à ajouter.
+                Spacer(minLength: 24)
 
                 VStack(spacing: 10) {
                     ForEach(options, id: \.code) { option in
                         row(for: option)
                     }
                 }
-                .padding(.top, 32)
 
                 Spacer(minLength: 24)
 
                 continueButton
             }
             .padding(.horizontal, 24)
+            .padding(.top, 12)
             .padding(.bottom, 28)
         }
     }
