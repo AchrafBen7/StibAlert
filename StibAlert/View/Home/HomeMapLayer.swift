@@ -66,7 +66,14 @@ struct HomeMapLayer: View {
         }
         .mapStyle(.standard(elevation: .realistic))
         .mapControls { }
-        .environment(\.colorScheme, .light)
+        // Dernier verrou du mode clair, et le seul qui restait : il figeait
+        // MapKit en clair sous une interface sombre. MapKit a son propre mode
+        // sombre, il suffit de ne plus l'en empêcher.
+        //
+        // Les deux marqueurs à fond blanc (badge « STIB », pastille Villo)
+        // sont de petites étiquettes posées SUR un marqueur coloré, texte
+        // sombre sur blanc : sur une carte sombre elles ressortent davantage,
+        // pas moins. Rien à y changer.
         // MapKit can keep stale polyline renderers when route overlays become
         // empty. Rebuilding the Map only on route changes gives a deterministic
         // cleanup without touching normal pan/zoom updates.
